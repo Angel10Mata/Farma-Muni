@@ -38,7 +38,7 @@ export function AboutSection() {
         >
           <div className="h-full w-full rounded-4xl overflow-hidden border border-border/50">
             <Image
-              src="/logo.png"
+              src="/icon.png"
               alt="Logo"
               fill
               className="object-cover"

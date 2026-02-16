@@ -10,7 +10,6 @@ import {
   Loader2,
   UserPlus,
   ClipboardCopy,
-  Check,
   MessageCircle,
   ArrowLeft,
 } from "lucide-react";
@@ -91,8 +90,10 @@ export default function SignUp({ isOpen, onClose }: SignUpProps) {
   const [savedData, setSavedData] = useState({ user: "", pass: "" });
   const hasMovedToStep2 = useRef(false);
 
+  const [isUsernameDirty, setIsUsernameDirty] = useState(false);
+
   useEffect(() => {
-    if (logic.name.trim().length > 3 && step === 1) {
+    if (!isUsernameDirty && logic.name.trim().length > 3 && step === 1) {
       const cleanName = logic.name
         .toLowerCase()
         .normalize("NFD")
@@ -108,7 +109,7 @@ export default function SignUp({ isOpen, onClose }: SignUpProps) {
         logic.setUsername(initial + surname);
       }
     }
-  }, [logic.name, step, logic]);
+  }, [logic.name, step, isUsernameDirty, logic]);
 
   const resetForm = () => {
     const pass = generateStrongPassword();
@@ -122,6 +123,7 @@ export default function SignUp({ isOpen, onClose }: SignUpProps) {
     setStep(1);
     setSavedData({ user: "", pass: "" });
     hasMovedToStep2.current = false;
+    setIsUsernameDirty(false);
     if (logic.state) {
       logic.state.success = false;
       logic.state.errors = undefined;
@@ -139,20 +141,17 @@ export default function SignUp({ isOpen, onClose }: SignUpProps) {
       setStep(2);
     }
   }, [logic.state?.success, logic.username, logic.passwordValue]);
+
   const handleCopy = () => {
     const textToCopy = `*CREDENCIALES DE ACCESO*\n\n*Usuario:* ${savedData.user}\n*Contraseña:* ${savedData.pass}\n\n_Por seguridad, cambie su clave al ingresar_`;
-
     const textArea = document.createElement("textarea");
     textArea.value = textToCopy;
-
     textArea.style.position = "fixed";
     textArea.style.left = "-9999px";
     textArea.style.top = "0";
     document.body.appendChild(textArea);
-
     textArea.focus();
     textArea.select();
-
     try {
       const successful = document.execCommand("copy");
       if (successful) {
@@ -162,7 +161,6 @@ export default function SignUp({ isOpen, onClose }: SignUpProps) {
     } catch (err) {
       console.error("Fallo al copiar:", err);
     }
-
     document.body.removeChild(textArea);
   };
 
@@ -235,15 +233,16 @@ export default function SignUp({ isOpen, onClose }: SignUpProps) {
                     </div>
 
                     <div className="grid gap-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="username">Usuario</Label>
-                      </div>
+                      <Label htmlFor="username">Usuario</Label>
                       <Input
                         id="username"
                         name="username"
                         placeholder="ej. jperz"
                         value={logic.username}
-                        onChange={(e) => logic.setUsername(e.target.value)}
+                        onChange={(e) => {
+                          setIsUsernameDirty(true);
+                          logic.setUsername(e.target.value);
+                        }}
                         className={cn(
                           logic.state?.errors?.username &&
                             "border-destructive ring-1 ring-destructive",
@@ -337,7 +336,6 @@ export default function SignUp({ isOpen, onClose }: SignUpProps) {
                         <span className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">
                           Credenciales generadas
                         </span>
-
                         <div className="relative">
                           <button
                             type="button"
@@ -347,7 +345,6 @@ export default function SignUp({ isOpen, onClose }: SignUpProps) {
                             <ClipboardCopy size={14} />
                             Copiar datos
                           </button>
-
                           <AnimatePresence>
                             {copied && (
                               <motion.div

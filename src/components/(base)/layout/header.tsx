@@ -26,10 +26,12 @@ export default function Header() {
     console.log("Header (desde Context):", user);
   }, [user]);
 
-  const metadata = user?.user_metadata || {};
-  const username =
-    metadata.username || user?.email?.split("@")[0] || "Invitado";
-  const userRole = metadata.rol || user?.role || "user";
+  const metadata =
+    (user as any)?.raw_user_meta_data || user?.user_metadata || {};
+
+  const userRole = metadata.rol || "user";
+  const username = metadata.nombre || user?.email?.split("@")[0] || "Invitado";
+
   const initial = username.charAt(0).toUpperCase();
   const canManageProfiles = ["super", "admin", "rrhh"].includes(userRole);
 
@@ -42,7 +44,7 @@ export default function Header() {
 
   return (
     <>
-      <header className="w-fullbg-background transition-all">
+      <header className="w-full bg-background transition-all">
         <div className="mx-auto flex h-24 items-center justify-between px-6 lg:px-12">
           <div className="flex items-center h-full">
             <Link
@@ -167,7 +169,7 @@ export default function Header() {
                 className="text-center space-y-1 pt-4"
               >
                 <p className="text-[10px] font-bold uppercase tracking-widest opacity-40">
-                  © 2025 CERMADSAPP
+                  © 2026 CERMADSAPP
                 </p>
                 <p className="text-[10px] font-bold uppercase tracking-widest">
                   Powered by{" "}

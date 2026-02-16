@@ -140,11 +140,26 @@ export function VerUsuarios() {
               <select
                 value={pageSize}
                 onChange={handlePageSizeChange}
-                className="h-9 rounded-md border border-border bg-card px-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer"
+                className="h-9 rounded-md border border-border bg-card px-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-pointer text-foreground dark:bg-zinc-950 dark:text-zinc-100 dark:border-border/50"
               >
-                <option value={5}>5</option>
-                <option value={10}>10</option>
-                <option value="all">Todos</option>
+                <option
+                  value={5}
+                  className="bg-white text-black dark:bg-zinc-950 dark:text-white"
+                >
+                  5
+                </option>
+                <option
+                  value={10}
+                  className="bg-white text-black dark:bg-zinc-950 dark:text-white"
+                >
+                  10
+                </option>
+                <option
+                  value="all"
+                  className="bg-white text-black dark:bg-zinc-950 dark:text-white"
+                >
+                  Todos
+                </option>
               </select>
 
               {!isAll && (
@@ -186,10 +201,20 @@ export function VerUsuarios() {
                     onChange={(e) =>
                       setSortOrder(e.target.value as "asc" | "desc")
                     }
-                    className="bg-transparent font-semibold text-foreground focus:outline-none cursor-pointer hover:text-primary transition-colors uppercase text-xs w-full sm:w-auto"
+                    className="bg-transparent font-bold text-foreground dark:text-zinc-100 focus:outline-none cursor-pointer hover:text-primary transition-colors uppercase text-[10px] tracking-widest"
                   >
-                    <option value="asc">Ordenar (A-Z)</option>
-                    <option value="desc">Ordenar (Z-A)</option>
+                    <option
+                      value="asc"
+                      className="bg-white text-black dark:bg-zinc-950 dark:text-white"
+                    >
+                      Nombre (A-Z)
+                    </option>
+                    <option
+                      value="desc"
+                      className="bg-white text-black dark:bg-zinc-950 dark:text-white"
+                    >
+                      Nombre (Z-A)
+                    </option>
                   </select>
                 </th>
                 <th className="px-6 py-3 border-b border-border text-right">
@@ -203,11 +228,20 @@ export function VerUsuarios() {
                         setRoleFilter(e.target.value);
                         setCurrentPage(1);
                       }}
-                      className="bg-transparent text-foreground focus:outline-none cursor-pointer hover:text-primary transition-colors text-xs font-medium text-right"
+                      className="bg-transparent text-foreground dark:text-zinc-100 font-bold focus:outline-none cursor-pointer hover:text-primary transition-colors text-[10px] text-right uppercase"
                     >
-                      <option value="all">Todos</option>
+                      <option
+                        value="all"
+                        className="bg-white text-black dark:bg-zinc-950 dark:text-white"
+                      >
+                        Todos
+                      </option>
                       {availableRoles.map((role) => (
-                        <option key={role} value={role}>
+                        <option
+                          key={role}
+                          value={role}
+                          className="bg-white text-black dark:bg-zinc-950 dark:text-white uppercase"
+                        >
                           {role}
                         </option>
                       ))}
