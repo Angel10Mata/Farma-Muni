@@ -5,14 +5,14 @@
 
 INSERT INTO public.profiles (id, nombre, email, telefono, rol, activo)
 SELECT 
-    'id', 
+    '59093d24-815f-4c21-94a4-bdaaf037b48f', --aui pegue el id del usuario que se encuentra en auth.users con email
     'Kore Devs', 
-    'super@app.com', 
+    'kore@gmail.com', 
     '42140797', 
     'super', 
     true
 FROM auth.users 
-WHERE email = 'super@app.com' --aqui poner el correo del usuario que se va a creo en auth.users
+WHERE email = 'kore@app.com'  --Mata2710
 ON CONFLICT (id) DO UPDATE 
 SET 
     nombre = EXCLUDED.nombre,
