@@ -12,7 +12,7 @@ SELECT
     'super', 
     true
 FROM auth.users 
-WHERE email = 'kore@app.com'  --Mata2710
+WHERE email = 'kore@app.com'  --Mata2710 --mata@gmail.com --Mata2710app
 ON CONFLICT (id) DO UPDATE 
 SET 
     nombre = EXCLUDED.nombre,

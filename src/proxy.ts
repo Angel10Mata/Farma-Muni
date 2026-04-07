@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createClient } from '@/utils/supabase/proxy'
 
-export async function middleware(request: NextRequest) {
+export default async function proxy(request: NextRequest) {
   // Create a Supabase client that can handle cookies in Next.js Middleware
   const { supabase, response } = createClient(request)
 
