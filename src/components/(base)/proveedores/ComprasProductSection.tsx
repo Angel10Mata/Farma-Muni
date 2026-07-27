@@ -57,7 +57,7 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
 
   const handleScanBarcode = (product: Producto) => {
     const cant = 1;
-    const costo = product.precio_base || 1;
+    const costo = product.precio_costo ?? product.precio_base ?? 1;
 
     context.agregarAlCarrito({
       producto: product,
@@ -214,6 +214,7 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
                     onClick={() => {
                       context.setProductoSeleccionado(p);
                       context.setProductoBusqueda(p.nombre);
+                      context.setCostoSeleccionado(p.precio_costo !== undefined && p.precio_costo !== null ? p.precio_costo : (p.precio_base ?? ""));
                       context.setMostrarSugerenciasProd(false);
                       autoSeleccionarProveedor(p);
                     }}

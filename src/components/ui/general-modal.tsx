@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { X, Trash2, AlertTriangle, Package, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
@@ -158,27 +158,135 @@ export function ModalSubmit({ children, loading, ...props }: React.ButtonHTMLAtt
 }
 
 
+export interface ItemDetailsPreview {
+  nombre?: string;
+  codigo?: string;
+  stock?: number;
+  precio?: number;
+  imagen?: string | null;
+  ubicacion?: string | null;
+  categoria?: string | null;
+}
+
 export function ModalConfirmDelete({
   onConfirm,
   onCancel,
   title = "¿Eliminar registro?",
   description = "Esta acción no se puede deshacer.",
+  itemDetails,
+  loading = false,
+  confirmText = "Eliminar",
+  cancelText = "Cancelar",
 }: {
   onConfirm: () => void;
   onCancel: () => void;
   title?: string;
   description?: string;
+  itemDetails?: ItemDetailsPreview;
+  loading?: boolean;
+  confirmText?: string;
+  cancelText?: string;
 }) {
   return (
-    <div className="p-4 border-2 border-red-500/50 rounded-xl bg-red-50 dark:bg-red-950/20">
-      <h3 className="text-red-700 dark:text-red-400 font-bold">{title}</h3>
-      <p className="text-sm text-red-600/80 dark:text-red-400/80 mt-1 mb-4">{description}</p>
-      <div className="flex gap-4 justify-end">
-        <button onClick={onCancel} className="px-4 py-2 font-semibold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 cursor-pointer">
-          Cancelar
+    <div className="flex flex-col items-center text-center p-1 sm:p-3">
+      {/* Icono de advertencia con animación aura */}
+      <div className="relative mb-3 flex items-center justify-center">
+        <div className="absolute inset-0 rounded-full bg-red-500/20 dark:bg-red-500/30 animate-pulse opacity-75" />
+        <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-950/60 dark:to-rose-900/40 border border-red-200 dark:border-red-800/60 flex items-center justify-center shadow-inner">
+          <Trash2 className="w-7 h-7 text-red-600 dark:text-red-400" />
+        </div>
+      </div>
+
+      {/* Título principal y descripción */}
+      <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+        {title}
+      </h3>
+      <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
+        {description}
+      </p>
+
+      {/* Ficha Resumen del Producto (si existe metadata) */}
+      {itemDetails && (
+        <div className="w-full mt-4 mb-2 bg-gradient-to-b from-zinc-50 to-zinc-100/80 dark:from-zinc-800/80 dark:to-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 rounded-2xl p-3.5 text-left shadow-sm">
+          <div className="flex items-center gap-3.5">
+            {/* Imagen o icono por defecto */}
+            <div className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+              {itemDetails.imagen ? (
+                <img
+                  src={itemDetails.imagen}
+                  alt={itemDetails.nombre || "Producto"}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <Package className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
+              )}
+            </div>
+
+            {/* Datos Principales */}
+            <div className="flex-1 min-w-0">
+              <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+                {itemDetails.nombre || "Producto sin nombre"}
+              </h4>
+              <div className="flex flex-wrap items-center gap-2 mt-1">
+                {itemDetails.codigo && (
+                  <span className="inline-flex items-center text-xs font-mono font-medium px-2 py-0.5 rounded-md bg-zinc-200/70 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-300">
+                    SKU: {itemDetails.codigo}
+                  </span>
+                )}
+                {itemDetails.stock !== undefined && (
+                  <span className={cn(
+                    "inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md",
+                    itemDetails.stock > 0 
+                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                      : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
+                  )}>
+                    Stock: {itemDetails.stock} ud.
+                  </span>
+                )}
+                {itemDetails.precio !== undefined && (
+                  <span className="inline-flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                    ${itemDetails.precio.toFixed(2)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Nota de advertencia */}
+      <div className="w-full mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2 text-left">
+        <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+        <span>Esta acción eliminará de forma permanente el producto y no se podrá deshacer.</span>
+      </div>
+
+      {/* Botones de Acción */}
+      <div className="w-full flex items-center justify-end gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800">
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={loading}
+          className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold text-sm transition-all cursor-pointer disabled:opacity-50"
+        >
+          {cancelText}
         </button>
-        <button onClick={onConfirm} className="px-4 py-2 rounded-lg bg-red-600 text-white font-bold hover:bg-red-700 cursor-pointer">
-          Eliminar
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={loading}
+          className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold text-sm shadow-md shadow-red-500/20 hover:shadow-red-500/35 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? (
+            <>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <span>Eliminando...</span>
+            </>
+          ) : (
+            <>
+              <Trash2 className="w-4 h-4" />
+              <span>{confirmText}</span>
+            </>
+          )}
         </button>
       </div>
     </div>

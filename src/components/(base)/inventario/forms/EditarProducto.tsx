@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { DialogFooter } from "@/components/ui/dialog";
 import { createClient } from "@/utils/supabase/client";
 import { AnimatePresence, motion } from "framer-motion";
-import { Search, Truck, ImageIcon, MapPin, Plus } from "lucide-react";
+import { Search, Truck, ImageIcon, Box, Plus } from "lucide-react";
 import Swal from "sweetalert2";
 import ImageUploader from "@/components/imgs/ImageUploader";
 
@@ -15,6 +15,7 @@ interface Producto {
   nombre: string;
   descripcion: string;
   precio_base: number;
+  precio_costo?: number | null;
   stock_actual: number;
   stock_minimo: number;
   activo: boolean;
@@ -38,6 +39,7 @@ export function EditarProducto({ onClose, onSuccess, producto }: EditarProductoP
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [precioBase, setPrecioBase] = useState("");
+  const [precioCosto, setPrecioCosto] = useState("");
   const [stockActual, setStockActual] = useState("");
   const [stockMinimo, setStockMinimo] = useState("");
   const [activo, setActivo] = useState(true);
@@ -137,6 +139,7 @@ export function EditarProducto({ onClose, onSuccess, producto }: EditarProductoP
       setNombre(producto.nombre || "");
       setDescripcion(producto.descripcion || "");
       setPrecioBase(producto.precio_base?.toString() || "0");
+      setPrecioCosto(producto.precio_costo !== undefined && producto.precio_costo !== null ? producto.precio_costo.toString() : "");
       setStockActual(producto.stock_actual?.toString() || "0");
       setStockMinimo(producto.stock_minimo?.toString() || "0");
       setActivo(producto.activo !== false);
@@ -236,6 +239,7 @@ export function EditarProducto({ onClose, onSuccess, producto }: EditarProductoP
           nombre: nombreTrimmed,
           descripcion: descripcion.trim() || null,
           precio_base: priceNum,
+          precio_costo: parseFloat(precioCosto) || 0,
           stock_actual: stockActualNum,
           stock_minimo: stockMinimoNum,
           proveedor_id: proveedorSeleccionado?.id || null,
@@ -358,7 +362,7 @@ export function EditarProducto({ onClose, onSuccess, producto }: EditarProductoP
             </div>
             
             <div className="relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+              <Box className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <input
                 type="text"
                 value={ubicacion}
@@ -490,6 +494,21 @@ export function EditarProducto({ onClose, onSuccess, producto }: EditarProductoP
                 min="0"
                 value={precioBase}
                 onChange={(e) => setPrecioBase(e.target.value)}
+                className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
+                Precio de Costo
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={precioCosto}
+                onChange={(e) => setPrecioCosto(e.target.value)}
+                placeholder="Opcional"
                 className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors"
               />
             </div>

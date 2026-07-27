@@ -110,6 +110,7 @@ export const CustomDatePicker = ({
   dropDirection?: "up" | "down";
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"days" | "months" | "years">("days");
   
   const getParsedDate = () => {
     if (!value) return new Date();
@@ -121,13 +122,21 @@ export const CustomDatePicker = ({
   const parsedDate = getParsedDate();
   const [navMonth, setNavMonth] = useState(parsedDate.getMonth());
   const [navYear, setNavYear] = useState(parsedDate.getFullYear());
+  const [yearRangeStart, setYearRangeStart] = useState(parsedDate.getFullYear() - 4);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const p = getParsedDate();
     setNavMonth(p.getMonth());
     setNavYear(p.getFullYear());
+    setYearRangeStart(p.getFullYear() - 4);
   }, [value]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setViewMode("days");
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -176,6 +185,10 @@ export const CustomDatePicker = ({
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
   ];
+  const nombresMesesCortos = [
+    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+  ];
 
   return (
     <div className="relative" ref={containerRef}>
@@ -195,84 +208,210 @@ export const CustomDatePicker = ({
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className={cn(
-              "absolute bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xl shadow-slate-100/50 dark:shadow-none z-50 p-4 min-w-[280px]",
-              dropDirection === "down" ? "mt-2" : "bottom-full mb-2",
-              align === "left" && "left-0",
-              align === "right" && "right-0",
-              align === "center" && "left-1/2 -translate-x-1/2"
-            )}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4 pb-2.5 border-b border-slate-100 dark:border-slate-900/60">
-              <button
-                type="button"
-                onClick={handlePrevMonth}
-                className="p-1.5 rounded-lg cursor-pointer text-slate-500 transition-colors"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
-              
-              <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0] tracking-wide select-none">
-                {nombresMeses[navMonth]} {navYear}
-              </span>
+          <>
+            {/* Mobile Backdrop Overlay */}
+            <div
+              className="fixed inset-0 z-[190] bg-black/40 backdrop-blur-xs sm:hidden"
+              onClick={() => setIsOpen(false)}
+            />
 
-              <button
-                type="button"
-                onClick={handleNextMonth}
-                className="p-1.5 rounded-lg cursor-pointer text-slate-500 transition-colors"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-
-            {/* Weekdays */}
-            <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
-              {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"].map((dayName) => (
-                <div key={dayName} className="py-1">{dayName}</div>
-              ))}
-            </div>
-
-            {/* Days Grid */}
-            <div className="grid grid-cols-7 gap-1 text-center">
-              {cells.map((cell, idx) => {
-                const pad = (n: number) => n.toString().padStart(2, "0");
-                const cellValStr = `${cell.year}-${pad(cell.month + 1)}-${pad(cell.day)}`;
-                const isSelected = value === cellValStr;
-                const isToday = () => {
-                  const today = new Date();
-                  return (
-                    today.getDate() === cell.day &&
-                    today.getMonth() === cell.month &&
-                    today.getFullYear() === cell.year
-                  );
-                };
-
-                return (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className={cn(
+                "bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xl z-[200] p-4 min-w-[280px] max-w-[320px]",
+                "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:static sm:translate-x-0 sm:translate-y-0 sm:z-50",
+                "sm:absolute",
+                dropDirection === "down" ? "sm:top-full sm:mt-2" : "sm:bottom-full sm:mb-2",
+                align === "left" && "sm:left-0 sm:right-auto",
+                align === "right" && "sm:right-0 sm:left-auto",
+                align === "center" && "sm:left-1/2 sm:-translate-x-1/2"
+              )}
+            >
+            {/* Header Controls */}
+            <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
+              {viewMode === "days" && (
+                <>
                   <button
-                    key={idx}
                     type="button"
-                    onClick={() => handleSelectDay(cell)}
-                    className={`py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
-                      isSelected
-                        ? "bg-[#8DA78E] text-white shadow-sm shadow-[#8DA78E]/30 scale-105 font-bold"
-                        : cell.isCurrentMonth
-                        ? isToday()
-                          ? "border border-[#8DA78E] text-[#8DA78E] dark:text-[#A3BEB0] font-bold bg-[#8DA78E]/5 hover:bg-[#8DA78E]/10"
-                          : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-900/60"
-                        : "text-slate-400/50 dark:text-slate-650/30 hover:bg-slate-50/50 dark:hover:bg-zinc-900/10"
-                    }`}
+                    onClick={handlePrevMonth}
+                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="Mes anterior"
                   >
-                    {cell.day}
+                    <ChevronLeft className="size-4" />
                   </button>
-                );
-              })}
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("months")}
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      {nombresMeses[navMonth]}
+                      <ChevronDown className="size-3 opacity-60" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("years")}
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      {navYear}
+                      <ChevronDown className="size-3 opacity-60" />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="Mes siguiente"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </>
+              )}
+
+              {viewMode === "months" && (
+                <>
+                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0] px-1">
+                    Seleccionar Mes ({navYear})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("days")}
+                    className="text-xs font-bold text-[#8DA78E] hover:underline px-2 py-1 cursor-pointer"
+                  >
+                    Volver
+                  </button>
+                </>
+              )}
+
+              {viewMode === "years" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setYearRangeStart(yearRangeStart - 12)}
+                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+
+                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0]">
+                    {yearRangeStart} - {yearRangeStart + 11}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setYearRangeStart(yearRangeStart + 12)}
+                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </>
+              )}
             </div>
+
+            {/* DAYS VIEW */}
+            {viewMode === "days" && (
+              <>
+                <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
+                  {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"].map((dayName) => (
+                    <div key={dayName} className="py-1">{dayName}</div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {cells.map((cell, idx) => {
+                    const pad = (n: number) => n.toString().padStart(2, "0");
+                    const cellValStr = `${cell.year}-${pad(cell.month + 1)}-${pad(cell.day)}`;
+                    const isSelected = value === cellValStr;
+                    const isToday = () => {
+                      const today = new Date();
+                      return (
+                        today.getDate() === cell.day &&
+                        today.getMonth() === cell.month &&
+                        today.getFullYear() === cell.year
+                      );
+                    };
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectDay(cell)}
+                        className={`py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${
+                          isSelected
+                            ? "bg-[#8DA78E] text-white shadow-sm shadow-[#8DA78E]/30 scale-105 font-bold"
+                            : cell.isCurrentMonth
+                            ? isToday()
+                              ? "border border-[#8DA78E] text-[#8DA78E] dark:text-[#A3BEB0] font-bold bg-[#8DA78E]/5 hover:bg-[#8DA78E]/10"
+                              : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-900/60"
+                            : "text-slate-400/50 dark:text-slate-650/30 hover:bg-slate-50/50 dark:hover:bg-zinc-900/10"
+                        }`}
+                      >
+                        {cell.day}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* MONTHS GRID VIEW */}
+            {viewMode === "months" && (
+              <div className="grid grid-cols-3 gap-2 py-2">
+                {nombresMesesCortos.map((mName, idx) => {
+                  const isCurrentNavMonth = navMonth === idx;
+                  return (
+                    <button
+                      key={mName}
+                      type="button"
+                      onClick={() => {
+                        setNavMonth(idx);
+                        setViewMode("days");
+                      }}
+                      className={cn(
+                        "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                        isCurrentNavMonth
+                          ? "bg-[#8DA78E] text-white shadow-md shadow-[#8DA78E]/30 scale-105"
+                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
+                      )}
+                    >
+                      {nombresMeses[idx]}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* YEARS GRID VIEW */}
+            {viewMode === "years" && (
+              <div className="grid grid-cols-3 gap-2 py-2">
+                {Array.from({ length: 12 }, (_, i) => yearRangeStart + i).map((y) => {
+                  const isCurrentNavYear = navYear === y;
+                  return (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => {
+                        setNavYear(y);
+                        setViewMode("days");
+                      }}
+                      className={cn(
+                        "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                        isCurrentNavYear
+                          ? "bg-[#8DA78E] text-white shadow-md shadow-[#8DA78E]/30 scale-105"
+                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
+                      )}
+                    >
+                      {y}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Bottom Actions */}
             <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-900/60 text-xs">
@@ -301,8 +440,9 @@ export const CustomDatePicker = ({
               </button>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </>
+      )}
+    </AnimatePresence>
     </div>
   );
 };

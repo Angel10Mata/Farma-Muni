@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useQueryClient } from "@tanstack/react-query";
-import { ShoppingCart, Receipt, FileDown, Check, Package, X, AlertTriangle } from "lucide-react";
+import { ShoppingCart, Receipt, FileDown, Check, Package, X, AlertTriangle, Printer } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fmtQ } from "@/lib/utils";
@@ -228,46 +228,85 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
     }
   };
 
-  const exportarFacturaPDF = (venta: Venta, detalles: any[]) => {
+  const getBase64ImageFromUrl = async (url: string): Promise<string | null> => {
     try {
-      const doc = new jsPDF({ unit: "mm", format: [80, 150] });
+      const res = await fetch(url);
+      const blob = await res.blob();
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => resolve(null);
+        reader.readAsDataURL(blob);
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  const exportarFacturaPDF = async (venta: Venta, detalles: any[]) => {
+    try {
+      const doc = new jsPDF({ unit: "mm", format: [80, 175] });
       const clientName = venta.ven_clientes?.nombre || "Consumidor Final";
       const clientNit = venta.ven_clientes?.nit || "C/F";
       const dateFormatted = new Date(venta.created_at).toLocaleString("es-GT", {
         day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
       });
 
+      let currentY = 6;
+
+      // Cargar e insertar Logo
+      const logoBase64 = await getBase64ImageFromUrl("/farmacia-la-salud/logo.png");
+      if (logoBase64) {
+        doc.addImage(logoBase64, "PNG", 33, currentY, 14, 14);
+        currentY += 17;
+      } else {
+        currentY += 4;
+      }
+
+      // Nombre de la Farmacia
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(12);
+      doc.setFontSize(11);
       doc.setTextColor(82, 93, 83);
-      doc.text("FARMACIA SALUD", 40, 10, { align: "center" });
-      
+      doc.text("FARMACIA LA SALUD", 40, currentY, { align: "center" });
+      currentY += 4;
+
+      // Dirección
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(6.5);
+      doc.setTextColor(80, 80, 80);
+      doc.text("3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA", 40, currentY, { align: "center" });
+      currentY += 3.5;
+
       doc.setFont("helvetica", "normal");
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setTextColor(100, 116, 139);
-      doc.text("Guatemala", 40, 14, { align: "center" });
+      doc.text("Guatemala", 40, currentY, { align: "center" });
+      currentY += 3.5;
 
       doc.setDrawColor(193, 209, 197);
-      doc.line(5, 17, 75, 17);
+      doc.line(5, currentY, 75, currentY);
+      currentY += 5;
 
       const codigoRecibo = obtenerCodigoRecibo(venta.id);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(82, 93, 83);
-      doc.text(`RECIBO DE VENTA #${codigoRecibo}`, 5, 23);
+      doc.text(`RECIBO DE VENTA #${codigoRecibo}`, 5, currentY);
+      currentY += 5;
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(50, 50, 50);
-      doc.text(`Fecha: ${dateFormatted}`, 5, 28);
-      doc.text(`Cliente: ${clientName}`, 5, 33);
-      doc.text(`NIT: ${clientNit}`, 5, 38);
-      doc.text(`Pago: ${venta.tipo_venta}`, 5, 43);
+      doc.text(`Fecha: ${dateFormatted}`, 5, currentY); currentY += 4.5;
+      doc.text(`Cliente: ${clientName}`, 5, currentY); currentY += 4.5;
+      doc.text(`NIT: ${clientNit}`, 5, currentY); currentY += 4.5;
+      doc.text(`Pago: ${venta.tipo_venta || "Contado"}`, 5, currentY); currentY += 3;
 
-      doc.line(5, 46, 75, 46);
+      doc.line(5, currentY, 75, currentY);
+      currentY += 2;
 
       autoTable(doc, {
-        startY: 48,
+        startY: currentY,
         head: [["Cant", "Detalle", "Precio", "Sub"]],
         body: detalles.map((d) => [
           d.cantidad,
@@ -284,25 +323,27 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         margin: { left: 4, right: 4 }
       });
 
-      const finalY = (doc as any).lastAutoTable.finalY + 5;
+      const finalY = (doc as any).lastAutoTable.finalY + 4;
       doc.line(5, finalY, 75, finalY);
 
       doc.setFont("helvetica", "bold");
-      doc.setFontSize(10);
+      doc.setFontSize(9.5);
       doc.setTextColor(82, 93, 83);
-      doc.text(`TOTAL A PAGAR: ${fmtQ(venta.total)}`, 75, finalY + 6, { align: "right" });
+      doc.text(`TOTAL A PAGAR: ${fmtQ(venta.total)}`, 75, finalY + 5, { align: "right" });
 
+      let endY = finalY + 11;
       if (venta.observaciones) {
         doc.setFont("helvetica", "italic");
         doc.setFontSize(7);
         doc.setTextColor(120, 120, 120);
-        doc.text(`Notas: ${venta.observaciones}`, 5, finalY + 12);
+        doc.text(`Notas: ${venta.observaciones}`, 5, endY);
+        endY += 6;
       }
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(8);
       doc.setTextColor(100, 116, 139);
-      doc.text("¡Gracias por su compra!", 40, finalY + 20, { align: "center" });
+      doc.text("¡Gracias por su compra!", 40, endY, { align: "center" });
 
       doc.save(`Recibo_FarmaciaSalud_${codigoRecibo}.pdf`);
     } catch (error) {
@@ -327,6 +368,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         String.fromCharCode(0xA1) + "Hola! " + emojiData.wave + "\n" +
         "Te comparto el comprobante digital de tu compra:\n\n" +
         emojiData.hospital + " FARMACIA LA SALUD\n" +
+        "📍 3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA\n\n" +
         emojiData.receipt + " Recibo de Venta: #" + code + "\n" +
         emojiData.person + " Cliente: " + clientName + "\n\n" +
         emojiData.cart + " Detalle de compra :\n" +
@@ -343,12 +385,40 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
     }
   };
 
+  useEffect(() => {
+    if (pos.ticketParaImprimir) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 250);
+      return () => clearTimeout(timer);
+    }
+  }, [pos.ticketParaImprimir]);
+
+  const handleImprimirVenta = async (venta: Venta, detalles?: any[]) => {
+    try {
+      setIsLoading(true);
+      let details = detalles;
+      if (!details || details.length === 0) {
+        details = await obtenerDetalleVenta(venta.id);
+      }
+      pos.setTicketParaImprimir({
+        venta,
+        detalles: details,
+        clienteCompleto: venta.ven_clientes,
+      });
+    } catch (err) {
+      console.error("Error al preparar impresión de recibo:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleShareWhatsAppDirectly = async (venta: Venta) => {
     try {
       const details = await obtenerDetalleVenta(venta.id);
       await shareWhatsAppAsImage(venta, details);
     } catch (err) {
-      console.error("Error:", err);
+      console.error("Error al compartir WhatsApp:", err);
     }
   };
 
@@ -436,11 +506,11 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-zinc-900 border-0 sm:border border-[#C1D1C5]/40 dark:border-zinc-800 rounded-none sm:rounded-3xl w-full min-h-[75vh] sm:min-h-0 max-h-[96vh] sm:h-auto max-w-5xl overflow-hidden shadow-2xl flex flex-col sm:max-h-[90vh]"
+              className="bg-white dark:bg-zinc-900 border-0 sm:border border-[#C1D1C5]/40 dark:border-zinc-800 rounded-none sm:rounded-3xl w-full min-h-[75vh] sm:min-h-0 max-h-[96vh] sm:h-auto max-w-lg overflow-hidden shadow-2xl flex flex-col sm:max-h-[90vh]"
             >
               <div className="shrink-0 bg-[#8DA78E] dark:bg-[#525D53] p-5 text-white flex items-center justify-between">
                 <div>
-                  <h3 className="text-lg font-black uppercase tracking-wider">¡Cobro Exitoso!</h3>
+                  <h3 className="text-lg font-black uppercase tracking-wider">¡COBRO EXITOSO!</h3>
                   <p className="text-[10px] text-white/80 font-medium">Venta registrada bajo el Recibo #{obtenerCodigoRecibo(pos.reciboModalData.venta.id)}</p>
                 </div>
                 <div className="size-10 rounded-2xl bg-white/10 flex items-center justify-center">
@@ -448,34 +518,24 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 </div>
               </div>
 
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-zinc-50 dark:bg-zinc-950 flex flex-col justify-center items-center p-2 sm:p-6">
-                <svg viewBox="0 0 816 528" className="w-full max-w-[816px] mx-auto rounded-xl sm:rounded-2xl overflow-hidden border border-[#525D53]/15 shadow-sm bg-white">
-                  <foreignObject x="0" y="0" width="816" height="528">
-                    <div className="w-[816px] h-[528px] bg-white">
-                      <ReciboVenta
-                        {...buildReciboProps(
-                          pos.reciboModalData.venta,
-                          pos.reciboModalData.detalles,
-                          pos.reciboModalData.clienteCompleto,
-                        )}
-                      />
-                    </div>
-                  </foreignObject>
-                </svg>
+              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-zinc-100 dark:bg-zinc-950 flex flex-col justify-center items-center p-3 sm:p-6">
+                <ReciboVenta
+                  {...buildReciboProps(
+                    pos.reciboModalData.venta,
+                    pos.reciboModalData.detalles,
+                    pos.reciboModalData.clienteCompleto,
+                  )}
+                />
               </div>
 
               <div className="shrink-0 p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-950 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
                 <button
                   onClick={() => {
-                    pos.setTicketParaImprimir({
-                      venta: pos.reciboModalData.venta,
-                      detalles: pos.reciboModalData.detalles,
-                      clienteCompleto: pos.reciboModalData.clienteCompleto,
-                    });
+                    handleImprimirVenta(pos.reciboModalData.venta, pos.reciboModalData.detalles);
                   }}
-                  className="hidden sm:flex w-fit px-4 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-bold items-center justify-center cursor-pointer border border-transparent hover:opacity-90 transition-opacity"
+                  className="w-fit px-4 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer border border-transparent hover:opacity-90 transition-opacity"
                 >
-                  Imprimir Ticket
+                  <Printer className="size-5" /> Imprimir Ticket
                 </button>
                 <button
                   onClick={() => exportarFacturaPDF(pos.reciboModalData.venta, pos.reciboModalData.detalles)}
@@ -541,7 +601,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         </div>
       ) : (
         <HistorialVentas
-          onPrint={(v, details) => pos.setTicketParaImprimir({ venta: v, detalles: details, clienteCompleto: v.ven_clientes })}
+          onPrint={(v, details) => handleImprimirVenta(v, details)}
           onShareWhatsApp={(v) => handleShareWhatsAppDirectly(v)}
         />
       )}

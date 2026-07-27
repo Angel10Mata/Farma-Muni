@@ -201,36 +201,50 @@ input[type=number] {
   appearance: textfield;
 }
 
-/* Estilos de Impresión para Recibo de Venta */
+/* Estilos de Impresión para Recibo de Venta (Formato 80mm Térmico) */
 @media print {
+  html, body {
+    width: 80mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
   body * {
-    visibility: hidden;
+    visibility: hidden !important;
   }
   #print-receipt-ticket,
   #print-receipt-ticket * {
-    visibility: visible;
+    visibility: visible !important;
   }
   #print-receipt-ticket {
-    position: absolute;
-    left: 0;
-    top: 0;
-    width: 100%;
-    max-width: 100%;
-    margin: 0;
-    padding: 0;
-    background: #F9F6F0 !important;
-    color: #1a1a1a !important;
+    display: block !important;
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 76mm !important;
+    max-width: 76mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    z-index: 999999 !important;
   }
   .recibo-venta {
-    width: 100% !important;
-    max-width: 100% !important;
+    width: 76mm !important;
+    max-width: 76mm !important;
     min-height: auto !important;
     height: auto !important;
-    page-break-inside: avoid;
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+    padding: 2mm !important;
+    margin: 0 !important;
+    page-break-inside: avoid !important;
   }
   @page {
-    margin: 8mm;
-    size: auto;
+    margin: 2mm;
+    size: 80mm auto;
   }
 }
 

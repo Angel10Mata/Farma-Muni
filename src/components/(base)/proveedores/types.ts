@@ -12,6 +12,7 @@ export interface Producto {
   codigo: string;
   nombre: string;
   precio_base: number;
+  precio_costo?: number | null;
   stock_actual: number;
   proveedor_id?: string | null;
 }

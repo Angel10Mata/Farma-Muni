@@ -21,17 +21,6 @@ export interface ReciboVentaProps {
   id?: string;
 }
 
-function CampoRecibo({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0 flex-1">
-      <p className="text-[10px] font-semibold uppercase tracking-wide text-[#525D53]">{label}</p>
-      <p className="mt-1 border-b border-[#525D53]/35 pb-1 text-[11px] font-medium text-[#1a1a1a] truncate">
-        {value}
-      </p>
-    </div>
-  );
-}
-
 export function ReciboVenta({
   codigo,
   fecha,
@@ -48,99 +37,86 @@ export function ReciboVenta({
     <div
       id={id}
       className={cn(
-        "recibo-venta w-[816px] min-h-[528px] mx-auto bg-white text-[#1a1a1a] font-serif px-8 py-7 box-border flex flex-col",
-        className,
+        "recibo-venta w-full max-w-[340px] mx-auto bg-white text-slate-900 font-sans p-6 rounded-2xl shadow-sm border border-slate-200 text-left box-border flex flex-col select-none",
+        className
       )}
     >
-      <div className="mb-6 flex flex-row items-center justify-between gap-4">
-        {/* Logo y Título a la izquierda */}
-        <div className="flex flex-row items-center gap-2 text-left">
-          <div className="w-[150px] h-[150px] shrink-0">
-            <img src="/farmacia-la-salud/logo.png" alt="Logo Farmacia Salud" className="w-full h-full object-contain object-center" />
-          </div>
-          <div>
-            <h1 className="text-4xl font-black tracking-tight leading-none mb-1 text-[#1a1a1a]">
-              FARMACIA<br />LA SALUD
-            </h1>
-            <p className="text-sm italic text-gray-600 font-medium leading-tight">Guatemala • Recibo de venta</p>
-          </div>
-        </div>
-
-        {/* Número a la derecha */}
-        <div className="shrink-0 border border-[#525D53]/40 bg-white px-2.5 py-1 text-[10px] font-semibold tracking-wide text-[#1a1a1a]">
-          No. {codigo}
-        </div>
+      {/* Encabezado con Logo, Nombre y Dirección */}
+      <div className="text-center pb-3 border-b border-slate-200 mb-3">
+        <img
+          src="/farmacia-la-salud/logo.png"
+          alt="Logo Farmacia La Salud"
+          className="size-16 mx-auto object-contain mb-1.5"
+        />
+        <h1 className="text-base font-black tracking-tight text-[#525D53] uppercase">
+          FARMACIA SALUD
+        </h1>
+        <p className="text-[10px] font-bold text-slate-600 leading-snug mt-0.5 max-w-[260px] mx-auto">
+          3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA
+        </p>
+        <p className="text-[10px] font-semibold text-slate-400 mt-0.5">Guatemala</p>
       </div>
 
-      <div className="mb-5 grid grid-cols-4 gap-4">
-        <CampoRecibo label="Fecha" value={fecha} />
-        <CampoRecibo label="Cliente" value={cliente?.toLowerCase().trim() === "consumidor final" ? "C/F" : cliente} />
-        <CampoRecibo label="NIT" value={nit} />
-        <CampoRecibo label="Pago" value={formaPago} />
-      </div>
-
-      <div className="mb-4 border-t-2 border-[#1a1a1a] pt-2">
-        <div className="grid grid-cols-[52px_1fr_88px] gap-2 text-[10px] font-bold uppercase tracking-wide text-[#525D53]">
-          <span>Cant.</span>
-          <span>Detalle</span>
-          <span className="text-right">Subtotal</span>
+      {/* Detalles del Recibo */}
+      <div className="text-xs space-y-1 pb-3 border-b border-slate-200 mb-3">
+        <p className="font-black text-[#525D53] text-sm tracking-wide">
+          RECIBO DE VENTA #{codigo}
+        </p>
+        <div className="grid grid-cols-2 gap-x-2 text-[11px] text-slate-600 pt-1">
+          <p><span className="font-bold text-slate-700">Fecha:</span> {fecha}</p>
+          <p><span className="font-bold text-slate-700">Pago:</span> {formaPago}</p>
+          <p className="col-span-2 truncate"><span className="font-bold text-slate-700">Cliente:</span> {cliente}</p>
+          <p><span className="font-bold text-slate-700">NIT:</span> {nit}</p>
         </div>
       </div>
 
-      <div className="flex flex-col">
-        {items.map((item, idx) => (
-          <div
-            key={`${item.nombre}-${idx}`}
-            className="grid grid-cols-[52px_1fr_88px] gap-2 border-b border-[#525D53]/12 py-2.5 text-[11px] last:border-b-0"
-          >
-            <span className="font-semibold text-[#1a1a1a]">{item.cantidad}</span>
-            <div className="min-w-0">
-              <p className="font-medium leading-snug text-[#1a1a1a]">{item.nombre}</p>
-              {item.descripcion && (
-                <p className="mt-0.5 text-[10px] italic leading-snug text-[#525D53]">
-                  {item.descripcion}
-                </p>
-              )}
+      {/* Cabecera de Tabla */}
+      <div className="grid grid-cols-[32px_1fr_60px_65px] gap-1 text-[10px] font-black uppercase text-[#525D53] border-b border-slate-200 pb-1 mb-2">
+        <span>Cant</span>
+        <span>Detalle</span>
+        <span className="text-right">Precio</span>
+        <span className="text-right">Sub</span>
+      </div>
+
+      {/* Filas de Productos */}
+      <div className="flex flex-col divide-y divide-slate-100 text-xs pb-3 mb-3 border-b border-slate-200">
+        {items.map((item, idx) => {
+          const unitPrice = item.cantidad > 0 ? item.subtotal / item.cantidad : 0;
+          return (
+            <div key={idx} className="grid grid-cols-[32px_1fr_60px_65px] gap-1 py-1.5 items-start">
+              <span className="font-bold text-slate-800">{item.cantidad}</span>
+              <div className="min-w-0 pr-1">
+                <p className="font-bold text-slate-900 leading-tight break-words">{item.nombre}</p>
+                {item.descripcion && (
+                  <p className="text-[10px] text-slate-400 font-mono truncate">{item.descripcion}</p>
+                )}
+              </div>
+              <span className="text-right font-medium text-slate-600">{fmtQ(unitPrice)}</span>
+              <span className="text-right font-bold text-slate-900">{fmtQ(item.subtotal)}</span>
             </div>
-            <span className="text-right font-semibold text-[#1a1a1a]">
-              {formatMonedaRecibo(item.subtotal)}
-            </span>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
-      <div className="mt-6 flex items-end justify-between gap-6 border-t border-[#525D53]/20 pt-5">
-        <div className="min-w-[120px] flex-1">
-          <div className="border-b border-[#525D53]/35 pb-1" />
-          <p className="mt-1 text-[10px] italic text-[#525D53]">Firma y sello</p>
-        </div>
-        <div className="text-right">
-          <div className="border-t-2 border-[#1a1a1a] pt-2">
-            <p className="text-[10px] font-bold uppercase tracking-wide text-[#525D53]">
-              Total a pagar
-            </p>
-            <p className="mt-1 text-[22px] font-bold leading-none text-[#1a1a1a]">
-              {formatMonedaRecibo(total)}
-            </p>
-          </div>
-        </div>
+      {/* Total a Pagar */}
+      <div className="text-right mb-3">
+        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total a pagar</p>
+        <p className="text-xl font-black text-[#525D53] tracking-tight mt-0.5">
+          {formatMonedaRecibo(total)}
+        </p>
       </div>
 
       {observaciones && (
-        <p className="mt-4 text-[10px] italic text-[#525D53]">
-          <span className="font-semibold not-italic">Notas:</span> {observaciones}
+        <p className="text-[10px] italic text-slate-500 mb-3 text-left">
+          <span className="font-bold not-italic">Notas:</span> {observaciones}
         </p>
       )}
 
-      <div className="mt-auto pt-6">
-        <p className="text-center text-[11px] italic text-[#525D53]">
-          Gracias por su compra
-        </p>
-
-        <div className="mt-4 flex justify-end">
-          <div className="border-t border-dashed border-[#525D53]/45 pt-1 text-[9px] italic text-[#525D53]/70">
-            línea de corte
-          </div>
+      {/* Pie de página */}
+      <div className="text-center pt-2 mt-auto">
+        <p className="text-xs font-bold text-slate-500">¡Gracias por su compra!</p>
+        <div className="mt-3 text-[9px] text-slate-300 border-t border-dashed border-slate-300 pt-1">
+          - - - - - - - - - - - - - - - - - - - - - - - - - -
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
@@ -14,7 +14,9 @@ import {
   Check,
   Truck,
   Calendar,
-  MapPin,
+  Box,
+  Building2,
+  X,
 } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import Swal from "sweetalert2";
@@ -35,6 +37,7 @@ interface Producto {
   nombre: string;
   descripcion: string;
   precio_base: number;
+  precio_costo?: number | null;
   stock_actual: number;
   stock_minimo: number;
   activo: boolean;
@@ -58,7 +61,15 @@ interface Producto {
   }[];
 }
 
-
+const isProductoProximoAVencer = (fechaVencimiento?: string | null, meses = 4): boolean => {
+  if (!fechaVencimiento) return false;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const expDate = new Date(fechaVencimiento);
+  const limitDate = new Date(today);
+  limitDate.setMonth(limitDate.getMonth() + meses);
+  return expDate <= limitDate;
+};
 
 // ─── Tarjeta de producto ─────────────────────────────────────────────────────
 function ProductoCard({
@@ -76,14 +87,7 @@ function ProductoCard({
 }) {
   const isLowStock = producto.stock_actual <= producto.stock_minimo;
   const imagenes = [producto.imagen_url, producto.imagen_url_2, producto.imagen_url_3].filter(Boolean);
-
-  let isExpiringSoon = false;
-  if (producto.fecha_vencimiento) {
-    const today = new Date();
-    const expDate = new Date(producto.fecha_vencimiento);
-    const diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays <= 30) isExpiringSoon = true;
-  }
+  const isExpiringSoon = isProductoProximoAVencer(producto.fecha_vencimiento);
 
   return (
     <motion.div
@@ -141,7 +145,7 @@ function ProductoCard({
           )}
           {producto.ubicacion && producto.ubicacion !== "Sin asignar" && (
             <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase flex items-center gap-1">
-              <MapPin className="size-3 text-[#8DA78E] dark:text-[#A3BEB0]" /> {producto.ubicacion}
+              <Box className="size-3 text-[#8DA78E] dark:text-[#A3BEB0]" /> {producto.ubicacion}
             </p>
           )}
         </div>
@@ -255,6 +259,7 @@ const CustomDatePicker = ({
   align?: "left" | "right";
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [viewMode, setViewMode] = useState<"days" | "months" | "years">("days");
 
   const getParsedDate = () => {
     if (!value) return new Date();
@@ -266,13 +271,21 @@ const CustomDatePicker = ({
   const parsedDate = getParsedDate();
   const [navMonth, setNavMonth] = useState(parsedDate.getMonth());
   const [navYear, setNavYear] = useState(parsedDate.getFullYear());
+  const [yearRangeStart, setYearRangeStart] = useState(parsedDate.getFullYear() - 4);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const p = getParsedDate();
     setNavMonth(p.getMonth());
     setNavYear(p.getFullYear());
+    setYearRangeStart(p.getFullYear() - 4);
   }, [value]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setViewMode("days");
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -321,6 +334,10 @@ const CustomDatePicker = ({
     "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
     "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
   ];
+  const nombresMesesCortos = [
+    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
+  ];
 
   return (
     <div className="relative" ref={containerRef}>
@@ -339,80 +356,206 @@ const CustomDatePicker = ({
 
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className={cn(
-              "absolute mt-2 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xl shadow-slate-100/50 dark:shadow-none z-50 p-4 min-w-[280px]",
-              align === "left" ? "left-0" : "right-0"
-            )}
-          >
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4 pb-2.5 border-b border-slate-100 dark:border-slate-900/60">
-              <button
-                type="button"
-                onClick={handlePrevMonth}
-                className="p-1.5 rounded-lg cursor-pointer text-slate-500 transition-colors"
-              >
-                <ChevronLeft className="size-4" />
-              </button>
+          <>
+            {/* Mobile Backdrop Overlay */}
+            <div
+              className="fixed inset-0 z-[190] bg-black/40 backdrop-blur-xs sm:hidden"
+              onClick={() => setIsOpen(false)}
+            />
 
-              <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0] tracking-wide select-none">
-                {nombresMeses[navMonth]} {navYear}
-              </span>
-
-              <button
-                type="button"
-                onClick={handleNextMonth}
-                className="p-1.5 rounded-lg cursor-pointer text-slate-500 transition-colors"
-              >
-                <ChevronRight className="size-4" />
-              </button>
-            </div>
-
-            {/* Weekdays */}
-            <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
-              {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"].map((dayName) => (
-                <div key={dayName} className="py-1">{dayName}</div>
-              ))}
-            </div>
-
-            {/* Days Grid */}
-            <div className="grid grid-cols-7 gap-1 text-center">
-              {cells.map((cell, idx) => {
-                const pad = (n: number) => n.toString().padStart(2, "0");
-                const cellValStr = `${cell.year}-${pad(cell.month + 1)}-${pad(cell.day)}`;
-                const isSelected = value === cellValStr;
-                const isToday = () => {
-                  const today = new Date();
-                  return (
-                    today.getDate() === cell.day &&
-                    today.getMonth() === cell.month &&
-                    today.getFullYear() === cell.year
-                  );
-                };
-
-                return (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className={cn(
+                "bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xl z-[200] p-4 min-w-[280px] max-w-[320px]",
+                "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:static sm:translate-x-0 sm:translate-y-0 sm:z-50",
+                "sm:absolute sm:mt-2",
+                align === "left" ? "sm:left-0 sm:right-auto" : "sm:right-0 sm:left-auto"
+              )}
+            >
+            {/* Header Controls */}
+            <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
+              {viewMode === "days" && (
+                <>
                   <button
-                    key={idx}
                     type="button"
-                    onClick={() => handleSelectDay(cell)}
-                    className={`py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${isSelected
-                        ? "bg-[#8DA78E] text-white shadow-sm shadow-[#8DA78E]/30 scale-105 font-bold"
-                        : cell.isCurrentMonth
-                          ? isToday()
-                            ? "border border-[#8DA78E] text-[#8DA78E] dark:text-[#A3BEB0] font-bold bg-[#8DA78E]/5 hover:bg-[#8DA78E]/10"
-                            : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-900/60"
-                          : "text-slate-400/50 dark:text-slate-650/30 hover:bg-slate-50/50 dark:hover:bg-zinc-900/10"
-                      }`}
+                    onClick={handlePrevMonth}
+                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="Mes anterior"
                   >
-                    {cell.day}
+                    <ChevronLeft className="size-4" />
                   </button>
-                );
-              })}
+
+                  <div className="flex items-center gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("months")}
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      {nombresMeses[navMonth]}
+                      <ChevronDown className="size-3 opacity-60" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("years")}
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
+                    >
+                      {navYear}
+                      <ChevronDown className="size-3 opacity-60" />
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleNextMonth}
+                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                    title="Mes siguiente"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </>
+              )}
+
+              {viewMode === "months" && (
+                <>
+                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0] px-1">
+                    Seleccionar Mes ({navYear})
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setViewMode("days")}
+                    className="text-xs font-bold text-[#8DA78E] hover:underline px-2 py-1 cursor-pointer"
+                  >
+                    Volver
+                  </button>
+                </>
+              )}
+
+              {viewMode === "years" && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setYearRangeStart(yearRangeStart - 12)}
+                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <ChevronLeft className="size-4" />
+                  </button>
+
+                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0]">
+                    {yearRangeStart} - {yearRangeStart + 11}
+                  </span>
+
+                  <button
+                    type="button"
+                    onClick={() => setYearRangeStart(yearRangeStart + 12)}
+                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                  >
+                    <ChevronRight className="size-4" />
+                  </button>
+                </>
+              )}
             </div>
+
+            {/* DAYS VIEW */}
+            {viewMode === "days" && (
+              <>
+                <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
+                  {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"].map((dayName) => (
+                    <div key={dayName} className="py-1">{dayName}</div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-7 gap-1 text-center">
+                  {cells.map((cell, idx) => {
+                    const pad = (n: number) => n.toString().padStart(2, "0");
+                    const cellValStr = `${cell.year}-${pad(cell.month + 1)}-${pad(cell.day)}`;
+                    const isSelected = value === cellValStr;
+                    const isToday = () => {
+                      const today = new Date();
+                      return (
+                        today.getDate() === cell.day &&
+                        today.getMonth() === cell.month &&
+                        today.getFullYear() === cell.year
+                      );
+                    };
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleSelectDay(cell)}
+                        className={`py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${isSelected
+                            ? "bg-[#8DA78E] text-white shadow-sm shadow-[#8DA78E]/30 scale-105 font-bold"
+                            : cell.isCurrentMonth
+                              ? isToday()
+                                ? "border border-[#8DA78E] text-[#8DA78E] dark:text-[#A3BEB0] font-bold bg-[#8DA78E]/5 hover:bg-[#8DA78E]/10"
+                                : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-900/60"
+                              : "text-slate-400/50 dark:text-slate-650/30 hover:bg-slate-50/50 dark:hover:bg-zinc-900/10"
+                          }`}
+                      >
+                        {cell.day}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* MONTHS GRID VIEW */}
+            {viewMode === "months" && (
+              <div className="grid grid-cols-3 gap-2 py-2">
+                {nombresMesesCortos.map((mName, idx) => {
+                  const isCurrentNavMonth = navMonth === idx;
+                  return (
+                    <button
+                      key={mName}
+                      type="button"
+                      onClick={() => {
+                        setNavMonth(idx);
+                        setViewMode("days");
+                      }}
+                      className={cn(
+                        "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                        isCurrentNavMonth
+                          ? "bg-[#8DA78E] text-white shadow-md shadow-[#8DA78E]/30 scale-105"
+                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
+                      )}
+                    >
+                      {nombresMeses[idx]}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* YEARS GRID VIEW */}
+            {viewMode === "years" && (
+              <div className="grid grid-cols-3 gap-2 py-2">
+                {Array.from({ length: 12 }, (_, i) => yearRangeStart + i).map((y) => {
+                  const isCurrentNavYear = navYear === y;
+                  return (
+                    <button
+                      key={y}
+                      type="button"
+                      onClick={() => {
+                        setNavYear(y);
+                        setViewMode("days");
+                      }}
+                      className={cn(
+                        "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
+                        isCurrentNavYear
+                          ? "bg-[#8DA78E] text-white shadow-md shadow-[#8DA78E]/30 scale-105"
+                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
+                      )}
+                    >
+                      {y}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
 
             {/* Bottom Actions */}
             <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-900/60 text-xs">
@@ -441,8 +584,9 @@ const CustomDatePicker = ({
               </button>
             </div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </>
+      )}
+    </AnimatePresence>
     </div>
   );
 };
@@ -547,7 +691,7 @@ function ProductoDetalle({
           <div className="col-span-3 bg-white dark:bg-[#525D53]/10 rounded-xl p-2.5 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10">
             <span className="text-[9px] text-[#525D53] dark:text-[#A3BEB0]/70 font-semibold uppercase tracking-wide block mb-0.5">Ubicación</span>
             <p className="text-xs font-bold text-[#8DA78E] dark:text-[#A3BEB0] truncate flex items-center gap-1">
-              <MapPin className="size-3 shrink-0" /> {producto.ubicacion || "Sin asignar"}
+              <Box className="size-3 shrink-0" /> {producto.ubicacion || "Sin asignar"}
             </p>
           </div>
 
@@ -603,6 +747,153 @@ function ProductoDetalle({
   );
 }
 
+// ─── Componente Filtro de Ubicación ─────────────────────────────────────────
+const LocationFilterDropdown = ({
+  selectedLocation,
+  onSelectLocation,
+  locations,
+  products
+}: {
+  selectedLocation: string;
+  onSelectLocation: (loc: string) => void;
+  locations: string[];
+  products: Producto[];
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const locationCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    products.forEach((p) => {
+      const loc = p.ubicacion || "Sin asignar";
+      counts[loc] = (counts[loc] || 0) + 1;
+    });
+    return counts;
+  }, [products]);
+
+  const totalProducts = products.length;
+
+  return (
+    <div className="relative shrink-0" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "px-3 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-2 cursor-pointer h-full shadow-xs select-none",
+          selectedLocation
+            ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:text-[#A3BEB0] dark:bg-[#8DA78E]/20"
+            : "border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-slate-700 dark:text-slate-300 hover:border-[#8DA78E]"
+        )}
+      >
+        <Box className="size-3.5 text-[#8DA78E] shrink-0" />
+        <span className="truncate max-w-[140px] md:max-w-[170px]">
+          {selectedLocation || "Todas las ubicaciones"}
+        </span>
+
+        {selectedLocation ? (
+          <span className="flex items-center gap-1.5 ml-1">
+            <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#8DA78E] text-white">
+              {locationCounts[selectedLocation] || 0}
+            </span>
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectLocation("");
+              }}
+              className="p-0.5 rounded-full hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors"
+              title="Limpiar filtro"
+            >
+              <X className="size-3" />
+            </span>
+          </span>
+        ) : (
+          <ChevronDown className={cn("size-3 text-slate-400 shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute right-0 mt-2 w-64 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xl z-50 p-2 max-h-72 overflow-y-auto custom-scrollbar"
+          >
+            <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
+              <span>Ubicaciones</span>
+              <span className="text-[#8DA78E] font-bold">{locations.length} encontradas</span>
+            </div>
+
+            {/* Opción: Todas las ubicaciones */}
+            <button
+              type="button"
+              onClick={() => {
+                onSelectLocation("");
+                setIsOpen(false);
+              }}
+              className={cn(
+                "w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer my-0.5",
+                selectedLocation === ""
+                  ? "bg-[#8DA78E] text-white shadow-sm"
+                  : "text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/10 hover:text-[#8DA78E]"
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <Building2 className="size-3.5 opacity-80 shrink-0" />
+                <span>Todas las ubicaciones</span>
+              </div>
+              <span className={cn("px-2 py-0.5 text-[10px] rounded-full font-extrabold", selectedLocation === "" ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-zinc-900 text-slate-500")}>
+                {totalProducts}
+              </span>
+            </button>
+
+            {/* Ubicaciones individuales */}
+            {locations.map((ub) => {
+              const isSelected = selectedLocation === ub;
+              const count = locationCounts[ub] || 0;
+              return (
+                <button
+                  key={ub}
+                  type="button"
+                  onClick={() => {
+                    onSelectLocation(ub);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer my-0.5 text-left",
+                    isSelected
+                      ? "bg-[#8DA78E] text-white shadow-sm"
+                      : "text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/10 hover:text-[#8DA78E]"
+                  )}
+                >
+                  <div className="flex items-center gap-2 min-w-0 pr-2">
+                    <Box className="size-3.5 opacity-80 shrink-0" />
+                    <span className="truncate">{ub}</span>
+                  </div>
+                  <span className={cn("px-2 py-0.5 text-[10px] rounded-full font-extrabold shrink-0", isSelected ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-zinc-900 text-slate-500")}>
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 // ─── Componente Principal ─────────────────────────────────────────────────────
 export function VerInventario() {
   const router = useRouter();
@@ -616,7 +907,7 @@ export function VerInventario() {
 
   // Estados de Base de Datos Real
   const { data: productos = [], isLoading, refetch: refetchProductos } = useProductos();
-  const { mutateAsync: eliminarProductoAsync } = useEliminarProducto();
+  const { mutateAsync: eliminarProductoAsync, isPending: isDeleting } = useEliminarProducto();
   const [showDeleteModal, setShowDeleteModal] = useState<Producto | null>(null);
   const [mostrarBajoStock, setMostrarBajoStock] = useState(false);
 
@@ -713,14 +1004,7 @@ export function VerInventario() {
 
     let matchesExpiring = true;
     if (filtroProximoVencer) {
-      if (!p.fecha_vencimiento) {
-        matchesExpiring = false;
-      } else {
-        const today = new Date();
-        const expDate = new Date(p.fecha_vencimiento);
-        const diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-        matchesExpiring = diffDays <= 30;
-      }
+      matchesExpiring = isProductoProximoAVencer(p.fecha_vencimiento);
     }
 
     const matchesEstado =
@@ -739,13 +1023,7 @@ export function VerInventario() {
   });
 
   const hayStockBajoGlobal = productos.some((p) => p.stock_actual <= p.stock_minimo);
-  const hayProximoVencerGlobal = productos.some((p) => {
-    if (!p.fecha_vencimiento) return false;
-    const today = new Date();
-    const expDate = new Date(p.fecha_vencimiento);
-    const diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    return diffDays <= 30;
-  });
+  const hayProximoVencerGlobal = productos.some((p) => isProductoProximoAVencer(p.fecha_vencimiento));
 
   const totalItems = productosFiltrados.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -935,22 +1213,16 @@ export function VerInventario() {
 
         <div className="flex flex-wrap md:flex-nowrap items-center gap-2 w-full md:w-auto pb-1 md:pb-0 select-none justify-end">
           {/* Filtro por Ubicación */}
-          {ubicacionesUnicas.length > 1 && (
-            <div className="flex items-center gap-1.5 shrink-0">
-              <select
-                value={filtroUbicacion}
-                onChange={(e) => {
-                  setFiltroUbicacion(e.target.value);
-                  setCurrentPage(1);
-                }}
-                className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-[11px] md:text-xs font-bold text-slate-700 dark:text-slate-300 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/30 focus:border-[#8DA78E] transition-all cursor-pointer h-full"
-              >
-                <option value="">Todas las ubicaciones</option>
-                {ubicacionesUnicas.map((ub) => (
-                  <option key={ub} value={ub}>{ub}</option>
-                ))}
-              </select>
-            </div>
+          {ubicacionesUnicas.length > 0 && (
+            <LocationFilterDropdown
+              selectedLocation={filtroUbicacion}
+              onSelectLocation={(loc) => {
+                setFiltroUbicacion(loc);
+                setCurrentPage(1);
+              }}
+              locations={ubicacionesUnicas}
+              products={productos}
+            />
           )}
 
           <div className="grid grid-cols-3 md:flex gap-2 w-full md:w-auto shrink-0">
@@ -1071,13 +1343,7 @@ export function VerInventario() {
                         );
                       }
 
-                      let isExpiringSoon = false;
-                      if (p.fecha_vencimiento) {
-                        const today = new Date();
-                        const expDate = new Date(p.fecha_vencimiento);
-                        const diffDays = Math.ceil((expDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                        if (diffDays <= 30) isExpiringSoon = true;
-                      }
+                      const isExpiringSoon = isProductoProximoAVencer(p.fecha_vencimiento);
 
                       acc.push(
                         <tr
@@ -1099,8 +1365,9 @@ export function VerInventario() {
                             {p.nombre}
                           </td>
                           <td className="px-5 py-3.5">
-                            <span className="font-semibold text-slate-600 dark:text-slate-400 truncate max-w-[120px] block">
-                              {p.ubicacion || "Sin asignar"}
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100/80 dark:bg-zinc-900/80 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800/80 shadow-2xs max-w-[150px]">
+                              <Box className="size-3 text-[#8DA78E] shrink-0" />
+                              <span className="truncate">{p.ubicacion || "Sin asignar"}</span>
                             </span>
                           </td>
                           <td className="px-5 py-3.5">
@@ -1218,14 +1485,24 @@ export function VerInventario() {
         <ModalShell
           isOpen={!!showDeleteModal}
           onClose={() => setShowDeleteModal(null)}
-          title="Advertencia"
+          title="Eliminar producto"
+          subtitle="Confirmación de inventario"
         >
           {showDeleteModal && (
             <ModalConfirmDelete
-              title="¿Eliminar producto?"
-              description={`¿Estás seguro de que deseas eliminar ${showDeleteModal.nombre}? Esta acción no se puede deshacer.`}
+              title="¿Eliminar producto del inventario?"
+              description="Confirma si deseas eliminar este registro del catálogo de productos."
+              itemDetails={{
+                nombre: showDeleteModal.nombre,
+                codigo: showDeleteModal.codigo,
+                stock: showDeleteModal.stock_actual,
+                precio: showDeleteModal.precio_base,
+                imagen: showDeleteModal.imagen_url,
+                ubicacion: showDeleteModal.ubicacion,
+              }}
               onConfirm={confirmDelete}
               onCancel={() => setShowDeleteModal(null)}
+              loading={isDeleting}
             />
           )}
         </ModalShell>

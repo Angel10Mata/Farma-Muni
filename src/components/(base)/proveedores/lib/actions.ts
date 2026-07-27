@@ -85,7 +85,7 @@ export async function obtenerProveedoresYProductos() {
 
     const { data: productos, error: prodError } = await supabase
       .from("inv_productos")
-      .select("id, codigo, nombre, precio_base, stock_actual, activo, proveedor_id")
+      .select("id, codigo, nombre, precio_base, precio_costo, stock_actual, activo, proveedor_id")
       .eq("activo", true)
       .order("nombre", { ascending: true });
 
