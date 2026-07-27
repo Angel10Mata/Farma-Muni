@@ -68,7 +68,7 @@ export default function Header() {
                   className="flex flex-col leading-none"
                 >
                   <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farmacia</span>
-                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">La Salud</span>
+                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Salud</span>
                 </motion.span>
               </Link>
             </div>

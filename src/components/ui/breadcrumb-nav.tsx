@@ -6,26 +6,20 @@ import { ChevronRight, Home, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 const SEGMENT_LABELS: Record<string, string> = {
-  "farmacia-la-salud": "Farmacia La Salud",
-  proyectos: "Proyectos",
-  proyecto: "Proyectos",
-  resumen: "Dashboard",
+  "farmacia-la-salud": "Farmacia Salud",
+  admin: "Administración",
+  ventas: "Ventas",
+  clientes: "Clientes",
+  inventario: "Inventario",
+  proveedores: "Proveedores",
+  finanzas: "Finanzas",
+  creditos: "Créditos",
+  usuarios: "Gestión de Usuarios",
+  configuraciones: "Configuraciones",
+  perfil: "Mi Perfil",
   nuevo: "Nuevo",
   editar: "Editar",
   ver: "Ver",
-  qr: "QR",
-  mantenimiento: "Mantenimiento",
-  admin: "Administración",
-  configuraciones: "Configuraciones",
-  dispositivos: "Dispositivos de Acceso",
-  usuarios: "Gestión de Usuarios",
-  clientes: "Clientes",
-  inventario: "Inventario",
-  ventas: "Ventas",
-  proveedores: "Proveedores",
-  perfil: "Mi Perfil",
-  finanzas: "Finanzas",
-  creditos: "Créditos",
 };
 
 export function BreadcrumbNav() {
@@ -57,7 +51,7 @@ export function BreadcrumbNav() {
   let backHref = "/farmacia-la-salud";
   const moduleName = rawSegments.length > 1 ? rawSegments[1] : "";
 
-  if (rawSegments.includes("qr") || rawSegments.includes("editar")) {
+  if (rawSegments.includes("editar")) {
     const detalleIdx = rawSegments.indexOf("ver");
     const id = detalleIdx >= 0 && detalleIdx + 1 < rawSegments.length ? rawSegments[detalleIdx + 1] : "";
     backHref = id ? `/farmacia-la-salud/${moduleName}/ver/${id}` : `/farmacia-la-salud/${moduleName}`;

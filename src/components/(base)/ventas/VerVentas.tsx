@@ -266,42 +266,43 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       // Nombre de la Farmacia
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
-      doc.setTextColor(82, 93, 83);
-      doc.text("FARMACIA LA SALUD", 40, currentY, { align: "center" });
+      doc.setTextColor(0, 0, 0);
+      doc.text("FARMACIA SALUD", 40, currentY, { align: "center" });
       currentY += 4;
 
       // Dirección
       doc.setFont("helvetica", "bold");
       doc.setFontSize(6.5);
-      doc.setTextColor(80, 80, 80);
+      doc.setTextColor(0, 0, 0);
       doc.text("3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA", 40, currentY, { align: "center" });
       currentY += 3.5;
 
-      doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(7);
-      doc.setTextColor(100, 116, 139);
+      doc.setTextColor(0, 0, 0);
       doc.text("Guatemala", 40, currentY, { align: "center" });
       currentY += 3.5;
 
-      doc.setDrawColor(193, 209, 197);
+      doc.setDrawColor(0, 0, 0);
       doc.line(5, currentY, 75, currentY);
       currentY += 5;
 
       const codigoRecibo = obtenerCodigoRecibo(venta.id);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
-      doc.setTextColor(82, 93, 83);
+      doc.setTextColor(0, 0, 0);
       doc.text(`RECIBO DE VENTA #${codigoRecibo}`, 5, currentY);
       currentY += 5;
 
-      doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.setTextColor(50, 50, 50);
+      doc.setTextColor(0, 0, 0);
       doc.text(`Fecha: ${dateFormatted}`, 5, currentY); currentY += 4.5;
       doc.text(`Cliente: ${clientName}`, 5, currentY); currentY += 4.5;
       doc.text(`NIT: ${clientNit}`, 5, currentY); currentY += 4.5;
       doc.text(`Pago: ${venta.tipo_venta || "Contado"}`, 5, currentY); currentY += 3;
 
+      doc.setDrawColor(0, 0, 0);
       doc.line(5, currentY, 75, currentY);
       currentY += 2;
 
@@ -315,34 +316,35 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
           `${fmtQ(d.subtotal)}`
         ]),
         theme: "plain",
-        styles: { fontSize: 7, cellPadding: 1, valign: "middle" },
+        styles: { fontSize: 7, cellPadding: 1, valign: "middle", textColor: [0, 0, 0], fontStyle: "bold" },
         columnStyles: {
           0: { cellWidth: 8 }, 1: { cellWidth: 35 }, 2: { cellWidth: 12, halign: "right" }, 3: { cellWidth: 15, halign: "right" }
         },
-        headStyles: { fontStyle: "bold", fillColor: [245, 245, 241], textColor: [82, 93, 83] },
+        headStyles: { fontStyle: "bold", fillColor: [230, 230, 230], textColor: [0, 0, 0] },
         margin: { left: 4, right: 4 }
       });
 
       const finalY = (doc as any).lastAutoTable.finalY + 4;
+      doc.setDrawColor(0, 0, 0);
       doc.line(5, finalY, 75, finalY);
 
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9.5);
-      doc.setTextColor(82, 93, 83);
+      doc.setTextColor(0, 0, 0);
       doc.text(`TOTAL A PAGAR: ${fmtQ(venta.total)}`, 75, finalY + 5, { align: "right" });
 
       let endY = finalY + 11;
       if (venta.observaciones) {
-        doc.setFont("helvetica", "italic");
+        doc.setFont("helvetica", "bold");
         doc.setFontSize(7);
-        doc.setTextColor(120, 120, 120);
+        doc.setTextColor(0, 0, 0);
         doc.text(`Notas: ${venta.observaciones}`, 5, endY);
         endY += 6;
       }
 
-      doc.setFont("helvetica", "normal");
+      doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
-      doc.setTextColor(100, 116, 139);
+      doc.setTextColor(0, 0, 0);
       doc.text("¡Gracias por su compra!", 40, endY, { align: "center" });
 
       doc.save(`Recibo_FarmaciaSalud_${codigoRecibo}.pdf`);
@@ -367,7 +369,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       const message =
         String.fromCharCode(0xA1) + "Hola! " + emojiData.wave + "\n" +
         "Te comparto el comprobante digital de tu compra:\n\n" +
-        emojiData.hospital + " FARMACIA LA SALUD\n" +
+        emojiData.hospital + " FARMACIA SALUD\n" +
         "📍 3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA\n\n" +
         emojiData.receipt + " Recibo de Venta: #" + code + "\n" +
         emojiData.person + " Cliente: " + clientName + "\n\n" +
@@ -375,7 +377,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         productListText.trimEnd() + "\n\n" +
         emojiData.money + " Total: " + fmtQ(venta.total) + "\n\n" +
         emojiData.sparkle + " " + String.fromCharCode(0xA1) + "GRACIAS POR TU COMPRA! " + emojiData.sparkle + "\n\n" +
-        " " + emojiData.seedling + emojiData.green + " FARMACIA LA SALUD\n" +
+        " " + emojiData.seedling + emojiData.green + " FARMACIA SALUD\n" +
         " Cuidando siempre de tu salud y bienestar\n";
 
       const encodedMsg = encodeURIComponent(message);

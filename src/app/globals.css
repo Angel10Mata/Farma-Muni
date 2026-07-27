@@ -201,14 +201,17 @@ input[type=number] {
   appearance: textfield;
 }
 
-/* Estilos de Impresión para Recibo de Venta (Formato 80mm Térmico) */
+/* Estilos de Impresión para Recibo de Venta (Formato 80mm Térmico de Alta Definición) */
 @media print {
   html, body {
     width: 80mm !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
+    color: #000000 !important;
     overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
   }
   body * {
     visibility: hidden !important;
@@ -216,6 +219,9 @@ input[type=number] {
   #print-receipt-ticket,
   #print-receipt-ticket * {
     visibility: visible !important;
+    color: #000000 !important;
+    border-color: #000000 !important;
+    -webkit-text-stroke: 0.2px #000000 !important;
   }
   #print-receipt-ticket {
     display: block !important;
@@ -230,6 +236,10 @@ input[type=number] {
     color: #000000 !important;
     z-index: 999999 !important;
   }
+  #print-receipt-ticket img {
+    filter: contrast(300%) brightness(0%) !important;
+    -webkit-filter: contrast(300%) brightness(0%) !important;
+  }
   .recibo-venta {
     width: 76mm !important;
     max-width: 76mm !important;
@@ -238,12 +248,22 @@ input[type=number] {
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
-    padding: 2mm !important;
+    padding: 1mm !important;
     margin: 0 !important;
     page-break-inside: avoid !important;
+    color: #000000 !important;
+    font-weight: 800 !important;
+  }
+  .recibo-venta p, 
+  .recibo-venta span, 
+  .recibo-venta h1, 
+  .recibo-venta div {
+    color: #000000 !important;
+    opacity: 1 !important;
+    font-weight: 800 !important;
   }
   @page {
-    margin: 2mm;
+    margin: 1mm;
     size: 80mm auto;
   }
 }

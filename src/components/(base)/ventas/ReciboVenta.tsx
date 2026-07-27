@@ -37,41 +37,41 @@ export function ReciboVenta({
     <div
       id={id}
       className={cn(
-        "recibo-venta w-full max-w-[340px] mx-auto bg-white text-slate-900 font-sans p-6 rounded-2xl shadow-sm border border-slate-200 text-left box-border flex flex-col select-none",
+        "recibo-venta w-full max-w-[340px] mx-auto bg-white text-black font-sans p-6 rounded-2xl shadow-sm border border-slate-300 text-left box-border flex flex-col select-none",
         className
       )}
     >
       {/* Encabezado con Logo, Nombre y Dirección */}
-      <div className="text-center pb-3 border-b border-slate-200 mb-3">
+      <div className="text-center pb-3 border-b border-black/40 mb-3">
         <img
           src="/farmacia-la-salud/logo.png"
-          alt="Logo Farmacia La Salud"
+          alt="Logo Farmacia Salud"
           className="size-16 mx-auto object-contain mb-1.5"
         />
-        <h1 className="text-base font-black tracking-tight text-[#525D53] uppercase">
+        <h1 className="text-base font-black tracking-tight text-black uppercase">
           FARMACIA SALUD
         </h1>
-        <p className="text-[10px] font-bold text-slate-600 leading-snug mt-0.5 max-w-[260px] mx-auto">
+        <p className="text-[10.5px] font-extrabold text-black leading-snug mt-0.5 max-w-[260px] mx-auto">
           3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA
         </p>
-        <p className="text-[10px] font-semibold text-slate-400 mt-0.5">Guatemala</p>
+        <p className="text-[10px] font-bold text-black/80 mt-0.5">Guatemala</p>
       </div>
 
       {/* Detalles del Recibo */}
-      <div className="text-xs space-y-1 pb-3 border-b border-slate-200 mb-3">
-        <p className="font-black text-[#525D53] text-sm tracking-wide">
+      <div className="text-xs space-y-1 pb-3 border-b border-black/40 mb-3">
+        <p className="font-black text-black text-sm tracking-wide">
           RECIBO DE VENTA #{codigo}
         </p>
-        <div className="grid grid-cols-2 gap-x-2 text-[11px] text-slate-600 pt-1">
-          <p><span className="font-bold text-slate-700">Fecha:</span> {fecha}</p>
-          <p><span className="font-bold text-slate-700">Pago:</span> {formaPago}</p>
-          <p className="col-span-2 truncate"><span className="font-bold text-slate-700">Cliente:</span> {cliente}</p>
-          <p><span className="font-bold text-slate-700">NIT:</span> {nit}</p>
+        <div className="grid grid-cols-2 gap-x-2 text-[11px] text-black pt-1">
+          <p><span className="font-extrabold text-black">Fecha:</span> <span className="font-bold">{fecha}</span></p>
+          <p><span className="font-extrabold text-black">Pago:</span> <span className="font-bold">{formaPago}</span></p>
+          <p className="col-span-2 truncate"><span className="font-extrabold text-black">Cliente:</span> <span className="font-bold">{cliente}</span></p>
+          <p><span className="font-extrabold text-black">NIT:</span> <span className="font-bold">{nit}</span></p>
         </div>
       </div>
 
       {/* Cabecera de Tabla */}
-      <div className="grid grid-cols-[32px_1fr_60px_65px] gap-1 text-[10px] font-black uppercase text-[#525D53] border-b border-slate-200 pb-1 mb-2">
+      <div className="grid grid-cols-[32px_1fr_60px_65px] gap-1 text-[10px] font-black uppercase text-black border-b border-black/40 pb-1 mb-2">
         <span>Cant</span>
         <span>Detalle</span>
         <span className="text-right">Precio</span>
@@ -79,20 +79,20 @@ export function ReciboVenta({
       </div>
 
       {/* Filas de Productos */}
-      <div className="flex flex-col divide-y divide-slate-100 text-xs pb-3 mb-3 border-b border-slate-200">
+      <div className="flex flex-col divide-y divide-black/15 text-xs pb-3 mb-3 border-b border-black/40">
         {items.map((item, idx) => {
           const unitPrice = item.cantidad > 0 ? item.subtotal / item.cantidad : 0;
           return (
             <div key={idx} className="grid grid-cols-[32px_1fr_60px_65px] gap-1 py-1.5 items-start">
-              <span className="font-bold text-slate-800">{item.cantidad}</span>
+              <span className="font-extrabold text-black">{item.cantidad}</span>
               <div className="min-w-0 pr-1">
-                <p className="font-bold text-slate-900 leading-tight break-words">{item.nombre}</p>
+                <p className="font-black text-black leading-tight break-words">{item.nombre}</p>
                 {item.descripcion && (
-                  <p className="text-[10px] text-slate-400 font-mono truncate">{item.descripcion}</p>
+                  <p className="text-[10px] text-black font-bold font-mono truncate">{item.descripcion}</p>
                 )}
               </div>
-              <span className="text-right font-medium text-slate-600">{fmtQ(unitPrice)}</span>
-              <span className="text-right font-bold text-slate-900">{fmtQ(item.subtotal)}</span>
+              <span className="text-right font-bold text-black">{fmtQ(unitPrice)}</span>
+              <span className="text-right font-black text-black">{fmtQ(item.subtotal)}</span>
             </div>
           );
         })}
@@ -100,22 +100,22 @@ export function ReciboVenta({
 
       {/* Total a Pagar */}
       <div className="text-right mb-3">
-        <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total a pagar</p>
-        <p className="text-xl font-black text-[#525D53] tracking-tight mt-0.5">
+        <p className="text-xs font-black uppercase tracking-wider text-black">Total a pagar</p>
+        <p className="text-2xl font-black text-black tracking-tight mt-0.5">
           {formatMonedaRecibo(total)}
         </p>
       </div>
 
       {observaciones && (
-        <p className="text-[10px] italic text-slate-500 mb-3 text-left">
-          <span className="font-bold not-italic">Notas:</span> {observaciones}
+        <p className="text-[10px] italic text-black font-bold mb-3 text-left">
+          <span className="font-black not-italic">Notas:</span> {observaciones}
         </p>
       )}
 
       {/* Pie de página */}
       <div className="text-center pt-2 mt-auto">
-        <p className="text-xs font-bold text-slate-500">¡Gracias por su compra!</p>
-        <div className="mt-3 text-[9px] text-slate-300 border-t border-dashed border-slate-300 pt-1">
+        <p className="text-xs font-black text-black">¡Gracias por su compra!</p>
+        <div className="mt-3 text-[9px] text-black/60 border-t border-dashed border-black/60 pt-1">
           - - - - - - - - - - - - - - - - - - - - - - - - - -
         </div>
       </div>

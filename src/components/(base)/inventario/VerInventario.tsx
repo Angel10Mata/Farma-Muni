@@ -1067,7 +1067,7 @@ export function VerInventario() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
       doc.setTextColor(82, 93, 83); // #525D53 (Olivo Oscuro)
-      doc.text("FARMACIA LA SALUD - REPORTE DE INVENTARIO", 14, 20);
+      doc.text("FARMACIA SALUD - REPORTE DE INVENTARIO", 14, 20);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
