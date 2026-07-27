@@ -201,10 +201,13 @@ input[type=number] {
   appearance: textfield;
 }
 
-/* Estilos de Impresión para Recibo de Venta (Formato 80mm Térmico de Alta Definición) */
+/* Estilos de Impresión para Recibo de Venta (Formato Térmico) */
 @media print {
   html, body {
-    width: 80mm !important;
+    width: 72mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: max-content !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
@@ -221,15 +224,16 @@ input[type=number] {
     visibility: visible !important;
     color: #000000 !important;
     border-color: #000000 !important;
-    -webkit-text-stroke: 0.2px #000000 !important;
   }
   #print-receipt-ticket {
     display: block !important;
-    position: fixed !important;
+    position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-    width: 76mm !important;
-    max-width: 76mm !important;
+    width: 72mm !important;
+    max-width: 72mm !important;
+    height: auto !important;
+    min-height: 0 !important;
     margin: 0 !important;
     padding: 0 !important;
     background: #ffffff !important;
@@ -237,22 +241,23 @@ input[type=number] {
     z-index: 999999 !important;
   }
   #print-receipt-ticket img {
-    filter: contrast(300%) brightness(0%) !important;
-    -webkit-filter: contrast(300%) brightness(0%) !important;
+    filter: contrast(200%) brightness(0%) !important;
+    -webkit-filter: contrast(200%) brightness(0%) !important;
   }
   .recibo-venta {
-    width: 76mm !important;
-    max-width: 76mm !important;
-    min-height: auto !important;
+    width: 70mm !important;
+    max-width: 70mm !important;
+    min-height: 0 !important;
     height: auto !important;
+    max-height: max-content !important;
     border: none !important;
+    outline: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
-    padding: 1mm !important;
-    margin: 0 !important;
+    padding: 1mm 2mm !important;
+    margin: 0 auto !important;
     page-break-inside: avoid !important;
     color: #000000 !important;
-    font-weight: 800 !important;
   }
   .recibo-venta p, 
   .recibo-venta span, 
@@ -260,11 +265,13 @@ input[type=number] {
   .recibo-venta div {
     color: #000000 !important;
     opacity: 1 !important;
-    font-weight: 800 !important;
+  }
+  .recibo-venta .mt-auto {
+    margin-top: 8px !important;
   }
   @page {
-    margin: 1mm;
-    size: 80mm auto;
+    margin: 0;
+    size: auto;
   }
 }
 
