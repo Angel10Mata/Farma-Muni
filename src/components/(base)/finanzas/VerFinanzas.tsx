@@ -103,20 +103,32 @@ export function VerFinanzas() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const { desde, hasta } = useMemo(() => {
+  const { desde, hasta, resumenDesde, resumenHasta } = useMemo(() => {
     let d = undefined;
     let h = undefined;
+    let rD = undefined;
+    let rH = undefined;
+    const pad = (n: number) => n.toString().padStart(2, "0");
 
     if (tipoFiltroFecha === "dia" && fechaDia) {
       d = `${fechaDia}T00:00:00.000-06:00`;
       h = `${fechaDia}T23:59:59.999-06:00`;
+      const [y, m, day] = fechaDia.split('-');
+      const ultimoDia = new Date(Number(y), Number(m), 0).getDate();
+      rD = `${y}-${m}-01T00:00:00.000-06:00`;
+      rH = `${y}-${m}-${pad(ultimoDia)}T23:59:59.999-06:00`;
     } else if (tipoFiltroFecha === "semana") {
       const semanas = obtenerSemanasDelMes(activeMonth, activeYear);
+      const ultimoDia = new Date(activeYear, activeMonth + 1, 0).getDate();
+      const mesCompletoDesde = `${activeYear}-${pad(activeMonth + 1)}-01T00:00:00.000-06:00`;
+      const mesCompletoHasta = `${activeYear}-${pad(activeMonth + 1)}-${pad(ultimoDia)}T23:59:59.999-06:00`;
+      
+      rD = mesCompletoDesde;
+      rH = mesCompletoHasta;
+
       if (selectedWeekIndex === -1) {
-        const pad = (n: number) => n.toString().padStart(2, "0");
-        const ultimoDia = new Date(activeYear, activeMonth + 1, 0).getDate();
-        d = `${activeYear}-${pad(activeMonth + 1)}-01T00:00:00.000-06:00`;
-        h = `${activeYear}-${pad(activeMonth + 1)}-${pad(ultimoDia)}T23:59:59.999-06:00`;
+        d = mesCompletoDesde;
+        h = mesCompletoHasta;
       } else {
         const sem = semanas[selectedWeekIndex];
         if (sem) {
@@ -125,11 +137,17 @@ export function VerFinanzas() {
         }
       }
     } else if (tipoFiltroFecha === "rango") {
-      if (fechaRangoDesde) d = `${fechaRangoDesde}T00:00:00.000-06:00`;
-      if (fechaRangoHasta) h = `${fechaRangoHasta}T23:59:59.999-06:00`;
+      if (fechaRangoDesde) {
+        d = `${fechaRangoDesde}T00:00:00.000-06:00`;
+        rD = d;
+      }
+      if (fechaRangoHasta) {
+        h = `${fechaRangoHasta}T23:59:59.999-06:00`;
+        rH = h;
+      }
     }
 
-    return { desde: d, hasta: h };
+    return { desde: d, hasta: h, resumenDesde: rD, resumenHasta: rH };
   }, [tipoFiltroFecha, fechaDia, activeMonth, activeYear, selectedWeekIndex, fechaRangoDesde, fechaRangoHasta]);
 
   // Consultas a BD con React Query
@@ -142,7 +160,7 @@ export function VerFinanzas() {
     hasta
   });
   
-  const { data: resumen = { total_ingresos: 0, total_egresos: 0, balance: 0 } } = useResumenFinanciero();
+  const { data: resumen = { total_ingresos: 0, total_egresos: 0, balance: 0 } } = useResumenFinanciero(resumenDesde, resumenHasta);
   const { mutateAsync: anularMovimiento } = useEliminarMovimiento();
 
   const movimientos = listado?.data || [];
@@ -171,14 +189,19 @@ export function VerFinanzas() {
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ" }).format(amount);
 
-  const formatFecha = (fecha: string) =>
-    new Date(fecha).toLocaleDateString("es-ES", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+  const formatFecha = (fecha: string) => {
+    const d = new Date(fecha);
+    const weekDayStr = d.toLocaleString("es-GT", { weekday: "short" }).replace(/\./g, '');
+    const weekDay = weekDayStr.charAt(0).toUpperCase() + weekDayStr.slice(1);
+    const day = String(d.getDate()).padStart(2, "0");
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const year = String(d.getFullYear()).slice(-2);
+    const hours = d.getHours();
+    const minutes = String(d.getMinutes()).padStart(2, "0");
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const formattedHour = String(hours % 12 || 12).padStart(2, "0");
+    return `${weekDay} ${day}/${month}/${year} | ${formattedHour}:${minutes} ${ampm}`;
+  };
 
   const getCategoriaLabel = (categoria: string) =>
     CATEGORIA_LABELS[categoria as keyof typeof CATEGORIA_LABELS] ?? categoria.toUpperCase();

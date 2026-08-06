@@ -81,7 +81,17 @@ export async function obtenerMovimientosFinancieros(
 
     const { data, error, count } = await query;
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (error.code === 'PGRST103' || error.message.includes("Requested range not satisfiable")) {
+        return {
+          data: [],
+          count: 0,
+          page,
+          pageSize,
+        };
+      }
+      throw new Error(error.message);
+    }
 
     return {
       data: (data ?? []) as TransaccionFinanciera[],
@@ -97,20 +107,31 @@ export async function obtenerMovimientosFinancieros(
   }
 }
 
-export async function obtenerResumenFinanciero(): Promise<ResumenFinanciero> {
+export async function obtenerResumenFinanciero(desde?: string, hasta?: string): Promise<ResumenFinanciero> {
   try {
     const supabase = await createClient();
 
-    const { data, error } = await supabase.rpc("fin_obtener_resumen");
+    let query = supabase.from("fin_transacciones").select("tipo_movimiento, monto");
+
+    if (desde) query = query.gte("created_at", desde);
+    if (hasta) query = query.lte("created_at", hasta);
+
+    const { data, error } = await query;
 
     if (error) throw new Error(error.message);
 
-    const row = Array.isArray(data) ? data[0] : data;
+    let total_ingresos = 0;
+    let total_egresos = 0;
+
+    for (const row of (data || [])) {
+      if (row.tipo_movimiento === 'INGRESO' || row.tipo_movimiento === 'ingreso') total_ingresos += Number(row.monto);
+      if (row.tipo_movimiento === 'EGRESO' || row.tipo_movimiento === 'egreso') total_egresos += Number(row.monto);
+    }
 
     return {
-      total_ingresos: Number(row?.total_ingresos ?? 0),
-      total_egresos: Number(row?.total_egresos ?? 0),
-      balance: Number(row?.balance ?? 0),
+      total_ingresos,
+      total_egresos,
+      balance: total_ingresos - total_egresos,
     };
   } catch (error: unknown) {
     console.error("Error en obtenerResumenFinanciero:", error);

@@ -28,10 +28,10 @@ export function useMovimientosFinancieros(params: ObtenerMovimientosParams) {
   });
 }
 
-export function useResumenFinanciero() {
+export function useResumenFinanciero(desde?: string, hasta?: string) {
   return useQuery({
-    queryKey: FINANZAS_KEYS.resumen(),
-    queryFn: () => obtenerResumenFinanciero(),
+    queryKey: [...FINANZAS_KEYS.resumen(), { desde, hasta }],
+    queryFn: () => obtenerResumenFinanciero(desde, hasta),
     staleTime: 1000 * 60, // 1 minuto
   });
 }

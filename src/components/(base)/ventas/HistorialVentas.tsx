@@ -15,6 +15,20 @@ interface HistorialVentasProps {
   onShareWhatsApp: (venta: any) => void;
 }
 
+function formatCustomDate(dateString: string) {
+  const d = new Date(dateString);
+  const weekDayStr = d.toLocaleString("es-GT", { weekday: "short" }).replace(/\./g, '');
+  const weekDay = weekDayStr.charAt(0).toUpperCase() + weekDayStr.slice(1);
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const year = String(d.getFullYear()).slice(-2);
+  const hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const formattedHour = String(hours % 12 || 12).padStart(2, "0");
+  return `${weekDay} ${day}/${month}/${year} | ${formattedHour}:${minutes} ${ampm}`;
+}
+
 export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasProps) {
   const { data: historialData = [], isLoading } = useHistorialVentas();
 
@@ -24,19 +38,21 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
   
   // Filtros de Fecha
   const [tipoFiltroFecha, setTipoFiltroFecha] = useState<"dia" | "semana" | "rango">("dia");
-  const [fechaDia, setFechaDia] = useState<string>("");
+  const [fechaDia, setFechaDia] = useState<string>(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  });
   const [fechaRangoDesde, setFechaRangoDesde] = useState<string>("");
   const [fechaRangoHasta, setFechaRangoHasta] = useState<string>("");
 
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
   const [activeYear, setActiveYear] = useState(new Date().getFullYear());
-  const [selectedWeekIndex, setSelectedWeekIndex] = useState(-1);
   const [mostrarMesDropdown, setMostrarMesDropdown] = useState(false);
   const [mostrarSemanaDropdown, setMostrarSemanaDropdown] = useState(false);
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
 
   const [ventaDetalleSeleccionada, setVentaDetalleSeleccionada] = useState<any | null>(null);
 
@@ -66,74 +82,43 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
       if (d < fechaRangoDesde || d > fechaRangoHasta) return false;
     } else if (tipoFiltroFecha === "semana") {
       const vTime = new Date(v.created_at).getTime();
-      if (selectedWeekIndex === -1) {
-        const start = new Date(activeYear, activeMonth, 1).getTime();
-        const end = new Date(activeYear, activeMonth + 1, 0, 23, 59, 59).getTime();
-        if (vTime < start || vTime > end) return false;
-      } else {
-        const semanas = obtenerSemanasDelMes(activeMonth, activeYear);
-        const sem = semanas[selectedWeekIndex];
-        if (sem) {
-          const start = new Date(sem.desde + "T00:00:00").getTime();
-          const end = new Date(sem.hasta + "T23:59:59").getTime();
-          if (vTime < start || vTime > end) return false;
-        }
-      }
+      const start = new Date(activeYear, activeMonth, 1).getTime();
+      const end = new Date(activeYear, activeMonth + 1, 0, 23, 59, 59).getTime();
+      if (vTime < start || vTime > end) return false;
     }
 
     return true;
   });
+
+  const totalVentas = filtered.reduce((sum, v) => sum + (Number(v.total) || 0), 0);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="flex flex-col flex-1 min-w-0 bg-white dark:bg-zinc-900 border-y md:border border-zinc-200 dark:border-zinc-800 md:rounded-3xl p-5 overflow-hidden shadow-sm">
-      <div className="flex flex-col md:flex-row gap-4 mb-4">
-        {/* Buscador */}
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
-          <input
-            type="text"
-            placeholder="Buscar por recibo, cliente o notas de venta..."
-            value={busquedaHistorial}
-            onChange={(e) => {
-              setBusquedaHistorial(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 transition-all"
-          />
-        </div>
-
-        {/* Switch de pago */}
-        <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit h-[46px] items-center shrink-0">
-          {[
-            { id: "todos", label: "Todos" },
-            { id: "contado", label: "Contado" },
-            { id: "credito", label: "Crédito" }
-          ].map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => {
-                setTipoPagoSwitch(opt.id as any);
+      <div className="flex flex-col xl:flex-row gap-4 mb-4 justify-between items-start">
+        
+        {/* Lado Izquierdo: Buscador y Filtros de Fecha */}
+        <div className="flex flex-col gap-4 flex-1 w-full xl:w-auto">
+          {/* Buscador */}
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
+            <input
+              type="text"
+              placeholder="Buscar por recibo, cliente o notas de venta..."
+              value={busquedaHistorial}
+              onChange={(e) => {
+                setBusquedaHistorial(e.target.value);
                 setCurrentPage(1);
               }}
-              className={cn(
-                "px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer relative h-[38px]",
-                tipoPagoSwitch === opt.id
-                  ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
+              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 transition-all"
+            />
+          </div>
 
-      <div className="flex flex-row gap-3 items-center bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-left w-fit flex-wrap max-w-full mb-4">
-        <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Filtros de Fecha */}
+          <div className="flex flex-row gap-3 items-center bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-left w-fit flex-wrap max-w-full">
+            <div className="flex items-center gap-1.5 flex-wrap">
           {[
             { id: "dia", label: "Día" },
             { id: "semana", label: "Mes" },
@@ -145,7 +130,6 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
               onClick={() => {
                 setTipoFiltroFecha(opt.id as any);
                 setCurrentPage(1);
-                if (opt.id === "semana") setSelectedWeekIndex(0);
               }}
               className={cn(
                 "px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer",
@@ -171,11 +155,11 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
               <motion.div key="semana" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-row items-center gap-2">
                 {/* Mes selector */}
                 <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-1.5 py-0.5 h-[34px] shrink-0">
-                  <button onClick={() => { activeMonth === 0 ? (setActiveMonth(11), setActiveYear(activeYear - 1)) : setActiveMonth(activeMonth - 1); setCurrentPage(1); }} className="size-4.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-zinc-500 cursor-pointer">
+                  <button onClick={() => { activeMonth === 0 ? (setActiveMonth(11), setActiveYear(activeYear - 1)) : setActiveMonth(activeMonth - 1); setCurrentPage(1); }} className="size-4.5 rounded flex items-center justify-center text-zinc-500 cursor-pointer">
                     <ChevronLeft className="size-3" />
                   </button>
                   <div className="relative">
-                    <button onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)} className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 px-2 py-1 flex items-center gap-1 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-850 rounded-lg transition-colors">
+                    <button onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)} className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 px-2 py-1 flex items-center gap-1 cursor-pointer rounded-lg transition-colors">
                       <Calendar className="size-3 text-[#8DA78E]" /> {new Date(activeYear, activeMonth).toLocaleString("es-GT", { month: "short" })} {activeYear}
                     </button>
                     <AnimatePresence>
@@ -196,7 +180,6 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                               type="button"
                               onClick={() => {
                                 setActiveMonth(mIdx);
-                                setSelectedWeekIndex(-1);
                                 setCurrentPage(1);
                                 setMostrarMesDropdown(false);
                               }}
@@ -213,7 +196,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                       )}
                     </AnimatePresence>
                   </div>
-                  <button onClick={() => { activeMonth === 11 ? (setActiveMonth(0), setActiveYear(activeYear + 1)) : setActiveMonth(activeMonth + 1); setCurrentPage(1); }} className="size-4.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-zinc-500 cursor-pointer">
+                  <button onClick={() => { activeMonth === 11 ? (setActiveMonth(0), setActiveYear(activeYear + 1)) : setActiveMonth(activeMonth + 1); setCurrentPage(1); }} className="size-4.5 rounded flex items-center justify-center text-zinc-500 cursor-pointer">
                     <ChevronRight className="size-3" />
                   </button>
                 </div>
@@ -230,6 +213,43 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
             )}
           </AnimatePresence>
         </div>
+        </div>
+      </div>
+
+      {/* Lado Derecho: Switch de Pago y Total Vendido */}
+        <div className="flex flex-col gap-4 shrink-0 w-full xl:w-auto mt-4 xl:mt-0 items-end xl:items-start">
+          {/* Switch de pago */}
+          <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit h-[46px] items-center">
+            {[
+              { id: "todos", label: "Todos" },
+              { id: "contado", label: "Contado" },
+              { id: "credito", label: "Crédito" }
+            ].map((opt) => (
+              <button
+                key={opt.id}
+                type="button"
+                onClick={() => {
+                  setTipoPagoSwitch(opt.id as any);
+                  setCurrentPage(1);
+                }}
+                className={cn(
+                  "px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer relative h-[38px]",
+                  tipoPagoSwitch === opt.id
+                    ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
+                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          {filtered.length > 0 && (
+            <div className="flex items-center justify-center bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 w-full shadow-sm h-[58px]">
+              <span className="text-xl font-black text-[#3B523D] dark:text-[#A0BCA2]">Total:</span>
+              <span className="text-[#8DA78E] ml-2 text-xl font-black tracking-wide">{fmtQ(totalVentas)}</span>
+            </div>
+          )}
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scrollbar w-full min-h-[400px]">
@@ -244,9 +264,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
             {/* Vista Mobile (Tarjetas) */}
             <div className="md:hidden flex flex-col gap-3">
               {paginatedData.map((v) => {
-                const date = new Date(v.created_at).toLocaleString("es-GT", {
-                  day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
-                });
+                const date = formatCustomDate(v.created_at);
                 return (
                   <div key={v.id} className={cn("bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-sm relative overflow-hidden", v.observaciones?.includes("[ANULADA]") && "border-rose-200 bg-rose-50/30 dark:bg-rose-900/10")}>
                     <div className="flex items-center justify-between">
@@ -286,11 +304,11 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                         <button onClick={() => setVentaDetalleSeleccionada(v)} className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-[#8DA78E] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase">
                           Detalle
                         </button>
-                        <button onClick={() => onPrint(v, [])} className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg transition-colors cursor-pointer">
-                          <Printer className="size-4" />
+                        <button onClick={() => onPrint(v, [])} className="px-6 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg transition-colors cursor-pointer">
+                          <Printer className="size-5" />
                         </button>
-                        <button onClick={() => onShareWhatsApp(v)} className="p-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors cursor-pointer">
-                          <MessageCircle className="size-4" />
+                        <button onClick={() => onShareWhatsApp(v)} className="px-6 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors cursor-pointer">
+                          <MessageCircle className="size-5" />
                         </button>
                       </div>
                     </div>
@@ -315,9 +333,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                 </thead>
                 <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
                   {paginatedData.map((v) => {
-                    const date = new Date(v.created_at).toLocaleString("es-GT", {
-                      day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
-                    });
+                    const date = formatCustomDate(v.created_at);
                     return (
                       <tr
                         key={v.id}
@@ -358,17 +374,17 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                             </button>
                             <button
                               onClick={() => onPrint(v, [])}
-                              className="p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg transition-colors cursor-pointer"
+                              className="px-6 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg transition-colors cursor-pointer"
                               title="Imprimir directamente"
                             >
-                              <Printer className="size-4" />
+                              <Printer className="size-5" />
                             </button>
                             <button
                               onClick={() => onShareWhatsApp(v)}
-                              className="p-1.5 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer"
+                              className="px-6 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer"
                               title="Compartir por WhatsApp"
                             >
-                              <MessageCircle className="size-4" />
+                              <MessageCircle className="size-5" />
                             </button>
                           </div>
                         </td>

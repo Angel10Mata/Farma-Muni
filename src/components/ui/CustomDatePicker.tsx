@@ -379,7 +379,7 @@ export const CustomDatePicker = ({
                           : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
                       )}
                     >
-                      {nombresMeses[idx]}
+                      {nombresMesesCortos[idx]}
                     </button>
                   );
                 })}

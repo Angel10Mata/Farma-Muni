@@ -580,7 +580,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
           <button
             onClick={() => pos.setActiveTab("pos")}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              pos.activeTab === "pos" ? "bg-[#8DA78E] text-[#F5F5F1] shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              pos.activeTab === "pos" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
             }`}
           >
             Punto de Venta
@@ -588,7 +588,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
           <button
             onClick={() => pos.setActiveTab("historial")}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              pos.activeTab === "historial" ? "bg-[#8DA78E] text-[#F5F5F1] shadow-xs" : "text-slate-600 dark:text-slate-400 hover:text-slate-900"
+              pos.activeTab === "historial" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
             }`}
           >
             Historial de Ventas
