@@ -25,7 +25,7 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
   const sugerenciasProveedores = proveedores.filter((p) => {
     if (!context.proveedorBusqueda) return false;
     const q = context.proveedorBusqueda.toLowerCase();
-    return p.nombre.toLowerCase().includes(q) || (p.nit && p.nit.toLowerCase().includes(q));
+    return (p.nombre || "").toLowerCase().includes(q) || (p.nit && p.nit.toLowerCase().includes(q));
   });
 
   useEffect(() => {

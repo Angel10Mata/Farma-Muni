@@ -20,7 +20,7 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
   const sugerenciasProductos = productos.filter((p) => {
     if (!context.productoBusqueda) return false;
     const q = context.productoBusqueda.toLowerCase();
-    return p.nombre.toLowerCase().includes(q) || (p.codigo && p.codigo.toLowerCase().includes(q));
+    return (p.nombre || "").toLowerCase().includes(q) || (p.codigo && p.codigo.toLowerCase().includes(q));
   });
 
   useEffect(() => {

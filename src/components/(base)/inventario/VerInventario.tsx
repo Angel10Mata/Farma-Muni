@@ -997,8 +997,8 @@ export function VerInventario() {
 
   const productosFiltrados = productos.filter((p) => {
     const matchesSearch =
-      p.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      p.codigo.toLowerCase().includes(busqueda.toLowerCase());
+      (p.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) ||
+      (p.codigo || "").toLowerCase().includes(busqueda.toLowerCase());
 
     const matchesStock = !filtroStockBajo || p.stock_actual <= p.stock_minimo;
 

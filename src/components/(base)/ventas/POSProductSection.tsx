@@ -25,7 +25,7 @@ export function POSProductSection({ productos, clientes }: POSProductSectionProp
     if (!pos.clienteBusqueda || pos.clienteBusqueda === "Consumidor Final") return false;
     const query = pos.clienteBusqueda.toLowerCase();
     return (
-      c.nombre.toLowerCase().includes(query) ||
+      (c.nombre || "").toLowerCase().includes(query) ||
       (c.nit && c.nit.toLowerCase().includes(query))
     );
   });
@@ -34,7 +34,7 @@ export function POSProductSection({ productos, clientes }: POSProductSectionProp
     if (!pos.productoBusqueda) return false;
     const query = pos.productoBusqueda.toLowerCase();
     return (
-      p.nombre.toLowerCase().includes(query) ||
+      (p.nombre || "").toLowerCase().includes(query) ||
       (p.codigo && p.codigo.toLowerCase().includes(query))
     );
   });

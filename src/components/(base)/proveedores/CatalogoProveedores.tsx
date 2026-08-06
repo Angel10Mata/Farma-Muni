@@ -71,7 +71,7 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
 
   const proveedoresFiltrados = proveedores.filter((p) => {
     const q = proveedorBusqueda.toLowerCase();
-    return p.nombre.toLowerCase().includes(q) || (p.nit && p.nit.toLowerCase().includes(q));
+    return (p.nombre || "").toLowerCase().includes(q) || (p.nit && p.nit.toLowerCase().includes(q));
   });
 
   return (

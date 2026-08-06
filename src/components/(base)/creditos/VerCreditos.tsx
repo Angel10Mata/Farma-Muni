@@ -62,13 +62,13 @@ export function VerCreditos() {
     const isActivo = tab === "cobrar" 
       ? (c.estado !== "Solventado" && c.saldo_pendiente > 0)
       : (c.estado === "Solventado" || c.saldo_pendiente <= 0);
-    return isActivo && (c.nombre.toLowerCase().includes(busqueda.toLowerCase()) || c.nit.includes(busqueda));
+    return isActivo && ((c.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) || (c.nit || "").includes(busqueda));
   });
 
   const creditosOrdenados = [...creditosFiltrados].sort((a, b) => {
     if (criterioOrden === "saldo-desc") return b.saldo_pendiente - a.saldo_pendiente;
     if (criterioOrden === "saldo-asc") return a.saldo_pendiente - b.saldo_pendiente;
-    if (criterioOrden === "nombre-asc") return a.nombre.localeCompare(b.nombre);
+    if (criterioOrden === "nombre-asc") return (a.nombre || "").localeCompare(b.nombre || "");
     return 0;
   });
 

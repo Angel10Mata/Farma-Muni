@@ -593,17 +593,18 @@ export function VerClientes() {
   const { data: clientes = [], isLoading, refetch } = useClientes();
 
   const clientesFiltrados = clientes.filter((c) => {
+    const q = busqueda.toLowerCase();
     return (
-      c.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
-      c.email.toLowerCase().includes(busqueda.toLowerCase()) ||
-      c.telefono.includes(busqueda) ||
-      c.nit.includes(busqueda)
+      (c.nombre || "").toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q) ||
+      (c.telefono || "").includes(busqueda) ||
+      (c.nit || "").includes(busqueda)
     );
   });
 
   const clientesOrdenados = [...clientesFiltrados].sort((a, b) => {
-    if (criterioOrden === "nombre-asc") return a.nombre.localeCompare(b.nombre);
-    if (criterioOrden === "nombre-desc") return b.nombre.localeCompare(a.nombre);
+    if (criterioOrden === "nombre-asc") return (a.nombre || "").localeCompare(b.nombre || "");
+    if (criterioOrden === "nombre-desc") return (b.nombre || "").localeCompare(a.nombre || "");
     if (criterioOrden === "compras-desc") return b.totalCompras - a.totalCompras;
     if (criterioOrden === "saldo-asc") return a.saldo - b.saldo;
     if (criterioOrden === "saldo-desc") return b.saldo - a.saldo;
