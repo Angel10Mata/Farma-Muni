@@ -1140,7 +1140,7 @@ export function VerInventario() {
   };
 
   return (
-    <div className="w-full flex flex-col gap-6 p-0 md:p-6 pt-32 md:pt-24 min-h-screen">
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
       {/* Header */}
       <div className="flex items-center justify-between gap-4 px-2.5 md:px-0">
         <div className="flex items-center gap-3">
@@ -1214,15 +1214,17 @@ export function VerInventario() {
         <div className="flex flex-wrap md:flex-nowrap items-center gap-2 w-full md:w-auto pb-1 md:pb-0 select-none justify-end">
           {/* Filtro por Ubicación */}
           {ubicacionesUnicas.length > 0 && (
-            <LocationFilterDropdown
-              selectedLocation={filtroUbicacion}
-              onSelectLocation={(loc) => {
-                setFiltroUbicacion(loc);
-                setCurrentPage(1);
-              }}
-              locations={ubicacionesUnicas}
-              products={productos}
-            />
+            <div className="w-full md:w-auto flex justify-center md:block">
+              <LocationFilterDropdown
+                selectedLocation={filtroUbicacion}
+                onSelectLocation={(loc) => {
+                  setFiltroUbicacion(loc);
+                  setCurrentPage(1);
+                }}
+                locations={ubicacionesUnicas}
+                products={productos}
+              />
+            </div>
           )}
 
           <div className="grid grid-cols-3 md:flex gap-2 w-full md:w-auto shrink-0">
@@ -1258,7 +1260,7 @@ export function VerInventario() {
 
             <button
               onClick={handleExportarPDF}
-              className="w-fit max-w-full md:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border border-[#C1D1C5] dark:border-[#A3BEB0]/30 text-[#525D53] dark:text-[#A3BEB0] transition-all flex items-center gap-1 text-[11px] md:text-xs font-bold shrink-0 cursor-pointer"
+              className="w-full md:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border border-[#C1D1C5] dark:border-[#A3BEB0]/30 text-[#525D53] dark:text-[#A3BEB0] transition-all flex items-center gap-1 text-[11px] md:text-xs font-bold shrink-0 cursor-pointer"
             >
               <Download className="size-3 md:size-3.5" /> Exportar
             </button>

@@ -17,6 +17,7 @@ import {
   ChevronRight,
   ChevronDown,
   Check,
+  MoreVertical,
 } from "lucide-react";
 import Swal from "sweetalert2";
 import { getSwalThemeOpts } from "@/lib/utils";
@@ -46,6 +47,7 @@ export function VerFinanzas() {
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("todos");
+  const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
   
   const [showNuevoMovimiento, setShowNuevoMovimiento] = useState(false);
   const [defaultTipo, setDefaultTipo] = useState<"ingreso" | "egreso">("ingreso");
@@ -209,7 +211,7 @@ export function VerFinanzas() {
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / pageSize));
 
   return (
-    <div className="w-full flex flex-col gap-6 p-0 md:p-6 pt-32 md:pt-24 min-h-screen relative">
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
       {/* Header */}
       <div className="flex flex-col gap-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-4 md:px-0">
@@ -256,7 +258,7 @@ export function VerFinanzas() {
                 Total Ingresos
               </h3>
             </div>
-            <p className="text-base md:text-2xl font-black text-[#8DA78E] truncate">
+            <p className="text-[12px] min-[380px]:text-sm sm:text-base md:text-2xl font-black text-[#8DA78E] tracking-tighter break-words whitespace-normal leading-tight">
               {formatMoney(resumen.total_ingresos)}
             </p>
           </div>
@@ -270,7 +272,7 @@ export function VerFinanzas() {
                 Total Egresos
               </h3>
             </div>
-            <p className="text-base md:text-2xl font-black text-rose-500 truncate">{formatMoney(resumen.total_egresos)}</p>
+            <p className="text-[12px] min-[380px]:text-sm sm:text-base md:text-2xl font-black text-rose-500 tracking-tighter break-words whitespace-normal leading-tight">{formatMoney(resumen.total_egresos)}</p>
           </div>
 
           <div className="bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 rounded-2xl p-3 md:p-5 shadow-sm relative overflow-hidden">
@@ -284,7 +286,7 @@ export function VerFinanzas() {
             </div>
             <p
               className={cn(
-                "text-base md:text-2xl font-black truncate",
+                "text-[12px] min-[380px]:text-sm sm:text-base md:text-2xl font-black tracking-tighter break-words whitespace-normal leading-tight",
                 resumen.balance >= 0 ? "text-zinc-900 dark:text-white" : "text-rose-500"
               )}
             >
@@ -554,72 +556,72 @@ export function VerFinanzas() {
                           "relative border rounded-xl p-3 flex gap-3 items-center min-h-[88px] transition-all bg-white dark:bg-[#525D53]/10 border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20 hover:border-[#8DA78E] dark:hover:border-[#A3BEB0]/60"
                         )}
                       >
-                        <div className={cn(
-                          "shrink-0 size-10 rounded-xl flex items-center justify-center border",
-                          isIngreso 
-                            ? "bg-[#8DA78E]/10 border-[#8DA78E]/20 text-[#8DA78E] dark:text-[#A3BEB0]" 
-                            : "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-800/30 text-rose-500"
-                        )}>
-                          {isIngreso ? <TrendingUp className="size-5" /> : <TrendingDown className="size-5" />}
-                        </div>
-
-                        <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
-                          <div>
-                            <div className="flex items-start justify-between gap-1.5">
+                        <div className="flex-1 min-w-0 flex flex-col justify-center">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex flex-col gap-1 min-w-0 flex-1">
                               <h3 className={cn(
                                 "font-black text-xs truncate uppercase leading-tight",
-                                mov.monto < 0 ? "text-rose-600 dark:text-rose-400" : "text-slate-900 dark:text-white"
+                                "text-slate-900 dark:text-white"
                               )}>
                                 {mov.descripcion}
                               </h3>
+                              <span className="text-[10px] text-slate-500 font-medium truncate">
+                                {dateFormatted}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-1.5 shrink-0">
                               <span className={cn(
-                                "text-[8px] sm:text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0 leading-none",
-                                isIngreso 
-                                  ? "bg-[#8DA78E]/10 text-[#8DA78E] dark:text-[#A3BEB0]" 
-                                  : "bg-rose-500/10 text-rose-500"
+                                "font-black text-[13px] tabular-nums tracking-tight leading-tight",
+                                mov.monto < 0 ? "text-rose-600" : (isIngreso ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-rose-500")
                               )}>
+                                {isIngreso ? (mov.monto < 0 ? "-" : "+") : (mov.monto < 0 ? "+" : "-")}
+                                {formatMoney(Math.abs(mov.monto))}
+                              </span>
+                              <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                                 {getCategoriaLabel(mov.categoria)}
                               </span>
                             </div>
-                            
-                            <div className="flex items-center gap-1.5 text-[9px] font-mono text-slate-500 mt-1">
-                              <Calendar className="size-3 text-slate-400 shrink-0" />
-                              <span className="truncate">{dateFormatted}</span>
-                            </div>
                           </div>
+                        </div>
 
-                          <div className="mt-2 flex items-center justify-between gap-2 pt-1 border-t border-[#C1D1C5]/20 dark:border-[#A3BEB0]/10">
-                            <div className="flex gap-3 text-[9px] leading-none">
-                              <div>
-                                <span className="text-[#525D53]/60 dark:text-[#A3BEB0]/50 font-bold uppercase">Monto:</span>
-                                <span className={cn(
-                                  "font-black ml-1 tabular-nums tracking-tight",
-                                  mov.monto < 0 ? "text-rose-600" : (isIngreso ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-rose-500")
-                                )}>
-                                  {isIngreso ? (mov.monto < 0 ? "-" : "+") : (mov.monto < 0 ? "+" : "-")}
-                                  {formatMoney(Math.abs(mov.monto))}
-                                </span>
-                              </div>
-                              <div>
-                                <span className="text-[#525D53]/60 dark:text-[#A3BEB0]/50 font-bold uppercase">Saldo:</span>
-                                <span className="font-semibold ml-1 text-zinc-500 dark:text-zinc-400 tabular-nums tracking-tight">
-                                  {formatMoney(mov.saldo_nuevo)}
-                                </span>
-                              </div>
+                        <div className="shrink-0 relative">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(activeMenuId === mov.id ? null : mov.id);
+                            }}
+                            className="p-1 rounded-md text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                          >
+                            <MoreVertical className="size-4" />
+                          </button>
+                          
+                          {activeMenuId === mov.id && (
+                            <div className="absolute right-0 top-full mt-1 bg-white dark:bg-zinc-800 shadow-lg border border-slate-200 dark:border-slate-700 rounded-lg p-1 z-50 min-w-[110px]">
+                              <button
+                                onClick={() => {
+                                  setActiveMenuId(null);
+                                  Swal.fire({
+                                    title: "¿Anular registro?",
+                                    text: `Se creará un registro inverso para anular: "${mov.descripcion}". Esta acción no se puede deshacer.`,
+                                    icon: "warning",
+                                    showCancelButton: true,
+                                    confirmButtonText: "Sí, anular",
+                                    cancelButtonText: "Cancelar",
+                                    ...getSwalThemeOpts()
+                                  }).then((result) => {
+                                    if (result.isConfirmed) {
+                                      handleDelete(mov.id);
+                                    }
+                                  });
+                                }}
+                                className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-md cursor-pointer"
+                              >
+                                <Trash2 className="size-3.5" /> Anular
+                              </button>
                             </div>
-
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setDeleteId(mov.id);
-                                setDeleteDesc(mov.descripcion);
-                              }}
-                              className="p-1 rounded-lg text-zinc-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10 transition-all cursor-pointer shrink-0"
-                              title="Anular registro"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </button>
-                          </div>
+                          )}
                         </div>
                       </motion.div>
                     );
@@ -633,7 +635,6 @@ export function VerFinanzas() {
                         <th className="px-5 py-3.5">Fecha</th>
                         <th className="px-5 py-3.5">Concepto / Categoría</th>
                         <th className="px-5 py-3.5 text-right">Monto</th>
-                        <th className="px-5 py-3.5 text-right">Saldo</th>
                         <th className="px-5 py-3.5 text-center">
                           <span className="sr-only">Acciones</span>
                         </th>
@@ -664,11 +665,6 @@ export function VerFinanzas() {
                                 {mov.descripcion}
                               </span>
                               <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1 sm:gap-1.5">
-                                {mov.tipo_movimiento === "ingreso" ? (
-                                  <TrendingUp className="size-2.5 sm:size-3 text-[#8DA78E] shrink-0" />
-                                ) : (
-                                  <TrendingDown className="size-2.5 sm:size-3 text-rose-500 shrink-0" />
-                                )}
                                 <span className="truncate">{getCategoriaLabel(mov.categoria)}</span>
                               </span>
                             </div>
@@ -684,11 +680,7 @@ export function VerFinanzas() {
                               {formatMoney(Math.abs(mov.monto))}
                             </span>
                           </td>
-                          <td className="px-2 sm:px-5 py-3 sm:py-4 text-right align-top sm:align-middle whitespace-nowrap">
-                            <span className="text-[10px] sm:text-xs font-semibold text-zinc-500 dark:text-zinc-400 tabular-nums tracking-tight">
-                              {formatMoney(mov.saldo_nuevo)}
-                            </span>
-                          </td>
+
                           <td className="px-1 sm:px-5 py-3 sm:py-4 text-center align-top sm:align-middle">
                             <button
                               type="button"

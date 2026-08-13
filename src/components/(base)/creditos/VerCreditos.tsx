@@ -110,7 +110,7 @@ export function VerCreditos() {
   };
 
   return (
-    <div className="w-full flex flex-col gap-6 p-4 md:p-6 pt-32 md:pt-24 min-h-screen relative overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
       <div className="flex items-center justify-between gap-4 w-full">
         <div className="flex items-center gap-4">
           <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center">

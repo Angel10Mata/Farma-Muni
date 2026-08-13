@@ -425,7 +425,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
   };
 
   return (
-    <div className="w-full flex flex-col gap-6 p-4 md:p-6 pt-32 md:pt-24 min-h-screen">
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
       <CrearCliente
         isOpen={pos.isCrearClienteOpen}
         onClose={() => pos.setIsCrearClienteOpen(false)}
@@ -644,7 +644,7 @@ export function VerVentas() {
 
   if (isLoading) {
     return (
-      <div className="w-full flex flex-col gap-6 p-4 md:p-6 pt-32 md:pt-24 min-h-screen items-center justify-center">
+      <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen items-center justify-center">
         <div className="size-8 rounded-full border-4 border-slate-200 border-t-[#8DA78E] animate-spin" />
         <p className="text-slate-500 font-mono animate-pulse">Cargando POS...</p>
       </div>
@@ -653,7 +653,7 @@ export function VerVentas() {
 
   if (isError) {
     return (
-      <div className="w-full flex flex-col gap-6 p-4 md:p-6 pt-32 md:pt-24 min-h-screen items-center justify-center">
+      <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen items-center justify-center">
         <p className="text-red-500 font-mono bg-red-50 px-4 py-2 rounded-lg border border-red-200">
           Error al cargar datos del POS: {error instanceof Error ? error.message : "Desconocido"}
         </p>

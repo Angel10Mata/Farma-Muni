@@ -56,7 +56,7 @@ function VerProveedoresInner() {
   }
 
   return (
-    <div className="w-full flex flex-col gap-6 p-4 md:p-6 pt-32 md:pt-24 flex-1 min-h-0 h-screen">
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 flex-1 min-h-0 h-screen">
       {/* Header & Tabs */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between px-1">
         

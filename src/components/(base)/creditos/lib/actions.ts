@@ -16,13 +16,48 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
 
     if (cliError) throw new Error(cliError.message);
 
-    // 2. Get all credit sales and their payments
+    // 2. Get all credit sales (without nested join to avoid timeout)
     const { data: ventasData, error: ventasError } = await supabase
       .from("ventas")
-      .select("id, cliente_id, total, tipo_venta, created_at, fin_transacciones(monto, categoria, fecha_movimiento)")
-      .eq("tipo_venta", "Crédito");
+      .select("id, cliente_id, total, tipo_venta, created_at")
+      .eq("tipo_venta", "Crédito")
+      .order("created_at", { ascending: false })
+      .limit(2000);
 
     if (ventasError) throw new Error(ventasError.message);
+
+    // 3. Get all transactions related to those sales (abonos and ventas)
+    const ventasIds = ventasData ? ventasData.map((v: any) => v.id) : [];
+    let transaccionesData: any[] = [];
+    
+    if (ventasIds.length > 0) {
+      // Chunk the IDs to avoid URL too long / query size limits
+      const CHUNK_SIZE = 200;
+      for (let i = 0; i < ventasIds.length; i += CHUNK_SIZE) {
+        const chunk = ventasIds.slice(i, i + CHUNK_SIZE);
+        const { data: chunkData, error: chunkError } = await supabase
+          .from("fin_transacciones")
+          .select("venta_id, monto, categoria, fecha_movimiento")
+          .in("venta_id", chunk)
+          .in("categoria", ["abono_cliente", "venta"]);
+
+        if (chunkError) throw new Error(chunkError.message);
+        if (chunkData) {
+          transaccionesData = [...transaccionesData, ...chunkData];
+        }
+      }
+    }
+
+    // Group transactions by venta_id for quick lookup
+    const transaccionesPorVenta = new Map<string, any[]>();
+    if (transaccionesData) {
+      for (const t of transaccionesData) {
+        if (!t.venta_id) continue;
+        const current = transaccionesPorVenta.get(t.venta_id) || [];
+        current.push(t);
+        transaccionesPorVenta.set(t.venta_id, current);
+      }
+    }
 
     const clientCreditosMap = new Map<string, CreditoResumen>();
 
@@ -50,11 +85,8 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
 
         c.total_consumido += v.total || 0;
 
-        const abonos = v.fin_transacciones
-          ? v.fin_transacciones
-              .filter((t: any) => t.categoria === "abono_cliente" || t.categoria === "venta")
-              .reduce((sum: number, t: any) => sum + Number(t.monto), 0)
-          : 0;
+        const transacciones = transaccionesPorVenta.get(v.id) || [];
+        const abonos = transacciones.reduce((sum: number, t: any) => sum + Number(t.monto), 0);
 
         const saldoVenta = Math.max(0, (v.total || 0) - abonos);
         c.saldo_pendiente += saldoVenta;

@@ -660,7 +660,7 @@ export function VerClientes() {
   };
 
   return (
-    <div className="w-full flex flex-col gap-6 p-4 md:p-6 pt-32 md:pt-24 min-h-screen">
+    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
       <div className="flex items-center justify-between gap-4 w-full">
         <div className="flex items-center gap-4">
           <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center overflow-hidden">
@@ -692,12 +692,12 @@ export function VerClientes() {
             className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/30 focus:border-[#8DA78E] transition-all"
           />
         </div>
-        <div className="flex gap-2 shrink-0">
+        <div className="flex gap-2 shrink-0 w-full sm:w-auto">
           <Select
             value={criterioOrden}
             onValueChange={(val) => setCriterioOrden(val as typeof criterioOrden)}
           >
-            <SelectTrigger className="w-[280px] h-10 rounded-xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-white focus:ring-1 focus:ring-[#8DA78E] shadow-sm">
+            <SelectTrigger className="flex-1 sm:flex-none w-full sm:w-[280px] h-10 rounded-xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-white focus:ring-1 focus:ring-[#8DA78E] shadow-sm">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-zinc-950 shadow-md">
@@ -710,9 +710,9 @@ export function VerClientes() {
           </Select>
           <button
             onClick={handleExportarPDF}
-            className="px-4 py-2.5 rounded-xl border border-[#C1D1C5] dark:border-[#A3BEB0]/30 text-[#525D53] dark:text-[#A3BEB0] transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
+            className="px-8 py-2.5 rounded-xl border border-[#C1D1C5] dark:border-[#A3BEB0]/30 text-[#525D53] dark:text-[#A3BEB0] transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
           >
-            <Download className="size-3.5" /> Exportar PDF
+            <Download className="size-3.5" /> PDF
           </button>
         </div>
       </div>
