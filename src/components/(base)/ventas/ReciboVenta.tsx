@@ -1,5 +1,5 @@
 import { cn, fmtQ } from "@/lib/utils";
-import { formatFechaRecibo, formatMonedaRecibo, obtenerCodigoRecibo } from "./recibo-utils";
+import { formatFechaRecibo, formatMonedaRecibo, obtenerCodigoRecibo } from "./lib/helpers";
 
 export interface ReciboVentaItem {
   cantidad: number;

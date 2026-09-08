@@ -2,10 +2,12 @@
 
 import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Plus, Minus, Trash2, Receipt } from "lucide-react";
-import Swal from "sweetalert2";
+import { Search, Minus, Trash2, Receipt, Plus as PlusIcon } from "lucide-react";
+import { Plus, CirclePlus } from "lucide";
+import { toast } from "react-toastify";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { useCompras } from "./ComprasContext";
-import { Producto, Proveedor } from "./types";
+import { Producto, Proveedor } from "./lib/zod";
 import { fmtQ } from "@/lib/utils";
 
 interface ComprasProductSectionProps {
@@ -44,17 +46,6 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
     }
   };
 
-  const getSwalThemeOpts = () => {
-    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-    return {
-      background: isDark ? "#18181b" : "#F5F5F1",
-      color: isDark ? "#F5F5F1" : "#525D53",
-      confirmButtonColor: "#8DA78E",
-      cancelButtonColor: "#525D53",
-      customClass: { popup: "!rounded-3xl border-0" }
-    };
-  };
-
   const handleScanBarcode = (product: Producto) => {
     const cant = 1;
     const costo = product.precio_costo ?? product.precio_base ?? 1;
@@ -73,18 +64,7 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
     context.setCantSeleccionada(1);
     context.setCostoSeleccionado("");
 
-    Swal.fire({
-      toast: true,
-      position: "top-end",
-      title: "Producto escaneado",
-      text: `${product.nombre} agregado al pedido`,
-      icon: "success",
-      showConfirmButton: false,
-      timer: 2000,
-      background: "#8DA78E",
-      color: "#ffffff",
-      iconColor: "#ffffff"
-    });
+    toast.success(`${product.nombre} agregado al pedido.`);
   };
 
   const handleAgregarAlCarrito = () => {
@@ -93,21 +73,11 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
     const costo = Number(context.costoSeleccionado) || 0;
 
     if (cant <= 0) {
-      Swal.fire({
-        title: "Cantidad Inválida",
-        text: "Por favor ingresa una cantidad mayor a 0.",
-        icon: "warning",
-        ...getSwalThemeOpts()
-      });
+      toast.warn("Por favor ingresa una cantidad mayor a 0.");
       return;
     }
     if (costo <= 0) {
-      Swal.fire({
-        title: "Precio Costo Inválida",
-        text: "Por favor ingresa un precio de costo mayor a 0.",
-        icon: "warning",
-        ...getSwalThemeOpts()
-      });
+      toast.warn("Por favor ingresa un precio de costo mayor a 0.");
       return;
     }
 
@@ -124,6 +94,7 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
     context.setProductoBusqueda("");
     context.setCantSeleccionada(1);
     context.setCostoSeleccionado("");
+    toast.success("Producto agregado al pedido.");
   };
 
   const handleAjustarCantidad = (index: number, delta: number) => {
@@ -180,18 +151,7 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
                   if (exactMatch) {
                     handleScanBarcode(exactMatch);
                   } else {
-                    Swal.fire({
-                      toast: true,
-                      position: "top-end",
-                      title: "Producto no encontrado",
-                      text: `No se encontró el código: ${query}`,
-                      icon: "error",
-                      background: "#ef4444",
-                      color: "#ffffff",
-                      showConfirmButton: false,
-                      timer: 3000,
-                      iconColor: "#ffffff"
-                    });
+                    toast.error(`No se encontró el código: ${query}`);
                   }
                 }
               }}
@@ -275,13 +235,16 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
       </div>
 
       {/* Botón de Agregar */}
-      <button
+      <SigetActionButton
+        label="Agregar"
+        accentColor={sigetAccent.crear}
+        morphFrom={Plus}
+        morphTo={CirclePlus}
         onClick={handleAgregarAlCarrito}
         disabled={!context.productoSeleccionado}
-        className="w-fit max-w-full py-2.5 px-4 bg-[#8DA78E] disabled:opacity-40 text-[#F5F5F1] text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
-      >
-        <Plus className="size-4" /> Agregar Producto a la Compra
-      </button>
+        ariaLabel="Agregar producto a la compra"
+        className="w-auto shrink-0"
+      />
     </div>
 
     {/* SECCIÓN 2: Productos en el Pedido */}
@@ -327,7 +290,7 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
                     onClick={() => handleAjustarCantidad(index, 1)}
                     className="p-1 hover:bg-white dark:hover:bg-zinc-700 text-slate-600 dark:text-slate-400 rounded transition-colors cursor-pointer"
                   >
-                    <Plus className="size-3" />
+                    <PlusIcon className="size-3" />
                   </button>
                 </div>
 

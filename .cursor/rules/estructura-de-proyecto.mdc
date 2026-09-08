@@ -1,0 +1,89 @@
+---
+description: Stack, estructura de carpetas, código y enrutamiento — Farmacia Salud con design system SIGET
+alwaysApply: true
+---
+
+# Estructura de proyecto
+
+## Proyecto
+
+- **App:** Farmacia Salud (KoreAPP).
+- **Design system:** SIGET (compartido entre proyectos Kore). UI, modales, botones y feedback siguen las mismas reglas que SIGET; el código legacy Kore (Button shadcn, Dialog, modales duplicados, estilos celeste antiguos) se migra gradualmente.
+
+## Stack
+
+- Next.js (App Router), TypeScript estricto, Supabase (Auth, RLS, Storage), Tailwind CSS, TanStack Query, Zod, todo se instala con pnpm.
+
+## Estructura de componentes
+
+Módulos de dominio en `src/components/(base)/[nombre-modulo]/`:
+
+- `NombreRepresentativo.tsx` — entrada y render (nombre según función, no genérico)
+- `forms/Crear.tsx` — inserción
+- `forms/VerEditar.tsx` — edición
+- `lib/hooks.ts` — hooks y TanStack Query
+- `lib/actions.ts` — Server Actions
+- `lib/zod.ts` — schemas y tipos (`z.infer`, sin `types.ts` ni `interfaces.ts`)
+- `lib/helpers.ts` — opcional: funciones puras de dominio (formato, normalización, filtros)
+
+Componentes UI compartidos en `src/components/ui/`. Layout y providers en `src/components/(base)/layout/` y `src/components/(base)/providers/`.
+
+Prohibido dispersar lógica del módulo fuera de su carpeta.
+
+## Código
+
+- Sin comentarios explicativos en archivos de código.
+- Sin `any`; `strictNullChecks` obligatorio.
+- Mutaciones: Server Actions en `lib/actions.ts`.
+- Cliente async: TanStack Query (`useQuery` / `useMutation`), no `useEffect` para carga de datos.
+- Antes de crear features, inspeccionar la carpeta del componente y respetar su estructura existente.
+
+## Server Actions (seguridad)
+
+- Validar sesión Supabase antes de mutar o leer datos privados.
+- Validar input con `.safeParse()` de `lib/zod.ts`; nunca pasar formularios directo a Supabase.
+- `try/catch`; devolver códigos/mensajes controlados, no errores internos de DB/OS.
+
+## Enrutamiento (`src/app/`)
+
+- Rutas de negocio bajo `src/app/farmacia-la-salud/`.
+- `page.tsx` solo importa el componente principal dentro de `<Suspense>`.
+- Prohibido UI compleja, lógica de negocio o estado en `page.tsx`.
+
+## Modales
+
+Implementación única en `src/components/ui/general-modal.tsx` (`ModalShell`, `ModalForm`, `ModalField`, `ModalLabel`, `ModalInput`, `ModalTextarea`, `ModalFechaInput`, `ModalCancelButton`, `ModalSubmit`, `ModalFooter`, `ModalConfirmDelete`, `modalFieldClass`, `modalAccentClass`).
+
+Formato: header/contenido mismo fondo (`white` / `zinc-900`); footer diferenciado; título y labels azul Trifinio (`#2c5f9b` / `#6f9fd4`); `ModalField` `space-y-2.5`; fechas con `ModalFechaInput`. Detalle en skill `ui-modales` y `diseno-ux-ui.mdc`.
+
+Prohibido para formularios: `Dialog` de shadcn, `ModalShell.tsx` duplicado, `modal.tsx`, `full-modal.tsx`.
+
+## Botones de acción
+
+Obligatorio `SigetActionButton` en toda la app (skill `ui-tema-botones`). Prohibido botones ad hoc, `Button` de shadcn o `ModalSubmit` legacy para acciones.
+
+## Feedback
+
+- Toast global: `ObsToastContainer` en `src/app/layout.tsx` (skill `ui-toastify` cuando exista).
+- Códigos de server action: `modalActionMessage` + `MODAL_ACTION_ERRORS` desde `src/lib/modal-toast.ts`.
+
+## Al crear un componente nuevo
+
+Usar el skill `nuevo-componente` (`.cursor/skills/nuevo-componente/`), que contiene el procedimiento paso a paso y las plantillas de cada archivo.
+
+Si el módulo necesita aparecer en el menú lateral, editar `src/components/(base)/layout/Menu.tsx`.
+
+## Fechas
+
+- Instantes con hora: `timestamptz`. Solo día: `date`.
+- Zona: Guatemala (`America/Guatemala`, UTC-6).
+- Util compartida: `@/lib/fechas-gt.ts` (portar desde SIGET si aún no existe).
+
+## Legacy en migración
+
+No usar en código nuevo; reemplazar al tocar el módulo:
+
+- `types.ts` / `schemas.ts` sueltos → tipos en `lib/zod.ts`
+- `CustomDatePicker`, `<input type="date">` en formularios → `ModalFechaInput`
+- SweetAlert dentro de modales → `ModalConfirmDelete`
+- `AnimatedIcon`, `shiny-button` u otros botones ad hoc → `SigetActionButton`

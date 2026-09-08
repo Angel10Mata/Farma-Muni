@@ -4,6 +4,18 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
+  --banner-height: 0px;
+  --azul-trifinio: #2c5f9b;
+  --azul-trifinio-modal: #6f9fd4;
+
+  &[data-connection="offline"],
+  &[data-connection="slow"] {
+    --banner-height: 64px;
+    @media (max-width: 767px) {
+      --banner-height: 56px;
+    }
+  }
+
   --background: #f4f4f5; /* zinc-100 */
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -27,6 +39,8 @@
 }
 
 .dark {
+  --azul-trifinio: #6f9fd4;
+  --azul-trifinio-modal: #6f9fd4;
   --background: #18181b; /* zinc-900 */
   --foreground: oklch(98.5% 0 0);
   --card: #27272a; /* zinc-800 */
@@ -55,6 +69,8 @@
 
   --color-azul-kore: var(--color-look-1-olivo-oscuro);
   --color-celeste-kore: var(--color-look-1-salvia-suave);
+  --color-celeste-trifinio: #1a95d3;
+  --color-azul-trifinio: var(--azul-trifinio);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -93,6 +109,17 @@
     100% {
       background-position: 0% 50%;
       transform: rotate(-5deg) scale(0.9);
+    }
+  }
+
+  --animate-rippling: rippling var(--duration) ease-out;
+  @keyframes rippling {
+    0% {
+      opacity: 1;
+    }
+    100% {
+      transform: scale(2);
+      opacity: 0;
     }
   }
 }

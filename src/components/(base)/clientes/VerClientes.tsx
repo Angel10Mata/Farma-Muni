@@ -5,7 +5,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users,
   Search,
-  Plus,
   Phone,
   Mail,
   MapPin,
@@ -14,13 +13,12 @@ import {
   Calendar,
   ChevronRight,
   ChevronLeft,
-  Download,
-  TrendingUp,
-  X,
-  Clock,
   ChevronDown,
   Check,
   User,
+  X,
+  Clock,
+  TrendingUp,
 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { cn, fmtQ } from "@/lib/utils";
@@ -31,17 +29,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import Swal from "sweetalert2";
-import { getSwalThemeOpts } from "@/lib/utils";
+import { toast } from "react-toastify";
+import { Clock as ClockNode, Download as DownloadNode, FileDown, History, Pencil, Plus as PlusNode, SquarePen, UserPlus } from "lucide";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import AnimatedIcon from "@/components/ui/AnimatedIcon";
 import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
-import { CustomDatePicker, obtenerSemanasDelMes } from "@/components/ui/CustomDatePicker";
-import { CrearCliente } from "./forms/CrearCliente";
-import { EditarCliente } from "./forms/EditarCliente";
-import { formatPhoneDisplay, getWhatsappUrl } from "../proveedores/forms/ProveedorDetalle";
+import { ModalFechaInput } from "@/components/ui/general-modal";
+import { obtenerSemanasDelMes } from "@/lib/fechas-gt";
+import { CrearCliente } from "./forms/Crear";
+import { EditarCliente } from "./forms/VerEditar";
+import { formatPhoneDisplay, getWhatsappUrl } from "../proveedores/forms/VerProveedor";
 import { useClientes, useVentasCliente } from "./lib/hooks";
 import type { Cliente, VentaCliente, TransaccionVenta } from "./lib/zod";
 
@@ -171,18 +170,23 @@ function ClienteDetalle({
       </div>
 
       <div className="flex gap-3 p-4 md:p-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0 bg-[#F5F5F1] dark:bg-zinc-900 justify-end">
-        <button
+        <SigetActionButton
+          label="Historial"
+          accentColor={sigetAccent.abrir}
+          morphFrom={History}
+          morphTo={ClockNode}
+          morphOnHover={true}
           onClick={() => setShowHistorial(true)}
-          className="flex-1 py-3 px-4 rounded-xl border border-[#8DA78E] text-[#8DA78E] text-xs font-bold transition-all hover:bg-[#8DA78E]/10 flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-        >
-          Historial de Compras
-        </button>
-        <button
+          className="w-auto shrink-0 flex-1 sm:flex-initial"
+        />
+        <SigetActionButton
+          label="Editar"
+          accentColor={sigetAccent.editar}
+          morphFrom={Pencil}
+          morphTo={SquarePen}
           onClick={onEdit}
-          className="flex-1 py-3 px-4 rounded-xl bg-[#8DA78E] hover:bg-[#7b927c] text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-        >
-          Editar Cliente
-        </button>
+          className="w-auto shrink-0 flex-1 sm:flex-initial"
+        />
       </div>
 
       <AnimatePresence>
@@ -375,10 +379,10 @@ function HistorialComprasModal({
 
               <div className="flex items-center justify-center gap-2 w-full sm:w-auto">
                 {tipoFiltroFecha === "dia" && (
-                  <CustomDatePicker
+                  <ModalFechaInput
                     value={fechaDia}
                     onChange={setFechaDia}
-                    align="center"
+                    className="w-[140px]"
                   />
                 )}
 
@@ -405,7 +409,7 @@ function HistorialComprasModal({
                             initial={{ opacity: 0, y: -5 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -5 }}
-                            className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-2"
+                            className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-[200] opacity-100 p-2"
                           >
                             <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 dark:border-slate-900">
                               <button
@@ -468,7 +472,7 @@ function HistorialComprasModal({
                             initial={{ opacity: 0, y: -5 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -5 }}
-                            className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-[180px] bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 py-1"
+                            className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-[180px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-[200] opacity-100 py-1"
                           >
                             <button
                               type="button"
@@ -515,18 +519,16 @@ function HistorialComprasModal({
 
                 {tipoFiltroFecha === "rango" && (
                   <div className="flex items-center justify-center gap-2">
-                    <CustomDatePicker
+                    <ModalFechaInput
                       value={fechaRangoDesde}
                       onChange={setFechaRangoDesde}
-                      placeholder="Desde"
-                      align="center"
+                      className="w-[120px]"
                     />
-                    <span className="text-slate-400 text-xs">-</span>
-                    <CustomDatePicker
+                    <span className="text-xs text-slate-400">-</span>
+                    <ModalFechaInput
                       value={fechaRangoHasta}
                       onChange={setFechaRangoHasta}
-                      placeholder="Hasta"
-                      align="center"
+                      className="w-[120px]"
                     />
                   </div>
                 )}
@@ -653,9 +655,9 @@ export function VerClientes() {
       });
 
       doc.save(`Reporte_Clientes_${new Date().toISOString().slice(0, 10)}.pdf`);
-      Swal.fire({ title: "Éxito", text: "PDF exportado exitosamente.", icon: "success", ...getSwalThemeOpts() });
+      toast.success("PDF exportado correctamente.");
     } catch {
-      Swal.fire({ title: "Error", text: "No se pudo generar el archivo PDF.", icon: "error", ...getSwalThemeOpts() });
+      toast.error("No se pudo generar el archivo PDF.");
     }
   };
 
@@ -664,7 +666,7 @@ export function VerClientes() {
       <div className="flex items-center justify-between gap-4 w-full">
         <div className="flex items-center gap-4">
           <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center overflow-hidden">
-            <AnimatedIcon iconKey="zdwrqfmb" className="text-[#8DA78E] dark:text-[#A3BEB0]" size={32} />
+            <Users className="size-7 text-[#8DA78E] dark:text-[#A3BEB0]" />
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
@@ -674,12 +676,14 @@ export function VerClientes() {
           </div>
         </div>
 
-        <button
+        <SigetActionButton
+          label="Crear"
+          accentColor={sigetAccent.crear}
+          morphFrom={PlusNode}
+          morphTo={UserPlus}
           onClick={() => setIsCreateOpen(true)}
-          className="flex items-center gap-1.5 px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl bg-[#8DA78E] text-[#F5F5F1] text-xs sm:text-sm font-bold transition-all shadow-sm cursor-pointer shrink-0"
-        >
-          <Plus className="size-4" /> Nuevo Cliente
-        </button>
+          className="w-auto shrink-0"
+        />
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -700,7 +704,7 @@ export function VerClientes() {
             <SelectTrigger className="flex-1 sm:flex-none w-full sm:w-[280px] h-10 rounded-xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-white focus:ring-1 focus:ring-[#8DA78E] shadow-sm">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 bg-white dark:bg-zinc-950 shadow-md">
+            <SelectContent className="z-[200] rounded-xl border-slate-200 bg-white opacity-100 dark:border-slate-800 dark:bg-zinc-900 shadow-md">
               <SelectItem value="nombre-asc" className="text-xs font-semibold cursor-pointer">Nombre (A-Z)</SelectItem>
               <SelectItem value="nombre-desc" className="text-xs font-semibold cursor-pointer">Nombre (Z-A)</SelectItem>
               <SelectItem value="compras-desc" className="text-xs font-semibold cursor-pointer">Nivel de Consumo (Compras)</SelectItem>
@@ -708,12 +712,14 @@ export function VerClientes() {
               <SelectItem value="saldo-desc" className="text-xs font-semibold cursor-pointer">Saldo Pendiente (Mayor a Menor)</SelectItem>
             </SelectContent>
           </Select>
-          <button
+          <SigetActionButton
+            label="Exportar"
+            accentColor={sigetAccent.excel}
+            morphFrom={DownloadNode}
+            morphTo={FileDown}
             onClick={handleExportarPDF}
-            className="px-8 py-2.5 rounded-xl border border-[#C1D1C5] dark:border-[#A3BEB0]/30 text-[#525D53] dark:text-[#A3BEB0] transition-all flex items-center gap-1.5 text-xs font-bold cursor-pointer"
-          >
-            <Download className="size-3.5" /> PDF
-          </button>
+            className="w-auto shrink-0"
+          />
         </div>
       </div>
 
@@ -796,17 +802,18 @@ export function VerClientes() {
                           </div>
                         </div>
 
-                        <div className="flex gap-1 shrink-0">
-                          <button
-                            type="button"
+                        <div className="flex shrink-0 gap-1">
+                          <SigetActionButton
+                            label="Editar"
+                            accentColor={sigetAccent.editar}
+                            morphFrom={Pencil}
+                            morphTo={SquarePen}
                             onClick={() => {
                               setClienteParaEditar(cliente);
                               setIsEditOpen(true);
                             }}
-                            className="px-2 py-1 bg-[#A3BEB0]/20 hover:bg-[#A3BEB0]/40 text-[#525D53] dark:text-[#A3BEB0] text-[9px] font-bold rounded-md transition-all cursor-pointer uppercase"
-                          >
-                            Editar
-                          </button>
+                            className="w-auto shrink-0"
+                          />
                         </div>
                       </div>
                     </div>
@@ -881,15 +888,17 @@ export function VerClientes() {
                         </td>
                         <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-2">
-                            <button
+                            <SigetActionButton
+                              label="Editar"
+                              accentColor={sigetAccent.editar}
+                              morphFrom={Pencil}
+                              morphTo={SquarePen}
                               onClick={() => {
                                 setClienteParaEditar(cliente);
                                 setIsEditOpen(true);
                               }}
-                              className="px-3 py-1.5 bg-[#A3BEB0]/20 hover:bg-[#A3BEB0]/40 text-[#525D53] dark:text-[#A3BEB0] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase"
-                            >
-                              Editar
-                            </button>
+                              className="w-auto shrink-0"
+                            />
                           </div>
                         </td>
                       </tr>

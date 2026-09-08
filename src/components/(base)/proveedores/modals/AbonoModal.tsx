@@ -1,11 +1,35 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Receipt, Check } from "lucide-react";
-import { Compra } from "../types";
+import { toast } from "react-toastify";
+import {
+  ModalCancelButton,
+  ModalField,
+  ModalFooter,
+  ModalForm,
+  ModalInput,
+  ModalLabel,
+  ModalShell,
+  ModalSubmit,
+  ModalTextarea,
+  modalFieldClass,
+} from "@/components/ui/general-modal";
+import { cn } from "@/lib/utils";
 import { fmtQ } from "@/lib/utils";
-import Swal from "sweetalert2";
+import { Compra } from "../lib/zod";
+
+type TransaccionCompra = {
+  categoria?: string;
+  monto?: number;
+};
+
+function sumAbonosProveedor(transacciones: unknown[] | undefined): number {
+  return (
+    transacciones
+      ?.filter((t): t is TransaccionCompra => typeof t === "object" && t !== null && (t as TransaccionCompra).categoria === "pago_proveedor")
+      .reduce((sum, t) => sum + Math.abs(Number(t.monto ?? 0)), 0) ?? 0
+  );
+}
 
 interface AbonoModalProps {
   compra: Compra | null;
@@ -20,32 +44,21 @@ const obtenerCodigoCompra = (id: string) => {
 };
 
 export function AbonoModal({ compra, onClose, onAbonar }: AbonoModalProps) {
-  const [montoAbono, setMontoAbono] = useState<number | "">("");
+  const [montoAbono, setMontoAbono] = useState("");
   const [metodoPagoAbono, setMetodoPagoAbono] = useState("Efectivo");
   const [notasAbono, setNotasAbono] = useState("");
   const [isProcesando, setIsProcesando] = useState(false);
 
-  const getSwalThemeOpts = () => {
-    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-    return {
-      background: isDark ? "#18181b" : "#F5F5F1",
-      color: isDark ? "#F5F5F1" : "#525D53",
-      confirmButtonColor: "#8DA78E",
-      cancelButtonColor: "#525D53",
-      customClass: { popup: "!rounded-3xl border-0" }
-    };
-  };
+  if (!compra) return null;
 
-  const handleAbonar = async () => {
-    if (!compra) return;
-    const amount = Number(montoAbono);
+  const abonos = sumAbonosProveedor(compra.fin_transacciones);
+  const saldoCompra = Math.max(0, compra.total - abonos);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const amount = parseFloat(montoAbono);
     if (!amount || amount <= 0) {
-      Swal.fire({
-        title: "Monto Inválido",
-        text: "Ingresa un monto mayor a 0 para el abono.",
-        icon: "warning",
-        ...getSwalThemeOpts()
-      });
+      toast.warn("Ingresa un monto mayor a 0 para el abono.");
       return;
     }
 
@@ -60,115 +73,68 @@ export function AbonoModal({ compra, onClose, onAbonar }: AbonoModalProps) {
     }
   };
 
-  if (!compra) return null;
-
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 0.5 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black backdrop-blur-xs cursor-pointer"
-        />
-        <motion.div
-          initial={{ scale: 0.95, opacity: 0, y: 10 }}
-          animate={{ scale: 1, opacity: 1, y: 0 }}
-          exit={{ scale: 0.95, opacity: 0, y: 10 }}
-          className="relative w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl flex flex-col overflow-hidden"
-        >
-          <div className="px-6 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center justify-between bg-slate-50 dark:bg-zinc-950/50">
-            <h3 className="font-black text-slate-800 dark:text-white uppercase text-sm flex items-center gap-2">
-              <Receipt className="size-4 text-[#8DA78E]" />
-              Abonar a Compra #{obtenerCodigoCompra(compra.id)}
-            </h3>
-            <button
-              onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 font-bold px-2 py-1 cursor-pointer transition-colors"
-            >
-              ✕
-            </button>
-          </div>
+    <ModalShell
+      isOpen
+      onClose={onClose}
+      title={`Abonar #${obtenerCodigoCompra(compra.id)}`}
+      maxWidth="max-w-md"
+    >
+      <ModalForm onSubmit={handleSubmit}>
+        <ModalField>
+          <ModalLabel>Saldo Actual</ModalLabel>
+          <p className="text-xl font-black text-[#2E9E77]">{fmtQ(saldoCompra)}</p>
+        </ModalField>
 
-          <div className="p-6 flex flex-col gap-4 text-left">
-            {(() => {
-              const abonos = compra.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
-              const saldoCompra = Math.max(0, compra.total - abonos);
-              return (
-                <div className="bg-[#8DA78E]/10 border border-[#8DA78E]/20 p-4 rounded-2xl flex justify-between items-center">
-                  <span className="text-xs font-black uppercase tracking-wider text-[#525D53] dark:text-[#A3BEB0]">Saldo Actual</span>
-                  <span className="text-xl font-black text-[#8DA78E]">{fmtQ(saldoCompra)}</span>
-                </div>
-              );
-            })()}
+        <ModalField>
+          <ModalLabel htmlFor="abono-monto">Monto a Abonar (Q)</ModalLabel>
+          <ModalInput
+            id="abono-monto"
+            type="number"
+            step="0.01"
+            min="0.01"
+            value={montoAbono}
+            onChange={(e) => setMontoAbono(e.target.value)}
+            placeholder="0.00"
+            autoFocus
+            required
+          />
+        </ModalField>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
-                Monto a Abonar (Q)
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={montoAbono}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setMontoAbono(val === "" ? "" : Number(val));
-                }}
-                placeholder="0.00"
-                className="w-full px-4 py-2.5 border rounded-xl text-sm font-bold bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-[#8DA78E]/50 focus:border-[#8DA78E] focus:outline-none transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
+        <ModalField>
+          <ModalLabel htmlFor="abono-metodo">Método de Pago</ModalLabel>
+          <select
+            id="abono-metodo"
+            value={metodoPagoAbono}
+            onChange={(e) => setMetodoPagoAbono(e.target.value)}
+            className={cn(
+              "h-10 w-full rounded-lg bg-transparent px-3 text-sm text-foreground outline-none transition-colors focus-visible:outline-none",
+              modalFieldClass,
+            )}
+          >
+            <option value="Efectivo">Efectivo</option>
+            <option value="Transferencia">Transferencia</option>
+            <option value="Tarjeta">Tarjeta de Crédito/Débito</option>
+            <option value="Cheque">Cheque</option>
+          </select>
+        </ModalField>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
-                Método de Pago
-              </label>
-              <select
-                value={metodoPagoAbono}
-                onChange={(e) => setMetodoPagoAbono(e.target.value)}
-                className="w-full px-4 py-2.5 border rounded-xl text-sm font-bold bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-[#8DA78E]/50 focus:border-[#8DA78E] focus:outline-none transition-all cursor-pointer"
-              >
-                <option value="Efectivo">Efectivo</option>
-                <option value="Transferencia">Transferencia</option>
-                <option value="Tarjeta">Tarjeta de Crédito/Débito</option>
-                <option value="Cheque">Cheque</option>
-              </select>
-            </div>
+        <ModalField>
+          <ModalLabel htmlFor="abono-notas">Notas (Opcional)</ModalLabel>
+          <ModalTextarea
+            id="abono-notas"
+            value={notasAbono}
+            onChange={(e) => setNotasAbono(e.target.value)}
+            rows={2}
+            placeholder="Referencia de transferencia, número de cheque, etc."
+          />
+        </ModalField>
 
-            <div>
-              <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
-                Notas (Opcional)
-              </label>
-              <textarea
-                value={notasAbono}
-                onChange={(e) => setNotasAbono(e.target.value)}
-                placeholder="Referencia de transferencia, número de cheque, etc."
-                rows={2}
-                className="w-full px-4 py-2 border rounded-xl text-sm bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-900 dark:text-white focus:ring-2 focus:ring-[#8DA78E]/50 focus:border-[#8DA78E] focus:outline-none transition-all resize-none"
-              />
-            </div>
-
-            <button
-              onClick={handleAbonar}
-              disabled={isProcesando || !montoAbono || Number(montoAbono) <= 0}
-              className="mt-2 w-fit max-w-full py-3 px-6 bg-[#8DA78E] disabled:opacity-50 text-white text-xs font-black rounded-xl transition-all uppercase tracking-wider flex justify-center items-center gap-2 cursor-pointer shadow-lg shadow-[#8DA78E]/20"
-            >
-              {isProcesando ? (
-                <>
-                  <div className="size-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  Procesando...
-                </>
-              ) : (
-                <>
-                  <Check className="size-4" /> Confirmar Abono
-                </>
-              )}
-            </button>
-          </div>
-        </motion.div>
-      </div>
-    </AnimatePresence>
+        <ModalFooter>
+          <ModalCancelButton onClick={onClose} disabled={isProcesando} />
+          <ModalSubmit label="Abonar" disabled={isProcesando || !montoAbono} />
+        </ModalFooter>
+      </ModalForm>
+    </ModalShell>
   );
 }

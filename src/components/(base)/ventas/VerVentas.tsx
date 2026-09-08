@@ -2,37 +2,36 @@
 
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useQueryClient } from "@tanstack/react-query";
-import { ShoppingCart, Receipt, FileDown, Check, Package, X, AlertTriangle, Printer } from "lucide-react";
+import { ShoppingCart, Receipt, Package, AlertTriangle } from "lucide-react";
+import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, FileDown as FileDownNode, MessageCircle as MessageCircleNode, Printer as PrinterNode, X as XNode } from "lucide";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fmtQ } from "@/lib/utils";
-import { CrearCliente } from "@/components/(base)/clientes/forms/CrearCliente";
+import { CrearCliente } from "@/components/(base)/clientes/forms/Crear";
 import {
   obtenerProductosYClientes,
-  obtenerHistorialVentas,
   obtenerDetalleVenta,
   anularVenta,
-  editarDetalleVentaDirecto,
-  eliminarDetalleVentaDirecto,
   validarCredencialesAdmin
 } from "./lib/actions";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { ReciboVenta, buildReciboProps } from "./ReciboVenta";
-import { obtenerCodigoRecibo } from "./recibo-utils";
+import { obtenerCodigoRecibo } from "./lib/helpers";
 import { HistorialVentas } from "./HistorialVentas";
-import { usePOSData } from "./lib/hooks";
+import { useDatosVentas } from "./lib/hooks";
 
-import { Producto, Cliente, Venta, ItemCarrito } from "./types";
-import { usePOS, POSProvider } from "./POSContext";
-import { POSProductSection } from "./POSProductSection";
-import { POSCartSidebar } from "./POSCartSidebar";
+import { Producto, Cliente, Venta, ItemCarrito } from "./lib/zod";
+import { useVentas, VentasProvider } from "./ContextoVentas";
+import { SeccionProductosVentas } from "./SeccionProductosVentas";
+import { BarraCarritoVentas } from "./BarraCarritoVentas";
 import Swal from "sweetalert2";
 import { getSwalThemeOpts } from "@/lib/utils";
+import { ModalFooter, ModalShell, toast } from "@/components/ui/general-modal";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
 function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
   const { effectiveRole } = useUserContext();
-  const pos = usePOS();
+  const ventas = useVentas();
   
   const reciboCaptureRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -115,29 +114,19 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       const res = await anularVenta(ventaId);
       if (!res.success) throw new Error(res.error);
 
-      Swal.fire({
-        title: "¡Anulada!",
-        text: "La venta ha sido anulada exitosamente y el stock ha sido restablecido.",
-        icon: "success",
-        ...getSwalThemeOpts()
-      });
+      toast.success("La venta ha sido anulada y el stock restablecido.");
 
       refetchDatos();
-    } catch (err: any) {
-      Swal.fire({
-        title: "Error al anular",
-        text: err.message || "No se pudo anular la venta.",
-        icon: "error",
-        ...getSwalThemeOpts(),
-        confirmButtonColor: "#ef4444"
-      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "No se pudo anular la venta.";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleEditarVenta = async (venta: Venta) => {
-    if (pos.carrito.length > 0) {
+    if (ventas.carrito.length > 0) {
       const confirmOverwrite = await Swal.fire({
         title: "Carrito con productos",
         text: "Tienes productos en el Punto de Venta actual. Editar esta venta los reemplazará.",
@@ -192,37 +181,28 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         };
       });
 
-      pos.setCarrito(nuevosItemsCarrito);
+      ventas.setCarrito(nuevosItemsCarrito);
       
       if (venta.cliente_id) {
         const cliente = dataMaster.clientes.find((c: any) => c.id === venta.cliente_id);
         if (cliente) {
-          pos.setClienteSeleccionado(cliente as Cliente);
-          pos.setClienteBusqueda(cliente.nombre);
+          ventas.setClienteSeleccionado(cliente as Cliente);
+          ventas.setClienteBusqueda(cliente.nombre);
         }
       } else {
-        pos.setClienteSeleccionado(null);
-        pos.setClienteBusqueda("Consumidor Final");
+        ventas.setClienteSeleccionado(null);
+        ventas.setClienteBusqueda("Consumidor Final");
       }
 
-      pos.setTipoVenta(venta.tipo_venta === "Crédito" ? "Crédito" : "Contado");
-      pos.setObservaciones(venta.observaciones || "");
-      pos.setActiveTab("pos");
+      ventas.setTipoVenta(venta.tipo_venta === "Crédito" ? "Crédito" : "Contado");
+      ventas.setObservaciones(venta.observaciones || "");
+      ventas.setActiveTab("pos");
 
-      Swal.fire({
-        title: "Venta cargada",
-        text: "La venta ha sido cargada. Finaliza el cobro para guardar los cambios.",
-        icon: "success",
-        ...getSwalThemeOpts()
-      });
+      toast.success("Venta cargada en el POS. Finaliza el cobro para guardar los cambios.");
 
-    } catch (err: any) {
-      Swal.fire({
-        title: "Error al editar",
-        text: err.message || "No se pudo cargar la venta para edición.",
-        icon: "error",
-        ...getSwalThemeOpts()
-      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "No se pudo cargar la venta para edición.";
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -388,13 +368,13 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
   };
 
   useEffect(() => {
-    if (pos.ticketParaImprimir) {
+    if (ventas.ticketParaImprimir) {
       const timer = setTimeout(() => {
         window.print();
       }, 250);
       return () => clearTimeout(timer);
     }
-  }, [pos.ticketParaImprimir]);
+  }, [ventas.ticketParaImprimir]);
 
   const handleImprimirVenta = async (venta: Venta, detalles?: any[]) => {
     try {
@@ -403,7 +383,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       if (!details || details.length === 0) {
         details = await obtenerDetalleVenta(venta.id);
       }
-      pos.setTicketParaImprimir({
+      ventas.setTicketParaImprimir({
         venta,
         detalles: details,
         clienteCompleto: venta.ven_clientes,
@@ -427,141 +407,137 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
   return (
     <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
       <CrearCliente
-        isOpen={pos.isCrearClienteOpen}
-        onClose={() => pos.setIsCrearClienteOpen(false)}
+        isOpen={ventas.isCrearClienteOpen}
+        onClose={() => ventas.setIsCrearClienteOpen(false)}
         onSuccess={refetchDatos}
       />
 
       {/* Modal Ubicaciones */}
-      <AnimatePresence>
-        {pos.showUbicacionModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/65 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-zinc-900 border border-[#C1D1C5]/40 dark:border-zinc-800 rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
-            >
-              <div className="bg-[#8DA78E] dark:bg-[#A3BEB0] p-6 text-center relative shrink-0">
-                <button
-                  onClick={() => pos.setShowUbicacionModal(false)}
-                  className="absolute right-4 top-4 text-white/80 hover:text-white transition-colors cursor-pointer"
-                >
-                  <X className="size-6" />
-                </button>
-                <div className="w-16 h-16 mx-auto bg-white/20 rounded-2xl flex items-center justify-center mb-3 backdrop-blur-sm">
-                  <Package className="size-8 text-white" />
-                </div>
-                <h3 className="text-2xl font-black text-[#F5F5F1] tracking-tight">Recolección de Productos</h3>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-6 bg-slate-50 dark:bg-zinc-950/50">
-                <div className="flex flex-col gap-3">
-                  {pos.carrito.map((item, idx) => (
-                    <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm">
-                      <div className="flex flex-col gap-1">
-                        <span className="font-bold text-slate-900 dark:text-white text-lg">
-                          {item.cantidad}x {item.producto.nombre}
-                        </span>
-                        {(!item.producto.ubicacion || item.producto.ubicacion === 'Sin asignar') ? (
-                          <div className="flex items-center gap-1.5 text-amber-500 font-bold bg-amber-50 dark:bg-amber-500/10 w-fit px-2.5 py-1 rounded-md">
-                            <AlertTriangle className="size-4" />
-                            <span className="text-sm">Sin ubicación asignada</span>
-                          </div>
-                        ) : (
-                          <div className="flex items-center gap-1.5 text-[#8DA78E] font-bold bg-[#8DA78E]/10 w-fit px-2.5 py-1 rounded-md">
-                            <Package className="size-4" />
-                            <span className="text-sm">{item.producto.ubicacion}</span>
-                          </div>
-                        )}
+      <ModalShell
+        open={ventas.showUbicacionModal}
+        onClose={() => ventas.setShowUbicacionModal(false)}
+        title="Recolección de Productos"
+        maxWidth="max-w-2xl"
+      >
+        {ventas.showUbicacionModal && (
+          <>
+            <div className="flex flex-col gap-3">
+              {ventas.carrito.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-xl">
+                  <div className="flex flex-col gap-1">
+                    <span className="font-bold text-slate-900 dark:text-white text-lg">
+                      {item.cantidad}x {item.producto.nombre}
+                    </span>
+                    {(!item.producto.ubicacion || item.producto.ubicacion === "Sin asignar") ? (
+                      <div className="flex items-center gap-1.5 text-amber-500 font-bold bg-amber-50 dark:bg-amber-500/10 w-fit px-2.5 py-1 rounded-md">
+                        <AlertTriangle className="size-4" />
+                        <span className="text-sm">Sin ubicación asignada</span>
                       </div>
-                    </div>
-                  ))}
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-[#8DA78E] font-bold bg-[#8DA78E]/10 w-fit px-2.5 py-1 rounded-md">
+                        <Package className="size-4" />
+                        <span className="text-sm">{item.producto.ubicacion}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div className="p-6 bg-white dark:bg-zinc-900 border-t border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-end gap-3 shrink-0">
-                <button
-                  onClick={() => pos.setShowUbicacionModal(false)}
-                  className="w-full sm:w-auto px-6 py-3 rounded-xl border-2 border-slate-200 dark:border-slate-800 font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
-                >
-                  Regresar
-                </button>
-                <button
-                  onClick={pos.ejecutarCobro}
-                  disabled={pos.isProcesandoVenta}
-                  className="w-full sm:w-auto px-8 py-3 rounded-xl bg-[#8DA78E] text-white font-black hover:bg-[#7a937b] transition-colors flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer"
-                >
-                  {pos.isProcesandoVenta ? "Procesando..." : <><Check className="size-5" /> Confirmar y Cobrar</>}
-                </button>
-              </div>
-            </motion.div>
-          </div>
+              ))}
+            </div>
+            <ModalFooter>
+              <SigetActionButton
+                label="Regresar"
+                accentColor={sigetAccent.cancelar}
+                morphFrom={XNode}
+                morphTo={XNode}
+                morphOnHover={false}
+                onClick={() => ventas.setShowUbicacionModal(false)}
+                className="w-auto shrink-0"
+              />
+              <SigetActionButton
+                label="Cobrar"
+                accentColor={sigetAccent.guardar}
+                morphFrom={CircleDollarSignNode}
+                morphTo={CheckNode}
+                onClick={ventas.ejecutarCobro}
+                disabled={ventas.isProcesandoVenta}
+                ariaBusy={ventas.isProcesandoVenta}
+                className="w-auto shrink-0"
+              />
+            </ModalFooter>
+          </>
         )}
-      </AnimatePresence>
+      </ModalShell>
 
       {/* Modal Recibo */}
-      <AnimatePresence>
-        {pos.reciboModalData && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center sm:p-4 bg-black/65 backdrop-blur-xs">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white dark:bg-zinc-900 border-0 sm:border border-[#C1D1C5]/40 dark:border-zinc-800 rounded-none sm:rounded-3xl w-full min-h-[75vh] sm:min-h-0 max-h-[96vh] sm:h-auto max-w-lg overflow-hidden shadow-2xl flex flex-col sm:max-h-[90vh]"
-            >
-              <div className="shrink-0 bg-[#8DA78E] dark:bg-[#525D53] p-5 text-white flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-black uppercase tracking-wider">¡COBRO EXITOSO!</h3>
-                  <p className="text-[10px] text-white/80 font-medium">Venta registrada bajo el Recibo #{obtenerCodigoRecibo(pos.reciboModalData.venta.id)}</p>
-                </div>
-                <div className="size-10 rounded-2xl bg-white/10 flex items-center justify-center">
-                  <Receipt className="size-5 text-white" />
-                </div>
-              </div>
-
-              <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain bg-zinc-100 dark:bg-zinc-950 flex flex-col justify-center items-center p-3 sm:p-6">
-                <ReciboVenta
-                  {...buildReciboProps(
-                    pos.reciboModalData.venta,
-                    pos.reciboModalData.detalles,
-                    pos.reciboModalData.clienteCompleto,
-                  )}
-                />
-              </div>
-
-              <div className="shrink-0 p-4 sm:p-5 bg-zinc-50 dark:bg-zinc-950 border-t border-slate-200 dark:border-zinc-800 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-                <button
-                  onClick={() => {
-                    handleImprimirVenta(pos.reciboModalData.venta, pos.reciboModalData.detalles);
-                  }}
-                  className="w-fit px-4 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer border border-transparent hover:opacity-90 transition-opacity"
-                >
-                  <Printer className="size-5" /> Imprimir Ticket
-                </button>
-                <button
-                  onClick={() => exportarFacturaPDF(pos.reciboModalData.venta, pos.reciboModalData.detalles)}
-                  className="w-fit px-4 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-red-600 dark:text-red-500 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer border border-transparent hover:opacity-90 transition-opacity"
-                >
-                  <FileDown className="size-5" /> Descargar PDF
-                </button>
-                <button
-                  onClick={() => shareWhatsAppAsImage(pos.reciboModalData.venta, pos.reciboModalData.detalles, pos.reciboModalData.clienteCompleto)}
-                  className="w-fit px-4 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-emerald-600 dark:text-emerald-500 text-sm font-bold flex items-center justify-center gap-2 cursor-pointer border border-transparent hover:opacity-90 transition-opacity"
-                >
-                  WhatsApp
-                </button>
-                <button
-                  onClick={() => pos.setReciboModalData(null)}
-                  className="w-fit px-4 py-2.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm font-bold flex items-center justify-center cursor-pointer border border-transparent hover:opacity-90 transition-opacity"
-                >
-                  Cerrar
-                </button>
-              </div>
-            </motion.div>
-          </div>
+      <ModalShell
+        open={!!ventas.reciboModalData}
+        onClose={() => ventas.setReciboModalData(null)}
+        title="¡Cobro exitoso!"
+        subtitle={ventas.reciboModalData ? `Venta registrada bajo el Recibo #${obtenerCodigoRecibo(ventas.reciboModalData.venta.id)}` : undefined}
+        maxWidth="max-w-lg"
+        fullHeight
+        headerActions={
+          ventas.reciboModalData ? (
+            <div className="size-10 rounded-2xl bg-[#8DA78E]/10 flex items-center justify-center">
+              <Receipt className="size-5 text-[#8DA78E]" />
+            </div>
+          ) : undefined
+        }
+      >
+        {ventas.reciboModalData && (
+          <>
+            <div className="flex flex-col justify-center items-center">
+              <ReciboVenta
+                {...buildReciboProps(
+                  ventas.reciboModalData.venta,
+                  ventas.reciboModalData.detalles,
+                  ventas.reciboModalData.clienteCompleto,
+                )}
+              />
+            </div>
+            <ModalFooter>
+              <SigetActionButton
+                label="Imprimir"
+                accentColor={sigetAccent.editar}
+                morphFrom={PrinterNode}
+                morphTo={PrinterNode}
+                morphOnHover={false}
+                onClick={() => {
+                  handleImprimirVenta(ventas.reciboModalData.venta, ventas.reciboModalData.detalles);
+                }}
+                className="w-auto shrink-0"
+              />
+              <SigetActionButton
+                label="Descargar"
+                accentColor={sigetAccent.quitar}
+                morphFrom={FileDownNode}
+                morphTo={FileDownNode}
+                morphOnHover={false}
+                onClick={() => exportarFacturaPDF(ventas.reciboModalData.venta, ventas.reciboModalData.detalles)}
+                className="w-auto shrink-0"
+              />
+              <SigetActionButton
+                label="WhatsApp"
+                accentColor={sigetAccent.activa}
+                morphFrom={MessageCircleNode}
+                morphTo={MessageCircleNode}
+                morphOnHover={false}
+                onClick={() => shareWhatsAppAsImage(ventas.reciboModalData.venta, ventas.reciboModalData.detalles, ventas.reciboModalData.clienteCompleto)}
+                className="w-auto shrink-0"
+              />
+              <SigetActionButton
+                label="Cerrar"
+                accentColor={sigetAccent.cancelar}
+                morphFrom={XNode}
+                morphTo={XNode}
+                morphOnHover={false}
+                onClick={() => ventas.setReciboModalData(null)}
+                className="w-auto shrink-0"
+              />
+            </ModalFooter>
+          </>
         )}
-      </AnimatePresence>
+      </ModalShell>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
@@ -578,17 +554,17 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
         <div className="flex bg-[#F5F5F1] dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 p-1.5 rounded-2xl w-fit">
           <button
-            onClick={() => pos.setActiveTab("pos")}
+            onClick={() => ventas.setActiveTab("pos")}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              pos.activeTab === "pos" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
+              ventas.activeTab === "pos" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
             }`}
           >
             Punto de Venta
           </button>
           <button
-            onClick={() => pos.setActiveTab("historial")}
+            onClick={() => ventas.setActiveTab("historial")}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              pos.activeTab === "historial" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
+              ventas.activeTab === "historial" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
             }`}
           >
             Historial de Ventas
@@ -596,10 +572,10 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         </div>
       </div>
 
-      {pos.activeTab === "pos" ? (
+      {ventas.activeTab === "pos" ? (
         <div className="flex flex-col lg:flex-row gap-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <POSProductSection productos={productos} clientes={clientes} />
-          <POSCartSidebar />
+          <SeccionProductosVentas productos={productos} clientes={clientes} />
+          <BarraCarritoVentas />
         </div>
       ) : (
         <HistorialVentas
@@ -608,19 +584,19 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         />
       )}
 
-      {pos.ticketParaImprimir && (
+      {ventas.ticketParaImprimir && (
         <div id="print-receipt-ticket" className="hidden print:block">
-          <ReciboVenta {...buildReciboProps(pos.ticketParaImprimir.venta, pos.ticketParaImprimir.detalles, pos.ticketParaImprimir.clienteCompleto)} className="max-w-none" />
+          <ReciboVenta {...buildReciboProps(ventas.ticketParaImprimir.venta, ventas.ticketParaImprimir.detalles, ventas.ticketParaImprimir.clienteCompleto)} className="max-w-none" />
         </div>
       )}
 
       <AnimatePresence>
-        {pos.imagenAmpliadaUrl && (
+        {ventas.imagenAmpliadaUrl && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={() => pos.setImagenAmpliadaUrl(null)}
+            onClick={() => ventas.setImagenAmpliadaUrl(null)}
             className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 cursor-zoom-out"
           >
             <motion.img
@@ -628,7 +604,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              src={pos.imagenAmpliadaUrl}
+              src={ventas.imagenAmpliadaUrl}
               alt="Imagen ampliada"
               className="max-w-full max-h-full rounded-2xl shadow-2xl object-contain bg-white dark:bg-zinc-900"
             />
@@ -640,7 +616,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 }
 
 export function VerVentas() {
-  const { data, isLoading, isError, error, refetch: refetchDatos } = usePOSData();
+  const { data, isLoading, isError, error, refetch: refetchDatos } = useDatosVentas();
 
   if (isLoading) {
     return (
@@ -665,8 +641,8 @@ export function VerVentas() {
   const clientes = (data?.clientes as Cliente[]) || [];
 
   return (
-    <POSProvider productos={productos} clientes={clientes} refetchDatos={refetchDatos}>
+    <VentasProvider productos={productos} clientes={clientes} refetchDatos={refetchDatos}>
       <VerVentasInner productos={productos} clientes={clientes} refetchDatos={refetchDatos} />
-    </POSProvider>
+    </VentasProvider>
   );
 }

@@ -1,12 +1,10 @@
 import { Suspense } from "react";
-
-import { Dashboard } from "@/components/(base)/dashboard";
+import { VerDashboard } from "@/components/(base)/dashboard/VerDashboard";
 
 export default function DashboardPage() {
   return (
     <Suspense fallback={null}>
-      <Dashboard />
+      <VerDashboard />
     </Suspense>
   );
 }
-

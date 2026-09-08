@@ -3,16 +3,11 @@
 import { useState, useMemo, Fragment } from "react";
 import { useUsers } from "./lib/hooks";
 import { useUser } from "@/components/(base)/providers/UserProvider";
-import {
-  Loader2,
-  UserX,
-  ChevronLeft,
-  ChevronRight,
-  Plus,
-  Search,
-} from "lucide-react";
+import { Loader2, UserX, Search } from "lucide-react";
+import { UserPlus, Check } from "lucide";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import VerPerfil from "@/components/(base)/(users)/profile/VerPerfil";
-import SignUp from "@/components/(base)/(auth)/signup/SignUp";
+import FormularioRegistro from "@/components/(base)/(auth)/signup/forms/Crear";
 import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 
 export function VerUsuarios() {
@@ -122,13 +117,15 @@ export function VerUsuarios() {
               </p>
             </div>
             {(userRole === "admin" || userRole === "super") && (
-              <button
+              <SigetActionButton
+                label="Crear"
+                accentColor={sigetAccent.crear}
+                morphFrom={UserPlus}
+                morphTo={Check}
                 onClick={() => setIsSignUpOpen(true)}
-                className="inline-flex items-center justify-center rounded-lg text-sm font-medium transition-colors bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 cursor-pointer"
-              >
-                <Plus className="mr-2 h-4 w-4" />
-                Nuevo Usuario
-              </button>
+                ariaLabel="Nuevo usuario"
+                className="w-auto shrink-0"
+              />
             )}
           </div>
 
@@ -272,7 +269,7 @@ export function VerUsuarios() {
         userId={selectedUserId}
       />
 
-      <SignUp isOpen={isSignUpOpen} onClose={handleCloseSignUp} />
+      <FormularioRegistro isOpen={isSignUpOpen} onClose={handleCloseSignUp} />
     </>
   );
 }

@@ -1,4 +1,4 @@
-import Swal from "sweetalert2";
+import { toast } from "react-toastify";
 
 export const showToast = (
   icon: "success" | "error" | "warning" | "info",
@@ -12,25 +12,19 @@ export const showToast = (
     | "bottom-start"
     | "bottom-end" = "top-end",
 ) => {
-  const isDark = document.documentElement.classList.contains("dark");
-  const Toast = Swal.mixin({
-    toast: true,
-    position,
-    showConfirmButton: false,
-    timer: 3000,
-    timerProgressBar: true,
-    background: isDark ? "#121212" : "#ffffff",
-    color: isDark ? "#fff" : "#09090b",
-    didOpen: (toast) => {
-      toast.addEventListener("mouseenter", Swal.stopTimer);
-      toast.addEventListener("mouseleave", Swal.resumeTimer);
-      const container = Swal.getContainer();
-      if (container) {
-        container.style.zIndex = "99999";
-      }
-    },
-  });
-  Toast.fire({ icon, title });
+  const toastPosition =
+    position === "top" || position === "top-start" || position === "top-end"
+      ? "top-center"
+      : position === "center"
+        ? "top-center"
+        : "bottom-center";
+
+  const opts = { position: toastPosition as "top-center" | "bottom-center", autoClose: 3000 };
+
+  if (icon === "success") toast.success(title, opts);
+  else if (icon === "error") toast.error(title, opts);
+  else if (icon === "warning") toast.warn(title, opts);
+  else toast.info(title, opts);
 };
 
 export const showAlert = (
@@ -38,22 +32,8 @@ export const showAlert = (
   title: string,
   text: string,
 ) => {
-  const isDark = document.documentElement.classList.contains("dark");
-  return Swal.fire({
-    icon,
-    title,
-    text,
-    background: isDark ? "#121212" : "#ffffff",
-    color: isDark ? "#fff" : "#09090b",
-    confirmButtonColor: "#ea580c",
-    customClass: {
-      popup: "rounded-3xl border border-border/50 backdrop-blur-xl",
-    },
-    didOpen: () => {
-      const container = Swal.getContainer();
-      if (container) {
-        container.style.zIndex = "99999";
-      }
-    },
-  });
+  const message = text ? `${title}: ${text}` : title;
+  if (icon === "success") toast.success(message);
+  else if (icon === "error") toast.error(message);
+  else toast.warn(message);
 };

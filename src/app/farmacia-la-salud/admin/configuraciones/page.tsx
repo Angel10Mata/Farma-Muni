@@ -1,10 +1,10 @@
 import { Suspense } from "react";
+import VerConfiguraciones from "@/components/(base)/(settings)/VerConfiguraciones";
 
-import AppConfiguraciones from "@/components/(base)/(settings)/index";
 export default function ConfiguracionesPage() {
   return (
-    <Suspense>
-      <AppConfiguraciones />
+    <Suspense fallback={null}>
+      <VerConfiguraciones />
     </Suspense>
   );
 }

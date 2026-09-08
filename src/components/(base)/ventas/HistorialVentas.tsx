@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useRef } from "react";
-import { Search, ChevronDown, ChevronLeft, ChevronRight, Calendar, Printer, Check, Receipt, MessageCircle } from "lucide-react";
+import { useState } from "react";
+import { Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
+import { Eye as EyeNode, MessageCircle as MessageCircleNode, Printer as PrinterNode } from "lucide";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, fmtQ } from "@/lib/utils";
-import { CustomDatePicker, obtenerSemanasDelMes } from "@/components/ui/CustomDatePicker";
+import { ModalFechaInput } from "@/components/ui/general-modal";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
-import { obtenerCodigoRecibo } from "./recibo-utils";
+import { obtenerCodigoRecibo } from "./lib/helpers";
 import { useHistorialVentas } from "./lib/hooks";
 import { DetalleVentaModal } from "./modals/DetalleVentaModal";
 
@@ -147,7 +149,9 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
           <AnimatePresence mode="wait">
             {tipoFiltroFecha === "dia" && (
               <motion.div key="dia" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                <CustomDatePicker value={fechaDia} onChange={(val) => { setFechaDia(val); setCurrentPage(1); }} align="center" />
+                <div className="w-[130px]">
+                  <ModalFechaInput value={fechaDia} onChange={(val) => { setFechaDia(val); setCurrentPage(1); }} />
+                </div>
               </motion.div>
             )}
 
@@ -206,9 +210,13 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
             {tipoFiltroFecha === "rango" && (
               <motion.div key="rango" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex items-center gap-2">
                 <span className="text-[10px] font-bold text-zinc-400">Desde:</span>
-                <CustomDatePicker value={fechaRangoDesde} onChange={(val) => { setFechaRangoDesde(val); setCurrentPage(1); }} placeholder="Inicio" align="center" />
+                <div className="w-[130px]">
+                  <ModalFechaInput value={fechaRangoDesde} onChange={(val) => { setFechaRangoDesde(val); setCurrentPage(1); }} />
+                </div>
                 <span className="text-[10px] font-bold text-zinc-400">Hasta:</span>
-                <CustomDatePicker value={fechaRangoHasta} onChange={(val) => { setFechaRangoHasta(val); setCurrentPage(1); }} placeholder="Fin" align="right" />
+                <div className="w-[130px]">
+                  <ModalFechaInput value={fechaRangoHasta} onChange={(val) => { setFechaRangoHasta(val); setCurrentPage(1); }} />
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
@@ -301,15 +309,37 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                         <span className="text-xs font-black text-[#8DA78E] mt-1">{fmtQ(v.total)}</span>
                       </div>
                       <div className="flex gap-2">
-                        <button onClick={() => setVentaDetalleSeleccionada(v)} className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-[#8DA78E] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase">
-                          Detalle
-                        </button>
-                        <button onClick={() => onPrint(v, [])} className="px-6 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg transition-colors cursor-pointer">
-                          <Printer className="size-5" />
-                        </button>
-                        <button onClick={() => onShareWhatsApp(v)} className="px-6 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-600 rounded-lg transition-colors cursor-pointer">
-                          <MessageCircle className="size-5" />
-                        </button>
+                        <SigetActionButton
+                          label="Detalle"
+                          accentColor={sigetAccent.abrir}
+                          morphFrom={EyeNode}
+                          morphTo={EyeNode}
+                          morphOnHover={false}
+                          onClick={() => setVentaDetalleSeleccionada(v)}
+                          className="w-auto shrink-0"
+                        />
+                        <SigetActionButton
+                          label="Imprimir"
+                          accentColor={sigetAccent.editar}
+                          morphFrom={PrinterNode}
+                          morphTo={PrinterNode}
+                          morphOnHover={false}
+                          onClick={() => onPrint(v, [])}
+                          iconOnly
+                          ariaLabel="Imprimir recibo"
+                          className="w-auto shrink-0"
+                        />
+                        <SigetActionButton
+                          label="WhatsApp"
+                          accentColor={sigetAccent.activa}
+                          morphFrom={MessageCircleNode}
+                          morphTo={MessageCircleNode}
+                          morphOnHover={false}
+                          onClick={() => onShareWhatsApp(v)}
+                          iconOnly
+                          ariaLabel="Compartir por WhatsApp"
+                          className="w-auto shrink-0"
+                        />
                       </div>
                     </div>
                   </div>
@@ -366,26 +396,37 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex items-center justify-center gap-2">
-                            <button
+                            <SigetActionButton
+                              label="Detalle"
+                              accentColor={sigetAccent.abrir}
+                              morphFrom={EyeNode}
+                              morphTo={EyeNode}
+                              morphOnHover={false}
                               onClick={() => setVentaDetalleSeleccionada(v)}
-                              className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-[#8DA78E] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase"
-                            >
-                              Ver Detalle
-                            </button>
-                            <button
+                              className="w-auto shrink-0"
+                            />
+                            <SigetActionButton
+                              label="Imprimir"
+                              accentColor={sigetAccent.editar}
+                              morphFrom={PrinterNode}
+                              morphTo={PrinterNode}
+                              morphOnHover={false}
                               onClick={() => onPrint(v, [])}
-                              className="px-6 py-2 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded-lg transition-colors cursor-pointer"
-                              title="Imprimir directamente"
-                            >
-                              <Printer className="size-5" />
-                            </button>
-                            <button
+                              iconOnly
+                              ariaLabel="Imprimir recibo"
+                              className="w-auto shrink-0"
+                            />
+                            <SigetActionButton
+                              label="WhatsApp"
+                              accentColor={sigetAccent.activa}
+                              morphFrom={MessageCircleNode}
+                              morphTo={MessageCircleNode}
+                              morphOnHover={false}
                               onClick={() => onShareWhatsApp(v)}
-                              className="px-6 py-2 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:hover:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 rounded-lg transition-colors cursor-pointer"
-                              title="Compartir por WhatsApp"
-                            >
-                              <MessageCircle className="size-5" />
-                            </button>
+                              iconOnly
+                              ariaLabel="Compartir por WhatsApp"
+                              className="w-auto shrink-0"
+                            />
                           </div>
                         </td>
                       </tr>

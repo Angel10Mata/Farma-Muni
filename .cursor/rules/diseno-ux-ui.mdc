@@ -1,0 +1,52 @@
+---
+description: Design system SIGET — tema zinc, botones, modales, toastify, SweetAlert, gráficos, animaciones, offline (Farmacia Salud)
+alwaysApply: true
+---
+
+# Diseño UX/UI — SIGET (Farmacia Salud)
+
+Design system compartido Kore/SIGET. Reemplaza el estilo visual legacy de Farmacia (celeste outline, un solo botón Guardar, modales antiguos).
+
+## Tema
+
+- Claro: página blanca; cards `zinc-50`; header/layout `zinc-100`.
+- Oscuro: página `zinc-900`; cards/componentes `zinc-800`.
+
+## Prohibiciones globales
+
+- Botones de acción: **solo** `SigetActionButton` (`@/components/ui/siget-action-button`) — RippleButton + MorphHoverIcon, una palabra, icono a la derecha, contenido centrado, **sin sombra**. Ver skill `ui-tema-botones`. Sin excepciones (pantallas, modales, listas).
+- Formularios flotantes: solo `ModalShell` de `general-modal.tsx`. Prohibido `Dialog` de shadcn.
+- Feedback: solo `react-toastify`; un `ObsToastContainer` global en el layout raíz.
+- SweetAlert solo **fuera** de `ModalShell`; dentro → `ModalConfirmDelete`.
+- Listas dinámicas: `AnimatePresence` + `motion` con `layout`.
+- Conexión: un solo `OfflineBanner` global; respetar `--banner-height`.
+- Menús flotantes (`DropdownMenu`, popovers, menús de 3 puntos): **fondo opaco sólido**. Prohibido dejar solo `bg-popover` si se ve transparente. Usar `bg-white dark:bg-zinc-900`, `opacity-100` y `z` alto (p. ej. `z-[200]`) para que no se transparente contenido detrás (paginación, filas, etc.).
+
+## Modales (`ModalShell`)
+
+- Formulario: `ModalForm` + `ModalField` + `ModalLabel` + `ModalInput` / `ModalTextarea` / `ModalFechaInput`.
+- Superficies: header y contenido `white` / `dark:zinc-900`; footer `zinc-100` / `dark:zinc-800` con borde superior.
+- Título y labels: `modalAccentClass` (`#2c5f9b` claro, `#6f9fd4` oscuro, `font-bold`).
+- Campos: borde zinc (`modalFieldClass`); fecha manual con `ModalFechaInput` (sin calendario).
+- Footer: `ModalCancelButton` + `ModalSubmit`; skill `ui-modales` para plantilla completa.
+
+## Toastify
+
+- Contenedor único: `ObsToastContainer` en `src/app/layout.tsx`.
+- Configuración: `position="top-center"`, `autoClose={3000}`, `theme="colored"`.
+- Variables `--toastify-*` en `globals.css`; sin sombra en toasts.
+- Uso: `import { toast } from "react-toastify"`.
+
+## Skills UI (cargar según necesidad)
+
+| Skill | Cuándo |
+|-------|--------|
+| `ui-tema-botones` | **Obligatorio** en todo botón de acción — RippleButton + morphicon |
+| `ui-modales` | ModalShell, formularios flotantes |
+| `ui-toastify` | toast.success/error/warn |
+| `ui-sweetalert` | Confirmaciones fuera de modal |
+| `ui-graficos` | Donas, barras, anillos de progreso, KPIs |
+| `ui-animaciones-listas` | Filas/tarjetas que se agregan o quitan |
+| `ui-offline-banner` | Layouts sticky, estado offline/lento |
+
+Todos en `.cursor/skills/`.

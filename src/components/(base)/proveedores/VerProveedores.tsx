@@ -9,7 +9,7 @@ import { ComprasCartSidebar } from "./ComprasCartSidebar";
 import { HistorialCompras } from "./HistorialCompras";
 import { CuentasPorPagar } from "./CuentasPorPagar";
 import { CatalogoProveedores } from "./CatalogoProveedores";
-import { CrearProveedor } from "./forms/CrearProveedor";
+import { CrearProveedor } from "./forms/Crear";
 import { useProveedoresYProductos, useHistorialCompras } from "./lib/hooks";
 
 function VerProveedoresInner() {

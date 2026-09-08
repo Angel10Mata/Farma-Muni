@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import SinAccesoContent from "./SinAccesoContent";
 
 export default function SinAccesoPage() {
-  return <SinAccesoContent />;
+  return (
+    <Suspense fallback={null}>
+      <SinAccesoContent />
+    </Suspense>
+  );
 }

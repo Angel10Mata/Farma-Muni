@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { obtenerProductos, guardarProducto, eliminarProducto, obtenerUbicaciones } from "./actions";
+import {
+  obtenerProducto,
+  obtenerProductos,
+  guardarProducto,
+  eliminarProducto,
+  obtenerUbicaciones,
+} from "./actions";
 import { type ProductFormValues } from "./zod";
 
 export function useEditMode(initial = false) {
@@ -22,6 +28,19 @@ export function useProductos() {
       if (!res.success) throw new Error(res.code);
       return res.data;
     },
+  });
+}
+
+export function useProducto(id: string | null) {
+  return useQuery({
+    queryKey: ["producto", id],
+    queryFn: async () => {
+      if (!id) return null;
+      const res = await obtenerProducto(id);
+      if (!res.success) throw new Error(res.code);
+      return res.data;
+    },
+    enabled: !!id,
   });
 }
 

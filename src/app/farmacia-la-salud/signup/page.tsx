@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import SignupPageClient from "@/components/(base)/(auth)/signup/SignupPageClient";
+import RegistroUsuario from "@/components/(base)/(auth)/signup/RegistroUsuario";
 
 export default function SignupPage() {
   return (
-    <Suspense>
-      <SignupPageClient />
+    <Suspense fallback={null}>
+      <RegistroUsuario />
     </Suspense>
   );
 }

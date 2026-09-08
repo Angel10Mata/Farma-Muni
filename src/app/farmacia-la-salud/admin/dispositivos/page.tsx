@@ -1,12 +1,10 @@
 import { Suspense } from "react";
-import { Dispositivos } from "@/components/(base)/(auth)/devices/index";
+import { VerDispositivos } from "@/components/(base)/(auth)/devices/VerDispositivos";
 
-export default function SignupPage() {
+export default function DispositivosPage() {
   return (
-    <Suspense>
-      <div className="w-full p-4 pt-32 md:p-6 md:pt-24">
-        <Dispositivos />
-      </div>
+    <Suspense fallback={null}>
+      <VerDispositivos />
     </Suspense>
   );
 }

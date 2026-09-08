@@ -7,7 +7,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import Swal from "sweetalert2";
 import VerPerfil from "@/components/(base)/(users)/profile/VerPerfil";
-import PassKeysModal from "@/components/(base)/layout/modals/PassKeysModal";
+import ModalPasskeys from "@/components/(base)/layout/modals/ModalPasskeys";
 import {
   LogIn,
   LogOut,
@@ -77,7 +77,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
         onClose={() => setIsProfileOpen(false)}
         userId={null}
       />
-      <PassKeysModal
+      <ModalPasskeys
         isOpen={isPasskeysOpen}
         onClose={() => setIsPasskeysOpen(false)}
         user={user}

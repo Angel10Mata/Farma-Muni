@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
-import { authSchema } from "./schemas";
+import { authSchema } from "./lib/zod";
 
 function getAdminClient() {
   return createSupabaseAdmin(

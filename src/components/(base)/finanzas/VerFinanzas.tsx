@@ -6,7 +6,6 @@ import {
   Wallet,
   TrendingUp,
   TrendingDown,
-  Plus,
   Search,
   Trash2,
   Calendar,
@@ -19,19 +18,22 @@ import {
   Check,
   MoreVertical,
 } from "lucide-react";
+import { Plus as PlusNode, CirclePlus as CirclePlusNode, TrendingDown as TrendingDownNode, TrendingUp as TrendingUpNode } from "lucide";
 import Swal from "sweetalert2";
 import { getSwalThemeOpts } from "@/lib/utils";
+import { toast } from "react-toastify";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { cn } from "@/lib/utils";
 import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
-import AnimatedIcon from "@/components/ui/AnimatedIcon";
-import { CustomDatePicker, obtenerSemanasDelMes } from "@/components/ui/CustomDatePicker";
+import { ModalFechaInput } from "@/components/ui/general-modal";
+import { fechaCalendarioGt, obtenerSemanasDelMes } from "@/lib/fechas-gt";
 
 import {
   CATEGORIA_LABELS,
   FILTROS_TIPO,
   type FiltroTipo,
-} from "./schemas";
-import { NuevoMovimiento } from "./forms/NuevoMovimiento";
+} from "./lib/zod";
+import { NuevoMovimiento } from "./forms/Crear";
 import {
   useMovimientosFinancieros,
   useResumenFinanciero,
@@ -172,9 +174,10 @@ export function VerFinanzas() {
     setIsDeleting(true);
     try {
       await anularMovimiento(id);
-      Swal.fire({ title: "Anulado", text: "El registro ha sido anulado correctamente.", icon: "success", ...getSwalThemeOpts() });
-    } catch (error: any) {
-      Swal.fire({ title: "Error", text: error.message || "No se pudo anular el registro", icon: "error", ...getSwalThemeOpts() });
+      toast.success("El registro ha sido anulado correctamente.");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "No se pudo anular el registro";
+      toast.error(message);
     } finally {
       setIsDeleting(false);
       setDeleteId(null);
@@ -217,8 +220,8 @@ export function VerFinanzas() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-4 md:px-0">
           <div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-zinc-900 dark:text-white flex items-center gap-3">
-              <div className="p-2.5 bg-[#8DA78E]/10 dark:bg-[#8DA78E]/20 text-[#8DA78E] rounded-xl overflow-hidden">
-                <AnimatedIcon iconKey="hrxrggwa" className="text-[#8DA78E]" size={32} />
+              <div className="p-2.5 bg-[#8DA78E]/10 dark:bg-[#8DA78E]/20 text-[#8DA78E] rounded-xl">
+                <Wallet className="size-8" />
               </div>
               Control Financiero
             </h1>
@@ -228,22 +231,22 @@ export function VerFinanzas() {
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto">
-            <button
-              type="button"
+            <SigetActionButton
+              label="Ingreso"
+              accentColor={sigetAccent.guardar}
+              morphFrom={PlusNode}
+              morphTo={TrendingUpNode}
               onClick={() => handleOpenNuevo("ingreso")}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-[#8DA78E] text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
-            >
-              <Plus className="size-4" />
-              <span className="hidden sm:inline">Nuevo</span> Ingreso
-            </button>
-            <button
-              type="button"
+              className="w-auto shrink-0 flex-1 md:flex-none"
+            />
+            <SigetActionButton
+              label="Egreso"
+              accentColor={sigetAccent.quitar}
+              morphFrom={CirclePlusNode}
+              morphTo={TrendingDownNode}
               onClick={() => handleOpenNuevo("egreso")}
-              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-rose-500 hover:bg-rose-600 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-all shadow-sm active:scale-95 cursor-pointer"
-            >
-              <Plus className="size-4" />
-              <span className="hidden sm:inline">Nuevo</span> Egreso
-            </button>
+              className="w-auto shrink-0 flex-1 md:flex-none"
+            />
           </div>
         </div>
 
@@ -323,10 +326,10 @@ export function VerFinanzas() {
 
                 <div className="flex items-center justify-center gap-2 w-full sm:w-auto">
                   {tipoFiltroFecha === "dia" && (
-                    <CustomDatePicker
+                    <ModalFechaInput
                       value={fechaDia}
                       onChange={setFechaDia}
-                      align="center"
+                      className="w-[140px]"
                     />
                   )}
 
@@ -353,7 +356,7 @@ export function VerFinanzas() {
                               initial={{ opacity: 0, y: -5 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -5 }}
-                              className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-48 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-2"
+                              className="absolute top-full left-1/2 z-[200] mt-1 w-48 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800 dark:bg-zinc-900"
                             >
                               <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 dark:border-slate-900">
                                 <button
@@ -416,7 +419,7 @@ export function VerFinanzas() {
                               initial={{ opacity: 0, y: -5 }}
                               animate={{ opacity: 1, y: 0 }}
                               exit={{ opacity: 0, y: -5 }}
-                              className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-[180px] bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 py-1"
+                              className="absolute top-full left-1/2 z-[200] mt-1 w-[180px] -translate-x-1/2 rounded-xl border border-slate-200 bg-white py-1 opacity-100 shadow-xl dark:border-slate-800 dark:bg-zinc-900"
                             >
                               <button
                                 type="button"
@@ -463,18 +466,16 @@ export function VerFinanzas() {
 
                   {tipoFiltroFecha === "rango" && (
                     <div className="flex items-center justify-center gap-2">
-                      <CustomDatePicker
+                      <ModalFechaInput
                         value={fechaRangoDesde}
                         onChange={setFechaRangoDesde}
-                        placeholder="Desde"
-                        align="center"
+                        className="w-[120px]"
                       />
-                      <span className="text-slate-400 text-xs">-</span>
-                      <CustomDatePicker
+                      <span className="text-xs text-slate-400">-</span>
+                      <ModalFechaInput
                         value={fechaRangoHasta}
                         onChange={setFechaRangoHasta}
-                        placeholder="Hasta"
-                        align="center"
+                        className="w-[120px]"
                       />
                     </div>
                   )}

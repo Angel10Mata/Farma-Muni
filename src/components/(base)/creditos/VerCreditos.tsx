@@ -12,13 +12,14 @@ import {
 } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import Swal from "sweetalert2";
-import { getSwalThemeOpts } from "@/lib/utils";
+import { toast } from "react-toastify";
+import { Download as DownloadNode, FileDown } from "lucide";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
 import { cn, fmtQ } from "@/lib/utils";
 import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 import { useResumenCreditos } from "./lib/hooks";
-import { CreditoDetalle } from "./forms/CreditoDetalle";
+import { VerDetalleCredito } from "./forms/VerDetalleCredito";
 import type { CreditoResumen } from "./lib/zod";
 
 export function VerCreditos() {
@@ -43,16 +44,9 @@ export function VerCreditos() {
       });
 
       if (porVencerOCaducados.length > 0) {
-        Swal.fire({
-          title: "¡Atención!",
-          text: `Hay ${porVencerOCaducados.length} crédito(s) por vencer (7 días o menos) o ya vencidos.`,
-          icon: "warning",
-          toast: true,
-          position: "top-end",
-          showConfirmButton: false,
-          timer: 6000,
-          ...getSwalThemeOpts()
-        });
+        toast.warn(
+          `Hay ${porVencerOCaducados.length} crédito(s) por vencer (7 días o menos) o ya vencidos.`,
+        );
       }
       setHasNotified(true);
     }
@@ -104,8 +98,9 @@ export function VerCreditos() {
         headStyles: { fillColor: [141, 167, 142], textColor: [245, 245, 241], fontStyle: "bold", fontSize: 10 },
       });
       doc.save(`Creditos_${new Date().toISOString().slice(0, 10)}.pdf`);
-    } catch (e) {
-      Swal.fire({ title: "Error", text: "No se pudo generar PDF", icon: "error", ...getSwalThemeOpts() });
+      toast.success("PDF exportado correctamente.");
+    } catch {
+      toast.error("No se pudo generar el archivo PDF.");
     }
   };
 
@@ -177,12 +172,14 @@ export function VerCreditos() {
               <option value="saldo-asc">Menor Saldo Pendiente</option>
               <option value="nombre-asc">Nombre (A-Z)</option>
             </select>
-            <button
+            <SigetActionButton
+              label="Exportar"
+              accentColor={sigetAccent.excel}
+              morphFrom={DownloadNode}
+              morphTo={FileDown}
               onClick={handleExportarGlobal}
-              className="px-4 py-2.5 bg-zinc-800 dark:bg-zinc-100 text-white dark:text-zinc-900 text-xs font-bold rounded-xl whitespace-nowrap shadow-sm hover:opacity-90 transition-opacity cursor-pointer"
-            >
-              Exportar
-            </button>
+              className="w-auto shrink-0"
+            />
           </div>
         </div>
 
@@ -348,7 +345,7 @@ export function VerCreditos() {
 
       <AnimatePresence>
         {clienteSeleccionado && (
-          <CreditoDetalle
+          <VerDetalleCredito
             cliente={clienteSeleccionado}
             onClose={() => setClienteSeleccionado(null)}
             onUpdate={() => {

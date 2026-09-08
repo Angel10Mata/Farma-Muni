@@ -5,31 +5,38 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
   Search,
-  Plus,
-  Download,
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
-  Check,
   Truck,
   Calendar,
   Box,
   Building2,
   X,
 } from "lucide-react";
+import {
+  Download as DownloadNode,
+  FileDown,
+  Pencil,
+  Plus as PlusNode,
+  SquarePen,
+  Trash,
+  Trash2,
+  UserPlus,
+} from "lucide";
 import { createClient } from "@/utils/supabase/client";
-import Swal from "sweetalert2";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { format } from "date-fns";
 import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
-import { cn, fmtNum, fmtQ, getSwalThemeOpts } from "@/lib/utils";
+import { cn, fmtNum, fmtQ } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import ImageUploader from "@/components/imgs/ImageUploader";
-import AnimatedIcon from "@/components/ui/AnimatedIcon";
 import { useProductos, useEliminarProducto } from "./lib/hooks";
-import { ModalConfirmDelete, ModalShell } from "@/components/ui/general-modal";
+import {
+  ModalConfirmDelete,
+  ModalShell,
+  modalActionMessage,
+  toast,
+} from "@/components/ui/general-modal";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Producto {
   id: string;
@@ -171,425 +178,29 @@ function ProductoCard({
           </div>
 
           {/* Action buttons (50/50 split) */}
-          <div className="flex gap-1 shrink-0">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit();
-              }}
-              className="px-2.5 py-1 bg-[#A3BEB0]/20 hover:bg-[#A3BEB0]/40 text-[#525D53] dark:text-[#A3BEB0] text-[9px] font-bold rounded-md transition-all cursor-pointer uppercase"
-            >
-              Editar
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="px-2.5 py-1 bg-red-400 hover:bg-red-500 text-white text-[9px] font-bold rounded-md transition-all cursor-pointer uppercase"
-            >
-              Borrar
-            </button>
+          <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
+            <SigetActionButton
+              label="Editar"
+              accentColor={sigetAccent.editar}
+              morphFrom={Pencil}
+              morphTo={SquarePen}
+              onClick={onEdit}
+              className="w-auto shrink-0"
+            />
+            <SigetActionButton
+              label="Quitar"
+              accentColor={sigetAccent.quitar}
+              morphFrom={Trash2}
+              morphTo={Trash}
+              onClick={onDelete}
+              className="w-auto shrink-0"
+            />
           </div>
         </div>
       </div>
     </motion.div>
   );
 }
-
-// ─── Custom Date Picker ─────────────────────────────────────────────────────────
-interface CalendarioCell {
-  day: number;
-  month: number;
-  year: number;
-  isCurrentMonth: boolean;
-}
-
-function obtenerDiasDelMes(month: number, year: number): CalendarioCell[] {
-  const cells: CalendarioCell[] = [];
-  const primerDiaSemana = new Date(year, month, 1).getDay();
-  const diasMesActual = new Date(year, month + 1, 0).getDate();
-  const diasMesAnterior = new Date(year, month, 0).getDate();
-
-  for (let i = primerDiaSemana - 1; i >= 0; i--) {
-    const prevMonth = month === 0 ? 11 : month - 1;
-    const prevYear = month === 0 ? year - 1 : year;
-    cells.push({
-      day: diasMesAnterior - i,
-      month: prevMonth,
-      year: prevYear,
-      isCurrentMonth: false
-    });
-  }
-
-  for (let i = 1; i <= diasMesActual; i++) {
-    cells.push({
-      day: i,
-      month,
-      year,
-      isCurrentMonth: true
-    });
-  }
-
-  let nextMonthDay = 1;
-  while (cells.length < 42) {
-    const nextMonth = month === 11 ? 0 : month + 1;
-    const nextYear = month === 11 ? year + 1 : year;
-    cells.push({
-      day: nextMonthDay,
-      month: nextMonth,
-      year: nextYear,
-      isCurrentMonth: false
-    });
-    nextMonthDay++;
-  }
-
-  return cells;
-}
-
-const CustomDatePicker = ({
-  value,
-  onChange,
-  placeholder,
-  align = "left"
-}: {
-  value: string;
-  onChange: (val: string) => void;
-  placeholder?: string;
-  align?: "left" | "right";
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"days" | "months" | "years">("days");
-
-  const getParsedDate = () => {
-    if (!value) return new Date();
-    const [y, m, d] = value.split("-").map(Number);
-    if (isNaN(y) || isNaN(m) || isNaN(d)) return new Date();
-    return new Date(y, m - 1, d);
-  };
-
-  const parsedDate = getParsedDate();
-  const [navMonth, setNavMonth] = useState(parsedDate.getMonth());
-  const [navYear, setNavYear] = useState(parsedDate.getFullYear());
-  const [yearRangeStart, setYearRangeStart] = useState(parsedDate.getFullYear() - 4);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const p = getParsedDate();
-    setNavMonth(p.getMonth());
-    setNavYear(p.getFullYear());
-    setYearRangeStart(p.getFullYear() - 4);
-  }, [value]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      setViewMode("days");
-    }
-  }, [isOpen]);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const handlePrevMonth = () => {
-    if (navMonth === 0) {
-      setNavMonth(11);
-      setNavYear(navYear - 1);
-    } else {
-      setNavMonth(navMonth - 1);
-    }
-  };
-
-  const handleNextMonth = () => {
-    if (navMonth === 11) {
-      setNavMonth(0);
-      setNavYear(navYear + 1);
-    } else {
-      setNavMonth(navMonth + 1);
-    }
-  };
-
-  const handleSelectDay = (cell: CalendarioCell) => {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const valStr = `${cell.year}-${pad(cell.month + 1)}-${pad(cell.day)}`;
-    onChange(valStr);
-    setIsOpen(false);
-  };
-
-  const getDisplayDate = () => {
-    if (!value) return placeholder || "Seleccionar...";
-    const [y, m, d] = value.split("-");
-    if (!y || !m || !d) return placeholder || "Seleccionar...";
-    return `${d}/${m}/${y}`;
-  };
-
-  const cells = obtenerDiasDelMes(navMonth, navYear);
-  const nombresMeses = [
-    "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
-    "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
-  ];
-  const nombresMesesCortos = [
-    "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-    "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
-  ];
-
-  return (
-    <div className="relative" ref={containerRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between bg-white dark:bg-zinc-900 border border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20 rounded-md py-0.5 px-2 cursor-pointer select-none transition-all h-[24px] min-w-[120px] text-left focus:outline-none focus:ring-1 focus:ring-[#8DA78E]"
-      >
-        <div className="flex items-center">
-          <Calendar className="size-3.5 text-[#8DA78E] mr-1.5 shrink-0" />
-          <span className="text-[10px] font-bold text-[#8DA78E] dark:text-[#A3BEB0]">
-            {getDisplayDate()}
-          </span>
-        </div>
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <>
-            {/* Mobile Backdrop Overlay */}
-            <div
-              className="fixed inset-0 z-[190] bg-black/40 backdrop-blur-xs sm:hidden"
-              onClick={() => setIsOpen(false)}
-            />
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              transition={{ duration: 0.15 }}
-              className={cn(
-                "bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-2xl z-[200] p-4 min-w-[280px] max-w-[320px]",
-                "fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 sm:static sm:translate-x-0 sm:translate-y-0 sm:z-50",
-                "sm:absolute sm:mt-2",
-                align === "left" ? "sm:left-0 sm:right-auto" : "sm:right-0 sm:left-auto"
-              )}
-            >
-            {/* Header Controls */}
-            <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
-              {viewMode === "days" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={handlePrevMonth}
-                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
-                    title="Mes anterior"
-                  >
-                    <ChevronLeft className="size-4" />
-                  </button>
-
-                  <div className="flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("months")}
-                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
-                    >
-                      {nombresMeses[navMonth]}
-                      <ChevronDown className="size-3 opacity-60" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setViewMode("years")}
-                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
-                    >
-                      {navYear}
-                      <ChevronDown className="size-3 opacity-60" />
-                    </button>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleNextMonth}
-                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
-                    title="Mes siguiente"
-                  >
-                    <ChevronRight className="size-4" />
-                  </button>
-                </>
-              )}
-
-              {viewMode === "months" && (
-                <>
-                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0] px-1">
-                    Seleccionar Mes ({navYear})
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setViewMode("days")}
-                    className="text-xs font-bold text-[#8DA78E] hover:underline px-2 py-1 cursor-pointer"
-                  >
-                    Volver
-                  </button>
-                </>
-              )}
-
-              {viewMode === "years" && (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setYearRangeStart(yearRangeStart - 12)}
-                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
-                  >
-                    <ChevronLeft className="size-4" />
-                  </button>
-
-                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0]">
-                    {yearRangeStart} - {yearRangeStart + 11}
-                  </span>
-
-                  <button
-                    type="button"
-                    onClick={() => setYearRangeStart(yearRangeStart + 12)}
-                    className="p-1.5 rounded-lg cursor-pointer text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
-                  >
-                    <ChevronRight className="size-4" />
-                  </button>
-                </>
-              )}
-            </div>
-
-            {/* DAYS VIEW */}
-            {viewMode === "days" && (
-              <>
-                <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
-                  {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"].map((dayName) => (
-                    <div key={dayName} className="py-1">{dayName}</div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-7 gap-1 text-center">
-                  {cells.map((cell, idx) => {
-                    const pad = (n: number) => n.toString().padStart(2, "0");
-                    const cellValStr = `${cell.year}-${pad(cell.month + 1)}-${pad(cell.day)}`;
-                    const isSelected = value === cellValStr;
-                    const isToday = () => {
-                      const today = new Date();
-                      return (
-                        today.getDate() === cell.day &&
-                        today.getMonth() === cell.month &&
-                        today.getFullYear() === cell.year
-                      );
-                    };
-
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => handleSelectDay(cell)}
-                        className={`py-1.5 rounded-lg text-xs font-medium transition-all duration-150 cursor-pointer ${isSelected
-                            ? "bg-[#8DA78E] text-white shadow-sm shadow-[#8DA78E]/30 scale-105 font-bold"
-                            : cell.isCurrentMonth
-                              ? isToday()
-                                ? "border border-[#8DA78E] text-[#8DA78E] dark:text-[#A3BEB0] font-bold bg-[#8DA78E]/5 hover:bg-[#8DA78E]/10"
-                                : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-900/60"
-                              : "text-slate-400/50 dark:text-slate-650/30 hover:bg-slate-50/50 dark:hover:bg-zinc-900/10"
-                          }`}
-                      >
-                        {cell.day}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
-
-            {/* MONTHS GRID VIEW */}
-            {viewMode === "months" && (
-              <div className="grid grid-cols-3 gap-2 py-2">
-                {nombresMesesCortos.map((mName, idx) => {
-                  const isCurrentNavMonth = navMonth === idx;
-                  return (
-                    <button
-                      key={mName}
-                      type="button"
-                      onClick={() => {
-                        setNavMonth(idx);
-                        setViewMode("days");
-                      }}
-                      className={cn(
-                        "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
-                        isCurrentNavMonth
-                          ? "bg-[#8DA78E] text-white shadow-md shadow-[#8DA78E]/30 scale-105"
-                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
-                      )}
-                    >
-                      {nombresMeses[idx]}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* YEARS GRID VIEW */}
-            {viewMode === "years" && (
-              <div className="grid grid-cols-3 gap-2 py-2">
-                {Array.from({ length: 12 }, (_, i) => yearRangeStart + i).map((y) => {
-                  const isCurrentNavYear = navYear === y;
-                  return (
-                    <button
-                      key={y}
-                      type="button"
-                      onClick={() => {
-                        setNavYear(y);
-                        setViewMode("days");
-                      }}
-                      className={cn(
-                        "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
-                        isCurrentNavYear
-                          ? "bg-[#8DA78E] text-white shadow-md shadow-[#8DA78E]/30 scale-105"
-                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
-                      )}
-                    >
-                      {y}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* Bottom Actions */}
-            <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-100 dark:border-slate-900/60 text-xs">
-              <button
-                type="button"
-                onClick={() => {
-                  onChange("");
-                  setIsOpen(false);
-                }}
-                className="px-2.5 py-1 text-slate-500 hover:text-red-500 dark:hover:text-red-400 font-bold transition-colors cursor-pointer rounded-md hover:bg-red-50 dark:hover:bg-red-950/20"
-              >
-                Borrar
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const pad = (n: number) => n.toString().padStart(2, "0");
-                  const todayObj = new Date();
-                  const todayStr = `${todayObj.getFullYear()}-${pad(todayObj.getMonth() + 1)}-${pad(todayObj.getDate())}`;
-                  onChange(todayStr);
-                  setIsOpen(false);
-                }}
-                className="px-2.5 py-1 text-[#8DA78E] dark:text-[#A3BEB0] hover:bg-[#8DA78E]/10 font-bold transition-colors cursor-pointer rounded-md"
-              >
-                Hoy
-              </button>
-            </div>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
-    </div>
-  );
-};
 
 // ─── Panel de detalle ──────────────────────────────────────────────────────────
 function ProductoDetalle({
@@ -735,13 +346,14 @@ function ProductoDetalle({
 
       {/* Acciones */}
       <div className="flex justify-start items-center mt-4 pt-3 border-t border-[#C1D1C5]/20 dark:border-[#A3BEB0]/10 shrink-0">
-        <button
-          type="button"
+        <SigetActionButton
+          label="Editar"
+          accentColor={sigetAccent.editar}
+          morphFrom={Pencil}
+          morphTo={SquarePen}
           onClick={onEditClick}
-          className="w-fit py-2.5 px-8 rounded-xl bg-[#A3BEB0] hover:bg-[#8DA78E] text-[#F5F5F1] text-sm font-bold transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-        >
-          Editar Producto
-        </button>
+          className="w-auto shrink-0"
+        />
       </div>
     </motion.div>
   );
@@ -828,7 +440,7 @@ const LocationFilterDropdown = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-64 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xl z-50 p-2 max-h-72 overflow-y-auto custom-scrollbar"
+            className="absolute right-0 mt-2 w-64 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xl z-[200] opacity-100 p-2 max-h-72 overflow-y-auto custom-scrollbar"
           >
             <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
               <span>Ubicaciones</span>
@@ -963,13 +575,7 @@ export function VerInventario() {
             // Si estaba en otra página o pestaña, volvemos a la 1
             setCurrentPage(1);
           } else {
-            Swal.fire({
-              title: "No Encontrado",
-              text: `Código no registrado: ${scannedCode}`,
-              icon: "warning",
-              timer: 2500,
-              ...getSwalThemeOpts()
-            });
+            toast.warn(`Código no registrado: ${scannedCode}`);
           }
         }
         setBarcodeBuffer("");
@@ -1048,11 +654,12 @@ export function VerInventario() {
     if (!showDeleteModal) return;
     try {
       await eliminarProductoAsync(showDeleteModal.id);
-      Swal.fire({ title: "Eliminado", text: `${showDeleteModal.nombre} fue eliminado del inventario.`, icon: "success", ...getSwalThemeOpts() });
+      toast.success(`${showDeleteModal.nombre} fue eliminado del inventario.`);
       if (productoSeleccionado?.id === showDeleteModal.id) setProductoSeleccionado(null);
       setShowDeleteModal(null);
-    } catch (err: any) {
-      Swal.fire({ title: "Error", text: "No se pudo eliminar el producto: " + err.message, icon: "error", ...getSwalThemeOpts() });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : undefined;
+      toast.error(modalActionMessage(message, "No se pudo eliminar el producto."));
     }
   };
 
@@ -1117,25 +724,10 @@ export function VerInventario() {
       });
 
       doc.save(`Reporte_Inventario_${new Date().toISOString().slice(0, 10)}.pdf`);
-
-      Swal.fire({
-        title: "¡PDF Exportado!",
-        text: "El reporte de inventario se ha descargado exitosamente.",
-        icon: "success",
-        timer: 2000,
-        timerProgressBar: true,
-        showConfirmButton: false,
-        ...getSwalThemeOpts()
-      });
-    } catch (error: any) {
+      toast.success("Reporte de inventario descargado correctamente.");
+    } catch (error) {
       console.error("Error al exportar PDF:", error);
-      Swal.fire({
-        title: "Error",
-        text: "No se pudo generar el archivo PDF: " + error.message,
-        icon: "error",
-        ...getSwalThemeOpts(),
-        confirmButtonColor: "#ef4444"
-      });
+      toast.error("No se pudo generar el archivo PDF.");
     }
   };
 
@@ -1145,7 +737,7 @@ export function VerInventario() {
       <div className="flex items-center justify-between gap-4 px-2.5 md:px-0">
         <div className="flex items-center gap-3">
           <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center overflow-hidden">
-            <AnimatedIcon iconKey="gbzbfgyf" className="text-[#8DA78E] dark:text-[#A3BEB0]" size={32} />
+            <Package className="size-7 text-[#8DA78E] dark:text-[#A3BEB0]" />
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
@@ -1155,12 +747,14 @@ export function VerInventario() {
           </div>
         </div>
 
-        <button
+        <SigetActionButton
+          label="Crear"
+          accentColor={sigetAccent.crear}
+          morphFrom={PlusNode}
+          morphTo={UserPlus}
           onClick={handleNuevoProducto}
-          className="flex items-center justify-center px-4 py-2.5 rounded-xl bg-[#8DA78E] text-[#F5F5F1] text-sm font-bold transition-all shadow-sm cursor-pointer shrink-0 animate-fade-in"
-        >
-          Nuevo
-        </button>
+          className="w-auto shrink-0"
+        />
       </div>
 
       {/* Tabs Selector: Activos / Inactivos (arriba del Buscador) */}
@@ -1258,12 +852,14 @@ export function VerInventario() {
               <Calendar className="size-3 md:size-3.5" /> Vencimiento
             </button>
 
-            <button
+            <SigetActionButton
+              label="Exportar"
+              accentColor={sigetAccent.excel}
+              morphFrom={DownloadNode}
+              morphTo={FileDown}
               onClick={handleExportarPDF}
-              className="w-full md:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border border-[#C1D1C5] dark:border-[#A3BEB0]/30 text-[#525D53] dark:text-[#A3BEB0] transition-all flex items-center gap-1 text-[11px] md:text-xs font-bold shrink-0 cursor-pointer"
-            >
-              <Download className="size-3 md:size-3.5" /> Exportar
-            </button>
+              className="w-full md:w-auto shrink-0"
+            />
           </div>
         </div>
       </div>
@@ -1412,22 +1008,26 @@ export function VerInventario() {
                             {fmtQ(p.precio_base)}
                           </td>
                           <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-center">
-                              <button
+                            <div className="flex items-center justify-center gap-1">
+                              <SigetActionButton
+                                label="Editar"
+                                accentColor={sigetAccent.editar}
+                                morphFrom={Pencil}
+                                morphTo={SquarePen}
                                 onClick={() => {
                                   setProductoSeleccionado(p);
                                   router.push("/farmacia-la-salud/inventario/editar/" + p.id);
                                 }}
-                                className="px-3 py-1.5 bg-[#C1D1C5]/30 hover:bg-[#8DA78E] text-[#525D53] hover:text-white dark:bg-[#A3BEB0]/20 dark:text-[#A3BEB0] dark:hover:bg-[#A3BEB0] dark:hover:text-zinc-900 text-[10px] font-bold uppercase tracking-wider rounded-lg transition-colors cursor-pointer"
-                              >
-                                Editar
-                              </button>
-                              <button
+                                className="w-auto shrink-0"
+                              />
+                              <SigetActionButton
+                                label="Quitar"
+                                accentColor={sigetAccent.quitar}
+                                morphFrom={Trash2}
+                                morphTo={Trash}
                                 onClick={() => handleEliminarProducto(p)}
-                                className="px-3 py-1.5 bg-red-400 hover:bg-red-500 text-white font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase"
-                              >
-                                Eliminar
-                              </button>
+                                className="w-auto shrink-0"
+                              />
                             </div>
                           </td>
                         </tr>

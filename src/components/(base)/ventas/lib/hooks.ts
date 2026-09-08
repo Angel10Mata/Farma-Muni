@@ -1,6 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import Swal from "sweetalert2";
-import { getSwalThemeOpts } from "@/lib/utils";
+import { toast } from "@/components/ui/general-modal";
 import {
   obtenerHistorialVentas,
   obtenerDetalleVenta,
@@ -10,7 +9,7 @@ import {
   obtenerProductosYClientes
 } from "./actions";
 
-export function usePOSData() {
+export function useDatosVentas() {
   return useQuery({
     queryKey: ["ventas", "pos-data"],
     queryFn: async () => await obtenerProductosYClientes(),
@@ -22,7 +21,7 @@ export function useHistorialVentas() {
   return useQuery({
     queryKey: ["ventas", "historial"],
     queryFn: async () => await obtenerHistorialVentas(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
+    staleTime: 1000 * 60 * 2,
   });
 }
 
@@ -44,14 +43,13 @@ export function useAnularVenta() {
       return await anularVenta(ventaId);
     },
     onSuccess: () => {
-      Swal.fire({ title: "Éxito", text: "Venta anulada correctamente", icon: "success", ...getSwalThemeOpts() });
+      toast.success("Venta anulada correctamente");
       queryClient.invalidateQueries({ queryKey: ["ventas", "historial"] });
-      // Invalidar dashboard o finanzas si es necesario
       queryClient.invalidateQueries({ queryKey: ["finanzas"] });
       queryClient.invalidateQueries({ queryKey: ["inventario"] });
     },
-    onError: (error: any) => {
-      Swal.fire({ title: "Error", text: error.message || "Error al anular la venta", icon: "error", ...getSwalThemeOpts() });
+    onError: (error: Error) => {
+      toast.error(error.message || "Error al anular la venta");
     }
   });
 }
@@ -59,23 +57,23 @@ export function useAnularVenta() {
 export function useEditarDetalleVenta() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (params: { 
-      detalleId: string, 
+    mutationFn: async (params: {
+      detalleId: string,
       ventaId: string,
       productoId: string,
-      nuevaCantidad: number, 
+      nuevaCantidad: number,
       nuevoPrecio: number
     }) => {
       return await editarDetalleVentaDirecto(params);
     },
-    onSuccess: (_, variables) => {
-      Swal.fire({ title: "Éxito", text: "Detalle actualizado correctamente", icon: "success", ...getSwalThemeOpts() });
+    onSuccess: () => {
+      toast.success("Detalle actualizado correctamente");
       queryClient.invalidateQueries({ queryKey: ["ventas", "detalle"] });
       queryClient.invalidateQueries({ queryKey: ["ventas", "historial"] });
       queryClient.invalidateQueries({ queryKey: ["inventario"] });
     },
-    onError: (error: any) => {
-      Swal.fire({ title: "Error", text: error.message || "Error al editar detalle", icon: "error", ...getSwalThemeOpts() });
+    onError: (error: Error) => {
+      toast.error(error.message || "Error al editar detalle");
     }
   });
 }
@@ -87,13 +85,13 @@ export function useEliminarDetalleVenta() {
       return await eliminarDetalleVentaDirecto(params);
     },
     onSuccess: () => {
-      Swal.fire({ title: "Éxito", text: "Producto eliminado de la venta", icon: "success", ...getSwalThemeOpts() });
+      toast.success("Producto eliminado de la venta");
       queryClient.invalidateQueries({ queryKey: ["ventas", "detalle"] });
       queryClient.invalidateQueries({ queryKey: ["ventas", "historial"] });
       queryClient.invalidateQueries({ queryKey: ["inventario"] });
     },
-    onError: (error: any) => {
-      Swal.fire({ title: "Error", text: error.message || "Error al eliminar detalle", icon: "error", ...getSwalThemeOpts() });
+    onError: (error: Error) => {
+      toast.error(error.message || "Error al eliminar detalle");
     }
   });
 }

@@ -3,10 +3,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Calendar, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
-import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
+import { ModalFechaInput } from "@/components/ui/general-modal";
+import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 import { cn, fmtQ } from "@/lib/utils";
-import { Compra } from "./types";
+import { Compra } from "./lib/zod";
 import { CompraDetalleModal } from "./modals/CompraDetalleModal";
 
 interface HistorialComprasProps {
@@ -24,7 +25,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
   const [filtroPago, setFiltroPago] = useState<"todos" | "Pagado" | "Pendiente">("todos");
 
   const [tipoFiltroFechaCompras, setTipoFiltroFechaCompras] = useState<"dia" | "mes" | "rango">("mes");
-  const [fechaDiaCompras, setFechaDiaCompras] = useState<string>(new Date().toISOString().split("T")[0]);
+  const [fechaDiaCompras, setFechaDiaCompras] = useState<string>(fechaCalendarioGt());
   
   const [activeMonthCompras, setActiveMonthCompras] = useState(new Date().getMonth());
   const [activeYearCompras, setActiveYearCompras] = useState(new Date().getFullYear());
@@ -262,13 +263,14 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                 >
-                  <CustomDatePicker
+                  <ModalFechaInput
+                    id="historial-fecha-dia"
                     value={fechaDiaCompras}
                     onChange={(val) => {
                       setFechaDiaCompras(val);
                       setCurrentPageCompras(1);
                     }}
-                    align="right"
+                    className="h-[34px] max-w-[140px]"
                   />
                 </motion.div>
               )}
@@ -448,24 +450,24 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   className="flex items-center gap-2 flex-wrap max-w-full"
                 >
                   <span className="text-[10px] font-bold text-slate-400">Desde:</span>
-                  <CustomDatePicker
+                  <ModalFechaInput
+                    id="historial-rango-desde"
                     value={fechaRangoDesdeCompras}
                     onChange={(val) => {
                       setFechaRangoDesdeCompras(val);
                       setCurrentPageCompras(1);
                     }}
-                    placeholder="Inicio"
-                    align="left"
+                    className="h-[34px] max-w-[140px]"
                   />
                   <span className="text-[10px] font-bold text-slate-400">Hasta:</span>
-                  <CustomDatePicker
+                  <ModalFechaInput
+                    id="historial-rango-hasta"
                     value={fechaRangoHastaCompras}
                     onChange={(val) => {
                       setFechaRangoHastaCompras(val);
                       setCurrentPageCompras(1);
                     }}
-                    placeholder="Fin"
-                    align="right"
+                    className="h-[34px] max-w-[140px]"
                   />
                 </motion.div>
               )}

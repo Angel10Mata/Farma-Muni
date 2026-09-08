@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus } from "lucide-react";
-import { Compra } from "./types";
+import { Search } from "lucide-react";
+import { Plus as PlusNode, CirclePlus } from "lucide";
+import { toast } from "react-toastify";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { modalActionMessage } from "@/components/ui/general-modal";
+import { Compra } from "./lib/zod";
 import { AbonoModal } from "./modals/AbonoModal";
 import { fmtQ } from "@/lib/utils";
 import { useRegistrarAbonoCompra } from "./lib/hooks";
-import Swal from "sweetalert2";
 
 interface CuentasPorPagarProps {
   compras: Compra[];
@@ -26,40 +29,17 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
 
   const { mutateAsync: registrarAbonoAsync } = useRegistrarAbonoCompra();
 
-  const getSwalThemeOpts = () => {
-    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-    return {
-      background: isDark ? "#18181b" : "#F5F5F1",
-      color: isDark ? "#F5F5F1" : "#525D53",
-      confirmButtonColor: "#8DA78E",
-      cancelButtonColor: "#525D53",
-      customClass: { popup: "!rounded-3xl border-0" }
-    };
-  };
-
   const handleRegistrarAbono = async (id: string, monto: number, metodo: string, notas: string) => {
     try {
       const res = await registrarAbonoAsync({ id, monto, metodo, notas: notas || undefined });
       if (!res.success) throw new Error(res.code || "Error");
 
-      Swal.fire({
-        title: "Abono Registrado",
-        text: `Se registró un abono de ${fmtQ(monto)} correctamente.`,
-        icon: "success",
-        timer: 2000,
-        showConfirmButton: false,
-        ...getSwalThemeOpts()
-      });
+      toast.success(`Abono de ${fmtQ(monto)} registrado correctamente.`);
       cargarDatos();
       return true;
-    } catch (e: any) {
-      Swal.fire({
-        title: "Error",
-        text: e.message || "No se pudo registrar el abono.",
-        icon: "error",
-        ...getSwalThemeOpts(),
-        confirmButtonColor: "#ef4444"
-      });
+    } catch (e: unknown) {
+      const code = e instanceof Error ? e.message : undefined;
+      toast.error(modalActionMessage(code, "No se pudo registrar el abono."));
       return false;
     }
   };
@@ -158,15 +138,17 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                           </span>
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap text-center">
-                          <button
+                          <SigetActionButton
+                            label="Abonar"
+                            accentColor={sigetAccent.guardar}
+                            morphFrom={PlusNode}
+                            morphTo={CirclePlus}
                             onClick={() => {
                               setCompraAAbonar(c);
                               setIsAbonoModalOpen(true);
                             }}
-                            className="inline-flex w-fit items-center gap-1.5 px-3 py-1.5 bg-[#8DA78E] hover:bg-[#7a937b] text-white font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase shadow-xs"
-                          >
-                            <Plus className="size-3" /> Registrar Pago
-                          </button>
+                            className="w-auto shrink-0"
+                          />
                         </td>
                       </tr>
                     );
@@ -225,15 +207,17 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                     </div>
                   </div>
                   <div className="flex justify-end pt-1">
-                    <button
+                    <SigetActionButton
+                      label="Abonar"
+                      accentColor={sigetAccent.guardar}
+                      morphFrom={PlusNode}
+                      morphTo={CirclePlus}
                       onClick={() => {
                         setCompraAAbonar(c);
                         setIsAbonoModalOpen(true);
                       }}
-                      className="inline-flex items-center justify-center gap-1.5 w-full py-2 bg-[#8DA78E] hover:bg-[#7a937b] text-white font-bold rounded-xl transition-colors cursor-pointer text-[10px] uppercase shadow-xs"
-                    >
-                      <Plus className="size-3" /> Registrar Pago
-                    </button>
+                      className="w-full"
+                    />
                   </div>
                 </div>
               );

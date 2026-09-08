@@ -1,162 +1,234 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import { X, Trash2, AlertTriangle, Package, Loader2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { Ban, Check, Save, Trash, Trash2, X } from "lucide";
+import { AlertTriangle, Package, Trash2 as Trash2Icon, X as XIcon } from "lucide-react";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import {
+  formatFechaManualGt,
+  parseFechaManualGt,
+} from "@/lib/fechas-gt";
 import { cn } from "@/lib/utils";
 
+const MODAL_SHELL_EASE = [0.22, 1, 0.36, 1] as const;
 
-export function ModalShell({
-  isOpen,
-  onClose,
-  title,
-  subtitle,
+const MODAL_SHELL_TRANSITION = {
+  duration: 0.24,
+  ease: MODAL_SHELL_EASE,
+} as const;
+
+function lockBodyScroll() {
+  const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
+  const prevOverflow = document.body.style.overflow;
+  const prevPaddingRight = document.body.style.paddingRight;
+
+  document.body.style.overflow = "hidden";
+  if (scrollbarWidth > 0) {
+    document.body.style.paddingRight = `${scrollbarWidth}px`;
+  }
+
+  return () => {
+    document.body.style.overflow = prevOverflow;
+    document.body.style.paddingRight = prevPaddingRight;
+  };
+}
+
+export {
+  modalActionMessage,
+  MODAL_ACTION_ERRORS,
+  toast,
+} from "@/components/ui/modal-toast";
+
+export const modalFieldClass =
+  "border border-zinc-200/80 dark:border-zinc-700 focus-visible:border-zinc-400 focus-visible:ring-2 focus-visible:ring-zinc-400/25 dark:focus-visible:border-zinc-500 dark:focus-visible:ring-zinc-500/30";
+
+export const modalAccentClass = "font-bold text-[#2c5f9b] dark:text-[#6f9fd4]";
+
+const modalInputBaseClass =
+  "flex h-10 w-full rounded-lg bg-transparent px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:outline-none";
+
+const modalTextareaBaseClass =
+  "flex min-h-20 w-full resize-none rounded-lg bg-transparent px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:outline-none";
+
+export function ModalForm({
+  className,
   children,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-  title: string;
-  subtitle?: string;
-  children: React.ReactNode;
-}) {
-  const [mounted, setMounted] = useState(false);
-  const shellRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "unset";
-    }
-    return () => {
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen]);
-
-  if (!mounted || !isOpen) return null;
-
-  return createPortal(
-    <div className="fixed inset-0 z-[200] flex flex-col md:items-center md:justify-center md:p-4">
-
-      <div 
-        className="absolute inset-0 bg-zinc-100 dark:bg-zinc-900 md:bg-zinc-700/20 md:backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-
-      <div
-        ref={shellRef}
-        className="relative flex flex-col w-full h-[100dvh] md:h-auto md:max-w-lg md:rounded-3xl bg-zinc-100 dark:bg-zinc-900 overflow-hidden shadow-none md:shadow-lg pointer-events-auto"
-      >
-
-        <div className="hidden md:block absolute inset-0 rounded-3xl pointer-events-none p-[3px]" style={{
-            background: "linear-gradient(90deg, #0e73f6 0%, #29b4f8 40%, #8958d7 75%, #de3e96 100%)",
-            WebkitMask: "linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)",
-            WebkitMaskComposite: "xor",
-            maskComposite: "exclude"
-        }} />
-
-
-        <div className="relative flex flex-col flex-1 h-full w-full z-10 bg-zinc-100 dark:bg-zinc-800 md:bg-transparent">
-
-          <div 
-            className="flex-none flex items-center justify-between px-4 py-4 md:pt-6 md:px-6 md:pb-4 bg-zinc-100 dark:bg-zinc-800 md:bg-transparent"
-            style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
-          >
-            <div>
-              <h2 className="text-xl font-bold text-foreground">{title}</h2>
-              {subtitle && <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">{subtitle}</p>}
-            </div>
-            <button
-              onClick={onClose}
-              className="p-2 -mr-2 text-blue-500 hover:text-blue-400 transition-colors"
-            >
-              <X size={24} />
-            </button>
-          </div>
-
-
-          <div className="flex-1 overflow-y-auto px-4 md:px-6 py-4 bg-zinc-100 dark:bg-zinc-900 md:bg-transparent">
-            {children}
-          </div>
-        </div>
-      </div>
-    </div>,
-    document.body
+  ...props
+}: React.FormHTMLAttributes<HTMLFormElement>) {
+  return (
+    <form {...props} className={cn("space-y-4", className)}>
+      {children}
+    </form>
   );
 }
 
+export function ModalField({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return <div className={cn("space-y-2.5", className)}>{children}</div>;
+}
 
-export function ModalInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+export function ModalLabel({
+  className,
+  ...props
+}: React.LabelHTMLAttributes<HTMLLabelElement>) {
+  return (
+    <label
+      {...props}
+      className={cn("text-sm leading-none", modalAccentClass, className)}
+    />
+  );
+}
+
+export function ModalInput({
+  className,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      placeholder=""
-      className={cn(
-        "w-full bg-transparent border-2 border-[var(--color-celeste-kore)] text-foreground focus:ring-2 focus:ring-[var(--color-celeste-kore)] outline-none rounded-md px-3 py-2",
-        props.className
-      )}
+      className={cn(modalInputBaseClass, modalFieldClass, className)}
     />
   );
 }
 
-
-export function ModalLabel({ children, className, ...props }: React.LabelHTMLAttributes<HTMLLabelElement>) {
-  return (
-    <label className={cn("block text-sm font-semibold text-foreground mb-1", className)} {...props}>
-      {children}
-    </label>
-  );
-}
-
-
-export function ModalTextarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+export function ModalTextarea({
+  className,
+  ...props
+}: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      placeholder=""
-      className={cn(
-        "w-full bg-transparent border-2 border-[var(--color-celeste-kore)] text-foreground focus:ring-2 focus:ring-[var(--color-celeste-kore)] outline-none rounded-md px-3 py-2 resize-y",
-        props.className
-      )}
+      className={cn(modalTextareaBaseClass, modalFieldClass, className)}
     />
   );
 }
 
+export function ModalFechaInput({
+  value,
+  onChange,
+  id,
+  required,
+  className,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  id?: string;
+  required?: boolean;
+  className?: string;
+}) {
+  const [inputValue, setInputValue] = useState("");
 
-export function ModalFooter({ children }: { children: React.ReactNode }) {
+  useEffect(() => {
+    setInputValue(formatFechaManualGt(value));
+  }, [value]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let digits = e.target.value.replace(/\D/g, "");
+    if (digits.length > 8) digits = digits.slice(0, 8);
+
+    let formatted = digits;
+    if (digits.length > 2 && digits.length <= 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2)}`;
+    } else if (digits.length > 4) {
+      formatted = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+    }
+
+    setInputValue(formatted);
+
+    if (formatted.length === 10) {
+      const parsed = parseFechaManualGt(formatted);
+      if (parsed) onChange(parsed);
+      return;
+    }
+
+    if (formatted === "") onChange("");
+  };
+
   return (
-    <div 
-      className="flex-none px-4 py-4 md:px-6 md:py-6 bg-zinc-100 dark:bg-zinc-800"
-      style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom))' }}
+    <ModalInput
+      id={id}
+      type="text"
+      inputMode="numeric"
+      placeholder="DD/MM/AAAA"
+      value={inputValue}
+      onChange={handleChange}
+      required={required}
+      className={className}
+    />
+  );
+}
+
+export function ModalCancelButton({
+  onClick,
+  disabled,
+  className,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <SigetActionButton
+      label="Cancelar"
+      accentColor={sigetAccent.cancelar}
+      morphFrom={X}
+      morphTo={Ban}
+      onClick={onClick}
+      disabled={disabled}
+      className={cn("w-auto shrink-0", className)}
+    />
+  );
+}
+
+export function ModalSubmit({
+  disabled,
+  className,
+  label = "Guardar",
+}: {
+  disabled?: boolean;
+  className?: string;
+  label?: string;
+}) {
+  return (
+    <SigetActionButton
+      label={label}
+      accentColor={sigetAccent.guardar}
+      morphFrom={Save}
+      morphTo={Check}
+      disabled={disabled}
+      type="submit"
+      className={cn("w-auto shrink-0", className)}
+    />
+  );
+}
+
+export function ModalFooter({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "mt-auto flex shrink-0 flex-wrap items-center justify-center gap-3 border-t border-zinc-200/80 bg-zinc-100 px-4 pt-2.5 pb-[max(0.75rem,env(safe-area-inset-bottom))] dark:border-zinc-700 dark:bg-zinc-800",
+        "max-md:w-full max-md:rounded-b-none",
+        "md:mt-3 md:-mx-6 md:-mb-6 md:w-[calc(100%+3rem)] md:rounded-b-3xl md:pb-4",
+        className,
+      )}
     >
-      <div className="flex justify-center w-full">
-        {children}
-      </div>
+      {children}
     </div>
   );
 }
-
-
-export function ModalSubmit({ children, loading, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { loading?: boolean }) {
-  return (
-    <button
-      {...props}
-      disabled={loading || props.disabled}
-      className={cn(
-        "w-full md:w-auto px-8 py-3 rounded-full border-2 border-emerald-600 dark:border-emerald-400 text-emerald-700 dark:text-emerald-400 font-bold hover:bg-emerald-50 dark:hover:bg-emerald-950 transition-colors cursor-pointer disabled:cursor-not-allowed disabled:opacity-50",
-        props.className
-      )}
-    >
-      {loading ? "Guardando..." : children || "Guardar"}
-    </button>
-  );
-}
-
 
 export interface ItemDetailsPreview {
   nombre?: string;
@@ -171,124 +243,344 @@ export interface ItemDetailsPreview {
 export function ModalConfirmDelete({
   onConfirm,
   onCancel,
+  message,
   title = "¿Eliminar registro?",
   description = "Esta acción no se puede deshacer.",
   itemDetails,
   loading = false,
+  pending = false,
   confirmText = "Eliminar",
-  cancelText = "Cancelar",
 }: {
   onConfirm: () => void;
   onCancel: () => void;
+  message?: string;
   title?: string;
   description?: string;
   itemDetails?: ItemDetailsPreview;
   loading?: boolean;
+  pending?: boolean;
   confirmText?: string;
   cancelText?: string;
 }) {
+  const isPending = loading || pending;
+
+  if (message && !itemDetails && title === "¿Eliminar registro?") {
+    return (
+      <div className="space-y-3 rounded-xl border-2 border-amber-300 bg-amber-100 p-4 dark:border-amber-800 dark:bg-amber-950">
+        <p className="text-sm font-semibold text-foreground">{message}</p>
+        <div className="flex justify-end gap-2">
+          <ModalCancelButton onClick={onCancel} disabled={isPending} />
+          <SigetActionButton
+            label="Eliminar"
+            accentColor={sigetAccent.quitar}
+            morphFrom={Trash2}
+            morphTo={Trash}
+            onClick={onConfirm}
+            disabled={isPending}
+            ariaLabel="Confirmar eliminación"
+            className="w-auto shrink-0"
+          />
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col items-center text-center p-1 sm:p-3">
-      {/* Icono de advertencia con animación aura */}
+    <div className="flex flex-col items-center p-1 text-center sm:p-3">
       <div className="relative mb-3 flex items-center justify-center">
-        <div className="absolute inset-0 rounded-full bg-red-500/20 dark:bg-red-500/30 animate-pulse opacity-75" />
-        <div className="relative w-14 h-14 rounded-2xl bg-gradient-to-br from-red-50 to-rose-100 dark:from-red-950/60 dark:to-rose-900/40 border border-red-200 dark:border-red-800/60 flex items-center justify-center shadow-inner">
-          <Trash2 className="w-7 h-7 text-red-600 dark:text-red-400" />
+        <div className="absolute inset-0 animate-pulse rounded-full bg-red-500/20 opacity-75 dark:bg-red-500/30" />
+        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-rose-100 shadow-inner dark:border-red-800/60 dark:from-red-950/60 dark:to-rose-900/40">
+          <Trash2Icon className="h-7 w-7 text-red-600 dark:text-red-400" />
         </div>
       </div>
 
-      {/* Título principal y descripción */}
-      <h3 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight">
+      <h3 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
         {title}
       </h3>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
-        {description}
+      <p className="mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
+        {message ?? description}
       </p>
 
-      {/* Ficha Resumen del Producto (si existe metadata) */}
-      {itemDetails && (
-        <div className="w-full mt-4 mb-2 bg-gradient-to-b from-zinc-50 to-zinc-100/80 dark:from-zinc-800/80 dark:to-zinc-800/40 border border-zinc-200/80 dark:border-zinc-700/60 rounded-2xl p-3.5 text-left shadow-sm">
+      {itemDetails ? (
+        <div className="mb-2 mt-4 w-full rounded-2xl border border-zinc-200/80 bg-gradient-to-b from-zinc-50 to-zinc-100/80 p-3.5 text-left shadow-sm dark:border-zinc-700/60 dark:from-zinc-800/80 dark:to-zinc-800/40">
           <div className="flex items-center gap-3.5">
-            {/* Imagen o icono por defecto */}
-            <div className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden flex-shrink-0 shadow-sm">
+            <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm dark:border-zinc-700 dark:bg-zinc-900">
               {itemDetails.imagen ? (
                 <img
                   src={itemDetails.imagen}
                   alt={itemDetails.nombre || "Producto"}
-                  className="w-full h-full object-cover"
+                  className="h-full w-full object-cover"
                 />
               ) : (
-                <Package className="w-6 h-6 text-zinc-400 dark:text-zinc-500" />
+                <Package className="h-6 w-6 text-zinc-400 dark:text-zinc-500" />
               )}
             </div>
 
-            {/* Datos Principales */}
-            <div className="flex-1 min-w-0">
-              <h4 className="text-base font-bold text-zinc-900 dark:text-zinc-100 truncate">
+            <div className="min-w-0 flex-1">
+              <h4 className="truncate text-base font-bold text-zinc-900 dark:text-zinc-100">
                 {itemDetails.nombre || "Producto sin nombre"}
               </h4>
-              <div className="flex flex-wrap items-center gap-2 mt-1">
-                {itemDetails.codigo && (
-                  <span className="inline-flex items-center text-xs font-mono font-medium px-2 py-0.5 rounded-md bg-zinc-200/70 dark:bg-zinc-700/70 text-zinc-700 dark:text-zinc-300">
+              <div className="mt-1 flex flex-wrap items-center gap-2">
+                {itemDetails.codigo ? (
+                  <span className="inline-flex items-center rounded-md bg-zinc-200/70 px-2 py-0.5 font-mono text-xs font-medium text-zinc-700 dark:bg-zinc-700/70 dark:text-zinc-300">
                     SKU: {itemDetails.codigo}
                   </span>
-                )}
-                {itemDetails.stock !== undefined && (
-                  <span className={cn(
-                    "inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-md",
-                    itemDetails.stock > 0 
-                      ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                      : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300"
-                  )}>
+                ) : null}
+                {itemDetails.stock !== undefined ? (
+                  <span
+                    className={cn(
+                      "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold",
+                      itemDetails.stock > 0
+                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+                        : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300",
+                    )}
+                  >
                     Stock: {itemDetails.stock} ud.
                   </span>
-                )}
-                {itemDetails.precio !== undefined && (
+                ) : null}
+                {itemDetails.precio !== undefined ? (
                   <span className="inline-flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
                     ${itemDetails.precio.toFixed(2)}
                   </span>
-                )}
+                ) : null}
               </div>
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
-      {/* Nota de advertencia */}
-      <div className="w-full mt-3 p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-400 text-xs flex items-center gap-2 text-left">
-        <AlertTriangle className="w-4 h-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-        <span>Esta acción eliminará de forma permanente el producto y no se podrá deshacer.</span>
+      <div className="mt-3 flex w-full items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-left text-xs text-amber-700 dark:text-amber-400">
+        <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+        <span>Esta acción eliminará de forma permanente el registro y no se podrá deshacer.</span>
       </div>
 
-      {/* Botones de Acción */}
-      <div className="w-full flex items-center justify-end gap-3 mt-5 pt-3 border-t border-zinc-200/60 dark:border-zinc-800">
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={loading}
-          className="flex-1 sm:flex-initial px-5 py-2.5 rounded-xl border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-semibold text-sm transition-all cursor-pointer disabled:opacity-50"
-        >
-          {cancelText}
-        </button>
-        <button
-          type="button"
+      <div className="mt-5 flex w-full items-center justify-end gap-3 border-t border-zinc-200/60 pt-3 dark:border-zinc-800">
+        <ModalCancelButton onClick={onCancel} disabled={isPending} />
+        <SigetActionButton
+          label={confirmText}
+          accentColor={sigetAccent.quitar}
+          morphFrom={Trash2}
+          morphTo={Trash}
           onClick={onConfirm}
-          disabled={loading}
-          className="flex-1 sm:flex-initial px-6 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700 text-white font-bold text-sm shadow-md shadow-red-500/20 hover:shadow-red-500/35 transition-all transform active:scale-95 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Eliminando...</span>
-            </>
-          ) : (
-            <>
-              <Trash2 className="w-4 h-4" />
-              <span>{confirmText}</span>
-            </>
-          )}
-        </button>
+          disabled={isPending}
+          ariaLabel="Confirmar eliminación"
+          className="w-auto shrink-0"
+        />
       </div>
     </div>
+  );
+}
+
+function ModalFrame({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex h-full min-h-0 flex-col overflow-hidden rounded-3xl border border-zinc-200/80 bg-zinc-100 shadow-lg max-md:rounded-none max-md:border-0 dark:border-zinc-700 dark:bg-zinc-800",
+        className,
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function ModalShell({
+  open,
+  isOpen,
+  onClose,
+  title,
+  subtitle,
+  description,
+  children,
+  maxWidth = "max-w-md",
+  fullscreen = false,
+  fullHeight = false,
+  contentClassName,
+  headerActions,
+  headerActionsAlign = "end",
+  headerClassName,
+  hideCloseButton = false,
+  hideHeaderOnMobile = false,
+  className,
+}: {
+  open?: boolean;
+  isOpen?: boolean;
+  onClose: () => void;
+  title: string;
+  subtitle?: string;
+  description?: string;
+  children: React.ReactNode;
+  maxWidth?: string;
+  fullscreen?: boolean;
+  fullHeight?: boolean;
+  contentClassName?: string;
+  headerActions?: ReactNode;
+  headerActionsAlign?: "start" | "end";
+  headerClassName?: string;
+  hideCloseButton?: boolean;
+  hideHeaderOnMobile?: boolean;
+  className?: string;
+}) {
+  const visible = open ?? isOpen ?? false;
+  const resolvedSubtitle = subtitle ?? description;
+  const [contentScrollable, setContentScrollable] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setContentScrollable(false);
+      return;
+    }
+    setContentScrollable(false);
+    return lockBodyScroll();
+  }, [visible]);
+
+  if (typeof document === "undefined") return null;
+
+  const shellEnter = fullscreen
+    ? { opacity: 0 }
+    : fullHeight
+      ? { opacity: 0 }
+      : { opacity: 0, scale: 0.97 };
+  const shellAnimate = fullscreen
+    ? { opacity: 1 }
+    : fullHeight
+      ? { opacity: 1 }
+      : { opacity: 1, scale: 1 };
+  const shellExit = shellEnter;
+
+  return createPortal(
+    <AnimatePresence>
+      {visible ? (
+        <div
+          className={cn(
+            "fixed inset-0 z-[200] flex flex-col overflow-hidden",
+            fullscreen
+              ? "bg-zinc-100 dark:bg-zinc-900"
+              : fullHeight
+                ? "max-md:bg-zinc-100 max-md:dark:bg-zinc-900 md:items-center md:justify-center md:p-4"
+                : "max-md:flex-col max-md:bg-zinc-100 max-md:dark:bg-zinc-900 md:items-center md:justify-center md:p-4",
+          )}
+        >
+          {!fullscreen ? (
+            <div
+              aria-hidden
+              className="absolute inset-0 hidden bg-black/40 backdrop-blur-xl md:block dark:bg-black/55"
+            />
+          ) : null}
+          <motion.div
+            initial={shellEnter}
+            animate={shellAnimate}
+            exit={shellExit}
+            transition={MODAL_SHELL_TRANSITION}
+            onAnimationComplete={() => {
+              setContentScrollable(true);
+            }}
+            className={cn(
+              "relative z-10 flex min-h-0 w-full flex-col",
+              fullscreen && "h-dvh max-w-none",
+              fullHeight &&
+                cn(
+                  "max-md:h-dvh max-md:min-h-0 max-md:flex-1 max-md:max-w-none",
+                  "md:mx-auto md:h-auto md:max-h-[calc(100dvh-2rem)] md:w-full",
+                  maxWidth,
+                ),
+              !fullscreen &&
+                !fullHeight &&
+                cn("max-md:h-dvh max-md:min-h-0 max-md:flex-1 max-md:max-w-none", maxWidth),
+              className,
+            )}
+          >
+            <ModalFrame
+              className={cn(
+                fullscreen &&
+                  "rounded-none border-0 shadow-none dark:bg-zinc-900 md:rounded-none",
+                fullHeight && "max-md:h-full md:h-auto",
+              )}
+            >
+              <div
+                className={cn(
+                  "flex shrink-0 items-center gap-3 border-b border-zinc-200/80 bg-white px-4 py-3 pt-[max(0.75rem,env(safe-area-inset-top))] dark:border-zinc-700 dark:bg-zinc-900 md:gap-4 md:px-6 md:py-4",
+                  hideHeaderOnMobile && "max-md:hidden",
+                  headerClassName,
+                )}
+              >
+                {title || resolvedSubtitle ? (
+                  <div className="min-w-0 shrink">
+                    {title ? (
+                      <h3
+                        className={cn(
+                          "truncate text-lg tracking-tight md:text-xl",
+                          modalAccentClass,
+                        )}
+                      >
+                        {title}
+                      </h3>
+                    ) : null}
+                    {resolvedSubtitle ? (
+                      <p
+                        className={cn(
+                          "text-[10px] font-bold uppercase tracking-widest",
+                          modalAccentClass,
+                        )}
+                      >
+                        {resolvedSubtitle}
+                      </p>
+                    ) : null}
+                  </div>
+                ) : null}
+                {headerActions ? (
+                  <div
+                    className={cn(
+                      "flex min-w-0 items-center",
+                      headerActionsAlign === "end"
+                        ? "min-w-0 flex-1 justify-end"
+                        : "justify-start",
+                    )}
+                  >
+                    {headerActions}
+                  </div>
+                ) : null}
+                {!hideCloseButton ? (
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className={cn(
+                      "-mr-1 flex size-10 shrink-0 cursor-pointer items-center justify-center rounded-full text-celeste-trifinio transition-colors hover:bg-celeste-trifinio/10",
+                      headerActionsAlign === "start" && "ml-auto",
+                    )}
+                    aria-label="Cerrar"
+                  >
+                    <XIcon size={22} strokeWidth={2.25} />
+                  </button>
+                ) : null}
+              </div>
+
+              <div
+                className={cn(
+                  "min-h-0 flex-1 overflow-x-hidden bg-white dark:bg-zinc-900",
+                  contentScrollable ? "overflow-y-auto overscroll-contain" : "overflow-hidden",
+                  contentClassName ??
+                    cn(
+                      fullscreen &&
+                        "flex flex-col items-center justify-center p-4 md:p-6",
+                      fullHeight && "flex min-h-0 flex-1 flex-col p-4 md:p-6",
+                      !fullscreen && !fullHeight && "p-4 md:p-6",
+                    ),
+                )}
+              >
+                {children}
+              </div>
+            </ModalFrame>
+          </motion.div>
+        </div>
+      ) : null}
+    </AnimatePresence>,
+    document.body,
   );
 }

@@ -2,11 +2,15 @@
 
 import { useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Truck, Search, Plus, User } from "lucide-react";
+import { Truck, User } from "lucide-react";
+import { Save, Check } from "lucide";
 import Swal from "sweetalert2";
+import { toast } from "react-toastify";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { modalActionMessage } from "@/components/ui/general-modal";
 import { useCompras } from "./ComprasContext";
-import { Proveedor } from "./types";
-import { fmtQ } from "@/lib/utils";
+import { Proveedor } from "./lib/zod";
+import { fmtQ, getSwalThemeOpts } from "@/lib/utils";
 import { useCrearCompra } from "./lib/hooks";
 import type { ItemCompraInput } from "./lib/zod";
 
@@ -38,34 +42,13 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [context]);
 
-  const getSwalThemeOpts = () => {
-    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-    return {
-      background: isDark ? "#18181b" : "#F5F5F1",
-      color: isDark ? "#F5F5F1" : "#525D53",
-      confirmButtonColor: "#8DA78E",
-      cancelButtonColor: "#525D53",
-      customClass: { popup: "!rounded-3xl border-0" }
-    };
-  };
-
   const handleFinalizarCompra = async () => {
     if (!context.proveedorSeleccionado) {
-      Swal.fire({
-        title: "Proveedor requerido",
-        text: "Por favor selecciona un proveedor antes de registrar la compra.",
-        icon: "warning",
-        ...getSwalThemeOpts()
-      });
+      toast.warn("Por favor selecciona un proveedor antes de registrar la compra.");
       return;
     }
     if (context.carrito.length === 0) {
-      Swal.fire({
-        title: "Carrito vacío",
-        text: "Agrega productos a la compra antes de guardar.",
-        icon: "warning",
-        ...getSwalThemeOpts()
-      });
+      toast.warn("Agrega productos a la compra antes de guardar.");
       return;
     }
 
@@ -76,7 +59,7 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
       showCancelButton: true,
       confirmButtonText: "Sí, registrar",
       cancelButtonText: "Cancelar",
-      ...getSwalThemeOpts()
+      ...getSwalThemeOpts(),
     });
 
     if (!confirm.isConfirmed) return;
@@ -102,25 +85,13 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
         throw new Error(res.code || "Error");
       }
 
-      Swal.fire({
-        title: "¡Compra Registrada!",
-        text: "La compra ha sido cargada con éxito y el stock de inventario se ha incrementado.",
-        icon: "success",
-        timer: 2500,
-        showConfirmButton: false,
-        ...getSwalThemeOpts()
-      });
+      toast.success("Compra registrada correctamente. El inventario se actualizó.");
 
       context.limpiarCarrito();
       cargarDatos();
-    } catch (e: any) {
-      Swal.fire({
-        title: "Error al procesar",
-        text: e.message || "No se pudo registrar la compra.",
-        icon: "error",
-        ...getSwalThemeOpts(),
-        confirmButtonColor: "#ef4444"
-      });
+    } catch (e: unknown) {
+      const code = e instanceof Error ? e.message : undefined;
+      toast.error(modalActionMessage(code, "No se pudo registrar la compra."));
     } finally {
       context.setIsProcesando(false);
     }
@@ -248,23 +219,17 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
           </div>
         </div>
 
-        <button
-          type="button"
+        <SigetActionButton
+          label="Registrar"
+          accentColor={sigetAccent.guardar}
+          morphFrom={Save}
+          morphTo={Check}
           onClick={handleFinalizarCompra}
           disabled={context.carrito.length === 0 || context.isProcesando}
-          className="w-fit max-w-full px-6 py-3 bg-[#8DA78E] disabled:opacity-40 disabled:bg-[#8DA78E] text-[#F5F5F1] text-sm font-bold rounded-xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm active:scale-[0.98]"
-        >
-          {context.isProcesando ? (
-            <>
-              <div className="size-4 rounded-full border-2 border-[#F5F5F1]/30 border-t-[#F5F5F1] animate-spin" />
-              <span>Procesando...</span>
-            </>
-          ) : (
-            <>
-              Registrar Compra
-            </>
-          )}
-        </button>
+          ariaBusy={context.isProcesando}
+          ariaLabel="Registrar compra"
+          className="w-auto shrink-0"
+        />
       </div>
     </>
   );

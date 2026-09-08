@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useTheme } from "next-themes";
 import {
   User,
   Loader2,
@@ -11,13 +10,13 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { MagicCard } from "@/components/ui/magic-card";
+import { toast } from "react-toastify";
 import { useProfile } from "./lib/hooks";
 import { useUser } from "@/components/(base)/providers/UserProvider";
-import { InfoPerfil } from "./forms/InfoPerfil";
-import { InfoUser } from "./forms/InfoUser";
+import { CamposPerfil } from "./forms/CamposPerfil";
+import { CamposUsuario } from "./forms/CamposUsuario";
 import { updateProfile } from "./lib/actions";
 import { useQueryClient } from "@tanstack/react-query";
-import Swal from "sweetalert2";
 import { cn } from "@/lib/utils";
 
 interface VerPerfilProps {
@@ -27,7 +26,6 @@ interface VerPerfilProps {
 }
 
 export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
-  const { theme } = useTheme();
   const sessionUser = useUser();
   const queryClient = useQueryClient();
   const [view, setView] = useState<"perfil" | "usuario">("perfil");
@@ -70,36 +68,14 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
   const canChangeRole =
     roleOptions.length > 0 && !(sessionRole === "admin" && targetIsSuper);
 
-  const swalTheme = {
-    background: theme === "dark" ? "#18181b" : "#ffffff",
-    color: theme === "dark" ? "#ffffff" : "#000000",
-  };
-
   const handleRoleUpdate = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
     try {
       await updateProfile(targetId, { rol: newRole as "user" | "admin" | "super" });
       await queryClient.invalidateQueries({ queryKey: ["profile", targetId] });
-
-      Swal.fire({
-        ...swalTheme,
-        toast: true,
-        position: "top",
-        icon: "success",
-        title: "Rol actualizado",
-        timer: 2000,
-        showConfirmButton: false,
-      });
+      toast.success("Rol actualizado.");
     } catch {
-      Swal.fire({
-        ...swalTheme,
-        toast: true,
-        position: "top",
-        icon: "error",
-        title: "Error al actualizar rol",
-        timer: 3000,
-        showConfirmButton: false,
-      });
+      toast.error("Error al actualizar rol.");
     }
   };
 
@@ -233,11 +209,11 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
           ) : (
             <div className="animate-in fade-in slide-in-from-bottom-2 duration-300">
               <div className={cn(view !== "perfil" && "hidden")}>
-                <InfoPerfil userId={targetId} canEdit={canEdit} />
+                <CamposPerfil userId={targetId} canEdit={canEdit} />
               </div>
               {view === "usuario" && (
                 <div>
-                  <InfoUser
+                  <CamposUsuario
                     userId={targetId}
                     canEdit={canEdit}
                     isSuper={isSuper}

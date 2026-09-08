@@ -7,7 +7,7 @@ import {
   updateProfile,
   updateUserCredentials,
 } from "./actions";
-import { ProfileFormValues } from "./schemas";
+import { ProfileFormValues } from "./zod";
 
 export const useProfile = (userId: string, isEnabled: boolean = true) => {
   const { data, isLoading, error, refetch } = useQuery({

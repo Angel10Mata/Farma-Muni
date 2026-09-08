@@ -6,7 +6,7 @@ import {
   type AdminUserAttributes,
 } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
-import { ProfileFormValues } from "./schemas";
+import { ProfileFormValues } from "./zod";
 
 function getAdminClient() {
   return createSupabaseAdmin(

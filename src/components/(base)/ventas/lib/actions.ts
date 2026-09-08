@@ -1,7 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
-import { Producto, Cliente } from "../types";
+import { Producto, Cliente } from "./zod";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { sendPushNotification } from "@/utils/pushServer";

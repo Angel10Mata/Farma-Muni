@@ -1,8 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { ItemCarritoCompra, Proveedor, Producto, Compra } from "./types";
-import Swal from "sweetalert2";
+import { ItemCarritoCompra, Proveedor, Producto } from "./lib/zod";
 
 interface ComprasContextProps {
   // Tabs y Modal
@@ -84,17 +83,6 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const [estadoPago, setEstadoPago] = useState<"Pendiente" | "Pagado">("Pagado");
   const [observaciones, setObservaciones] = useState("");
   const [isProcesando, setIsProcesando] = useState(false);
-
-  const getSwalThemeOpts = () => {
-    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-    return {
-      background: isDark ? "#18181b" : "#F5F5F1",
-      color: isDark ? "#F5F5F1" : "#525D53",
-      confirmButtonColor: "#8DA78E",
-      cancelButtonColor: "#525D53",
-      customClass: { popup: "!rounded-3xl border-0" }
-    };
-  };
 
   const agregarAlCarrito = (item: ItemCarritoCompra) => {
     setCarrito((prev) => {

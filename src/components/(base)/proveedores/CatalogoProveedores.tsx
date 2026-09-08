@@ -1,12 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Plus, Phone, Mail } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Proveedor } from "./types";
-import { ProveedorDetalle, formatPhoneDisplay, getWhatsappUrl } from "./forms/ProveedorDetalle";
-import { cn } from "@/lib/utils";
+import { Search, Phone, Mail } from "lucide-react";
+import { Check as CheckNode, Pencil as PencilNode, SquarePen as SquarePenNode, Trash as TrashNode, Trash2 as Trash2Node, UserPlus as UserPlusNode } from "lucide";
+import { toast } from "react-toastify";
 import Swal from "sweetalert2";
+import { Proveedor } from "./lib/zod";
+import { VerProveedor, formatPhoneDisplay, getWhatsappUrl } from "./forms/VerProveedor";
+import { cn, getSwalThemeOpts } from "@/lib/utils";
+import { modalActionMessage } from "@/components/ui/general-modal";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { eliminarProveedor } from "./lib/actions";
 
 interface CatalogoProveedoresProps {
@@ -20,17 +23,6 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
   const [modoEdicionProveedor, setModoEdicionProveedor] = useState(false);
 
-  const getSwalThemeOpts = () => {
-    const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
-    return {
-      background: isDark ? "#18181b" : "#F5F5F1",
-      color: isDark ? "#F5F5F1" : "#525D53",
-      confirmButtonColor: "#8DA78E",
-      cancelButtonColor: "#525D53",
-      customClass: { popup: "!rounded-3xl border-0" }
-    };
-  };
-
   const handleEliminarProveedor = async (id: string, nombre: string) => {
     const confirm = await Swal.fire({
       title: "¿Eliminar Proveedor?",
@@ -40,7 +32,7 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
       confirmButtonText: "Sí, eliminar",
       cancelButtonText: "Cancelar",
       ...getSwalThemeOpts(),
-      confirmButtonColor: "#ef4444"
+      confirmButtonColor: "#ef4444",
     });
 
     if (!confirm.isConfirmed) return;
@@ -49,23 +41,11 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
       const res = await eliminarProveedor(id);
       if (!res.success) throw new Error(res.code || "Error");
 
-      Swal.fire({
-        title: "Eliminado",
-        text: "Proveedor eliminado exitosamente.",
-        icon: "success",
-        timer: 2000,
-        showConfirmButton: false,
-        ...getSwalThemeOpts()
-      });
+      toast.success("Proveedor eliminado correctamente.");
       cargarDatos();
-    } catch (e: any) {
-      Swal.fire({
-        title: "Error",
-        text: e.message || "No se pudo eliminar el proveedor.",
-        icon: "error",
-        ...getSwalThemeOpts(),
-        confirmButtonColor: "#ef4444"
-      });
+    } catch (e: unknown) {
+      const code = e instanceof Error ? e.message : undefined;
+      toast.error(modalActionMessage(code, "No se pudo eliminar el proveedor."));
     }
   };
 
@@ -90,12 +70,15 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
             />
           </div>
 
-          <button
+          <SigetActionButton
+            label="Nuevo"
+            accentColor={sigetAccent.crear}
+            morphFrom={UserPlusNode}
+            morphTo={CheckNode}
             onClick={() => setIsCrearOpen(true)}
-            className="py-3 px-5 bg-[#8DA78E] text-[#F5F5F1] text-xs font-bold rounded-2xl transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:bg-[#7a937b] shrink-0"
-          >
-            <Plus className="size-4" /> Nuevo Proveedor
-          </button>
+            ariaLabel="Nuevo proveedor"
+            className="w-auto shrink-0"
+          />
         </div>
 
           {/* Tabla de Proveedores (Desktop) */}
@@ -172,25 +155,25 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
                         </td>
                         <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
+                            <SigetActionButton
+                              label="Editar"
+                              accentColor={sigetAccent.editar}
+                              morphFrom={PencilNode}
+                              morphTo={SquarePenNode}
+                              onClick={() => {
                                 setProveedorSeleccionado(p);
                                 setModoEdicionProveedor(true);
                               }}
-                              className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-[#8DA78E] dark:text-[#A3BEB0] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase"
-                            >
-                              Editar
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleEliminarProveedor(p.id, p.nombre);
-                              }}
-                              className="px-3 py-1.5 bg-red-400 hover:bg-red-500 text-white font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase"
-                            >
-                              Eliminar
-                            </button>
+                              className="w-auto shrink-0"
+                            />
+                            <SigetActionButton
+                              label="Quitar"
+                              accentColor={sigetAccent.quitar}
+                              morphFrom={TrashNode}
+                              morphTo={Trash2Node}
+                              onClick={() => handleEliminarProveedor(p.id, p.nombre)}
+                              className="w-auto shrink-0"
+                            />
                           </div>
                         </td>
                       </tr>
@@ -244,25 +227,25 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
                     )}
                   </div>
                   <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-zinc-800" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
+                    <SigetActionButton
+                      label="Editar"
+                      accentColor={sigetAccent.editar}
+                      morphFrom={PencilNode}
+                      morphTo={SquarePenNode}
+                      onClick={() => {
                         setProveedorSeleccionado(p);
                         setModoEdicionProveedor(true);
                       }}
-                      className="px-3 py-1.5 text-xs font-bold text-[#8DA78E] hover:bg-[#8DA78E]/10 rounded-lg cursor-pointer transition-colors uppercase border border-[#8DA78E]/30"
-                    >
-                      Editar
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEliminarProveedor(p.id, p.nombre);
-                      }}
-                      className="px-3 py-1.5 text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg cursor-pointer transition-colors uppercase border border-red-200 dark:border-red-900/40"
-                    >
-                      Eliminar
-                    </button>
+                      className="w-auto shrink-0"
+                    />
+                    <SigetActionButton
+                      label="Quitar"
+                      accentColor={sigetAccent.quitar}
+                      morphFrom={TrashNode}
+                      morphTo={Trash2Node}
+                      onClick={() => handleEliminarProveedor(p.id, p.nombre)}
+                      className="w-auto shrink-0"
+                    />
                   </div>
                 </div>
               ))
@@ -270,39 +253,17 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
         </div>
       </div>
 
-      {/* Panel de detalle de Proveedor */}
-      <AnimatePresence>
-        {proveedorSeleccionado && (
-          <div className="fixed inset-0 z-[100] flex justify-end">
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setProveedorSeleccionado(null)}
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer"
-            />
-            <motion.div
-              initial={{ x: "100%" }}
-              animate={{ x: 0 }}
-              exit={{ x: "100%" }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="relative w-full max-w-md h-[calc(100%-2rem)] m-4 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col rounded-[2rem] overflow-hidden"
-            >
-              <div className="h-full">
-                <ProveedorDetalle
-                  proveedor={proveedorSeleccionado}
-                  onClose={() => setProveedorSeleccionado(null)}
-                  onUpdate={() => {
-                    cargarDatos();
-                    setProveedorSeleccionado(null);
-                  }}
-                  defaultEdit={modoEdicionProveedor}
-                />
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {proveedorSeleccionado ? (
+        <VerProveedor
+          proveedor={proveedorSeleccionado}
+          onClose={() => setProveedorSeleccionado(null)}
+          onUpdate={() => {
+            cargarDatos();
+            setProveedorSeleccionado(null);
+          }}
+          defaultEdit={modoEdicionProveedor}
+        />
+      ) : null}
     </div>
   );
 }

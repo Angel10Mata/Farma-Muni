@@ -1,10 +1,10 @@
 import { Suspense } from "react";
-import { AdminPanel } from "@/components/(base)/admin/index";
+import { VerAdmin } from "@/components/(base)/admin/VerAdmin";
 
 export default function AdminPage() {
   return (
-    <Suspense>
-      <AdminPanel />
+    <Suspense fallback={null}>
+      <VerAdmin />
     </Suspense>
   );
 }

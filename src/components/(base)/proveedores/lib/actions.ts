@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { ProveedorSchema, ProveedorInput, CompraSchema, CompraInput } from "./zod";
+import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from "./zod";
 
 export async function obtenerProveedores() {
   try {
@@ -28,7 +28,7 @@ export async function guardarProveedor(id: string | undefined, input: ProveedorI
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { code: "UNAUTHORIZED" as const };
 
-    const parsed = ProveedorSchema.safeParse(input);
+    const parsed = ProveedorInputSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
 
     const payload = {
