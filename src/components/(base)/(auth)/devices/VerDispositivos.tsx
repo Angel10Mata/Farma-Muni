@@ -1,6 +1,7 @@
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
 import { AcordeonDispositivos } from "./AcordeonDispositivos";
+import { adminPageShellClass } from "@/lib/module-layout";
 
 interface Device {
   id: string;
@@ -70,7 +71,7 @@ export async function VerDispositivos() {
   });
 
   return (
-    <div className="w-full p-4 md:p-6 pt-32 md:pt-28">
+    <div className={adminPageShellClass}>
       <AcordeonDispositivos groups={groups} />
     </div>
   );

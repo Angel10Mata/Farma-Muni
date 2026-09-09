@@ -142,7 +142,7 @@ export async function crearVenta(params: {
           {
             title: '⚠️ Alerta de Inventario',
             body: `El producto "${prod.nombre}" ha llegado a su stock mínimo (${nuevoStock} unidades restantes).`,
-            url: '/farmacia-la-salud/inventario'
+            url: '/farmamuni/inventario'
           },
           ['all']
         );
@@ -179,9 +179,9 @@ export async function crearVenta(params: {
     }
 
     // Revalidar rutas para refrescar cache
-    revalidatePath("/farmacia-la-salud/inventario");
-    revalidatePath("/farmacia-la-salud/ventas");
-    revalidatePath("/farmacia-la-salud/finanzas");
+    revalidatePath("/farmamuni/inventario");
+    revalidatePath("/farmamuni/ventas");
+    revalidatePath("/farmamuni/finanzas");
 
     return {
       success: true,
@@ -332,9 +332,9 @@ export async function anularVenta(ventaId: string) {
     }
 
     // Revalidar rutas para refrescar cache de inventario, ventas y finanzas
-    revalidatePath("/farmacia-la-salud/inventario");
-    revalidatePath("/farmacia-la-salud/ventas");
-    revalidatePath("/farmacia-la-salud/finanzas");
+    revalidatePath("/farmamuni/inventario");
+    revalidatePath("/farmamuni/ventas");
+    revalidatePath("/farmamuni/finanzas");
 
     return { success: true };
   } catch (error: any) {
@@ -519,7 +519,7 @@ export async function eliminarDetalleVentaDirecto(params: {
       {
         title: '🚨 Movimiento Sospechoso',
         body: `Se ha anulado/eliminado un producto de la venta #${ventaId.slice(0, 8)}. Revisa las finanzas.`,
-        url: '/farmacia-la-salud/ventas'
+        url: '/farmamuni/ventas'
       },
       ['admin', 'super']
     );

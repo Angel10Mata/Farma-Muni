@@ -1,4 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server";
+import { isAdminRole, resolveUserRole } from "@/lib/user-role";
 import { createClient } from "@/utils/supabase/proxy";
 
 export async function proxy(request: NextRequest) {
@@ -12,7 +13,7 @@ export async function proxy(request: NextRequest) {
   }
   const pathname = request.nextUrl.pathname;
 
-  if (!user && pathname.startsWith("/farmacia-la-salud")) {
+  if (!user && pathname.startsWith("/farmamuni")) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
@@ -26,20 +27,26 @@ if (user) {
       .maybeSingle();
 
     const requireAuth = settings?.require_device_authorization ?? false;
+    let cachedRole: string | undefined;
+    const getRealRole = async () => {
+      if (cachedRole === undefined) {
+        cachedRole = await resolveUserRole(supabase, user);
+      }
+      return cachedRole;
+    };
 
     if (pathname === "/esperando-acceso") {
       if (!requireAuth) {
         const url = request.nextUrl.clone();
-        url.pathname = "/farmacia-la-salud";
+        url.pathname = "/farmamuni";
         return NextResponse.redirect(url);
       }
 
-      const metadata = user.user_metadata || {};
-      const realRole = (metadata.rol || user.role || "user") as string;
+      const realRole = await getRealRole();
 
-      if (["super", "admin"].includes(realRole)) {
+      if (isAdminRole(realRole)) {
         const url = request.nextUrl.clone();
-        url.pathname = "/farmacia-la-salud";
+        url.pathname = "/farmamuni";
         return NextResponse.redirect(url);
       }
 
@@ -54,31 +61,30 @@ if (user) {
 
       if (device && device.is_authorized) {
         const url = request.nextUrl.clone();
-        url.pathname = "/farmacia-la-salud";
+        url.pathname = "/farmamuni";
         return NextResponse.redirect(url);
       }
     }
 
     if (pathname === "/login") {
       const url = request.nextUrl.clone();
-      url.pathname = "/farmacia-la-salud";
+      url.pathname = "/farmamuni";
       return NextResponse.redirect(url);
     }
 
-    if (pathname.startsWith("/farmacia-la-salud")) {
-      const metadata = user.user_metadata || {};
-      const realRole = (metadata.rol || user.role || "user") as string;
+    if (pathname.startsWith("/farmamuni")) {
+      const realRole = await getRealRole();
 
       if (
-        pathname.startsWith("/farmacia-la-salud/admin") &&
-        !["super", "admin"].includes(realRole)
+        pathname.startsWith("/farmamuni/admin") &&
+        !isAdminRole(realRole)
       ) {
         const url = request.nextUrl.clone();
         url.pathname = "/sin-acceso";
         return NextResponse.redirect(url);
       }
 
-      if (requireAuth && !["super", "admin"].includes(realRole)) {
+      if (requireAuth && !isAdminRole(realRole)) {
         const userAgent = request.headers.get("user-agent") || "Desconocido";
 
         const { data: device } = await supabase

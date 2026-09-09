@@ -33,7 +33,7 @@ export default function AnimacionLogoKore({ isOpen, onClose }: AnimacionLogoKore
             </svg>
           </motion.button>
 
-          {/* Content — vertical layout with Farmacia Salud branding */}
+          {/* Content — vertical layout with FarmaMuni branding */}
           <motion.div
             initial={{ scale: 1.15, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -44,7 +44,7 @@ export default function AnimacionLogoKore({ isOpen, onClose }: AnimacionLogoKore
             <div
               className="pointer-events-auto flex flex-col items-center justify-center gap-0 select-none"
             >
-              {/* Farmacia Salud logo */}
+              {/* FarmaMuni logo */}
               <motion.div
                 initial={{ opacity: 0, y: 30, scale: 0.88 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -52,8 +52,8 @@ export default function AnimacionLogoKore({ isOpen, onClose }: AnimacionLogoKore
                 className="flex-shrink-0"
               >
                 <Image
-                  src="/farmacia-la-salud/logo.png"
-                  alt="Farmacia Salud"
+                  src="/farmamuni/logo.png"
+                  alt="FarmaMuni"
                   width={400}
                   height={400}
                   className="w-[240px] sm:w-[320px] lg:w-[400px] h-[240px] sm:h-[320px] lg:h-[400px] object-contain"
@@ -68,8 +68,8 @@ export default function AnimacionLogoKore({ isOpen, onClose }: AnimacionLogoKore
                 transition={{ delay: 0.4, duration: 0.6, ease: "easeOut" }}
                 className="flex flex-col items-center leading-none gap-0 -mt-6 sm:-mt-10 lg:-mt-14"
               >
-                <span className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farmacia</span>
-                <span className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Salud</span>
+                <span className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farma</span>
+                <span className="text-3xl sm:text-4xl lg:text-5xl font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Muni</span>
                 <motion.span
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}

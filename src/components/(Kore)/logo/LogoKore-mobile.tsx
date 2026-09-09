@@ -89,8 +89,8 @@ export default function LogoKoreMobile({
         <div className="flex flex-row items-center justify-center gap-4 sm:gap-6 w-full px-2 sm:px-6">
           <motion.div variants={logoVariants} className="flex-shrink-0">
             <Image
-              src="/farmacia-la-salud/logo.png"
-              alt="Farmacia Salud"
+              src="/farmamuni/logo.png"
+              alt="FarmaMuni"
               width={150}
               height={150}
               className="w-[90px] sm:w-[110px] h-[90px] sm:h-[110px] object-contain"

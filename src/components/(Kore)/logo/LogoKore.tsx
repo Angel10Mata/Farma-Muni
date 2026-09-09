@@ -86,8 +86,8 @@ export default function LogoKore({
         {/* Logo image — big */}
         <motion.div variants={logoVariants} className="flex-shrink-0">
           <Image
-            src="/farmacia-la-salud/logo.png"
-            alt="Farmacia Salud"
+            src="/farmamuni/logo.png"
+            alt="FarmaMuni"
             width={220}
             height={220}
             className="w-[160px] sm:w-[200px] lg:w-[220px] h-[160px] sm:h-[200px] lg:h-[220px] object-contain"

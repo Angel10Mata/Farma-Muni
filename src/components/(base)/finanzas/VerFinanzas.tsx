@@ -24,7 +24,20 @@ import { getSwalThemeOpts } from "@/lib/utils";
 import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { cn } from "@/lib/utils";
-import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
+import { modulePageShellClass } from "@/lib/module-layout";
+import {
+  moduleTableBodyClass,
+  moduleTableClass,
+  moduleTableDesktopScrollClass,
+  moduleTableDesktopWrapClass,
+  moduleTableEmptyClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
 import { ModalFechaInput } from "@/components/ui/general-modal";
 import { fechaCalendarioGt, obtenerSemanasDelMes } from "@/lib/fechas-gt";
 
@@ -214,7 +227,7 @@ export function VerFinanzas() {
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / pageSize));
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
+    <div className={modulePageShellClass}>
       {/* Header */}
       <div className="flex flex-col gap-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-4 md:px-0">
@@ -485,7 +498,7 @@ export function VerFinanzas() {
         </div>
       </div>
 
-        <div className="w-full flex flex-col flex-1 min-w-0 bg-white dark:bg-[#171a17] border-y md:border border-[#C1D1C5]/30 dark:border-[#525D53]/30 md:rounded-3xl p-0 overflow-hidden shadow-sm relative">
+        <div className={cn(moduleTableShellClass, "p-0 relative")}>
           <div className="p-4 md:p-5 border-b border-[#C1D1C5]/20 dark:border-[#525D53]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="relative w-full sm:max-w-md">
               <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
@@ -496,7 +509,7 @@ export function VerFinanzas() {
                 placeholder="Buscar por concepto o categoría..."
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-[#8DA78E]/5 dark:bg-[#8DA78E]/5 border border-[#8DA78E]/20 dark:border-[#525D53]/40 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 transition-all placeholder:text-[#8DA78E]/50"
+                className={cn(moduleTableSearchClass, "pl-10 font-medium")}
               />
             </div>
 
@@ -522,7 +535,7 @@ export function VerFinanzas() {
             </div>
           </div>
 
-          <div className="flex-1 overflow-y-auto custom-scrollbar w-full p-1 sm:p-2 md:p-4">
+          <div className={cn(moduleTableScrollClass, "p-1 sm:p-2 md:p-4 min-h-0")}>
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-64 opacity-50">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E] mb-4"></div>
@@ -629,19 +642,20 @@ export function VerFinanzas() {
                   })}
                 </div>
 
-                <div className="hidden md:block overflow-x-auto">
-                  <table className="w-full text-left text-xs border-collapse">
+                <div className={moduleTableDesktopWrapClass}>
+                  <div className={moduleTableDesktopScrollClass}>
+                  <table className={moduleTableClass}>
                     <thead>
-                      <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                        <th className="px-5 py-3.5">Fecha</th>
-                        <th className="px-5 py-3.5">Concepto / Categoría</th>
-                        <th className="px-5 py-3.5 text-right">Monto</th>
-                        <th className="px-5 py-3.5 text-center">
+                      <tr className={moduleTableHeadRowClass}>
+                        <th className={moduleTableHeadCellClass}>Fecha</th>
+                        <th className={moduleTableHeadCellClass}>Concepto / Categoría</th>
+                        <th className={cn(moduleTableHeadCellClass, "text-right")}>Monto</th>
+                        <th className={cn(moduleTableHeadCellClass, "text-center")}>
                           <span className="sr-only">Acciones</span>
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                    <tbody className={moduleTableBodyClass}>
                       {movimientos.map((mov) => (
                         <motion.tr
                           key={mov.id}
@@ -710,28 +724,21 @@ export function VerFinanzas() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </>
             )}
           </div>
 
-          {!isLoading && totalRegistros > 0 && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 border-t border-[#C1D1C5]/40 dark:border-[#525D53]/30 text-slate-600 dark:text-slate-400">
-              <PageSizeSelect
-                pageSize={pageSize}
-                setPageSize={(size) => {
-                  setPageSize(size);
-                  setPage(1);
-                }}
-              />
-              <div className="flex justify-start sm:justify-center w-full sm:w-auto">
-                <Pagination
-                  currentPage={page}
-                  totalPages={totalPaginas}
-                  onPageChange={(p) => setPage(p)}
-                />
-              </div>
-            </div>
+          {!isLoading && (
+            <ModuleTableFooter
+              itemCount={totalRegistros}
+              pageSize={pageSize}
+              setPageSize={setPageSize}
+              currentPage={page}
+              totalPages={totalPaginas}
+              onPageChange={setPage}
+            />
           )}
         </div>
 

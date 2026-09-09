@@ -10,11 +10,12 @@ import { fmtQ } from "@/lib/utils";
 import { CrearCliente } from "@/components/(base)/clientes/forms/Crear";
 import {
   obtenerProductosYClientes,
-  obtenerDetalleVenta,
   anularVenta,
   validarCredencialesAdmin
 } from "./lib/actions";
+import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { fetchDetalleVenta } from "@/lib/demo/resolve-actions";
 import { ReciboVenta, buildReciboProps } from "./ReciboVenta";
 import { obtenerCodigoRecibo } from "./lib/helpers";
 import { HistorialVentas } from "./HistorialVentas";
@@ -28,9 +29,12 @@ import Swal from "sweetalert2";
 import { getSwalThemeOpts } from "@/lib/utils";
 import { ModalFooter, ModalShell, toast } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { modulePageShellClass } from "@/lib/module-layout";
+import { cn } from "@/lib/utils";
 
 function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
   const { effectiveRole } = useUserContext();
+  const { isDemoMode } = useDemoMode();
   const ventas = useVentas();
   
   const reciboCaptureRef = useRef<HTMLDivElement>(null);
@@ -153,7 +157,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
     setIsLoading(true);
     try {
-      const detalles = await obtenerDetalleVenta(venta.id);
+      const detalles = await fetchDetalleVenta(venta.id, isDemoMode);
       if (!detalles || detalles.length === 0) throw new Error("No se pudieron cargar los detalles.");
 
       const resAnulacion = await anularVenta(venta.id);
@@ -235,7 +239,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       let currentY = 6;
 
       // Cargar e insertar Logo
-      const logoBase64 = await getBase64ImageFromUrl("/farmacia-la-salud/logo.png");
+      const logoBase64 = await getBase64ImageFromUrl("/farmamuni/logo.png");
       if (logoBase64) {
         doc.addImage(logoBase64, "PNG", 33, currentY, 14, 14);
         currentY += 17;
@@ -247,7 +251,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       doc.setFont("helvetica", "bold");
       doc.setFontSize(11);
       doc.setTextColor(0, 0, 0);
-      doc.text("FARMACIA SALUD", 40, currentY, { align: "center" });
+      doc.text("FarmaMuni", 40, currentY, { align: "center" });
       currentY += 4;
 
       // Dirección
@@ -327,7 +331,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       doc.setTextColor(0, 0, 0);
       doc.text("¡Gracias por su compra!", 40, endY, { align: "center" });
 
-      doc.save(`Recibo_FarmaciaSalud_${codigoRecibo}.pdf`);
+      doc.save(`Recibo_FarmaMuni_${codigoRecibo}.pdf`);
     } catch (error) {
       console.error("Error al exportar PDF:", error);
     }
@@ -349,7 +353,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       const message =
         String.fromCharCode(0xA1) + "Hola! " + emojiData.wave + "\n" +
         "Te comparto el comprobante digital de tu compra:\n\n" +
-        emojiData.hospital + " FARMACIA SALUD\n" +
+        emojiData.hospital + " FarmaMuni\n" +
         "📍 3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA\n\n" +
         emojiData.receipt + " Recibo de Venta: #" + code + "\n" +
         emojiData.person + " Cliente: " + clientName + "\n\n" +
@@ -357,7 +361,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         productListText.trimEnd() + "\n\n" +
         emojiData.money + " Total: " + fmtQ(venta.total) + "\n\n" +
         emojiData.sparkle + " " + String.fromCharCode(0xA1) + "GRACIAS POR TU COMPRA! " + emojiData.sparkle + "\n\n" +
-        " " + emojiData.seedling + emojiData.green + " FARMACIA SALUD\n" +
+        " " + emojiData.seedling + emojiData.green + " FarmaMuni\n" +
         " Cuidando siempre de tu salud y bienestar\n";
 
       const encodedMsg = encodeURIComponent(message);
@@ -381,7 +385,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       setIsLoading(true);
       let details = detalles;
       if (!details || details.length === 0) {
-        details = await obtenerDetalleVenta(venta.id);
+        details = await fetchDetalleVenta(venta.id, isDemoMode);
       }
       ventas.setTicketParaImprimir({
         venta,
@@ -397,7 +401,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
   const handleShareWhatsAppDirectly = async (venta: Venta) => {
     try {
-      const details = await obtenerDetalleVenta(venta.id);
+      const details = await fetchDetalleVenta(venta.id, isDemoMode);
       await shareWhatsAppAsImage(venta, details);
     } catch (err) {
       console.error("Error al compartir WhatsApp:", err);
@@ -405,7 +409,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
+    <div className={modulePageShellClass}>
       <CrearCliente
         isOpen={ventas.isCrearClienteOpen}
         onClose={() => ventas.setIsCrearClienteOpen(false)}
@@ -620,7 +624,7 @@ export function VerVentas() {
 
   if (isLoading) {
     return (
-      <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen items-center justify-center">
+      <div className={cn(modulePageShellClass, "items-center justify-center")}>
         <div className="size-8 rounded-full border-4 border-slate-200 border-t-[#8DA78E] animate-spin" />
         <p className="text-slate-500 font-mono animate-pulse">Cargando POS...</p>
       </div>
@@ -629,7 +633,7 @@ export function VerVentas() {
 
   if (isError) {
     return (
-      <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen items-center justify-center">
+      <div className={cn(modulePageShellClass, "items-center justify-center")}>
         <p className="text-red-500 font-mono bg-red-50 px-4 py-2 rounded-lg border border-red-200">
           Error al cargar datos del POS: {error instanceof Error ? error.message : "Desconocido"}
         </p>

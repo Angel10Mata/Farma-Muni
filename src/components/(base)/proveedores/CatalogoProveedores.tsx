@@ -11,6 +11,21 @@ import { cn, getSwalThemeOpts } from "@/lib/utils";
 import { modalActionMessage } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { eliminarProveedor } from "./lib/actions";
+import {
+  moduleTableBodyClass,
+  moduleTableCellClass,
+  moduleTableClass,
+  moduleTableDesktopScrollClass,
+  moduleTableDesktopWrapClass,
+  moduleTableEmptyCellClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
 
 interface CatalogoProveedoresProps {
   proveedores: Proveedor[];
@@ -22,6 +37,8 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
   const [proveedorBusqueda, setProveedorBusqueda] = useState("");
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
   const [modoEdicionProveedor, setModoEdicionProveedor] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const handleEliminarProveedor = async (id: string, nombre: string) => {
     const confirm = await Swal.fire({
@@ -54,6 +71,12 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
     return (p.nombre || "").toLowerCase().includes(q) || (p.nit && p.nit.toLowerCase().includes(q));
   });
 
+  const totalPages = Math.ceil(proveedoresFiltrados.length / pageSize) || 1;
+  const proveedoresPaginados = proveedoresFiltrados.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   return (
     <div className="flex gap-4 flex-1 relative min-h-[550px] overflow-x-hidden p-1">
       <div className="flex-1 flex flex-col gap-4 min-w-0">
@@ -64,9 +87,12 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
             <input
               type="text"
               value={proveedorBusqueda}
-              onChange={(e) => setProveedorBusqueda(e.target.value)}
+              onChange={(e) => {
+                setProveedorBusqueda(e.target.value);
+                setCurrentPage(1);
+              }}
               placeholder="Buscar proveedor por nombre o NIT..."
-              className="w-full pl-11 pr-4 py-3 rounded-2xl border-none bg-white dark:bg-zinc-900/60 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/30 transition-all shadow-sm"
+              className={cn(moduleTableSearchClass, "pl-11 py-3 shadow-sm")}
             />
           </div>
 
@@ -81,29 +107,31 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
           />
         </div>
 
+          <div className={moduleTableShellClass}>
+          <div className={cn(moduleTableScrollClass, "min-h-0 pr-1")}>
           {/* Tabla de Proveedores (Desktop) */}
-          <div className="hidden md:block bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 rounded-3xl overflow-hidden shadow-xs">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+          <div className={moduleTableDesktopWrapClass}>
+            <div className={moduleTableDesktopScrollClass}>
+              <table className={moduleTableClass}>
                 <thead>
-                  <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                    <th className="px-5 py-3.5">Nombre</th>
-                    <th className="px-5 py-3.5">NIT</th>
-                    <th className="px-5 py-3.5">Teléfono</th>
-                    <th className="px-5 py-3.5">Correo</th>
-                    <th className="px-5 py-3.5">Descripción</th>
-                    <th className="px-5 py-3.5 text-center">Acciones</th>
+                  <tr className={moduleTableHeadRowClass}>
+                    <th className={moduleTableHeadCellClass}>Nombre</th>
+                    <th className={moduleTableHeadCellClass}>NIT</th>
+                    <th className={moduleTableHeadCellClass}>Teléfono</th>
+                    <th className={moduleTableHeadCellClass}>Correo</th>
+                    <th className={moduleTableHeadCellClass}>Descripción</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
-                  {proveedoresFiltrados.length === 0 ? (
+                <tbody className={moduleTableBodyClass}>
+                  {proveedoresPaginados.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className="text-center py-14 text-slate-400 font-bold">
+                      <td colSpan={6} className={moduleTableEmptyCellClass}>
                         No se encontraron proveedores
                       </td>
                     </tr>
                   ) : (
-                    proveedoresFiltrados.map((p) => (
+                    proveedoresPaginados.map((p) => (
                       <tr
                         key={p.id}
                         onClick={() => {
@@ -186,12 +214,12 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
 
           {/* Mobile Cards */}
           <div className="md:hidden flex flex-col gap-3">
-            {proveedoresFiltrados.length === 0 ? (
+            {proveedoresPaginados.length === 0 ? (
               <div className="py-10 text-center text-slate-400 font-bold text-sm bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-2xl">
                 No se encontraron proveedores
               </div>
             ) : (
-              proveedoresFiltrados.map((p) => (
+              proveedoresPaginados.map((p) => (
                 <div
                   key={p.id}
                   onClick={() => {
@@ -251,6 +279,17 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
               ))
             )}
         </div>
+          </div>
+
+          <ModuleTableFooter
+            itemCount={proveedoresFiltrados.length}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
+          </div>
       </div>
 
       {proveedorSeleccionado ? (

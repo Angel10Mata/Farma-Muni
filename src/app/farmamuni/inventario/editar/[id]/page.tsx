@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { EditarProductoPorId } from "@/components/(base)/inventario/EditarProductoPorId";
 
 export const metadata = {
-  title: "Editar Producto | Farmacia Salud",
+  title: "Editar Producto | FarmaMuni",
   description: "Modificar un producto del inventario",
 };
 

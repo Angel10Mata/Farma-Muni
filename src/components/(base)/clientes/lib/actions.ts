@@ -106,7 +106,7 @@ export async function crearCliente(input: ClienteInput) {
 
     if (error) return { code: "INTERNAL" as const };
 
-    revalidatePath("/farmacia-la-salud/clientes");
+    revalidatePath("/farmamuni/clientes");
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };
@@ -135,7 +135,7 @@ export async function editarCliente(id: string, input: ClienteInput) {
 
     if (error) return { code: "INTERNAL" as const };
 
-    revalidatePath("/farmacia-la-salud/clientes");
+    revalidatePath("/farmamuni/clientes");
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };

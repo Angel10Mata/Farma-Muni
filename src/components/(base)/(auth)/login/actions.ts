@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { isAdminRole, resolveUserRole } from "@/lib/user-role";
 import { headers } from "next/headers";
 
 export type ActionState = {
@@ -38,9 +39,8 @@ export async function login(
     };
   }
 
-const user = data.user;
-  const metadata = user.user_metadata || {};
-  const realRole = metadata.rol || user.role || "user";
+  const user = data.user;
+  const realRole = await resolveUserRole(supabase, user);
 
   const { data: settings } = await supabase
     .from("app_settings")
@@ -50,7 +50,7 @@ const user = data.user;
 
   const requireAuth = settings?.require_device_authorization ?? false;
 
-  if (requireAuth && !["super", "admin"].includes(realRole)) {
+  if (requireAuth && !isAdminRole(realRole)) {
     const userAgent =
       (await headers()).get("user-agent") || "Dispositivo Desconocido";
 

@@ -1,9 +1,9 @@
 ---
-description: Design system SIGET — tema zinc, botones, modales, toastify, SweetAlert, gráficos, animaciones, offline (Farmacia Salud)
+description: Design system SIGET — tema zinc, botones, modales, toastify, SweetAlert, gráficos, animaciones, offline (FarmaMuni)
 alwaysApply: true
 ---
 
-# Diseño UX/UI — SIGET (Farmacia Salud)
+# Diseño UX/UI — SIGET (FarmaMuni)
 
 Design system compartido Kore/SIGET. Reemplaza el estilo visual legacy de Farmacia (celeste outline, un solo botón Guardar, modales antiguos).
 

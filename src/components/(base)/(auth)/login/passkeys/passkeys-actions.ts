@@ -7,6 +7,7 @@ import {
   verifyAuthenticationResponse,
 } from "@simplewebauthn/server";
 import { cookies, headers } from "next/headers";
+import { isAdminRole, resolveUserRole } from "@/lib/user-role";
 import { createClient } from "@/utils/supabase/server";
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import type {
@@ -201,11 +202,9 @@ export async function verifyPasskey(
       if (!userData.user)
         return { success: false, error: "Usuario no encontrado" };
 
-      const metadata =
-        (userData.user.user_metadata as Record<string, string>) || {};
-      const realRole = metadata.rol || userData.user.role || "user";
+      const realRole = await resolveUserRole(supabaseAdmin, userData.user);
 
-      if (!["super", "admin"].includes(realRole)) {
+      if (!isAdminRole(realRole)) {
         const headerList = await headers();
         const userAgent = headerList.get("user-agent") || "Desconocido";
 

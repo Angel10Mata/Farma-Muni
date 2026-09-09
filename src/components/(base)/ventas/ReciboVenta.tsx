@@ -44,12 +44,12 @@ export function ReciboVenta({
       {/* Encabezado con Logo, Nombre y Dirección */}
       <div className="text-center pb-2 border-b border-black/30 mb-2">
         <img
-          src="/farmacia-la-salud/logo.png"
-          alt="Logo Farmacia Salud"
+          src="/farmamuni/logo.png"
+          alt="Logo FarmaMuni"
           className="size-12 mx-auto object-contain mb-1"
         />
         <h1 className="text-sm font-black tracking-tight text-black uppercase leading-tight">
-          FARMACIA SALUD
+          FarmaMuni
         </h1>
         <p className="text-[9.5px] font-bold text-black leading-tight mt-0.5 max-w-[240px] mx-auto">
           3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA

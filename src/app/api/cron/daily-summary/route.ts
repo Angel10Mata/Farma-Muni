@@ -41,7 +41,7 @@ export async function GET(request: Request) {
       {
         title: '📊 Corte de Caja Diario',
         body: `Se realizaron ${totalVentas} ventas hoy con un total de Q${totalIngresos.toFixed(2)}.`,
-        url: '/farmacia-la-salud/finanzas' // URL al hacer clic en la notificación
+        url: '/farmamuni/finanzas' // URL al hacer clic en la notificación
       },
       ['admin', 'super']
     );

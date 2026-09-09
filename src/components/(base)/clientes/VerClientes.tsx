@@ -32,10 +32,26 @@ import {
 import { toast } from "react-toastify";
 import { Clock as ClockNode, Download as DownloadNode, FileDown, History, Pencil, Plus as PlusNode, SquarePen, UserPlus } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { modulePageShellClass } from "@/lib/module-layout";
+import {
+  moduleTableBodyClass,
+  moduleTableCellClass,
+  moduleTableClass,
+  moduleTableDesktopScrollClass,
+  moduleTableDesktopWrapClass,
+  moduleTableEmptyCellClass,
+  moduleTableEmptyClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 import { ModalFechaInput } from "@/components/ui/general-modal";
 import { obtenerSemanasDelMes } from "@/lib/fechas-gt";
 import { CrearCliente } from "./forms/Crear";
@@ -662,7 +678,7 @@ export function VerClientes() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
+    <div className={modulePageShellClass}>
       <div className="flex items-center justify-between gap-4 w-full">
         <div className="flex items-center gap-4">
           <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center overflow-hidden">
@@ -693,7 +709,7 @@ export function VerClientes() {
             type="text"
             value={busqueda}
             onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-sm text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/30 focus:border-[#8DA78E] transition-all"
+            className={moduleTableSearchClass}
           />
         </div>
         <div className="flex gap-2 shrink-0 w-full sm:w-auto">
@@ -733,11 +749,11 @@ export function VerClientes() {
           </div>
         )}
 
-        <div className="flex flex-col flex-1 min-w-0 bg-[#F5F5F1] dark:bg-zinc-900/60 border border-[#C1D1C5]/40 dark:border-zinc-800 rounded-3xl p-5 shadow-sm overflow-hidden">
-          <div className="w-full flex-1 overflow-y-auto custom-scrollbar">
+        <div className={moduleTableShellClass}>
+          <div className={cn(moduleTableScrollClass, "min-h-0")}>
             <div className="md:hidden flex flex-col gap-3 pr-2 w-full">
               {paginatedClientes.length === 0 ? (
-                <div className="text-center py-12 text-slate-400 font-bold text-sm bg-white dark:bg-zinc-900/40 rounded-2xl border border-slate-100 dark:border-zinc-800/40">
+                <div className={cn(moduleTableEmptyClass, "text-sm")}>
                   No se encontraron clientes.
                 </div>
               ) : (
@@ -822,24 +838,25 @@ export function VerClientes() {
               )}
             </div>
 
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className={moduleTableDesktopWrapClass}>
+              <div className={moduleTableDesktopScrollClass}>
+              <table className={moduleTableClass}>
                 <thead>
-                  <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                    <th className="px-5 py-3.5 text-center w-12">#</th>
-                    <th className="px-5 py-3.5">Nombre Completo</th>
-                    <th className="px-5 py-3.5">Teléfono</th>
-                    <th className="px-5 py-3.5">Correo Electrónico</th>
-                    <th className="px-5 py-3.5">NIT</th>
-                    <th className="px-5 py-3.5 text-right">Compras</th>
-                    <th className="px-5 py-3.5 text-right">Saldo Pendiente</th>
-                    <th className="px-5 py-3.5 text-center">Acciones</th>
+                  <tr className={moduleTableHeadRowClass}>
+                    <th className={cn(moduleTableHeadCellClass, "text-center w-12")}>#</th>
+                    <th className={moduleTableHeadCellClass}>Nombre Completo</th>
+                    <th className={moduleTableHeadCellClass}>Teléfono</th>
+                    <th className={moduleTableHeadCellClass}>Correo Electrónico</th>
+                    <th className={moduleTableHeadCellClass}>NIT</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Compras</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Saldo Pendiente</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                <tbody className={moduleTableBodyClass}>
                   {paginatedClientes.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="text-center py-12 text-slate-400">
+                      <td colSpan={8} className={moduleTableEmptyCellClass}>
                         No se encontraron clientes.
                       </td>
                     </tr>
@@ -906,26 +923,19 @@ export function VerClientes() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 
-          {!isLoading && clientesOrdenados.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mt-4 pt-4 border-t border-[#C1D1C5]/40 dark:border-zinc-800 text-slate-600 dark:text-slate-400">
-              <PageSizeSelect
-                pageSize={pageSize}
-                setPageSize={(size) => {
-                  setPageSize(size);
-                  setCurrentPage(1);
-                }}
-              />
-              <div className="flex justify-start sm:justify-center w-full sm:w-auto">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={(p) => setCurrentPage(p)}
-                />
-              </div>
-            </div>
+          {!isLoading && (
+            <ModuleTableFooter
+              itemCount={clientesOrdenados.length}
+              pageSize={pageSize}
+              setPageSize={setPageSize}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           )}
         </div>
 

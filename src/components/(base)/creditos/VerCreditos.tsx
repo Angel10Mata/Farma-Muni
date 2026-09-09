@@ -15,9 +15,24 @@ import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
 import { Download as DownloadNode, FileDown } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { modulePageShellClass } from "@/lib/module-layout";
+import {
+  moduleTableBodyClass,
+  moduleTableCellClass,
+  moduleTableClass,
+  moduleTableDesktopScrollClass,
+  moduleTableDesktopWrapClass,
+  moduleTableEmptyClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
 
 import { cn, fmtQ } from "@/lib/utils";
-import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 import { useResumenCreditos } from "./lib/hooks";
 import { VerDetalleCredito } from "./forms/VerDetalleCredito";
 import type { CreditoResumen } from "./lib/zod";
@@ -105,7 +120,7 @@ export function VerCreditos() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
+    <div className={modulePageShellClass}>
       <div className="flex items-center justify-between gap-4 w-full">
         <div className="flex items-center gap-4">
           <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center">
@@ -158,7 +173,7 @@ export function VerCreditos() {
               placeholder="Buscar cliente por nombre o NIT..."
               value={busqueda}
               onChange={(e) => setBusqueda(e.target.value)}
-              className="w-full pl-10 pr-4 py-2.5 bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 transition-all placeholder:text-zinc-400"
+              className={cn(moduleTableSearchClass, "pl-10 font-medium")}
             />
           </div>
 
@@ -183,15 +198,15 @@ export function VerCreditos() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl overflow-hidden shadow-sm">
+        <div className={moduleTableShellClass}>
+          <div className={moduleTableScrollClass}>
           {isLoading ? (
             <div className="flex justify-center p-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div>
             </div>
           ) : paginatedCreditos.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 text-zinc-500">
-              <CreditCard className="size-12 mb-3 opacity-20" />
-              <p className="text-sm font-bold">No se encontraron créditos</p>
+            <div className={moduleTableEmptyClass}>
+              No se encontraron créditos
             </div>
           ) : (
             <>
@@ -261,24 +276,25 @@ export function VerCreditos() {
               </div>
 
               {/* Vista Desktop (Tabla) */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+              <div className={moduleTableDesktopWrapClass}>
+                <div className={moduleTableDesktopScrollClass}>
+                <table className={moduleTableClass}>
                   <thead>
-                    <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                      <th className="px-5 py-3.5">Cliente</th>
-                      <th className="px-5 py-3.5">NIT</th>
-                      <th className="px-5 py-3.5 text-center">Días Restantes</th>
-                      <th className="px-5 py-3.5 text-right">Consumido</th>
-                      <th className="px-5 py-3.5 text-right">Saldo Pendiente</th>
-                      <th className="px-5 py-3.5 text-center">Estado</th>
-                      <th className="px-5 py-3.5 text-center">Acciones</th>
+                    <tr className={moduleTableHeadRowClass}>
+                      <th className={moduleTableHeadCellClass}>Cliente</th>
+                      <th className={moduleTableHeadCellClass}>NIT</th>
+                      <th className={cn(moduleTableHeadCellClass, "text-center")}>Días Restantes</th>
+                      <th className={cn(moduleTableHeadCellClass, "text-right")}>Consumido</th>
+                      <th className={cn(moduleTableHeadCellClass, "text-right")}>Saldo Pendiente</th>
+                      <th className={cn(moduleTableHeadCellClass, "text-center")}>Estado</th>
+                      <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                  <tbody className={moduleTableBodyClass}>
                     {paginatedCreditos.map((c) => (
-                      <tr 
+                      <tr
                         key={c.cliente_id}
-                        className="hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors group cursor-pointer"
+                        className={cn(moduleTableRowClass, "group cursor-pointer")}
                         onClick={() => setClienteSeleccionado(c)}
                       >
                         <td className="px-5 py-4 font-bold text-zinc-900 dark:text-white">
@@ -330,16 +346,20 @@ export function VerCreditos() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </>
           )}
+          </div>
 
-          {totalPages > 1 && (
-            <div className="p-4 border-t border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
-              <PageSizeSelect pageSize={pageSize} setPageSize={setPageSize} />
-              <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-            </div>
-          )}
+          <ModuleTableFooter
+            itemCount={creditosOrdenados.length}
+            pageSize={pageSize}
+            setPageSize={setPageSize}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
 

@@ -1,8 +1,10 @@
 import { createClient } from "@/utils/supabase/server";
+import { isAdminRole, resolveUserRole } from "@/lib/user-role";
 import { redirect } from "next/navigation";
 import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
 import { Shield, AlertTriangle } from "lucide-react";
 import { AdminCards } from "./AdminCards";
+import { adminPageShellClass } from "@/lib/module-layout";
 
 export async function VerAdmin() {
   const supabase = await createClient();
@@ -12,17 +14,16 @@ export async function VerAdmin() {
 
   if (!user) redirect("/login");
 
-  const metadata = user.user_metadata || {};
-  const role = metadata.rol || user.role || "user";
+  const role = await resolveUserRole(supabase, user);
 
-  if (!["super", "admin"].includes(role)) {
-    redirect("/farmacia-la-salud");
+  if (!isAdminRole(role)) {
+    redirect("/farmamuni");
   }
 
   const pendingDevices = (await getPendingDevicesCount()) ?? 0;
 
   return (
-    <div className="space-y-8 w-full p-4 md:p-6 pt-32 md:pt-28">
+    <div className={adminPageShellClass}>
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-3">
           <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">

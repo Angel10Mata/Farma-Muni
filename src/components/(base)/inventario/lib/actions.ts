@@ -72,7 +72,7 @@ export async function eliminarProducto(id: string) {
     const { error } = await supabase.from("inv_productos").delete().eq("id", id);
     if (error) return { code: "INTERNAL" as const };
 
-    revalidatePath("/farmacia-la-salud/inventario");
+    revalidatePath("/farmamuni/inventario");
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };
@@ -114,7 +114,7 @@ export async function guardarProducto(id: string | undefined, input: ProductForm
       if (error) return { code: "INTERNAL" as const };
     }
 
-    revalidatePath("/farmacia-la-salud/inventario");
+    revalidatePath("/farmamuni/inventario");
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };

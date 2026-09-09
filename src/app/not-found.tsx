@@ -19,9 +19,9 @@ export default function NotFound() {
         </h1>
         <p className="mb-6 text-sm text-muted-foreground">
           Lo sentimos, la ruta que intenta consultar no existe en el sistema de{" "}
-          <strong>Farmacia La Salud</strong>
+          <strong>FarmaMuni</strong>
         </p>
-        <Link href="/farmacia-la-salud" className="inline-flex w-full justify-center">
+        <Link href="/farmamuni" className="inline-flex w-full justify-center">
           <SigetActionButton
             label="Regresar"
             accentColor={sigetAccent.abrir}

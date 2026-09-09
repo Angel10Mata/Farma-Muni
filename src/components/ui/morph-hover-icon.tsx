@@ -5,6 +5,15 @@ import { MorphIcon, type MorphHandle } from "morphicons/react";
 import type { IconNode } from "lucide";
 import { cn } from "@/lib/utils";
 
+export const morphIconBoxClass =
+  "rounded-xl bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-700/80 transition-[background-color,border-color,transform] duration-200";
+
+export const morphIconBoxPadding = {
+  md: "p-2.5 md:p-3",
+  sm: "p-1.5 md:p-2",
+  xs: "p-1 rounded-lg",
+} as const;
+
 type MorphHoverIconProps = {
   from: IconNode;
   to: IconNode;
@@ -66,5 +75,45 @@ export function MorphHoverIcon({
         spring={spring}
       />
     </span>
+  );
+}
+
+type MorphIconBoxProps = MorphHoverIconProps & {
+  boxClassName?: string;
+  padding?: keyof typeof morphIconBoxPadding;
+};
+
+export function MorphIconBox({
+  boxClassName,
+  padding = "md",
+  className,
+  hovered,
+  ...iconProps
+}: MorphIconBoxProps) {
+  const [localHovered, setLocalHovered] = useState(false);
+  const active = hovered ?? localHovered;
+
+  return (
+    <div
+      className={cn(
+        "group/box inline-flex shrink-0 items-center justify-center",
+        morphIconBoxClass,
+        morphIconBoxPadding[padding],
+        active && "scale-[1.03]",
+        boxClassName,
+      )}
+      onPointerEnter={
+        hovered === undefined ? () => setLocalHovered(true) : undefined
+      }
+      onPointerLeave={
+        hovered === undefined ? () => setLocalHovered(false) : undefined
+      }
+    >
+      <MorphHoverIcon
+        {...iconProps}
+        className={className}
+        hovered={active}
+      />
+    </div>
   );
 }

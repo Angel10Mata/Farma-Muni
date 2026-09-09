@@ -47,7 +47,7 @@ export async function guardarProveedor(id: string | undefined, input: ProveedorI
       if (error) return { code: "INTERNAL" as const };
     }
 
-    revalidatePath("/farmacia-la-salud/proveedores");
+    revalidatePath("/farmamuni/proveedores");
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };
@@ -63,7 +63,7 @@ export async function eliminarProveedor(id: string) {
     const { error } = await supabase.from("inv_proveedores").delete().eq("id", id);
     if (error) return { code: "INTERNAL" as const };
 
-    revalidatePath("/farmacia-la-salud/proveedores");
+    revalidatePath("/farmamuni/proveedores");
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };
@@ -165,9 +165,9 @@ export async function crearCompra(input: CompraInput) {
       });
     }
 
-    revalidatePath("/farmacia-la-salud/inventario");
-    revalidatePath("/farmacia-la-salud/proveedores");
-    revalidatePath("/farmacia-la-salud/finanzas");
+    revalidatePath("/farmamuni/inventario");
+    revalidatePath("/farmamuni/proveedores");
+    revalidatePath("/farmamuni/finanzas");
 
     return { success: true as const, compra_id: compra.id };
   } catch {
@@ -296,8 +296,8 @@ export async function actualizarEstadoPagoCompra(compraId: string, nuevoEstado: 
     const { error } = await supabase.from("inv_compras").update(payload).eq("id", compraId);
     if (error) return { code: "INTERNAL" as const };
 
-    revalidatePath("/farmacia-la-salud/proveedores");
-    revalidatePath("/farmacia-la-salud/finanzas");
+    revalidatePath("/farmamuni/proveedores");
+    revalidatePath("/farmamuni/finanzas");
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };
@@ -354,8 +354,8 @@ export async function registrarAbonoCompra(
         .eq("id", compraId);
     }
 
-    revalidatePath("/farmacia-la-salud/proveedores");
-    revalidatePath("/farmacia-la-salud/finanzas");
+    revalidatePath("/farmamuni/proveedores");
+    revalidatePath("/farmamuni/finanzas");
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };

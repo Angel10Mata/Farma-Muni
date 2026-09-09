@@ -5,7 +5,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/farmacia-la-salud/', '/api/', '/login'],
+      disallow: ['/farmamuni/', '/api/', '/login'],
     },
   }
 }

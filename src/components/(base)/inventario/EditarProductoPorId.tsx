@@ -14,7 +14,7 @@ export function EditarProductoPorId({ id }: { id: string }) {
   useEffect(() => {
     if (isError) {
       toast.error("No se pudo cargar la información del producto.");
-      router.push("/farmacia-la-salud/inventario");
+      router.push("/farmamuni/inventario");
     }
   }, [isError, router]);
 
@@ -34,8 +34,8 @@ export function EditarProductoPorId({ id }: { id: string }) {
   return (
     <EditarProducto
       producto={producto as Producto}
-      onClose={() => router.push("/farmacia-la-salud/inventario")}
-      onSuccess={() => router.push("/farmacia-la-salud/inventario")}
+      onClose={() => router.push("/farmamuni/inventario")}
+      onSuccess={() => router.push("/farmamuni/inventario")}
     />
   );
 }

@@ -37,7 +37,7 @@ export async function GET(request: Request) {
         {
           title: '⚠️ Recordatorio Financiero',
           body: `Tienes ${gastos.length} cuenta(s) por pagar próxima(s) a vencer: ${gastosMensaje}.`,
-          url: '/farmacia-la-salud/finanzas'
+          url: '/farmamuni/finanzas'
         },
         ['admin', 'super']
       );

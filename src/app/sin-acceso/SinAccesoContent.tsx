@@ -36,7 +36,7 @@ export default function SinAccesoContent() {
         </div>
 
         <Link
-          href="/farmacia-la-salud"
+          href="/farmamuni"
           className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground py-4 rounded-xl font-bold text-xs transition-all active:scale-95 uppercase"
         >
           <ArrowLeft className="size-4 stroke-3" />

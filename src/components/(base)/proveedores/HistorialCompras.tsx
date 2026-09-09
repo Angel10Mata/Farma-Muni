@@ -5,10 +5,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Calendar, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
 import { ModalFechaInput } from "@/components/ui/general-modal";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
-import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 import { cn, fmtQ } from "@/lib/utils";
 import { Compra } from "./lib/zod";
 import { CompraDetalleModal } from "./modals/CompraDetalleModal";
+import {
+  moduleTableBodyClass,
+  moduleTableClass,
+  moduleTableDesktopScrollClass,
+  moduleTableDesktopWrapClass,
+  moduleTableEmptyClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
 
 interface HistorialComprasProps {
   compras: Compra[];
@@ -195,12 +207,12 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
               setCurrentPageCompras(1);
             }}
             placeholder="Buscar por código, proveedor..."
-            className="w-full pl-11 pr-4 py-3 rounded-2xl border-none bg-white dark:bg-zinc-900/60 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/30 transition-all shadow-sm"
+            className={cn(moduleTableSearchClass, "pl-11 py-3 shadow-sm")}
           />
         </div>
 
         {/* Switch de pago segmentado horizontal */}
-        <div className="flex bg-[#e8eee9] dark:bg-zinc-900/60 p-1 rounded-2xl w-fit h-[46px] items-center shrink-0">
+        <div className="flex bg-white/50 dark:bg-zinc-900/40 rounded-2xl p-1.5 w-fit h-[46px] items-center shrink-0 shadow-sm border border-slate-100 dark:border-zinc-800">
           {[
             { id: "todos", label: "Todos" },
             { id: "Pagado", label: "Pagado" },
@@ -306,7 +318,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                       <button
                         type="button"
                         onClick={() => setMostrarMesDropdownCompras(!mostrarMesDropdownCompras)}
-                        className="px-2 py-1 hover:bg-slate-50 dark:hover:bg-zinc-850 rounded-lg text-xs font-bold text-slate-700 dark:text-[#A3BEB0] cursor-pointer"
+                        className="px-2 py-1 rounded-lg text-xs font-bold text-slate-700 dark:text-[#A3BEB0] cursor-pointer hover:bg-transparent active:bg-transparent focus:outline-none focus-visible:outline-none"
                       >
                         {[
                           "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -476,9 +488,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
         </div>
 
         {/* Listado de compras */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar w-full mt-2 pr-1">
+        <div className={cn(moduleTableShellClass, "mt-2")}>
+        <div className={cn(moduleTableScrollClass, "pr-1 min-h-0")}>
           {comprasPaginadas.length === 0 ? (
-            <div className="bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 rounded-3xl p-14 text-center text-slate-400 font-bold">
+            <div className={moduleTableEmptyClass}>
               No se encontraron compras en el historial.
             </div>
           ) : (
@@ -568,20 +581,20 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
             </div>
 
             {/* Vista Desktop (Tabla) */}
-            <div className="hidden md:block bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 rounded-3xl overflow-hidden shadow-xs">
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs border-collapse">
+            <div className={moduleTableDesktopWrapClass}>
+              <div className={moduleTableDesktopScrollClass}>
+                <table className={moduleTableClass}>
                   <thead>
-                    <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                      <th className="px-5 py-3.5">Compra #</th>
-                      <th className="px-5 py-3.5">Fecha</th>
-                      <th className="px-5 py-3.5">Proveedor</th>
-                      <th className="px-5 py-3.5">Estado Pago</th>
-                      <th className="px-5 py-3.5 text-right">Total</th>
-                      <th className="px-5 py-3.5 text-center">Acciones</th>
+                    <tr className={moduleTableHeadRowClass}>
+                      <th className={moduleTableHeadCellClass}>Compra #</th>
+                      <th className={moduleTableHeadCellClass}>Fecha</th>
+                      <th className={moduleTableHeadCellClass}>Proveedor</th>
+                      <th className={moduleTableHeadCellClass}>Estado Pago</th>
+                      <th className={cn(moduleTableHeadCellClass, "text-right")}>Total</th>
+                      <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                  <tbody className={moduleTableBodyClass}>
                     {comprasPaginadas.map((c) => {
                       const date = new Date(c.created_at).toLocaleString("es-GT", {
                         day: "2-digit",
@@ -649,25 +662,18 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
         )}
       </div>
 
-      {totalComprasItems > 0 && (
-          <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-2 px-1 text-slate-600 dark:text-slate-400">
-            <PageSizeSelect
-                pageSize={pageSizeCompras}
-                setPageSize={(size) => {
-                  setPageSizeCompras(size);
-                  setCurrentPageCompras(1);
-                  setMostrarPageSizeDropdownCompras(false);
-                }}
-              />
-              <div className="flex justify-center w-full sm:w-auto">
-                <Pagination
-                  currentPage={activeComprasPage}
-                  totalPages={totalComprasPages}
-                  onPageChange={(p) => setCurrentPageCompras(p)}
-                />
-              </div>
-            </div>
-        )}
+      <ModuleTableFooter
+        itemCount={totalComprasItems}
+        pageSize={pageSizeCompras}
+        setPageSize={(size) => {
+          setPageSizeCompras(size);
+          setMostrarPageSizeDropdownCompras(false);
+        }}
+        currentPage={activeComprasPage}
+        totalPages={totalComprasPages}
+        onPageChange={setCurrentPageCompras}
+      />
+        </div>
       
       <CompraDetalleModal 
         compra={compraDetalleSeleccionada}

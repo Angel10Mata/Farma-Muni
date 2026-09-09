@@ -11,7 +11,7 @@ import {
   type CuentaPorPagar,
 } from "./zod";
 
-const FINANZAS_PATH = "/farmacia-la-salud/finanzas";
+const FINANZAS_PATH = "/farmamuni/finanzas";
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
 
@@ -238,7 +238,7 @@ export async function eliminarMovimiento(id: string): Promise<{ success: true } 
     }
 
     revalidatePath(FINANZAS_PATH);
-    revalidatePath("/farmacia-la-salud/ventas");
+    revalidatePath("/farmamuni/ventas");
     return { success: true };
   } catch (error: unknown) {
     console.error("Error al anular movimiento:", error);

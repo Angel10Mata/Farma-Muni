@@ -4,9 +4,13 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { useUser } from "@/components/(base)/providers/UserProvider";
+import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
+import { useUser, useUserContext } from "@/components/(base)/providers/UserProvider";
+import { cn } from "@/lib/utils";
+import { FlaskConical } from "lucide-react";
 import { BreadcrumbNav } from "@/components/ui/breadcrumb-nav";
-import { Menu as MenuIcon, X, RefreshCw } from "lucide-react";
+import { MorphIconBox } from "@/components/ui/morph-hover-icon";
+import { navIconColors, navMorphIcons } from "@/lib/morph-icons";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import Menu from "./Menu";
 import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
@@ -15,16 +19,17 @@ import AnimacionLogoKore from "@/components/(Kore)/logo/AnimacionLogoKore";
 
 export default function EncabezadoApp() {
   const user = useUser();
+  const { effectiveRole } = useUserContext();
+  const { isDemoMode, toggleDemoMode } = useDemoMode();
   const [isOpen, setIsOpen] = useState(false);
   const [pendingDevices, setPendingDevices] = useState(0);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
-  const isRoot = pathname === "/farmacia-la-salud";
+  const isRoot = pathname === "/farmamuni";
 
-  const metadata = user?.user_metadata || {};
-  const role = metadata.rol || user?.role || "user";
-  const canManage = ["super", "admin"].includes(role);
+  const canSimulate = ["super", "admin"].includes(effectiveRole);
+  const canManage = canSimulate;
 
   useEffect(() => {
     const init = async () => {
@@ -49,13 +54,13 @@ export default function EncabezadoApp() {
           <div className="flex items-center h-full">
             <div className="flex items-center shrink-0">
               <Link
-                href={user ? "/farmacia-la-salud" : "/"}
+                href={user ? "/farmamuni" : "/"}
                 onClick={handleLogoClick}
                 className="flex flex-row items-center shrink-0 group gap-1 md:gap-1.5 cursor-pointer"
               >
                 <motion.img 
-                  src="/farmacia-la-salud/logo.png"
-                  alt="Farmacia Salud"
+                  src="/farmamuni/logo.png"
+                  alt="FarmaMuni"
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
@@ -67,8 +72,8 @@ export default function EncabezadoApp() {
                   transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
                   className="flex flex-col leading-none"
                 >
-                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farmacia</span>
-                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Salud</span>
+                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farma</span>
+                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Muni</span>
                 </motion.span>
               </Link>
             </div>
@@ -81,12 +86,36 @@ export default function EncabezadoApp() {
 
           <div className="flex items-center gap-2 sm:gap-4 shrink-0">
             <AnimatedThemeToggler />
+            {canSimulate && (
+              <button
+                type="button"
+                onClick={toggleDemoMode}
+                title={isDemoMode ? "Desactivar simulación de datos" : "Simular datos de ejemplo"}
+                className={cn(
+                  "flex items-center justify-center rounded-lg p-1.5 transition-colors cursor-pointer active:scale-95",
+                  isDemoMode
+                    ? "bg-violet-500/20 text-violet-500 dark:text-violet-300"
+                    : "text-black hover:text-violet-600 dark:text-white dark:hover:text-violet-300",
+                )}
+              >
+                <FlaskConical className="size-5" />
+              </button>
+            )}
             <button
               id="refresh-btn"
               onClick={() => window.location.reload()}
-              className="flex items-center justify-center text-black hover:text-celeste-kore dark:text-white dark:hover:text-celeste-kore cursor-pointer transition-all hover:rotate-180 duration-500 active:scale-95"
+              className="flex items-center justify-center text-black hover:text-celeste-kore dark:text-white dark:hover:text-celeste-kore cursor-pointer transition-colors active:scale-95"
             >
-              <RefreshCw className="size-6 md:size-7" />
+              <MorphIconBox
+                from={navMorphIcons.refresh.from}
+                to={navMorphIcons.refresh.to}
+                size={26}
+                color={navIconColors.brandBright}
+                strokeWidth={2}
+                spring="snappy"
+                padding="xs"
+                boxClassName="border-0 bg-transparent"
+              />
             </button>
             <div className="relative ml-2">
               <button
@@ -102,7 +131,16 @@ export default function EncabezadoApp() {
                       exit={{ opacity: 0, rotate: 90, scale: 0.8 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <X className="size-7 md:size-9" />
+                      <MorphIconBox
+                        from={navMorphIcons.close.from}
+                        to={navMorphIcons.close.to}
+                        size={32}
+                        color={navIconColors.danger}
+                        strokeWidth={2}
+                        spring="snappy"
+                        padding="xs"
+                        boxClassName="border-0 bg-transparent"
+                      />
                     </motion.div>
                   ) : (
                     <motion.div
@@ -112,7 +150,16 @@ export default function EncabezadoApp() {
                       exit={{ opacity: 0, rotate: -90, scale: 0.8 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <MenuIcon className="size-7 md:size-9" />
+                      <MorphIconBox
+                        from={navMorphIcons.menu.from}
+                        to={navMorphIcons.menu.to}
+                        size={32}
+                        color={navIconColors.brand}
+                        strokeWidth={2}
+                        spring="snappy"
+                        padding="xs"
+                        boxClassName="border-0 bg-transparent"
+                      />
                     </motion.div>
                   )}
                 </AnimatePresence>

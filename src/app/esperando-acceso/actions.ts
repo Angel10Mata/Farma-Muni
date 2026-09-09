@@ -14,7 +14,7 @@ async function notifySpecialRoles(userName: string, isResend: boolean) {
   await sendPushToRoles(roles, {
     title,
     body,
-    url: "/farmacia-la-salud/admin/dispositivos" // Assuming this is where admins manage devices
+    url: "/farmamuni/admin/dispositivos" // Assuming this is where admins manage devices
   });
 }
 

@@ -26,7 +26,6 @@ import {
 import { createClient } from "@/utils/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 import { cn, fmtNum, fmtQ } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useProductos, useEliminarProducto } from "./lib/hooks";
@@ -37,6 +36,23 @@ import {
   toast,
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { modulePageShellClass } from "@/lib/module-layout";
+import {
+  moduleTableBodyClass,
+  moduleTableCellClass,
+  moduleTableClass,
+  moduleTableDesktopScrollClass,
+  moduleTableDesktopWrapClass,
+  moduleTableEmptyCellClass,
+  moduleTableEmptyClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
 // ─── Tipos ────────────────────────────────────────────────────────────────────
 interface Producto {
   id: string;
@@ -643,7 +659,7 @@ export function VerInventario() {
 
 
   const handleNuevoProducto = () => {
-    router.push("/farmacia-la-salud/inventario/nuevo");
+    router.push("/farmamuni/inventario/nuevo");
   };
 
   const handleEliminarProducto = (producto: Producto) => {
@@ -674,7 +690,7 @@ export function VerInventario() {
       doc.setFont("helvetica", "bold");
       doc.setFontSize(18);
       doc.setTextColor(82, 93, 83); // #525D53 (Olivo Oscuro)
-      doc.text("FARMACIA SALUD - REPORTE DE INVENTARIO", 14, 20);
+      doc.text("FarmaMuni - REPORTE DE INVENTARIO", 14, 20);
 
       doc.setFont("helvetica", "normal");
       doc.setFontSize(10);
@@ -732,7 +748,7 @@ export function VerInventario() {
   };
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 min-h-screen">
+    <div className={modulePageShellClass}>
       {/* Header */}
       <div className="flex items-center justify-between gap-4 px-2.5 md:px-0">
         <div className="flex items-center gap-3">
@@ -801,7 +817,7 @@ export function VerInventario() {
               setBusqueda(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/30 focus:border-[#8DA78E] transition-all"
+            className={moduleTableSearchClass}
           />
         </div>
 
@@ -876,12 +892,12 @@ export function VerInventario() {
         )}
 
         {/* Lista */}
-        <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20 rounded-3xl p-5 shadow-sm overflow-hidden">
-          <div className="w-full flex-1 overflow-y-auto custom-scrollbar">
+        <div className={moduleTableShellClass}>
+          <div className={cn(moduleTableScrollClass, "min-h-0")}>
             {/* Mobile: Product Cards */}
             <div className="md:hidden flex flex-col gap-3 pr-2">
               {productosPaginados.length === 0 ? (
-                <div className="text-center py-14 text-slate-400 font-bold text-sm">
+                <div className={cn(moduleTableEmptyClass, "text-sm")}>
                   No se encontraron productos
                 </div>
               ) : (
@@ -893,7 +909,7 @@ export function VerInventario() {
                     onClick={() => {
                       setProductoSeleccionado(p);
                     }}
-                    onEdit={() => router.push("/farmacia-la-salud/inventario/editar/" + p.id)}
+                    onEdit={() => router.push("/farmamuni/inventario/editar/" + p.id)}
                     onDelete={() => handleEliminarProducto(p)}
                   />
                 ))
@@ -901,25 +917,26 @@ export function VerInventario() {
             </div>
 
             {/* Desktop: Table */}
-            <div className="hidden md:block overflow-x-auto w-full pb-4">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className={cn(moduleTableDesktopWrapClass, "md:block pb-4")}>
+              <div className={moduleTableDesktopScrollClass}>
+              <table className={moduleTableClass}>
                 <thead>
-                  <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                    <th className="px-5 py-3.5">Código</th>
-                    <th className="px-5 py-3.5">Producto</th>
-                    <th className="px-5 py-3.5">Ubicación</th>
-                    <th className="px-5 py-3.5">Venc./Lote</th>
-                    <th className="px-5 py-3.5">Proveedor</th>
-                    <th className="px-5 py-3.5">Existencias</th>
-                    <th className="px-5 py-3.5">Estado</th>
-                    <th className="px-5 py-3.5 text-right">Precio Venta</th>
-                    <th className="px-5 py-3.5 text-center">Acciones</th>
+                  <tr className={moduleTableHeadRowClass}>
+                    <th className={moduleTableHeadCellClass}>Código</th>
+                    <th className={moduleTableHeadCellClass}>Producto</th>
+                    <th className={moduleTableHeadCellClass}>Ubicación</th>
+                    <th className={moduleTableHeadCellClass}>Venc./Lote</th>
+                    <th className={moduleTableHeadCellClass}>Proveedor</th>
+                    <th className={moduleTableHeadCellClass}>Existencias</th>
+                    <th className={moduleTableHeadCellClass}>Estado</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Precio Venta</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                <tbody className={moduleTableBodyClass}>
                   {productosPaginados.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className="text-center py-14 text-slate-400 font-bold">
+                      <td colSpan={9} className={moduleTableEmptyCellClass}>
                         No se encontraron productos
                       </td>
                     </tr>
@@ -1016,7 +1033,7 @@ export function VerInventario() {
                                 morphTo={SquarePen}
                                 onClick={() => {
                                   setProductoSeleccionado(p);
-                                  router.push("/farmacia-la-salud/inventario/editar/" + p.id);
+                                  router.push("/farmamuni/inventario/editar/" + p.id);
                                 }}
                                 className="w-auto shrink-0"
                               />
@@ -1037,29 +1054,22 @@ export function VerInventario() {
                   )}
                 </tbody>
               </table>
+              </div>
             </div>
           </div>
 
           {/* Barra de Paginación */}
-          {totalItems > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mt-4 pt-4 border-t border-[#C1D1C5]/40 dark:border-zinc-800 text-slate-600 dark:text-slate-400">
-              <PageSizeSelect
-                pageSize={pageSize}
-                setPageSize={(size) => {
-                  setPageSize(size);
-                  setCurrentPage(1);
-                  setMostrarPageSizeDropdown(false);
-                }}
-              />
-              <div className="flex justify-center w-full sm:w-auto">
-                <Pagination
-                  currentPage={activePage}
-                  totalPages={totalPages}
-                  onPageChange={(p) => setCurrentPage(p)}
-                />
-              </div>
-            </div>
-          )}
+          <ModuleTableFooter
+            itemCount={totalItems}
+            pageSize={pageSize}
+            setPageSize={(size) => {
+              setPageSize(size);
+              setMostrarPageSizeDropdown(false);
+            }}
+            currentPage={activePage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+          />
         </div>
 
         {/* Panel de detalle */}
@@ -1076,7 +1086,7 @@ export function VerInventario() {
                 <ProductoDetalle
                   producto={productoSeleccionado}
                   onClose={() => setProductoSeleccionado(null)}
-                  onEditClick={() => router.push(`/farmacia-la-salud/inventario/editar/${productoSeleccionado.id}`)}
+                  onEditClick={() => router.push(`/farmamuni/inventario/editar/${productoSeleccionado.id}`)}
                 />
               </div>
             </motion.div>

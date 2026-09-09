@@ -18,7 +18,7 @@ export async function authorizeDevice(deviceId: string, friendlyName?: string) {
 
   if (error) return { success: false, error: error.message };
 
-  revalidatePath("/farmacia-la-salud");
+  revalidatePath("/farmamuni");
   return { success: true };
 }
 
@@ -30,6 +30,6 @@ export async function denyDevice(deviceId: string) {
 
   if (error) return { success: false, error: error.message };
 
-  revalidatePath("/farmacia-la-salud");
+  revalidatePath("/farmamuni");
   return { success: true };
 }

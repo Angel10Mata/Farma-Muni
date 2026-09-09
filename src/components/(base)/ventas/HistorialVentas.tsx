@@ -7,10 +7,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn, fmtQ } from "@/lib/utils";
 import { ModalFechaInput } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 import { obtenerCodigoRecibo } from "./lib/helpers";
 import { useHistorialVentas } from "./lib/hooks";
 import { DetalleVentaModal } from "./modals/DetalleVentaModal";
+import {
+  moduleTableBodyClass,
+  moduleTableCellClass,
+  moduleTableClass,
+  moduleTableDesktopWrapClass,
+  moduleTableDesktopScrollClass,
+  moduleTableEmptyClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
 
 interface HistorialVentasProps {
   onPrint: (venta: any, detalles: any) => void;
@@ -98,7 +112,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className="flex flex-col flex-1 min-w-0 bg-white dark:bg-zinc-900 border-y md:border border-zinc-200 dark:border-zinc-800 md:rounded-3xl p-5 overflow-hidden shadow-sm">
+    <div className={moduleTableShellClass}>
       <div className="flex flex-col xl:flex-row gap-4 mb-4 justify-between items-start">
         
         {/* Lado Izquierdo: Buscador y Filtros de Fecha */}
@@ -114,7 +128,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                 setBusquedaHistorial(e.target.value);
                 setCurrentPage(1);
               }}
-              className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/50 text-sm text-zinc-900 dark:text-white placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 transition-all"
+              className={moduleTableSearchClass}
             />
           </div>
 
@@ -260,11 +274,11 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scrollbar w-full min-h-[400px]">
+      <div className={moduleTableScrollClass}>
         {isLoading ? (
           <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div></div>
         ) : paginatedData.length === 0 ? (
-          <div className="bg-zinc-50 dark:bg-zinc-800/30 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-14 text-center text-zinc-400 font-bold">
+          <div className={moduleTableEmptyClass}>
             No se encontraron registros de ventas
           </div>
         ) : (
@@ -348,37 +362,37 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
             </div>
 
             {/* Vista Desktop (Tabla) */}
-            <div className="hidden md:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+            <div className={moduleTableDesktopWrapClass}>
+            <div className={moduleTableDesktopScrollClass}>
+              <table className={moduleTableClass}>
                 <thead>
-                  <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                    <th className="px-5 py-3.5">Recibo</th>
-                    <th className="px-5 py-3.5">Fecha</th>
-                    <th className="px-5 py-3.5">Cliente</th>
-                    <th className="px-5 py-3.5">Pago</th>
-                    <th className="px-5 py-3.5 text-right">Total</th>
-                    <th className="px-5 py-3.5 text-center">Acciones</th>
+                  <tr className={moduleTableHeadRowClass}>
+                    <th className={moduleTableHeadCellClass}>Recibo</th>
+                    <th className={moduleTableHeadCellClass}>Fecha</th>
+                    <th className={moduleTableHeadCellClass}>Cliente</th>
+                    <th className={moduleTableHeadCellClass}>Pago</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Total</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                <tbody className={moduleTableBodyClass}>
                   {paginatedData.map((v) => {
                     const date = formatCustomDate(v.created_at);
                     return (
                       <tr
                         key={v.id}
                         className={cn(
-                          "transition-colors",
+                          moduleTableRowClass,
                           v.observaciones?.includes("[ANULADA]")
                             ? "bg-rose-50/50 dark:bg-rose-500/5 hover:bg-rose-50 dark:hover:bg-rose-500/10"
-                            : "hover:bg-zinc-50 dark:hover:bg-zinc-800/30"
+                            : undefined
                         )}
                       >
-                        <td className="px-5 py-3.5 font-bold text-zinc-900 dark:text-white whitespace-nowrap">
+                        <td className={cn(moduleTableCellClass, "font-bold text-zinc-900 dark:text-white whitespace-nowrap")}>
                           {obtenerCodigoRecibo(v.id)}
                         </td>
-                        <td className="px-5 py-3.5 text-zinc-500 whitespace-nowrap">{date}</td>
-                        <td className="px-5 py-3.5 font-bold">
+                        <td className={cn(moduleTableCellClass, "text-zinc-500 whitespace-nowrap")}>{date}</td>
+                        <td className={cn(moduleTableCellClass, "font-bold")}>
                           {v.ven_clientes?.nombre || "Consumidor Final"}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
@@ -391,10 +405,10 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                             {v.tipo_venta}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] whitespace-nowrap">
+                        <td className={cn(moduleTableCellClass, "text-right font-black text-[#8DA78E] whitespace-nowrap")}>
                           {fmtQ(v.total)}
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap">
+                        <td className={cn(moduleTableCellClass, "whitespace-nowrap")}>
                           <div className="flex items-center justify-center gap-2">
                             <SigetActionButton
                               label="Detalle"
@@ -440,14 +454,14 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
         )}
       </div>
 
-      {filtered.length > 0 && (
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400">
-          <div className="flex items-center gap-4">
-            <PageSizeSelect pageSize={pageSize} setPageSize={(size) => { setPageSize(size); setCurrentPage(1); }} />
-          </div>
-          <Pagination currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
-        </div>
-      )}
+      <ModuleTableFooter
+        itemCount={filtered.length}
+        pageSize={pageSize}
+        setPageSize={setPageSize}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+      />
 
       {ventaDetalleSeleccionada && (
         <DetalleVentaModal

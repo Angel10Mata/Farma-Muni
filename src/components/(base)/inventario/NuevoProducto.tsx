@@ -8,8 +8,8 @@ export function NuevoProducto() {
 
   return (
     <CrearProducto
-      onClose={() => router.push("/farmacia-la-salud/inventario")}
-      onSuccess={() => router.push("/farmacia-la-salud/inventario")}
+      onClose={() => router.push("/farmamuni/inventario")}
+      onSuccess={() => router.push("/farmamuni/inventario")}
     />
   );
 }

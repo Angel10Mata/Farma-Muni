@@ -7,7 +7,7 @@ export const exportarPDF = (productos: any[]) => {
   
   // Title
   doc.setFontSize(16);
-  doc.text("Reporte de Inventario - Farmacia La Salud", 14, 20);
+  doc.text("Reporte de Inventario - FarmaMuni", 14, 20);
   
   // Date
   doc.setFontSize(10);

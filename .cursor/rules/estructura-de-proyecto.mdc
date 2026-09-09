@@ -1,5 +1,5 @@
 ---
-description: Stack, estructura de carpetas, código y enrutamiento — Farmacia Salud con design system SIGET
+description: Stack, estructura de carpetas, código y enrutamiento — FarmaMuni con design system SIGET
 alwaysApply: true
 ---
 
@@ -7,7 +7,7 @@ alwaysApply: true
 
 ## Proyecto
 
-- **App:** Farmacia Salud (KoreAPP).
+- **App:** FarmaMuni (KoreAPP).
 - **Design system:** SIGET (compartido entre proyectos Kore). UI, modales, botones y feedback siguen las mismas reglas que SIGET; el código legacy Kore (Button shadcn, Dialog, modales duplicados, estilos celeste antiguos) se migra gradualmente.
 
 ## Stack
@@ -46,7 +46,7 @@ Prohibido dispersar lógica del módulo fuera de su carpeta.
 
 ## Enrutamiento (`src/app/`)
 
-- Rutas de negocio bajo `src/app/farmacia-la-salud/`.
+- Rutas de negocio bajo `src/app/farmamuni/`.
 - `page.tsx` solo importa el componente principal dentro de `<Suspense>`.
 - Prohibido UI compleja, lógica de negocio o estado en `page.tsx`.
 

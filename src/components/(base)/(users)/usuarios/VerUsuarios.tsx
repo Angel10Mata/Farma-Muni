@@ -8,7 +8,20 @@ import { UserPlus, Check } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import VerPerfil from "@/components/(base)/(users)/profile/VerPerfil";
 import FormularioRegistro from "@/components/(base)/(auth)/signup/forms/Crear";
-import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
+import { modulePageScrollClass } from "@/lib/module-layout";
+import {
+  moduleTableBodyClass,
+  moduleTableCellClass,
+  moduleTableClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
+import { cn } from "@/lib/utils";
 
 export function VerUsuarios() {
   const user = useUser();
@@ -102,8 +115,8 @@ export function VerUsuarios() {
 
   return (
     <>
-      <div className="flex flex-col h-[calc(100vh-4rem)] w-full max-w-3xl mx-auto pt-32 md:pt-36 pb-10 overflow-hidden">
-        <div className="flex flex-col gap-6 mb-6 px-4">
+      <div className={modulePageScrollClass}>
+        <div className="flex flex-col gap-6 mb-6">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm xl:text-xl font-bold tracking-tight text-foreground">
@@ -140,7 +153,7 @@ export function VerUsuarios() {
                   setSearchQuery(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="w-full pl-10 pr-4 py-2 rounded-lg border border-border bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all text-foreground h-9"
+                className={cn(moduleTableSearchClass, "pl-10 h-9")}
               />
             </div>
             <div className="flex items-center gap-3 shrink-0">
@@ -148,12 +161,12 @@ export function VerUsuarios() {
           </div>
         </div>
 
-        <div className="flex flex-col flex-1 min-w-0 bg-card border border-border rounded-xl mx-4 overflow-hidden shadow-sm">
-          <div className="w-full flex-1 overflow-auto custom-scrollbar">
-            <table className="w-full text-left text-xs border-collapse">
+        <div className={moduleTableShellClass}>
+          <div className={cn(moduleTableScrollClass, "min-h-0 overflow-auto")}>
+            <table className={moduleTableClass}>
             <thead>
-              <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                <th className="px-5 py-3.5">
+              <tr className={moduleTableHeadRowClass}>
+                <th className={moduleTableHeadCellClass}>
                   <select
                     value={sortOrder}
                     onChange={(e) =>
@@ -165,7 +178,7 @@ export function VerUsuarios() {
                     <option value="desc">Ordenar (Z-A)</option>
                   </select>
                 </th>
-                <th className="px-5 py-3.5 text-right">
+                <th className={cn(moduleTableHeadCellClass, "text-right")}>
                   <div className="flex items-center justify-end gap-1">
                     <select
                       value={roleFilter}
@@ -186,7 +199,7 @@ export function VerUsuarios() {
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+            <tbody className={moduleTableBodyClass}>
               {paginatedUsers.map((userItem, index) => {
                 const firstLetter = (userItem.nombre || "#")
                   .charAt(0)
@@ -213,9 +226,9 @@ export function VerUsuarios() {
                     )}
                     <tr
                       onClick={() => handleUserClick(userItem.id)}
-                      className="group hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors cursor-pointer"
+                      className={cn(moduleTableRowClass, "group cursor-pointer")}
                     >
-                      <td className="px-5 py-3.5 font-medium group-hover:text-primary transition-colors">
+                      <td className={cn(moduleTableCellClass, "font-medium group-hover:text-primary transition-colors")}>
                         {userItem.nombre || "Sin Nombre"}
                       </td>
                       <td className="px-5 py-3.5 text-right">
@@ -242,23 +255,15 @@ export function VerUsuarios() {
           </div>
 
           {/* Barra de Paginación */}
-          {!isAll && filteredUsers.length > 0 && (
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 border-t border-border/50 text-muted-foreground">
-              <PageSizeSelect
-                pageSize={pageSize as number}
-                setPageSize={(size) => {
-                  setPageSize(size);
-                  setCurrentPage(1);
-                }}
-              />
-              <div className="flex justify-center w-full sm:w-auto">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={(p) => setCurrentPage(p)}
-                />
-              </div>
-            </div>
+          {!isAll && (
+            <ModuleTableFooter
+              itemCount={filteredUsers.length}
+              pageSize={pageSize as number}
+              setPageSize={setPageSize}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           )}
         </div>
       </div>

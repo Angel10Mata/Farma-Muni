@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, ReactNode, useEffect } from
 import { Producto, Cliente, ItemCarrito, Venta } from "./lib/zod";
 import Swal from "sweetalert2";
 import { toast } from "@/components/ui/general-modal";
+import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { ItemVentaInput, crearVenta } from "./lib/actions";
 import { getSwalThemeOpts } from "@/lib/utils";
 
@@ -80,6 +81,7 @@ interface VentasContextType {
 const VentasContext = createContext<VentasContextType | undefined>(undefined);
 
 export function VentasProvider({ children, productos, clientes, refetchDatos }: { children: ReactNode, productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
+  const { isDemoMode } = useDemoMode();
   const [activeTab, setActiveTab] = useState<"pos" | "historial">("pos");
 
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
@@ -233,6 +235,40 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     setShowUbicacionModal(false);
     setIsProcesandoVenta(true);
     try {
+      if (isDemoMode) {
+        const ventaObj: Venta = {
+          id: "demo-venta-preview",
+          created_at: new Date().toISOString(),
+          numero_recibo: 9001,
+          cliente_id: clienteSeleccionado?.id || null,
+          usuario_id: "",
+          tipo_venta: tipoVenta,
+          total: totalCarrito,
+          observaciones: observaciones.trim() || null,
+          ven_clientes: clienteSeleccionado
+            ? { nombre: clienteSeleccionado.nombre, nit: clienteSeleccionado.nit }
+            : null,
+        };
+        const freshDetails = carrito.map((i) => ({
+          cantidad: i.cantidad,
+          precio_aplicado: i.precio_aplicado,
+          subtotal: i.subtotal,
+          inv_productos: { nombre: i.producto.nombre, codigo: i.producto.codigo },
+        }));
+        const clientSave = clienteSeleccionado;
+        setCarrito([]);
+        setClienteSeleccionado(null);
+        setClienteBusqueda("Consumidor Final");
+        setObservaciones("");
+        setReciboModalData({
+          venta: ventaObj,
+          detalles: freshDetails,
+          clienteCompleto: clientSave,
+        });
+        toast.info("Venta simulada — no se guardó en la base de datos.");
+        return;
+      }
+
       const itemsFormatted: ItemVentaInput[] = carrito.map((i) => ({
         producto_id: i.producto.id,
         cantidad: i.cantidad,

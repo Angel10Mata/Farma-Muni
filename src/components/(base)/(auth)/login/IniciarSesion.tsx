@@ -55,7 +55,7 @@ export default function IniciarSesion() {
 
   useEffect(() => {
     if (state?.success) {
-      window.location.href = "/farmacia-la-salud";
+      window.location.href = "/farmamuni";
     } else if (state?.message === "DEVICE_LIMIT") {
       window.location.href = "/esperando-acceso?reason=limit";
     } else if (state?.message === "DEVICE_PENDING") {
@@ -75,7 +75,7 @@ export default function IniciarSesion() {
 
       if (verification.success) {
         localStorage.setItem("cermad-device-passkey-enabled", "true");
-        window.location.href = "/farmacia-la-salud";
+        window.location.href = "/farmamuni";
       } else if (verification.error === "DEVICE_LIMIT") {
         window.location.href = "/esperando-acceso?reason=limit";
       } else if (verification.error === "DEVICE_PENDING") {
@@ -112,7 +112,7 @@ export default function IniciarSesion() {
                 <AuroraText>Bienvenido de nuevo</AuroraText>
               </h3>
               <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
-                FARMACIA SALUD
+                FarmaMuni
               </p>
             </div>
           </div>

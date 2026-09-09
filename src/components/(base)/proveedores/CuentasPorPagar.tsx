@@ -10,6 +10,20 @@ import { Compra } from "./lib/zod";
 import { AbonoModal } from "./modals/AbonoModal";
 import { fmtQ } from "@/lib/utils";
 import { useRegistrarAbonoCompra } from "./lib/hooks";
+import {
+  moduleTableBodyClass,
+  moduleTableClass,
+  moduleTableDesktopScrollClass,
+  moduleTableDesktopWrapClass,
+  moduleTableEmptyCellClass,
+  ModuleTableFooter,
+  moduleTableHeadCellClass,
+  moduleTableHeadRowClass,
+  moduleTableScrollClass,
+  moduleTableSearchClass,
+  moduleTableShellClass,
+} from "@/components/ui/module-table";
+import { cn } from "@/lib/utils";
 
 interface CuentasPorPagarProps {
   compras: Compra[];
@@ -26,6 +40,8 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
   const [busquedaCuentasPagar, setBusquedaCuentasPagar] = useState("");
   const [compraAAbonar, setCompraAAbonar] = useState<Compra | null>(null);
   const [isAbonoModalOpen, setIsAbonoModalOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const { mutateAsync: registrarAbonoAsync } = useRegistrarAbonoCompra();
 
@@ -58,6 +74,12 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
     return matchSearch;
   });
 
+  const totalPages = Math.ceil(cuentasPendientes.length / pageSize) || 1;
+  const cuentasPaginadas = cuentasPendientes.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between px-1">
@@ -67,37 +89,42 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
           <input
             type="text"
             value={busquedaCuentasPagar}
-            onChange={(e) => setBusquedaCuentasPagar(e.target.value)}
+            onChange={(e) => {
+              setBusquedaCuentasPagar(e.target.value);
+              setCurrentPage(1);
+            }}
             placeholder="Buscar por referencia o proveedor..."
-            className="w-full pl-11 pr-4 py-3 rounded-2xl border-none bg-white dark:bg-zinc-900/60 text-sm text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/30 transition-all shadow-sm"
+            className={cn(moduleTableSearchClass, "pl-11 py-3 shadow-sm")}
           />
         </div>
       </div>
 
+        <div className={moduleTableShellClass}>
+        <div className={cn(moduleTableScrollClass, "min-h-0 pr-1")}>
         {/* Tabla de Cuentas por Pagar (Desktop) */}
-        <div className="hidden md:block bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 rounded-3xl overflow-hidden shadow-xs">
-          <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
+        <div className={moduleTableDesktopWrapClass}>
+          <div className={moduleTableDesktopScrollClass}>
+              <table className={moduleTableClass}>
                 <thead>
-                  <tr className="bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700">
-                    <th className="px-5 py-3.5">Referencia</th>
-                    <th className="px-5 py-3.5">Fecha</th>
-                    <th className="px-5 py-3.5">Proveedor</th>
-                    <th className="px-5 py-3.5 text-right">Monto Total</th>
-                    <th className="px-5 py-3.5 text-right">Saldo Pendiente</th>
-                    <th className="px-5 py-3.5 text-center">Días Restantes</th>
-                    <th className="px-5 py-3.5 text-center">Acciones</th>
+                  <tr className={moduleTableHeadRowClass}>
+                    <th className={moduleTableHeadCellClass}>Referencia</th>
+                    <th className={moduleTableHeadCellClass}>Fecha</th>
+                    <th className={moduleTableHeadCellClass}>Proveedor</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Monto Total</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Saldo Pendiente</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Días Restantes</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800/50 text-zinc-700 dark:text-zinc-300">
-                {cuentasPendientes.length === 0 ? (
+                <tbody className={moduleTableBodyClass}>
+                {cuentasPaginadas.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="text-center py-14 text-slate-400 font-bold">
+                    <td colSpan={7} className={moduleTableEmptyCellClass}>
                       No hay cuentas por pagar pendientes.
                     </td>
                   </tr>
                 ) : (
-                  cuentasPendientes.map((c) => {
+                  cuentasPaginadas.map((c) => {
                     const dateStr = new Date(c.created_at).toLocaleDateString("es-GT", {
                       day: "2-digit", month: "short", year: "numeric"
                     });
@@ -161,12 +188,12 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
 
         {/* Mobile Cards */}
         <div className="md:hidden flex flex-col gap-3">
-          {cuentasPendientes.length === 0 ? (
+          {cuentasPaginadas.length === 0 ? (
             <div className="py-10 text-center text-slate-400 font-bold text-sm bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-2xl">
               No hay cuentas por pagar pendientes.
             </div>
           ) : (
-            cuentasPendientes.map((c) => {
+            cuentasPaginadas.map((c) => {
               const dateStr = new Date(c.created_at).toLocaleDateString("es-GT", {
                 day: "2-digit", month: "short", year: "numeric"
               });
@@ -223,6 +250,17 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
               );
             })
           )}
+        </div>
+        </div>
+
+        <ModuleTableFooter
+          itemCount={cuentasPendientes.length}
+          pageSize={pageSize}
+          setPageSize={setPageSize}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
         </div>
 
       {isAbonoModalOpen && (

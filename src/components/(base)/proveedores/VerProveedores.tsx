@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Truck, Receipt, Calendar, User, Package } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { modulePageShellFixedClass } from "@/lib/module-layout";
 import { ComprasProvider } from "./ComprasContext";
 import { ComprasProductSection } from "./ComprasProductSection";
 import { ComprasCartSidebar } from "./ComprasCartSidebar";
@@ -56,7 +57,7 @@ function VerProveedoresInner() {
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto flex flex-col gap-6 px-2 pt-32 pb-8 md:px-4 md:pt-28 relative mt-4 md:mt-8 flex-1 min-h-0 h-screen">
+    <div className={modulePageShellFixedClass}>
       {/* Header & Tabs */}
       <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between px-1">
         
@@ -76,7 +77,7 @@ function VerProveedoresInner() {
         </div>
 
         {/* Lado Derecho: Tabs en formato inline (como en el original) */}
-        <div className="flex flex-wrap items-center gap-1 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-1 w-full md:w-auto bg-white/50 dark:bg-zinc-900/40 rounded-2xl p-1.5 shadow-sm border border-slate-100 dark:border-zinc-800">
           {[
             { id: "ingresar_compra", label: "Registrar Compra" },
             { id: "historial", label: "Historial de Compras" },

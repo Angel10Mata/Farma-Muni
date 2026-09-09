@@ -30,7 +30,7 @@ export default function FarmaciaSaludLogo({ className, print = false }: Farmacia
       viewBox="0 0 200 200"
       fill="none"
       className={cn("shrink-0", className)}
-      aria-label="Logo Farmacia Salud"
+      aria-label="Logo FarmaMuni"
       role="img"
     >
       <defs>
