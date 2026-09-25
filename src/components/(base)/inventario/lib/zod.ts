@@ -20,6 +20,13 @@ export const productSchema = z.object({
 
 export type ProductFormValues = z.infer<typeof productSchema>;
 
+export const bajaVencidoSchema = z.object({
+  producto_id: z.string().uuid(),
+  notas: z.string().trim().max(300).optional(),
+});
+
+export type BajaVencidoInput = z.infer<typeof bajaVencidoSchema>;
+
 export interface Producto {
   id: string;
   codigo: string;

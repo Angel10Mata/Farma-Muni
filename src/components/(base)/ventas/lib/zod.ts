@@ -77,3 +77,54 @@ export const CrearVentaSchema = z.object({
 
 export type ItemVentaInput = z.infer<typeof ItemVentaSchema>;
 export type CrearVentaInput = z.infer<typeof CrearVentaSchema>;
+
+export const SolicitudRebajaItemPayloadSchema = z.object({
+  producto_id: z.string().uuid(),
+  cantidad: z.number().positive(),
+  precio_aplicado: z.number().min(0),
+  precio_base: z.number().min(0),
+  subtotal: z.number().min(0),
+  producto_nombre: z.string(),
+  producto_codigo: z.string(),
+});
+
+export const SolicitudRebajaPayloadSchema = z.object({
+  cliente_id: z.string().uuid().nullable(),
+  tipo_venta: z.string(),
+  total: z.number().min(0),
+  observaciones: z.string().nullable(),
+  items: z.array(SolicitudRebajaItemPayloadSchema).min(1),
+});
+
+export const SolicitudRebajaEstadoSchema = z.enum([
+  "pendiente",
+  "aprobada",
+  "rechazada",
+  "expirada",
+  "completada",
+]);
+
+export const SolicitudRebajaSchema = z.object({
+  id: z.string().uuid(),
+  solicitante_id: z.string().uuid(),
+  estado: SolicitudRebajaEstadoSchema,
+  payload: SolicitudRebajaPayloadSchema,
+  venta_id: z.string().uuid().nullable().optional(),
+  resuelto_por: z.string().uuid().nullable().optional(),
+  resuelto_at: z.string().nullable().optional(),
+  motivo_rechazo: z.string().nullable().optional(),
+  created_at: z.string(),
+  profiles: z
+    .object({ nombre: z.string().nullable().optional() })
+    .nullable()
+    .optional(),
+});
+
+export type SolicitudRebajaPayload = z.infer<typeof SolicitudRebajaPayloadSchema>;
+export type SolicitudRebaja = z.infer<typeof SolicitudRebajaSchema>;
+
+export const CrearSolicitudRebajaSchema = z.object({
+  payload: SolicitudRebajaPayloadSchema,
+});
+
+export type CrearSolicitudRebajaInput = z.infer<typeof CrearSolicitudRebajaSchema>;

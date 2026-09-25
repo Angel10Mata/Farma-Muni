@@ -9,26 +9,50 @@ import {
   ChevronDown,
   Truck,
   Calendar,
+  CalendarX,
   Box,
   Building2,
   X,
+  FileText,
+  BarChart3,
+  MoreVertical,
+  Pencil as PencilIcon,
+  Ban,
+  CircleCheck,
 } from "lucide-react";
 import {
   Download as DownloadNode,
   FileDown,
-  Pencil,
+  Pencil as PencilNode,
   Plus as PlusNode,
-  SquarePen,
-  Trash,
-  Trash2,
+  SquarePen as SquarePenNode,
   UserPlus,
 } from "lucide";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { createClient } from "@/utils/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { cn, fmtNum, fmtQ } from "@/lib/utils";
 import { useRouter } from "next/navigation";
-import { useProductos, useEliminarProducto } from "./lib/hooks";
+import {
+  useProductos,
+  useActivarProducto,
+  useDesactivarProducto,
+  useRegistrarBajaVencido,
+} from "./lib/hooks";
+import {
+  isProductoProximoAVencer,
+  isProductoVencido,
+} from "./lib/helpers";
+import {
+  descargarReporteGestion,
+  descargarReporteVencimientos,
+} from "./lib/reportes-pdf";
 import {
   ModalConfirmDelete,
   ModalShell,
@@ -84,33 +108,97 @@ interface Producto {
   }[];
 }
 
-const isProductoProximoAVencer = (fechaVencimiento?: string | null, meses = 4): boolean => {
-  if (!fechaVencimiento) return false;
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const expDate = new Date(fechaVencimiento);
-  const limitDate = new Date(today);
-  limitDate.setMonth(limitDate.getMonth() + meses);
-  return expDate <= limitDate;
-};
+function ProductoAccionesMenu({
+  activo,
+  showBaja,
+  onBaja,
+  onEdit,
+  onDesactivar,
+  onActivar,
+}: {
+  activo: boolean;
+  showBaja: boolean;
+  onBaja: () => void;
+  onEdit: () => void;
+  onDesactivar: () => void;
+  onActivar: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Acciones del producto"
+          className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+        >
+          <MoreVertical className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="z-[200] min-w-[148px] rounded-xl border border-zinc-200 bg-white p-1 opacity-100 shadow-md dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        {showBaja ? (
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg text-xs font-bold text-rose-600 focus:bg-rose-50 dark:text-rose-400 dark:focus:bg-rose-950/40"
+            onSelect={() => onBaja()}
+          >
+            <CalendarX className="size-3.5" />
+            Baja por vencimiento
+          </DropdownMenuItem>
+        ) : null}
+        <DropdownMenuItem
+          className="cursor-pointer rounded-lg text-xs font-bold text-zinc-700 focus:bg-zinc-100 dark:text-zinc-200 dark:focus:bg-zinc-800"
+          onSelect={() => onEdit()}
+        >
+          <PencilIcon className="size-3.5" />
+          Editar
+        </DropdownMenuItem>
+        {activo ? (
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg text-xs font-bold text-amber-700 focus:bg-amber-50 dark:text-amber-400 dark:focus:bg-amber-950/40"
+            onSelect={() => onDesactivar()}
+          >
+            <Ban className="size-3.5" />
+            Desactivar
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg text-xs font-bold text-[#2E9E77] focus:bg-emerald-50 dark:text-emerald-400 dark:focus:bg-emerald-950/40"
+            onSelect={() => onActivar()}
+          >
+            <CircleCheck className="size-3.5" />
+            Activar
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 // ─── Tarjeta de producto ─────────────────────────────────────────────────────
 function ProductoCard({
   producto,
   onClick,
   onEdit,
-  onDelete,
+  onDesactivar,
+  onActivar,
+  onBaja,
   destacarRojo,
 }: {
   producto: Producto;
   onClick: () => void;
   onEdit: () => void;
-  onDelete: () => void;
+  onDesactivar: () => void;
+  onActivar: () => void;
+  onBaja?: () => void;
   destacarRojo?: boolean;
 }) {
   const isLowStock = producto.stock_actual <= producto.stock_minimo;
   const imagenes = [producto.imagen_url, producto.imagen_url_2, producto.imagen_url_3].filter(Boolean);
   const isExpiringSoon = isProductoProximoAVencer(producto.fecha_vencimiento);
+  const isVencido =
+    isProductoVencido(producto.fecha_vencimiento) && producto.stock_actual > 0;
 
   return (
     <motion.div
@@ -123,6 +211,8 @@ function ProductoCard({
       className={cn("group relative border rounded-xl p-2.5 cursor-pointer hover:border-[#8DA78E] dark:hover:border-[#A3BEB0]/60 flex gap-3 items-center min-h-[96px]",
         destacarRojo
           ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/30"
+          : isVencido
+            ? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-400 dark:border-rose-800/50"
           : isExpiringSoon
             ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30"
             : "bg-[#F5F5F1] dark:bg-[#525D53]/10 border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20")}
@@ -157,8 +247,11 @@ function ProductoCard({
             {producto.numero_lote && ` | LOTE: ${producto.numero_lote}`}
           </p>
           {producto.fecha_vencimiento && (
-            <p className={cn("text-[9px] font-bold mt-0.5", isExpiringSoon ? "text-amber-500 animate-pulse" : "text-slate-500")}>
-              VENCE: {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
+            <p className={cn(
+              "text-[9px] font-bold mt-0.5",
+              isVencido ? "text-rose-600 animate-pulse" : isExpiringSoon ? "text-amber-500 animate-pulse" : "text-slate-500",
+            )}>
+              {isVencido ? "VENCIDO" : "VENCE"}: {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
             </p>
           )}
           {(producto.inv_proveedores?.nombre || producto.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre) && (
@@ -193,23 +286,14 @@ function ProductoCard({
             </div>
           </div>
 
-          {/* Action buttons (50/50 split) */}
-          <div className="flex gap-1 shrink-0" onClick={(e) => e.stopPropagation()}>
-            <SigetActionButton
-              label="Editar"
-              accentColor={sigetAccent.editar}
-              morphFrom={Pencil}
-              morphTo={SquarePen}
-              onClick={onEdit}
-              className="w-auto shrink-0"
-            />
-            <SigetActionButton
-              label="Quitar"
-              accentColor={sigetAccent.quitar}
-              morphFrom={Trash2}
-              morphTo={Trash}
-              onClick={onDelete}
-              className="w-auto shrink-0"
+          <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+            <ProductoAccionesMenu
+              activo={producto.activo}
+              showBaja={isVencido && !!onBaja}
+              onBaja={() => onBaja?.()}
+              onEdit={onEdit}
+              onDesactivar={onDesactivar}
+              onActivar={onActivar}
             />
           </div>
         </div>
@@ -365,8 +449,8 @@ function ProductoDetalle({
         <SigetActionButton
           label="Editar"
           accentColor={sigetAccent.editar}
-          morphFrom={Pencil}
-          morphTo={SquarePen}
+          morphFrom={PencilNode}
+          morphTo={SquarePenNode}
           onClick={onEditClick}
           className="w-auto shrink-0"
         />
@@ -528,6 +612,7 @@ export function VerInventario() {
   const [busqueda, setBusqueda] = useState("");
   const [filtroStockBajo, setFiltroStockBajo] = useState(false);
   const [filtroProximoVencer, setFiltroProximoVencer] = useState(false);
+  const [filtroVencidos, setFiltroVencidos] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("activos");
   const [filtroUbicacion, setFiltroUbicacion] = useState("");
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
@@ -535,8 +620,12 @@ export function VerInventario() {
 
   // Estados de Base de Datos Real
   const { data: productos = [], isLoading, refetch: refetchProductos } = useProductos();
-  const { mutateAsync: eliminarProductoAsync, isPending: isDeleting } = useEliminarProducto();
-  const [showDeleteModal, setShowDeleteModal] = useState<Producto | null>(null);
+  const { mutateAsync: desactivarProductoAsync, isPending: isDesactivando } =
+    useDesactivarProducto();
+  const { mutateAsync: activarProductoAsync } = useActivarProducto();
+  const { mutateAsync: registrarBajaAsync, isPending: isBajaPending } = useRegistrarBajaVencido();
+  const [showDesactivarModal, setShowDesactivarModal] = useState<Producto | null>(null);
+  const [showBajaModal, setShowBajaModal] = useState<Producto | null>(null);
   const [mostrarBajoStock, setMostrarBajoStock] = useState(false);
 
   // Escáner de código de barras
@@ -550,6 +639,8 @@ export function VerInventario() {
   const pageSizeDropdownRef = useRef<HTMLDivElement>(null);
   const [mostrarFiltroEstadoDropdown, setMostrarFiltroEstadoDropdown] = useState(false);
   const filtroEstadoDropdownRef = useRef<HTMLDivElement>(null);
+  const [mostrarReportesDropdown, setMostrarReportesDropdown] = useState(false);
+  const reportesDropdownRef = useRef<HTMLDivElement>(null);
 
 
 
@@ -561,9 +652,19 @@ export function VerInventario() {
       if (filtroEstadoDropdownRef.current && !filtroEstadoDropdownRef.current.contains(event.target as Node)) {
         setMostrarFiltroEstadoDropdown(false);
       }
+      if (reportesDropdownRef.current && !reportesDropdownRef.current.contains(event.target as Node)) {
+        setMostrarReportesDropdown(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
   }, []);
+
+  const resetFiltrosAlerta = (activo: "stock" | "proximo" | "vencidos" | null) => {
+    setFiltroStockBajo(activo === "stock");
+    setFiltroProximoVencer(activo === "proximo");
+    setFiltroVencidos(activo === "vencidos");
+    setCurrentPage(1);
+  };
 
   // Lógica de Escáner de Código de Barras
   useEffect(() => {
@@ -629,6 +730,12 @@ export function VerInventario() {
       matchesExpiring = isProductoProximoAVencer(p.fecha_vencimiento);
     }
 
+    let matchesVencidos = true;
+    if (filtroVencidos) {
+      matchesVencidos =
+        isProductoVencido(p.fecha_vencimiento) && p.stock_actual > 0;
+    }
+
     const matchesEstado =
       filtroEstado === "todos" ? true :
         filtroEstado === "activos" ? p.activo :
@@ -636,7 +743,14 @@ export function VerInventario() {
 
     const matchesUbicacion = !filtroUbicacion || (p.ubicacion || "Sin asignar") === filtroUbicacion;
 
-    return matchesSearch && matchesStock && matchesEstado && matchesExpiring && matchesUbicacion;
+    return (
+      matchesSearch &&
+      matchesStock &&
+      matchesEstado &&
+      matchesExpiring &&
+      matchesVencidos &&
+      matchesUbicacion
+    );
   }).sort((a, b) => {
     const aLow = a.stock_actual <= a.stock_minimo ? 0 : 1;
     const bLow = b.stock_actual <= b.stock_minimo ? 0 : 1;
@@ -645,7 +759,12 @@ export function VerInventario() {
   });
 
   const hayStockBajoGlobal = productos.some((p) => p.stock_actual <= p.stock_minimo);
-  const hayProximoVencerGlobal = productos.some((p) => isProductoProximoAVencer(p.fecha_vencimiento));
+  const hayProximoVencerGlobal = productos.some((p) =>
+    isProductoProximoAVencer(p.fecha_vencimiento),
+  );
+  const hayVencidosGlobal = productos.some(
+    (p) => isProductoVencido(p.fecha_vencimiento) && p.stock_actual > 0,
+  );
 
   const totalItems = productosFiltrados.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -662,20 +781,74 @@ export function VerInventario() {
     router.push("/farmamuni/inventario/nuevo");
   };
 
-  const handleEliminarProducto = (producto: Producto) => {
-    setShowDeleteModal(producto);
+  const handleDesactivarProducto = (producto: Producto) => {
+    setShowDesactivarModal(producto);
   };
 
-  const confirmDelete = async () => {
-    if (!showDeleteModal) return;
+  const confirmDesactivar = async () => {
+    if (!showDesactivarModal) return;
     try {
-      await eliminarProductoAsync(showDeleteModal.id);
-      toast.success(`${showDeleteModal.nombre} fue eliminado del inventario.`);
-      if (productoSeleccionado?.id === showDeleteModal.id) setProductoSeleccionado(null);
-      setShowDeleteModal(null);
+      await desactivarProductoAsync(showDesactivarModal.id);
+      toast.success(`${showDesactivarModal.nombre} fue desactivado.`);
+      if (productoSeleccionado?.id === showDesactivarModal.id) setProductoSeleccionado(null);
+      setShowDesactivarModal(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : undefined;
-      toast.error(modalActionMessage(message, "No se pudo eliminar el producto."));
+      toast.error(modalActionMessage(message, "No se pudo desactivar el producto."));
+    }
+  };
+
+  const handleActivarProducto = async (producto: Producto) => {
+    try {
+      await activarProductoAsync(producto.id);
+      toast.success(`${producto.nombre} está activo nuevamente.`);
+      if (productoSeleccionado?.id === producto.id) {
+        setProductoSeleccionado({ ...producto, activo: true });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : undefined;
+      toast.error(modalActionMessage(message, "No se pudo activar el producto."));
+    }
+  };
+
+  const handleBajaVencido = (producto: Producto) => {
+    setShowBajaModal(producto);
+  };
+
+  const confirmBajaVencido = async () => {
+    if (!showBajaModal) return;
+    try {
+      const res = await registrarBajaAsync({ producto_id: showBajaModal.id });
+      toast.success(
+        `Baja registrada: ${fmtNum(res.unidades)} unidades de ${showBajaModal.nombre}.`,
+      );
+      if (productoSeleccionado?.id === showBajaModal.id) {
+        setProductoSeleccionado(null);
+      }
+      setShowBajaModal(null);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : undefined;
+      toast.error(modalActionMessage(message, "No se pudo registrar la baja."));
+    }
+  };
+
+  const handleReporteVencimientos = () => {
+    try {
+      descargarReporteVencimientos(productos);
+      toast.success("Reporte de vencimientos descargado.");
+      setMostrarReportesDropdown(false);
+    } catch {
+      toast.error("No se pudo generar el reporte de vencimientos.");
+    }
+  };
+
+  const handleReporteGestion = () => {
+    try {
+      descargarReporteGestion(productos);
+      toast.success("Resumen de gestión descargado.");
+      setMostrarReportesDropdown(false);
+    } catch {
+      toast.error("No se pudo generar el resumen de gestión.");
     }
   };
 
@@ -837,15 +1010,11 @@ export function VerInventario() {
             </div>
           )}
 
-          <div className="grid grid-cols-3 md:flex gap-2 w-full md:w-auto shrink-0">
+          <div className="flex flex-wrap gap-2 w-full md:w-auto shrink-0 justify-end">
             <button
-              onClick={() => {
-                const nextVal = !filtroStockBajo;
-                setFiltroStockBajo(nextVal);
-                if (nextVal) setFiltroProximoVencer(false);
-                setCurrentPage(1);
-              }}
-              className={`w-full md:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${filtroStockBajo
+              type="button"
+              onClick={() => resetFiltrosAlerta(filtroStockBajo ? null : "stock")}
+              className={`w-[calc(50%-4px)] sm:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${filtroStockBajo
                 ? "border-red-400 bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
                 : "border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
                 } ${hayStockBajoGlobal && !filtroStockBajo ? "animate-pulse" : ""}`}
@@ -854,13 +1023,9 @@ export function VerInventario() {
             </button>
 
             <button
-              onClick={() => {
-                const nextVal = !filtroProximoVencer;
-                setFiltroProximoVencer(nextVal);
-                if (nextVal) setFiltroStockBajo(false);
-                setCurrentPage(1);
-              }}
-              className={`w-full md:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${filtroProximoVencer
+              type="button"
+              onClick={() => resetFiltrosAlerta(filtroProximoVencer ? null : "proximo")}
+              className={`w-[calc(50%-4px)] sm:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${filtroProximoVencer
                 ? "border-amber-400 bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
                 : "border-amber-200 dark:border-amber-900/50 text-amber-500 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
                 } ${hayProximoVencerGlobal && !filtroProximoVencer ? "animate-pulse" : ""}`}
@@ -868,13 +1033,60 @@ export function VerInventario() {
               <Calendar className="size-3 md:size-3.5" /> Vencimiento
             </button>
 
+            <button
+              type="button"
+              onClick={() => resetFiltrosAlerta(filtroVencidos ? null : "vencidos")}
+              className={`w-[calc(50%-4px)] sm:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${filtroVencidos
+                ? "border-rose-500 bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-700"
+                : "border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20"
+                } ${hayVencidosGlobal && !filtroVencidos ? "animate-pulse" : ""}`}
+            >
+              <CalendarX className="size-3 md:size-3.5" /> Vencidos
+            </button>
+
+            <div className="relative w-[calc(50%-4px)] sm:w-auto" ref={reportesDropdownRef}>
+              <button
+                type="button"
+                onClick={() => setMostrarReportesDropdown((v) => !v)}
+                className={cn(
+                  "w-full justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer",
+                  mostrarReportesDropdown
+                    ? "border-[#8DA78E] bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
+                    : "border-[#C1D1C5]/60 dark:border-zinc-700 text-[#525D53] dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50",
+                )}
+              >
+                <BarChart3 className="size-3 md:size-3.5" /> Reportes
+                <ChevronDown className={cn("size-3 transition-transform", mostrarReportesDropdown && "rotate-180")} />
+              </button>
+              {mostrarReportesDropdown ? (
+                <div className="absolute right-0 top-full mt-1 z-[200] min-w-[220px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 opacity-100 shadow-md p-1.5 flex flex-col gap-0.5">
+                  <button
+                    type="button"
+                    onClick={handleReporteVencimientos}
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
+                  >
+                    <FileText className="size-3.5 text-amber-600 shrink-0" />
+                    PDF vencimientos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleReporteGestion}
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
+                  >
+                    <BarChart3 className="size-3.5 text-[#8DA78E] shrink-0" />
+                    PDF gestión
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
             <SigetActionButton
               label="Exportar"
               accentColor={sigetAccent.excel}
               morphFrom={DownloadNode}
               morphTo={FileDown}
               onClick={handleExportarPDF}
-              className="w-full md:w-auto shrink-0"
+              className="w-full sm:w-auto shrink-0"
             />
           </div>
         </div>
@@ -910,7 +1122,9 @@ export function VerInventario() {
                       setProductoSeleccionado(p);
                     }}
                     onEdit={() => router.push("/farmamuni/inventario/editar/" + p.id)}
-                    onDelete={() => handleEliminarProducto(p)}
+                    onDesactivar={() => handleDesactivarProducto(p)}
+                    onActivar={() => handleActivarProducto(p)}
+                    onBaja={() => handleBajaVencido(p)}
                   />
                 ))
               )}
@@ -959,6 +1173,8 @@ export function VerInventario() {
                       }
 
                       const isExpiringSoon = isProductoProximoAVencer(p.fecha_vencimiento);
+                      const isVencido =
+                        isProductoVencido(p.fecha_vencimiento) && p.stock_actual > 0;
 
                       acc.push(
                         <tr
@@ -969,8 +1185,9 @@ export function VerInventario() {
                           className={cn(
                             "hover:bg-[#8DA78E]/10 dark:hover:bg-[#A3BEB0]/15 transition-all cursor-pointer",
                             isSelected && "bg-[#8DA78E]/20 dark:bg-[#8DA78E]/25",
-                            isLowStock && !isExpiringSoon && "text-red-500 dark:text-red-400 animate-pulse bg-red-500/5 dark:bg-red-500/10",
-                            isExpiringSoon && "bg-amber-500/10 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 animate-pulse"
+                            isVencido && "bg-rose-500/10 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300 animate-pulse",
+                            !isVencido && isLowStock && !isExpiringSoon && "text-red-500 dark:text-red-400 animate-pulse bg-red-500/5 dark:bg-red-500/10",
+                            !isVencido && isExpiringSoon && "bg-amber-500/10 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 animate-pulse"
                           )}
                         >
                           <td className="px-5 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
@@ -988,8 +1205,12 @@ export function VerInventario() {
                           <td className="px-5 py-3.5">
                             <div className="flex flex-col">
                               {p.fecha_vencimiento ? (
-                                <span className={cn("font-semibold", isExpiringSoon ? "text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300")}>
+                                <span className={cn(
+                                  "font-semibold",
+                                  isVencido ? "text-rose-600 dark:text-rose-400" : isExpiringSoon ? "text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300",
+                                )}>
                                   {new Date(p.fecha_vencimiento).toLocaleDateString("es-GT")}
+                                  {isVencido ? " · Vencido" : ""}
                                 </span>
                               ) : (
                                 <span className="text-slate-400">—</span>
@@ -1024,26 +1245,18 @@ export function VerInventario() {
                           <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0]">
                             {fmtQ(p.precio_base)}
                           </td>
-                          <td className="px-5 py-3.5" onClick={e => e.stopPropagation()}>
-                            <div className="flex items-center justify-center gap-1">
-                              <SigetActionButton
-                                label="Editar"
-                                accentColor={sigetAccent.editar}
-                                morphFrom={Pencil}
-                                morphTo={SquarePen}
-                                onClick={() => {
+                          <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-center">
+                              <ProductoAccionesMenu
+                                activo={p.activo}
+                                showBaja={isVencido}
+                                onBaja={() => handleBajaVencido(p)}
+                                onEdit={() => {
                                   setProductoSeleccionado(p);
                                   router.push("/farmamuni/inventario/editar/" + p.id);
                                 }}
-                                className="w-auto shrink-0"
-                              />
-                              <SigetActionButton
-                                label="Quitar"
-                                accentColor={sigetAccent.quitar}
-                                morphFrom={Trash2}
-                                morphTo={Trash}
-                                onClick={() => handleEliminarProducto(p)}
-                                className="w-auto shrink-0"
+                                onDesactivar={() => handleDesactivarProducto(p)}
+                                onActivar={() => handleActivarProducto(p)}
                               />
                             </div>
                           </td>
@@ -1093,30 +1306,57 @@ export function VerInventario() {
           )}
         </AnimatePresence>
 
-        {/* Modal de eliminación */}
         <ModalShell
-          isOpen={!!showDeleteModal}
-          onClose={() => setShowDeleteModal(null)}
-          title="Eliminar producto"
+          isOpen={!!showDesactivarModal}
+          onClose={() => setShowDesactivarModal(null)}
+          title="Desactivar producto"
           subtitle="Confirmación de inventario"
         >
-          {showDeleteModal && (
+          {showDesactivarModal && (
             <ModalConfirmDelete
-              title="¿Eliminar producto del inventario?"
-              description="Confirma si deseas eliminar este registro del catálogo de productos."
+              intent="deactivate"
+              title="¿Desactivar este producto?"
+              description="El registro permanece en el catálogo. Solo deja de usarse en ventas hasta que lo reactives."
+              confirmText="Desactivar"
               itemDetails={{
-                nombre: showDeleteModal.nombre,
-                codigo: showDeleteModal.codigo,
-                stock: showDeleteModal.stock_actual,
-                precio: showDeleteModal.precio_base,
-                imagen: showDeleteModal.imagen_url,
-                ubicacion: showDeleteModal.ubicacion,
+                nombre: showDesactivarModal.nombre,
+                codigo: showDesactivarModal.codigo,
+                stock: showDesactivarModal.stock_actual,
+                precio: showDesactivarModal.precio_base,
+                imagen: showDesactivarModal.imagen_url,
+                ubicacion: showDesactivarModal.ubicacion,
               }}
-              onConfirm={confirmDelete}
-              onCancel={() => setShowDeleteModal(null)}
-              loading={isDeleting}
+              onConfirm={confirmDesactivar}
+              onCancel={() => setShowDesactivarModal(null)}
+              loading={isDesactivando}
             />
           )}
+        </ModalShell>
+
+        <ModalShell
+          isOpen={!!showBajaModal}
+          onClose={() => setShowBajaModal(null)}
+          title="Baja por vencimiento"
+          subtitle="Salida de inventario"
+        >
+          {showBajaModal ? (
+            <ModalConfirmDelete
+              title="¿Registrar baja de producto vencido?"
+              description="Se pondrán las existencias en cero. Si hay costo registrado, se reflejará un egreso en finanzas."
+              confirmText="Baja"
+              itemDetails={{
+                nombre: showBajaModal.nombre,
+                codigo: showBajaModal.codigo,
+                stock: showBajaModal.stock_actual,
+                precio: showBajaModal.precio_base,
+                imagen: showBajaModal.imagen_url,
+                ubicacion: showBajaModal.ubicacion,
+              }}
+              onConfirm={confirmBajaVencido}
+              onCancel={() => setShowBajaModal(null)}
+              loading={isBajaPending}
+            />
+          ) : null}
         </ModalShell>
       </div>
     </div>

@@ -15,8 +15,10 @@ import {
   obtenerProducto,
   obtenerProductos,
   guardarProducto,
-  eliminarProducto,
+  activarProducto,
+  desactivarProducto,
   obtenerUbicaciones,
+  registrarBajaPorVencimiento,
 } from "./actions";
 import { type ProductFormValues } from "./zod";
 
@@ -103,13 +105,49 @@ export function useGuardarProducto() {
   });
 }
 
-export function useEliminarProducto() {
+export function useRegistrarBajaVencido() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { producto_id: string; notas?: string }) => {
+      assertWritableDemo(isDemoMode);
+      const res = await registrarBajaPorVencimiento(input);
+      if (!res.success) throw new Error(res.code);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["productos"] });
+      queryClient.invalidateQueries({ queryKey: ["finanzas"] });
+    },
+  });
+}
+
+export function useDesactivarProducto() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
       assertWritableDemo(isDemoMode);
-      const res = await eliminarProducto(id);
+      const res = await desactivarProducto(id);
+      if (!res.success) throw new Error(res.code);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["productos"] });
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+export function useActivarProducto() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (id: string) => {
+      assertWritableDemo(isDemoMode);
+      const res = await activarProducto(id);
       if (!res.success) throw new Error(res.code);
       return res;
     },

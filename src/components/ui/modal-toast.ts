@@ -13,6 +13,8 @@ export const MODAL_ACTION_ERRORS: Record<string, string> = {
   SAVE_FAILED: "No se pudo guardar. Intenta de nuevo.",
   DELETE_FAILED: "No se pudo eliminar.",
   DUPLICATE: "Este registro ya existe.",
+  NOT_EXPIRED: "El producto aún no está vencido.",
+  NO_STOCK: "No hay existencias que dar de baja.",
 };
 
 export function modalActionMessage(

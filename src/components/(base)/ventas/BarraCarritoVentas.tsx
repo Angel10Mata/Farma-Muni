@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, Trash2, Plus, Minus, Package, AlertTriangle } from "lucide-react";
+import { ShoppingCart, Trash2, Plus, Minus, Package, AlertTriangle, ShieldAlert } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { fmtQ } from "@/lib/utils";
 import { useVentas } from "./ContextoVentas";
@@ -238,6 +238,25 @@ export function BarraCarritoVentas() {
           />
         </div>
 
+        {ventas.esperandoAutorizacionRebaja && !ventas.rebajaAutorizada && (
+          <div className="flex items-start gap-2 rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/25 px-3 py-2.5 text-left">
+            <ShieldAlert className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs font-bold text-amber-900 dark:text-amber-100 leading-snug">
+              Esperando autorización administrativa por precios modificados. No cambies el carrito
+              hasta recibir respuesta.
+            </p>
+          </div>
+        )}
+
+        {ventas.rebajaAutorizada && (
+          <div className="flex items-start gap-2 rounded-xl border border-emerald-300/50 bg-emerald-50 dark:bg-emerald-950/25 px-3 py-2.5 text-left">
+            <ShieldAlert className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
+            <p className="text-xs font-bold text-emerald-900 dark:text-emerald-100 leading-snug">
+              Rebaja autorizada. Pulsa Cobrar para continuar con el registro.
+            </p>
+          </div>
+        )}
+
         {/* Totales */}
         <div className="border-t border-[#C1D1C5]/30 pt-3 mt-auto space-y-2 text-left">
           <div className="flex items-center justify-between text-sm font-black text-slate-800 dark:text-white pt-1">
@@ -254,7 +273,11 @@ export function BarraCarritoVentas() {
             morphFrom={CircleDollarSignNode}
             morphTo={CheckNode}
             onClick={ventas.handleFinalizarVenta}
-            disabled={ventas.carrito.length === 0 || ventas.isProcesandoVenta}
+            disabled={
+              ventas.carrito.length === 0 ||
+              ventas.isProcesandoVenta ||
+              (ventas.esperandoAutorizacionRebaja && !ventas.rebajaAutorizada)
+            }
             ariaBusy={ventas.isProcesandoVenta}
             className="w-auto shrink-0"
           />

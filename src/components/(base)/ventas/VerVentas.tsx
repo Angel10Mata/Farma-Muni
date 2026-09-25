@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingCart, Receipt, Package, AlertTriangle } from "lucide-react";
 import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, FileDown as FileDownNode, MessageCircle as MessageCircleNode, Printer as PrinterNode, X as XNode } from "lucide";
@@ -31,11 +31,19 @@ import { ModalFooter, ModalShell, toast } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { modulePageShellClass } from "@/lib/module-layout";
 import { cn } from "@/lib/utils";
+import { SolicitudesRebajaAdmin } from "./SolicitudesRebajaAdmin";
 
 function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
   const { effectiveRole } = useUserContext();
+  const puedeVerHistorial = ["admin", "super"].includes(effectiveRole);
   const { isDemoMode } = useDemoMode();
   const ventas = useVentas();
+
+  useEffect(() => {
+    if (!puedeVerHistorial && ventas.activeTab === "historial") {
+      ventas.setActiveTab("pos");
+    }
+  }, [puedeVerHistorial, ventas.activeTab, ventas.setActiveTab]);
   
   const reciboCaptureRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -565,18 +573,24 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
           >
             Punto de Venta
           </button>
-          <button
-            onClick={() => ventas.setActiveTab("historial")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              ventas.activeTab === "historial" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
-            }`}
-          >
-            Historial de Ventas
-          </button>
+          {puedeVerHistorial ? (
+            <button
+              onClick={() => ventas.setActiveTab("historial")}
+              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
+                ventas.activeTab === "historial" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
+              }`}
+            >
+              Historial de Ventas
+            </button>
+          ) : null}
         </div>
       </div>
 
-      {ventas.activeTab === "pos" ? (
+      <Suspense fallback={null}>
+        <SolicitudesRebajaAdmin />
+      </Suspense>
+
+      {ventas.activeTab === "pos" || !puedeVerHistorial ? (
         <div className="flex flex-col lg:flex-row gap-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
           <SeccionProductosVentas productos={productos} clientes={clientes} />
           <BarraCarritoVentas />

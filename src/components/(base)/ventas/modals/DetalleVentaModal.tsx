@@ -93,23 +93,30 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
   };
 
   return (
-    <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex justify-end">
+    <>
+      <AnimatePresence>
         <motion.div
+          key="detalle-venta-drawer"
+          className="fixed inset-0 z-[100] flex justify-end"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
-          className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer"
-        />
-
-        <motion.div
-          initial={{ x: "100%" }}
-          animate={{ x: 0 }}
-          exit={{ x: "100%" }}
-          transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="relative w-full max-w-md h-[calc(100%-2rem)] m-4 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col rounded-[2rem] overflow-hidden"
         >
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer"
+          />
+
+          <motion.div
+            initial={{ x: "100%" }}
+            animate={{ x: 0 }}
+            exit={{ x: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 200 }}
+            className="relative w-full max-w-md h-[calc(100%-2rem)] m-4 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col rounded-[2rem] overflow-hidden"
+          >
           <div className="flex md:hidden justify-end p-4 pb-0 shrink-0">
             <button onClick={onClose} className="p-2 text-zinc-400 bg-white dark:bg-zinc-800 rounded-full">
               <X className="size-5" />
@@ -292,8 +299,9 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
               className="w-full"
             />
           </div>
+          </motion.div>
         </motion.div>
-      </div>
+      </AnimatePresence>
 
       <ModalShell
         open={confirmAnularOpen}
@@ -368,6 +376,6 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
           </ModalForm>
         )}
       </ModalShell>
-    </AnimatePresence>
+    </>
   );
 }

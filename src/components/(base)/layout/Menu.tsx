@@ -4,9 +4,8 @@ import { useState, type ReactNode } from "react";
 import type { User } from "@supabase/supabase-js";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookOpen, ChevronDown, FlaskConical, Shield } from "lucide-react";
+import { ChevronDown, FlaskConical, Shield } from "lucide-react";
 import Swal from "sweetalert2";
-import { toast } from "react-toastify";
 import VerPerfil from "@/components/(base)/(users)/profile/VerPerfil";
 import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
 import ModalPasskeys from "@/components/(base)/layout/modals/ModalPasskeys";
@@ -202,16 +201,6 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                     {displayName}
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    toast.info("Manual de usuario disponible próximamente.")
-                  }
-                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[#2c5f9b]/60 bg-[#2c5f9b]/10 px-4 py-2.5 text-sm font-bold text-[#6f9fd4] hover:bg-[#2c5f9b]/20 transition-colors cursor-pointer"
-                >
-                  <BookOpen className="size-4 shrink-0" />
-                  Manual de Usuario
-                </button>
               </div>
 
               <section>

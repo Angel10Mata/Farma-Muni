@@ -18,6 +18,10 @@ import {
   editarDetalleVentaDirecto,
   eliminarDetalleVentaDirecto,
   obtenerProductosYClientes,
+  listarSolicitudesRebajaPendientes,
+  aprobarSolicitudRebaja,
+  rechazarSolicitudRebaja,
+  obtenerSolicitudRebaja,
 } from "./actions";
 
 export function useDatosVentas() {
@@ -108,6 +112,80 @@ export function useEditarDetalleVenta() {
     },
     onError: (error: Error) => {
       toast.error(error.message || "Error al editar detalle");
+    },
+  });
+}
+
+export function useSolicitudesRebajaPendientes(enabled: boolean) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["ventas", "rebajas-pendientes"], isDemoMode),
+    queryFn: async () => {
+      if (isDemoMode) return [];
+      const res = await listarSolicitudesRebajaPendientes();
+      if (!res.success) throw new Error(res.error ?? "Error al cargar solicitudes");
+      return res.solicitudes;
+    },
+    enabled: enabled && !isDemoMode,
+    refetchInterval: enabled && !isDemoMode ? 8000 : false,
+  });
+}
+
+export function useEstadoSolicitudRebaja(solicitudId: string | null) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["ventas", "rebaja-estado", solicitudId], isDemoMode),
+    queryFn: async () => {
+      if (!solicitudId) return null;
+      const res = await obtenerSolicitudRebaja(solicitudId);
+      if (!res.success) throw new Error(res.error ?? "Error");
+      return res.solicitud;
+    },
+    enabled: !!solicitudId && !isDemoMode,
+    refetchInterval: solicitudId && !isDemoMode ? 3000 : false,
+  });
+}
+
+export function useAprobarSolicitudRebaja() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (solicitudId: string) => {
+      assertWritableDemo(isDemoMode);
+      return await aprobarSolicitudRebaja(solicitudId);
+    },
+    onSuccess: (res) => {
+      if (res.success) {
+        toast.success("Rebaja autorizada");
+        queryClient.invalidateQueries({ queryKey: ["ventas", "rebajas-pendientes"] });
+      } else {
+        toast.error(res.error ?? "No se pudo aprobar");
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
+    },
+  });
+}
+
+export function useRechazarSolicitudRebaja() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (params: { solicitudId: string; motivo?: string }) => {
+      assertWritableDemo(isDemoMode);
+      return await rechazarSolicitudRebaja(params.solicitudId, params.motivo);
+    },
+    onSuccess: (res) => {
+      if (res.success) {
+        toast.success("Solicitud rechazada");
+        queryClient.invalidateQueries({ queryKey: ["ventas", "rebajas-pendientes"] });
+      } else {
+        toast.error(res.error ?? "No se pudo rechazar");
+      }
+    },
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 }

@@ -3,8 +3,14 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { Ban, Check, Save, Trash, Trash2, X } from "lucide";
-import { AlertTriangle, Package, Trash2 as Trash2Icon, X as XIcon } from "lucide-react";
+import { Ban as BanNode, Check as CheckNode, Save, Trash, Trash2, X } from "lucide";
+import {
+  AlertTriangle,
+  Ban as BanIcon,
+  Package,
+  Trash2 as Trash2Icon,
+  X as XIcon,
+} from "lucide-react";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import {
   formatFechaManualGt,
@@ -179,7 +185,7 @@ export function ModalCancelButton({
       label="Cancelar"
       accentColor={sigetAccent.cancelar}
       morphFrom={X}
-      morphTo={Ban}
+      morphTo={BanNode}
       onClick={onClick}
       disabled={disabled}
       className={cn("w-auto shrink-0", className)}
@@ -201,7 +207,7 @@ export function ModalSubmit({
       label={label}
       accentColor={sigetAccent.guardar}
       morphFrom={Save}
-      morphTo={Check}
+      morphTo={CheckNode}
       disabled={disabled}
       type="submit"
       className={cn("w-auto shrink-0", className)}
@@ -250,6 +256,8 @@ export function ModalConfirmDelete({
   loading = false,
   pending = false,
   confirmText = "Eliminar",
+  warningText,
+  intent = "delete",
 }: {
   onConfirm: () => void;
   onCancel: () => void;
@@ -261,8 +269,12 @@ export function ModalConfirmDelete({
   pending?: boolean;
   confirmText?: string;
   cancelText?: string;
+  /** Texto del aviso inferior. `null` lo oculta; omitir = mensaje según intent. */
+  warningText?: string | null;
+  intent?: "delete" | "deactivate";
 }) {
   const isPending = loading || pending;
+  const isDeactivate = intent === "deactivate";
 
   if (message && !itemDetails && title === "¿Eliminar registro?") {
     return (
@@ -285,12 +297,34 @@ export function ModalConfirmDelete({
     );
   }
 
+  const defaultWarning = isDeactivate
+    ? "El producto dejará de mostrarse en ventas. Podrás reactivarlo desde Inactivos."
+    : "Esta acción eliminará de forma permanente el registro y no se podrá deshacer.";
+
   return (
     <div className="flex flex-col items-center p-1 text-center sm:p-3">
       <div className="relative mb-3 flex items-center justify-center">
-        <div className="absolute inset-0 animate-pulse rounded-full bg-red-500/20 opacity-75 dark:bg-red-500/30" />
-        <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-red-200 bg-gradient-to-br from-red-50 to-rose-100 shadow-inner dark:border-red-800/60 dark:from-red-950/60 dark:to-rose-900/40">
-          <Trash2Icon className="h-7 w-7 text-red-600 dark:text-red-400" />
+        <div
+          className={cn(
+            "absolute inset-0 animate-pulse rounded-full opacity-75",
+            isDeactivate
+              ? "bg-amber-500/20 dark:bg-amber-500/25"
+              : "bg-red-500/20 dark:bg-red-500/30",
+          )}
+        />
+        <div
+          className={cn(
+            "relative flex h-14 w-14 items-center justify-center rounded-2xl border shadow-inner",
+            isDeactivate
+              ? "border-amber-200 bg-gradient-to-br from-amber-50 to-orange-100 dark:border-amber-800/60 dark:from-amber-950/60 dark:to-orange-900/40"
+              : "border-red-200 bg-gradient-to-br from-red-50 to-rose-100 dark:border-red-800/60 dark:from-red-950/60 dark:to-rose-900/40",
+          )}
+        >
+          {isDeactivate ? (
+            <BanIcon className="h-7 w-7 text-amber-700 dark:text-amber-400" />
+          ) : (
+            <Trash2Icon className="h-7 w-7 text-red-600 dark:text-red-400" />
+          )}
         </div>
       </div>
 
@@ -349,21 +383,23 @@ export function ModalConfirmDelete({
         </div>
       ) : null}
 
-      <div className="mt-3 flex w-full items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-left text-xs text-amber-700 dark:text-amber-400">
-        <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
-        <span>Esta acción eliminará de forma permanente el registro y no se podrá deshacer.</span>
-      </div>
+      {warningText !== null ? (
+        <div className="mt-3 flex w-full items-center gap-2 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-left text-xs text-amber-700 dark:text-amber-400">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0 text-amber-600 dark:text-amber-400" />
+          <span>{warningText ?? defaultWarning}</span>
+        </div>
+      ) : null}
 
       <div className="mt-5 flex w-full items-center justify-end gap-3 border-t border-zinc-200/60 pt-3 dark:border-zinc-800">
         <ModalCancelButton onClick={onCancel} disabled={isPending} />
         <SigetActionButton
           label={confirmText}
-          accentColor={sigetAccent.quitar}
-          morphFrom={Trash2}
-          morphTo={Trash}
+          accentColor={isDeactivate ? sigetAccent.inactiva : sigetAccent.quitar}
+          morphFrom={isDeactivate ? X : Trash2}
+          morphTo={isDeactivate ? BanNode : Trash}
           onClick={onConfirm}
           disabled={isPending}
-          ariaLabel="Confirmar eliminación"
+          ariaLabel={confirmText}
           className="w-auto shrink-0"
         />
       </div>
@@ -457,7 +493,15 @@ export function ModalShell({
   return createPortal(
     <AnimatePresence>
       {visible ? (
-        <div
+        <motion.div
+          key={title}
+          initial={shellEnter}
+          animate={shellAnimate}
+          exit={shellExit}
+          transition={MODAL_SHELL_TRANSITION}
+          onAnimationComplete={() => {
+            setContentScrollable(true);
+          }}
           className={cn(
             "fixed inset-0 z-[200] flex flex-col overflow-hidden",
             fullscreen
@@ -473,14 +517,7 @@ export function ModalShell({
               className="absolute inset-0 hidden bg-black/40 backdrop-blur-xl md:block dark:bg-black/55"
             />
           ) : null}
-          <motion.div
-            initial={shellEnter}
-            animate={shellAnimate}
-            exit={shellExit}
-            transition={MODAL_SHELL_TRANSITION}
-            onAnimationComplete={() => {
-              setContentScrollable(true);
-            }}
+          <div
             className={cn(
               "relative z-10 flex min-h-0 w-full flex-col",
               fullscreen && "h-dvh max-w-none",
@@ -577,8 +614,8 @@ export function ModalShell({
                 {children}
               </div>
             </ModalFrame>
-          </motion.div>
-        </div>
+          </div>
+        </motion.div>
       ) : null}
     </AnimatePresence>,
     document.body,
