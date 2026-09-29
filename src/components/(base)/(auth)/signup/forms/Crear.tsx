@@ -25,7 +25,7 @@ import { useSignupLogic } from "../hooks";
 import { AnimatePresence, motion } from "framer-motion";
 import { generateStrongPassword } from "@/utils/general/password-generator";
 import { AuroraText } from "@/components/ui/aurora-text";
-import { useUser } from "@/components/(base)/providers/UserProvider";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
 
 interface SignUpProps {
   isOpen: boolean;
@@ -92,8 +92,7 @@ const Select = ({
 
 export default function FormularioRegistro({ isOpen, onClose }: SignUpProps) {
   const logic = useSignupLogic();
-  const currentUser = useUser();
-  const currentUserRole = currentUser?.user_metadata?.rol || "user";
+  const { realRole } = useUserContext();
   const [step, setStep] = useState(1);
   const [phoneNumber, setPhoneNumber] = useState("");
   const [copied, setCopied] = useState(false);
@@ -313,7 +312,7 @@ export default function FormularioRegistro({ isOpen, onClose }: SignUpProps) {
                       >
                         <option value="user">Usuario (Estándar)</option>
                         <option value="admin">Administrador</option>
-                        {currentUserRole === "super" && (
+                        {realRole === "super" && (
                           <option value="super">Super Admin</option>
                         )}
                       </Select>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingCart, Receipt, Package, AlertTriangle } from "lucide-react";
 import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, FileDown as FileDownNode, MessageCircle as MessageCircleNode, Printer as PrinterNode, X as XNode } from "lucide";
@@ -31,13 +32,22 @@ import { ModalFooter, ModalShell, toast } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { modulePageShellClass } from "@/lib/module-layout";
 import { cn } from "@/lib/utils";
-import { SolicitudesRebajaAdmin } from "./SolicitudesRebajaAdmin";
+import { ModalAutorizacionRebajaVentas } from "./ModalAutorizacionRebajaVentas";
 
 function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
-  const { effectiveRole } = useUserContext();
+  const { effectiveRole, realRole } = useUserContext();
   const puedeVerHistorial = ["admin", "super"].includes(effectiveRole);
   const { isDemoMode } = useDemoMode();
   const ventas = useVentas();
+  const searchParams = useSearchParams();
+  const router = useRouter();
+
+  useEffect(() => {
+    const id = searchParams.get("autorizarRebaja");
+    if (!id || !["admin", "super"].includes(realRole)) return;
+    ventas.abrirAutorizacionRebajaDesdeNotificacion(id);
+    router.replace("/farmamuni/ventas");
+  }, [searchParams, realRole, router, ventas]);
 
   useEffect(() => {
     if (!puedeVerHistorial && ventas.activeTab === "historial") {
@@ -586,9 +596,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         </div>
       </div>
 
-      <Suspense fallback={null}>
-        <SolicitudesRebajaAdmin />
-      </Suspense>
+      <ModalAutorizacionRebajaVentas />
 
       {ventas.activeTab === "pos" || !puedeVerHistorial ? (
         <div className="flex flex-col lg:flex-row gap-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">

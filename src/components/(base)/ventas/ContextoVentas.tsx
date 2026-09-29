@@ -6,8 +6,8 @@ import Swal from "sweetalert2";
 import { toast } from "@/components/ui/general-modal";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
-import { ItemVentaInput, crearSolicitudRebaja, crearVenta } from "./lib/actions";
-import { buildSolicitudRebajaPayload, carritoTieneRebajas } from "./lib/helpers";
+import { ItemVentaInput, autorizarRebajaConCredencialesAdmin, crearSolicitudRebaja, crearVenta } from "./lib/actions";
+import { buildSolicitudRebajaPayload, carritoTieneRebajas, validarCarritoPrecioCosto } from "./lib/helpers";
 import { useEstadoSolicitudRebaja } from "./lib/hooks";
 import { getSwalThemeOpts } from "@/lib/utils";
 
@@ -81,6 +81,11 @@ interface VentasContextType {
   totalCarrito: number;
   esperandoAutorizacionRebaja: boolean;
   rebajaAutorizada: boolean;
+  showModalAutorizacionRebaja: boolean;
+  setShowModalAutorizacionRebaja: React.Dispatch<React.SetStateAction<boolean>>;
+  confirmarRebajaConAdmin: (usuario: string, clave: string) => Promise<void>;
+  isValidandoAutorizacionRebaja: boolean;
+  abrirAutorizacionRebajaDesdeNotificacion: (solicitudId: string) => void;
 }
 
 const VentasContext = createContext<VentasContextType | undefined>(undefined);
@@ -120,25 +125,65 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
   const [solicitudRebajaId, setSolicitudRebajaId] = useState<string | null>(null);
   const [esperandoAutorizacionRebaja, setEsperandoAutorizacionRebaja] = useState(false);
   const [rebajaAutorizada, setRebajaAutorizada] = useState(false);
+  const [showModalAutorizacionRebaja, setShowModalAutorizacionRebaja] = useState(false);
+  const [isValidandoAutorizacionRebaja, setIsValidandoAutorizacionRebaja] = useState(false);
   const carritoSnapshotRef = useRef<string>("");
-
-  const { data: solicitudRebajaRemota } = useEstadoSolicitudRebaja(
-    esperandoAutorizacionRebaja && solicitudRebajaId ? solicitudRebajaId : null,
-  );
 
   const limpiarFlujoRebaja = () => {
     setSolicitudRebajaId(null);
     setEsperandoAutorizacionRebaja(false);
     setRebajaAutorizada(false);
+    setShowModalAutorizacionRebaja(false);
     carritoSnapshotRef.current = "";
   };
+
+  const confirmarRebajaConAdmin = async (usuario: string, clave: string) => {
+    if (!solicitudRebajaId) {
+      toast.error("No hay solicitud de rebaja activa.");
+      return;
+    }
+    setIsValidandoAutorizacionRebaja(true);
+    try {
+      const res = await autorizarRebajaConCredencialesAdmin(
+        solicitudRebajaId,
+        usuario,
+        clave,
+      );
+      if (!res.success) {
+        throw new Error(res.error);
+      }
+      if (esperandoAutorizacionRebaja) {
+        setRebajaAutorizada(true);
+        toast.success("Rebaja autorizada. Pulsa Cobrar de nuevo para registrar la venta.");
+      } else {
+        toast.success("Rebaja autorizada para el vendedor.");
+      }
+      setShowModalAutorizacionRebaja(false);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "No se pudo autorizar la rebaja.";
+      toast.error(message);
+    } finally {
+      setIsValidandoAutorizacionRebaja(false);
+    }
+  };
+
+  const abrirAutorizacionRebajaDesdeNotificacion = (id: string) => {
+    setSolicitudRebajaId(id);
+    setShowModalAutorizacionRebaja(true);
+  };
+
+  const { data: solicitudRebajaRemota } = useEstadoSolicitudRebaja(
+    esperandoAutorizacionRebaja && solicitudRebajaId ? solicitudRebajaId : null,
+  );
 
   useEffect(() => {
     if (!solicitudRebajaRemota || !esperandoAutorizacionRebaja) return;
 
     if (solicitudRebajaRemota.estado === "aprobada" && !rebajaAutorizada) {
       setRebajaAutorizada(true);
-      toast.success("Un administrador autorizó la rebaja. Pulsa Cobrar para continuar.");
+      setShowModalAutorizacionRebaja(false);
+      toast.success("Rebaja autorizada. Pulsa Cobrar de nuevo para registrar la venta.");
     }
     if (solicitudRebajaRemota.estado === "rechazada") {
       const motivo =
@@ -263,6 +308,12 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       return;
     }
 
+    const errorCosto = validarCarritoPrecioCosto(carrito);
+    if (errorCosto) {
+      toast.warn(errorCosto);
+      return;
+    }
+
     if (tipoVenta === "Crédito" && !clienteSeleccionado) {
       toast.warn("Para venta al crédito debes seleccionar un cliente.");
       return;
@@ -270,68 +321,21 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
 
     const hasModifiedPrices = carritoTieneRebajas(carrito);
     if (hasModifiedPrices && !observaciones.trim()) {
-      toast.warn("Escribe una observación cuando modificas precios.");
+      toast.warn("Escribe una observación cuando aplicas una rebaja.");
       return;
     }
-
-    if (esperandoAutorizacionRebaja && !rebajaAutorizada) {
-      toast.info("Esperando autorización de un administrador para los precios modificados.");
-      return;
-    }
-
-    const omiteAutorizacionRebaja =
-      ["admin", "super"].includes(realRole) && simulatedRole === null;
-    const requiereAutorizacionRemota =
-      hasModifiedPrices && !omiteAutorizacionRebaja && !isDemoMode;
 
     const resConfirm = await Swal.fire({
-      title: requiereAutorizacionRemota && !rebajaAutorizada ? "¿Solicitar autorización?" : "¿Confirmar cobro?",
-      text: requiereAutorizacionRemota && !rebajaAutorizada
-        ? `Se notificará a administración para aprobar precios (total Q${totalCarrito.toFixed(2)}).`
-        : `Se registrará la venta por un total de Q${totalCarrito.toFixed(2)} (${tipoVenta}).`,
+      title: "¿Confirmar cobro?",
+      text: `Se registrará la venta por un total de Q${totalCarrito.toFixed(2)} (${tipoVenta}).`,
       icon: "question",
       showCancelButton: true,
-      confirmButtonText: requiereAutorizacionRemota && !rebajaAutorizada ? "Enviar solicitud" : "Sí, registrar",
+      confirmButtonText: "Sí, continuar",
       cancelButtonText: "Cancelar",
       ...getSwalThemeOpts()
     });
 
     if (!resConfirm.isConfirmed) return;
-
-    if (requiereAutorizacionRemota && !rebajaAutorizada) {
-      setIsProcesandoVenta(true);
-      try {
-        const payload = buildSolicitudRebajaPayload({
-          carrito,
-          cliente_id: clienteSeleccionado?.id ?? null,
-          tipo_venta: tipoVenta,
-          total: totalCarrito,
-          observaciones: observaciones.trim() || null,
-        });
-        const res = await crearSolicitudRebaja(payload);
-        if (!res.success) {
-          throw new Error(res.error);
-        }
-        setSolicitudRebajaId(res.solicitud_id);
-        setEsperandoAutorizacionRebaja(true);
-        setRebajaAutorizada(false);
-        carritoSnapshotRef.current = JSON.stringify(
-          carrito.map((i) => ({
-            id: i.producto.id,
-            c: i.cantidad,
-            p: i.precio_aplicado,
-          })),
-        );
-        toast.success("Solicitud enviada. Te avisaremos cuando sea aprobada.");
-      } catch (err: unknown) {
-        const message =
-          err instanceof Error ? err.message : "No se pudo enviar la solicitud.";
-        toast.error(message);
-      } finally {
-        setIsProcesandoVenta(false);
-      }
-      return;
-    }
 
     setShowUbicacionModal(true);
   };
@@ -340,6 +344,62 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     setShowUbicacionModal(false);
     setIsProcesandoVenta(true);
     try {
+      const errorCosto = validarCarritoPrecioCosto(carrito);
+      if (errorCosto) {
+        toast.warn(errorCosto);
+        return;
+      }
+
+      const hasModifiedPrices = carritoTieneRebajas(carrito);
+      if (hasModifiedPrices && !observaciones.trim()) {
+        toast.warn("Escribe una observación cuando aplicas una rebaja.");
+        return;
+      }
+
+      const omiteAutorizacionRebaja =
+        ["admin", "super"].includes(realRole) && simulatedRole === null;
+      const requiereAutorizacionRemota =
+        hasModifiedPrices && !omiteAutorizacionRebaja && !isDemoMode;
+
+      if (requiereAutorizacionRemota) {
+        if (esperandoAutorizacionRebaja && !rebajaAutorizada) {
+          toast.warn(
+            "Sigue en espera de confirmación administrativa. Un admin debe autorizar la rebaja.",
+          );
+          setShowModalAutorizacionRebaja(true);
+          return;
+        }
+
+        if (!rebajaAutorizada) {
+          const payload = buildSolicitudRebajaPayload({
+            carrito,
+            cliente_id: clienteSeleccionado?.id ?? null,
+            tipo_venta: tipoVenta,
+            total: totalCarrito,
+            observaciones: observaciones.trim() || null,
+          });
+          const res = await crearSolicitudRebaja(payload);
+          if (!res.success) {
+            throw new Error(res.error);
+          }
+          setSolicitudRebajaId(res.solicitud_id);
+          setEsperandoAutorizacionRebaja(true);
+          setRebajaAutorizada(false);
+          carritoSnapshotRef.current = JSON.stringify(
+            carrito.map((i) => ({
+              id: i.producto.id,
+              c: i.cantidad,
+              p: i.precio_aplicado,
+            })),
+          );
+          toast.warn(
+            "Se notificó a administración. Espera confirmación o pide a un admin que autorice en Ventas.",
+          );
+          setShowModalAutorizacionRebaja(true);
+          return;
+        }
+      }
+
       if (isDemoMode) {
         const ventaObj: Venta = {
           id: "demo-venta-preview",
@@ -469,6 +529,11 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       totalCarrito,
       esperandoAutorizacionRebaja,
       rebajaAutorizada,
+      showModalAutorizacionRebaja,
+      setShowModalAutorizacionRebaja,
+      confirmarRebajaConAdmin,
+      isValidandoAutorizacionRebaja,
+      abrirAutorizacionRebajaDesdeNotificacion,
     }}>
       {children}
     </VentasContext.Provider>

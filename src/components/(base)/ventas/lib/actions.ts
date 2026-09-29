@@ -12,7 +12,7 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { sendPushNotification } from "@/utils/pushServer";
 import { sendPushToRoles, sendPushToUsers } from "@/utils/push-utils";
-import { payloadCoincideConVenta } from "./helpers";
+import { esRebajaDePrecio, payloadCoincideConVenta, precioMenorQueCosto } from "./helpers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface ItemVentaInput {
@@ -65,6 +65,30 @@ async function obtenerRolUsuario(
   return profile?.rol ?? "user";
 }
 
+async function assertPreciosNoMenoresAlCosto(
+  supabase: SupabaseClient,
+  items: ItemVentaInput[],
+) {
+  for (const item of items) {
+    const { data: prod } = await supabase
+      .from("inv_productos")
+      .select("nombre, precio_costo")
+      .eq("id", item.producto_id)
+      .maybeSingle();
+
+    if (!prod) {
+      throw new Error(`Producto con ID ${item.producto_id} no encontrado.`);
+    }
+
+    const costo = Math.max(0, Number(prod.precio_costo) || 0);
+    if (precioMenorQueCosto(item.precio_aplicado, costo)) {
+      throw new Error(
+        `El precio de "${prod.nombre}" no puede ser menor al costo (Q${costo.toFixed(2)}).`,
+      );
+    }
+  }
+}
+
 async function itemTieneRebajaEnServidor(
   supabase: SupabaseClient,
   item: ItemVentaInput,
@@ -75,7 +99,7 @@ async function itemTieneRebajaEnServidor(
     .eq("id", item.producto_id)
     .maybeSingle();
   if (!prod) return false;
-  return Math.abs(item.precio_aplicado - prod.precio_base) > 0.001;
+  return esRebajaDePrecio(item.precio_aplicado, prod.precio_base);
 }
 
 async function assertRebajasAutorizadas(
@@ -174,6 +198,8 @@ export async function crearVenta(params: {
       items,
       solicitud_rebaja_id,
     });
+
+    await assertPreciosNoMenoresAlCosto(supabase, items);
 
     // 1. Validar existencias de stock en el servidor para evitar sobreventas
     for (const item of items) {
@@ -666,6 +692,97 @@ export async function eliminarDetalleVentaDirecto(params: {
   }
 }
 
+export async function autorizarRebajaConCredencialesAdmin(
+  solicitudId: string,
+  username: string,
+  clave: string,
+) {
+  try {
+    const usuario = username.trim();
+    if (!usuario || !clave) {
+      return { success: false as const, error: "Usuario y contraseña son obligatorios." };
+    }
+
+    const email = usuario.includes("@") ? usuario : `${usuario}@app.com`;
+    const supabaseTemp = createSupabaseClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      },
+    );
+
+    const { data: authData, error: authError } =
+      await supabaseTemp.auth.signInWithPassword({
+        email,
+        password: clave,
+      });
+
+    if (authError || !authData.user) {
+      return { success: false as const, error: "Credenciales incorrectas." };
+    }
+
+    const { data: profile } = await supabaseTemp
+      .from("profiles")
+      .select("rol")
+      .eq("id", authData.user.id)
+      .maybeSingle();
+
+    const rol =
+      profile?.rol || authData.user.user_metadata?.rol || "user";
+    if (rol !== "admin" && rol !== "super") {
+      return {
+        success: false as const,
+        error: "El usuario no tiene permisos de administrador.",
+      };
+    }
+
+    const admin = createAdminClient();
+    const { data: solicitud, error: fetchError } = await admin
+      .from("ven_solicitudes_rebaja")
+      .select("id, solicitante_id, estado")
+      .eq("id", solicitudId)
+      .maybeSingle();
+
+    if (fetchError || !solicitud) {
+      return { success: false as const, error: "Solicitud no encontrada." };
+    }
+    if (solicitud.estado !== "pendiente") {
+      return { success: false as const, error: "Esta solicitud ya fue resuelta." };
+    }
+
+    const { error: updateError } = await admin
+      .from("ven_solicitudes_rebaja")
+      .update({
+        estado: "aprobada",
+        resuelto_por: authData.user.id,
+        resuelto_at: new Date().toISOString(),
+      })
+      .eq("id", solicitudId);
+
+    if (updateError) {
+      return { success: false as const, error: updateError.message };
+    }
+
+    await sendPushToUsers([solicitud.solicitante_id], {
+      title: "Rebaja autorizada",
+      body: "Un administrador confirmó los precios. Ya puedes cobrar de nuevo.",
+      url: "/farmamuni/ventas",
+    });
+
+    revalidatePath("/farmamuni/ventas");
+    return { success: true as const };
+  } catch {
+    return {
+      success: false as const,
+      error: "No se pudo autorizar la rebaja.",
+    };
+  }
+}
+
 export async function crearSolicitudRebaja(payload: unknown) {
   try {
     const parsed = CrearSolicitudRebajaSchema.safeParse({ payload });
@@ -681,14 +798,30 @@ export async function crearSolicitudRebaja(payload: unknown) {
       return { success: false as const, error: "Sesión no válida o expirada." };
     }
 
-    const tieneRebaja = parsed.data.payload.items.some(
-      (i) => Math.abs(i.precio_aplicado - i.precio_base) > 0.001,
+    const tieneRebaja = parsed.data.payload.items.some((i) =>
+      esRebajaDePrecio(i.precio_aplicado, i.precio_base),
     );
     if (!tieneRebaja) {
       return {
         success: false as const,
         error: "No hay rebajas de precio en esta venta.",
       };
+    }
+
+    const supabaseRead = await createClient();
+    for (const item of parsed.data.payload.items) {
+      const { data: prod } = await supabaseRead
+        .from("inv_productos")
+        .select("nombre, precio_costo")
+        .eq("id", item.producto_id)
+        .maybeSingle();
+      const costo = Math.max(0, Number(prod?.precio_costo) || 0);
+      if (precioMenorQueCosto(item.precio_aplicado, costo)) {
+        return {
+          success: false as const,
+          error: `El precio de "${prod?.nombre ?? "producto"}" no puede ser menor al costo (Q${costo.toFixed(2)}).`,
+        };
+      }
     }
 
     const admin = createAdminClient();
@@ -732,9 +865,9 @@ export async function crearSolicitudRebaja(payload: unknown) {
     const totalFmt = parsed.data.payload.total.toFixed(2);
 
     await sendPushToRoles(["admin", "super"], {
-      title: "Rebaja pendiente de autorizar",
-      body: `${nombreVendedor} solicita aprobar precios (Q${totalFmt}).`,
-      url: `/farmamuni/ventas?rebaja=${row.id}`,
+      title: "Rebaja pendiente de confirmar",
+      body: `${nombreVendedor} solicita autorizar precios (Q${totalFmt}).`,
+      url: `/farmamuni/ventas?autorizarRebaja=${row.id}`,
     });
 
     revalidatePath("/farmamuni/ventas");

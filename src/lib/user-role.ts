@@ -1,4 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/server";
+import { redirect } from "next/navigation";
 
 export async function resolveUserRole(
   supabase: SupabaseClient,
@@ -23,4 +25,23 @@ export async function resolveUserRole(
 
 export function isAdminRole(role: string): boolean {
   return ["super", "admin"].includes(role);
+}
+
+/** Guard para páginas bajo /farmamuni/admin (server-only). */
+export async function requireAdminPageAccess() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const role = await resolveUserRole(supabase, user);
+  if (!isAdminRole(role)) {
+    redirect("/farmamuni");
+  }
+
+  return { supabase, user, role };
 }

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, Fragment } from "react";
 import { useUsers } from "./lib/hooks";
-import { useUser } from "@/components/(base)/providers/UserProvider";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { Loader2, UserX, Search } from "lucide-react";
 import { UserPlus, Check } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
@@ -24,10 +24,10 @@ import {
 import { cn } from "@/lib/utils";
 
 export function VerUsuarios() {
-  const user = useUser();
-  const userRole = user?.user_metadata?.rol || "user";
+  const { effectiveRole, realRole } = useUserContext();
+  const puedeGestionarUsuarios = ["admin", "super"].includes(effectiveRole);
 
-  const { data: users, isLoading, isError, refetch } = useUsers(userRole);
+  const { data: users, isLoading, isError, refetch } = useUsers(effectiveRole);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
@@ -125,18 +125,23 @@ export function VerUsuarios() {
               <p className="text-xs">
                 Rol Actual:{" "}
                 <span className="text-[10px] underline font-bold uppercase">
-                  {roleLabels[userRole] || userRole}
+                  {roleLabels[effectiveRole] || effectiveRole}
                 </span>
+                {realRole !== effectiveRole && (
+                  <span className="text-[10px] text-muted-foreground ml-1">
+                    (simulación)
+                  </span>
+                )}
               </p>
             </div>
-            {(userRole === "admin" || userRole === "super") && (
+            {puedeGestionarUsuarios && (
               <SigetActionButton
-                label="Crear"
+                label="Crear usuario"
                 accentColor={sigetAccent.crear}
                 morphFrom={UserPlus}
                 morphTo={Check}
                 onClick={() => setIsSignUpOpen(true)}
-                ariaLabel="Nuevo usuario"
+                ariaLabel="Crear usuario en la base de datos"
                 className="w-auto shrink-0"
               />
             )}
@@ -246,10 +251,24 @@ export function VerUsuarios() {
           </table>
 
           {filteredUsers.length === 0 && (
-            <div className="p-12 text-center text-muted-foreground text-xs uppercase font-medium">
-              {searchQuery
-                ? "No se encontraron coincidencias."
-                : "No hay usuarios disponibles con estos filtros."}
+            <div className="p-12 flex flex-col items-center gap-4 text-center text-muted-foreground text-xs uppercase font-medium">
+              <p>
+                {searchQuery
+                  ? "No se encontraron coincidencias."
+                  : puedeGestionarUsuarios
+                    ? "No hay usuarios con estos filtros. Crea el primero con el botón superior."
+                    : "No hay usuarios disponibles con estos filtros."}
+              </p>
+              {puedeGestionarUsuarios && !searchQuery && (
+                <SigetActionButton
+                  label="Crear usuario"
+                  accentColor={sigetAccent.crear}
+                  morphFrom={UserPlus}
+                  morphTo={Check}
+                  onClick={() => setIsSignUpOpen(true)}
+                  className="w-auto shrink-0 normal-case"
+                />
+              )}
             </div>
           )}
           </div>

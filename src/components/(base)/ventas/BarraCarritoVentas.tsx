@@ -2,7 +2,7 @@
 
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, Trash2, Plus, Minus, Package, AlertTriangle, ShieldAlert } from "lucide-react";
+import { ShoppingCart, Trash2, Plus, Minus, Package, AlertTriangle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { fmtQ } from "@/lib/utils";
 import { useVentas } from "./ContextoVentas";
@@ -155,25 +155,41 @@ export function BarraCarritoVentas() {
                               <input
                                 type="number"
                                 step="0.01"
-                                value={item.precio_aplicado === 0 ? "" : item.precio_aplicado}
+                                min={0}
+                                value={
+                                  item.precio_aplicado === 0 ? "" : item.precio_aplicado
+                                }
                                 onChange={(e) => {
                                   const val = e.target.value;
-                                  const num = val === "" ? 0 : parseFloat(val);
-                                  if (!isNaN(num) && num >= 0) {
+                                  if (val === "") {
                                     ventas.setCarrito(
                                       ventas.carrito.map((it, i) =>
                                         i === idx
                                           ? {
                                               ...it,
-                                              precio_aplicado: num,
-                                              subtotal: it.cantidad * num
+                                              precio_aplicado: 0,
+                                              subtotal: 0,
                                             }
-                                          : it
-                                      )
+                                          : it,
+                                      ),
                                     );
+                                    return;
                                   }
+                                  const num = parseFloat(val);
+                                  if (isNaN(num) || num < 0) return;
+                                  ventas.setCarrito(
+                                    ventas.carrito.map((it, i) =>
+                                      i === idx
+                                        ? {
+                                            ...it,
+                                            precio_aplicado: num,
+                                            subtotal: it.cantidad * num,
+                                          }
+                                        : it,
+                                    ),
+                                  );
                                 }}
-                                className="w-14 bg-transparent outline-none text-slate-900 dark:text-white font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 focus:ring-0 border-0"
+                                className="w-20 min-w-[4rem] bg-transparent outline-none text-slate-900 dark:text-white font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 focus:ring-0 border-0"
                               />
                             </div>
                           </div>
@@ -238,25 +254,6 @@ export function BarraCarritoVentas() {
           />
         </div>
 
-        {ventas.esperandoAutorizacionRebaja && !ventas.rebajaAutorizada && (
-          <div className="flex items-start gap-2 rounded-xl border border-amber-300/50 bg-amber-50 dark:bg-amber-950/25 px-3 py-2.5 text-left">
-            <ShieldAlert className="size-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-xs font-bold text-amber-900 dark:text-amber-100 leading-snug">
-              Esperando autorización administrativa por precios modificados. No cambies el carrito
-              hasta recibir respuesta.
-            </p>
-          </div>
-        )}
-
-        {ventas.rebajaAutorizada && (
-          <div className="flex items-start gap-2 rounded-xl border border-emerald-300/50 bg-emerald-50 dark:bg-emerald-950/25 px-3 py-2.5 text-left">
-            <ShieldAlert className="size-4 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
-            <p className="text-xs font-bold text-emerald-900 dark:text-emerald-100 leading-snug">
-              Rebaja autorizada. Pulsa Cobrar para continuar con el registro.
-            </p>
-          </div>
-        )}
-
         {/* Totales */}
         <div className="border-t border-[#C1D1C5]/30 pt-3 mt-auto space-y-2 text-left">
           <div className="flex items-center justify-between text-sm font-black text-slate-800 dark:text-white pt-1">
@@ -273,11 +270,7 @@ export function BarraCarritoVentas() {
             morphFrom={CircleDollarSignNode}
             morphTo={CheckNode}
             onClick={ventas.handleFinalizarVenta}
-            disabled={
-              ventas.carrito.length === 0 ||
-              ventas.isProcesandoVenta ||
-              (ventas.esperandoAutorizacionRebaja && !ventas.rebajaAutorizada)
-            }
+            disabled={ventas.carrito.length === 0 || ventas.isProcesandoVenta}
             ariaBusy={ventas.isProcesandoVenta}
             className="w-auto shrink-0"
           />

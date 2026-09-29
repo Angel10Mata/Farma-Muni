@@ -1,25 +1,9 @@
-import { createClient } from "@/utils/supabase/server";
-import { isAdminRole, resolveUserRole } from "@/lib/user-role";
-import { redirect } from "next/navigation";
 import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
 import { Shield, AlertTriangle } from "lucide-react";
 import { AdminCards } from "./AdminCards";
 import { adminPageShellClass } from "@/lib/module-layout";
 
 export async function VerAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) redirect("/login");
-
-  const role = await resolveUserRole(supabase, user);
-
-  if (!isAdminRole(role)) {
-    redirect("/farmamuni");
-  }
-
   const pendingDevices = (await getPendingDevicesCount()) ?? 0;
 
   return (

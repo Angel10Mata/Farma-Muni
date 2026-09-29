@@ -22,9 +22,43 @@ export const formatFechaRecibo = (dateStr: string) => {
 export const formatMonedaRecibo = (value: number) =>
   `Q${value.toLocaleString("es-GT", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+const PRECIO_EPSILON = 0.001;
+
+/** Precio de venta manual por debajo del precio base (rebaja). */
+export function esRebajaDePrecio(precioAplicado: number, precioBase: number): boolean {
+  return precioAplicado < precioBase - PRECIO_EPSILON;
+}
+
+export function costoUnitarioProducto(precioCosto?: number | null): number {
+  return Math.max(0, Number(precioCosto) || 0);
+}
+
+export function precioMenorQueCosto(
+  precioAplicado: number,
+  precioCosto?: number | null,
+): boolean {
+  const costo = costoUnitarioProducto(precioCosto);
+  return precioAplicado < costo - PRECIO_EPSILON;
+}
+
+export function mensajePrecioBajoCosto(nombre: string, costo: number): string {
+  return `El precio de "${nombre}" no puede ser menor al costo (Q${costo.toFixed(2)}).`;
+}
+
+/** Primer error del carrito respecto al costo, o null si todo es válido. */
+export function validarCarritoPrecioCosto(carrito: ItemCarrito[]): string | null {
+  for (const item of carrito) {
+    const costo = costoUnitarioProducto(item.producto.precio_costo);
+    if (precioMenorQueCosto(item.precio_aplicado, costo)) {
+      return mensajePrecioBajoCosto(item.producto.nombre, costo);
+    }
+  }
+  return null;
+}
+
 export function carritoTieneRebajas(carrito: ItemCarrito[]): boolean {
-  return carrito.some(
-    (item) => item.precio_aplicado !== item.producto.precio_base,
+  return carrito.some((item) =>
+    esRebajaDePrecio(item.precio_aplicado, item.producto.precio_base),
   );
 }
 
@@ -45,6 +79,7 @@ export function buildSolicitudRebajaPayload(params: {
       cantidad: i.cantidad,
       precio_aplicado: i.precio_aplicado,
       precio_base: i.producto.precio_base,
+      precio_costo: costoUnitarioProducto(i.producto.precio_costo),
       subtotal: i.subtotal,
       producto_nombre: i.producto.nombre,
       producto_codigo: i.producto.codigo,

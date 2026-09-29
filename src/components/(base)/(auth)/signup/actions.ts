@@ -1,7 +1,10 @@
 "use server";
 
+import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { revalidatePath } from "next/cache";
 import { authSchema } from "./lib/zod";
+import { mensajeErrorEs } from "@/lib/supabase-errors-es";
 
 function getAdminClient() {
   return createSupabaseAdmin(
@@ -24,11 +27,43 @@ export type ActionState = {
   };
 } | null;
 
+async function obtenerRolCreador(): Promise<
+  { ok: true; rol: string } | { ok: false; message: string }
+> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, message: "Debes iniciar sesión para crear usuarios." };
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("rol")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  const rol = profile?.rol ?? user.user_metadata?.rol ?? "user";
+  if (rol !== "admin" && rol !== "super") {
+    return {
+      ok: false,
+      message: "No tienes permiso para crear usuarios.",
+    };
+  }
+  return { ok: true, rol };
+}
+
 export async function signup(
   prevState: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
   try {
+    const creador = await obtenerRolCreador();
+    if (!creador.ok) {
+      return { message: creador.message };
+    }
+
     const rawData = {
       name: formData.get("name"),
       username: formData.get("username"),
@@ -45,6 +80,20 @@ export async function signup(
     }
 
     const { name, username, password, rol } = validated.data;
+
+    if (rol === "super" && creador.rol !== "super") {
+      return {
+        errors: { rol: ["Solo un Super Admin puede asignar el rol Super Admin."] },
+      };
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
+      return {
+        message:
+          "Falta SUPABASE_SERVICE_ROLE_KEY en el entorno del servidor. No se puede crear usuarios hasta configurarla.",
+      };
+    }
+
     const fakeEmail = `${username}@app.com`;
 
     const supabaseAdmin = getAdminClient();
@@ -64,11 +113,11 @@ export async function signup(
       if (error.message.includes("already registered") || error.status === 422) {
         return {
           errors: {
-            username: ["Usuario ya está registrado, por favor eliga otro"],
+            username: ["Usuario ya está registrado, por favor elige otro."],
           },
         };
       }
-      return { message: error.message };
+      return { message: mensajeErrorEs(error.message) };
     }
 
     if (data.user) {
@@ -84,14 +133,20 @@ export async function signup(
       if (profileError) {
         await supabaseAdmin.auth.admin.deleteUser(data.user.id);
         return {
-          message: "Error al crear perfil de usuario: " + profileError.message,
+          message:
+            "Error al crear perfil de usuario: " +
+            mensajeErrorEs(profileError.message),
         };
       }
     }
 
+    revalidatePath("/farmamuni/admin/usuarios");
+
     return { success: true };
-  } catch (err: any) {
+  } catch (err: unknown) {
     console.error("Signup error:", err);
-    return { message: "Error inesperado: " + (err.message || "Error desconocido") };
+    const raw =
+      err instanceof Error ? err.message : "Error desconocido";
+    return { message: mensajeErrorEs(raw) };
   }
 }
