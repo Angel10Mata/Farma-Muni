@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useMemo, Fragment } from "react";
+import { useState, useMemo, Fragment, useEffect } from "react";
 import { useUsers } from "./lib/hooks";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { canCreateUsers, ROLE_LABELS } from "./lib/permissions";
 import { Loader2, UserX, Search } from "lucide-react";
 import { UserPlus, Check } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import VerPerfil from "@/components/(base)/(users)/profile/VerPerfil";
-import FormularioRegistro from "@/components/(base)/(auth)/signup/forms/Crear";
+import SignUp from "@/components/(base)/(auth)/signup/SignUp";
 import { modulePageScrollClass } from "@/lib/module-layout";
 import {
   moduleTableBodyClass,
@@ -25,7 +26,7 @@ import { cn } from "@/lib/utils";
 
 export function VerUsuarios() {
   const { effectiveRole, realRole } = useUserContext();
-  const puedeGestionarUsuarios = ["admin", "super"].includes(effectiveRole);
+  const canCreateUser = canCreateUsers(effectiveRole);
 
   const { data: users, isLoading, isError, refetch } = useUsers(effectiveRole);
 
@@ -37,6 +38,19 @@ export function VerUsuarios() {
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSignUpOpen, setIsSignUpOpen] = useState(false);
+  const [isLargeScreen, setIsLargeScreen] = useState(() =>
+    typeof window !== "undefined"
+      ? window.matchMedia("(min-width: 1024px)").matches
+      : false,
+  );
+
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    const update = () => setIsLargeScreen(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
 
   const handleUserClick = (id: string) => {
     setSelectedUserId(id);
@@ -48,11 +62,7 @@ export function VerUsuarios() {
     refetch();
   };
 
-  const roleLabels: Record<string, string> = {
-    user: "Usuario (Estándar)",
-    admin: "Administrador",
-    super: "Super Admin",
-  };
+  const roleLabels = ROLE_LABELS;
 
   const availableRoles = useMemo(() => {
     if (!users) return [];
@@ -134,7 +144,7 @@ export function VerUsuarios() {
                 )}
               </p>
             </div>
-            {puedeGestionarUsuarios && (
+            {canCreateUser && !isSignUpOpen && (
               <SigetActionButton
                 label="Crear usuario"
                 accentColor={sigetAccent.crear}
@@ -255,11 +265,11 @@ export function VerUsuarios() {
               <p>
                 {searchQuery
                   ? "No se encontraron coincidencias."
-                  : puedeGestionarUsuarios
+                  : canCreateUser
                     ? "No hay usuarios con estos filtros. Crea el primero con el botón superior."
                     : "No hay usuarios disponibles con estos filtros."}
               </p>
-              {puedeGestionarUsuarios && !searchQuery && (
+              {canCreateUser && !searchQuery && !isSignUpOpen && (
                 <SigetActionButton
                   label="Crear usuario"
                   accentColor={sigetAccent.crear}
@@ -293,7 +303,14 @@ export function VerUsuarios() {
         userId={selectedUserId}
       />
 
-      <FormularioRegistro isOpen={isSignUpOpen} onClose={handleCloseSignUp} />
+      {isSignUpOpen && canCreateUser && (
+        <SignUp
+          isOpen
+          onClose={handleCloseSignUp}
+          onSuccess={() => refetch()}
+          presentation={isLargeScreen ? "modal" : "fullscreen"}
+        />
+      )}
     </>
   );
 }

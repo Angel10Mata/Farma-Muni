@@ -49,16 +49,37 @@ export async function obtenerUbicaciones() {
     if (!user) return { code: "UNAUTHORIZED" as const };
 
     const { data, error } = await supabase
-      .from("inv_productos")
+      .from("inv_lotes")
       .select("ubicacion")
       .not("ubicacion", "is", null)
-      .not("ubicacion", "eq", "")
-      .not("ubicacion", "eq", "Sin asignar");
+      .not("ubicacion", "eq", "");
 
     if (error) return { code: "INTERNAL" as const };
 
-    const uniqueUbis = Array.from(new Set(data.map((d: any) => d.ubicacion))).filter(Boolean) as string[];
+    const uniqueUbis = Array.from(new Set(data.map((d) => d.ubicacion))).filter(Boolean) as string[];
     return { success: true as const, data: uniqueUbis.sort() };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function obtenerLotes() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { code: "UNAUTHORIZED" as const };
+
+    const { data, error } = await supabase
+      .from("inv_lotes")
+      .select(
+        "id, producto_id, compra_detalle_id, codigo_barras, numero_lote, cantidad_inicial, cantidad_actual, precio_costo, fecha_vencimiento, ubicacion, activo, inv_productos(id, nombre, precio_base, stock_minimo, stock_actual, activo, inv_proveedores(nombre))",
+      )
+      .order("fecha_vencimiento", { ascending: true });
+
+    if (error) return { code: "INTERNAL" as const };
+    return { success: true as const, data: data ?? [] };
   } catch {
     return { code: "INTERNAL" as const };
   }
@@ -117,27 +138,22 @@ export async function guardarProducto(id: string | undefined, input: ProductForm
 
     const payload = {
       nombre: parsed.data.nombre,
-      codigo: parsed.data.codigo || null,
       descripcion: parsed.data.descripcion || null,
       precio_base: parsed.data.precio_base,
-      precio_costo: parsed.data.precio_costo ?? 0,
-      stock_actual: parsed.data.stock_actual,
       stock_minimo: parsed.data.stock_minimo,
       activo: parsed.data.activo,
       imagen_url: parsed.data.imagen_url || null,
-      imagen_url_2: parsed.data.imagen_url_2 || null,
-      imagen_url_3: parsed.data.imagen_url_3 || null,
       proveedor_id: parsed.data.proveedor_id || null,
-      ubicacion: parsed.data.ubicacion?.trim() || "Sin asignar",
-      fecha_vencimiento: parsed.data.fecha_vencimiento || null,
-      numero_lote: parsed.data.numero_lote?.trim() || null,
     };
 
     if (id) {
       const { error } = await supabase.from("inv_productos").update(payload).eq("id", id);
       if (error) return { code: "INTERNAL" as const };
     } else {
-      const { error } = await supabase.from("inv_productos").insert(payload);
+      const { error } = await supabase.from("inv_productos").insert({
+        ...payload,
+        stock_actual: 0,
+      });
       if (error) return { code: "INTERNAL" as const };
     }
 
@@ -159,37 +175,45 @@ export async function registrarBajaPorVencimiento(input: unknown) {
     const parsed = bajaVencidoSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
 
-    const { data: producto, error: findError } = await supabase
-      .from("inv_productos")
-      .select("id, nombre, codigo, stock_actual, precio_costo, fecha_vencimiento, numero_lote")
-      .eq("id", parsed.data.producto_id)
+    const { data: lote, error: findError } = await supabase
+      .from("inv_lotes")
+      .select(
+        "id, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, activo, inv_productos(nombre)",
+      )
+      .eq("id", parsed.data.lote_id)
       .single();
 
-    if (findError || !producto) return { code: "NOT_FOUND" as const };
+    if (findError || !lote) return { code: "NOT_FOUND" as const };
 
-    if (!isProductoVencido(producto.fecha_vencimiento)) {
+    if (!lote.activo) return { code: "VALIDATION" as const };
+
+    if (!isProductoVencido(lote.fecha_vencimiento)) {
       return { code: "NOT_EXPIRED" as const };
     }
 
-    const unidades = Number(producto.stock_actual) || 0;
+    const unidades = Number(lote.cantidad_actual) || 0;
     if (unidades <= 0) return { code: "NO_STOCK" as const };
 
     const { error: updateError } = await supabase
-      .from("inv_productos")
-      .update({ stock_actual: 0 })
-      .eq("id", producto.id);
+      .from("inv_lotes")
+      .update({ cantidad_actual: 0 })
+      .eq("id", lote.id);
 
     if (updateError) return { code: "INTERNAL" as const };
 
-    const costoUnit = Number(producto.precio_costo) || 0;
+    const costoUnit = Number(lote.precio_costo) || 0;
     const montoPerdida = costoUnit > 0 ? costoUnit * unidades : 0;
+    const productoJoin = lote.inv_productos;
+    const nombreProd = Array.isArray(productoJoin)
+      ? productoJoin[0]?.nombre
+      : productoJoin?.nombre;
 
     if (montoPerdida > 0) {
-      const lote = producto.numero_lote ? ` lote ${producto.numero_lote}` : "";
+      const loteTxt = lote.numero_lote ? ` lote ${lote.numero_lote}` : "";
       const notas = parsed.data.notas?.trim();
       const descripcion = notas
-        ? `Baja por vencimiento: ${producto.nombre}${lote}. ${notas}`
-        : `Baja por vencimiento: ${producto.nombre}${lote} (${unidades} u.)`;
+        ? `Baja por vencimiento: ${nombreProd ?? "Producto"}${loteTxt}. ${notas}`
+        : `Baja por vencimiento: ${nombreProd ?? "Producto"}${loteTxt} (${unidades} u.)`;
 
       const { error: finError } = await supabase.from("fin_transacciones").insert({
         tipo_movimiento: "egreso",

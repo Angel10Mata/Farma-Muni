@@ -3,12 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { toast } from "react-toastify";
 import { AnimatePresence, motion } from "framer-motion";
-import { Box, Truck } from "lucide-react";
+import { Truck } from "lucide-react";
 import ImageUploader from "@/components/imgs/ImageUploader";
 import {
   ModalCancelButton,
   ModalField,
-  ModalFechaInput,
   ModalFooter,
   ModalForm,
   ModalInput,
@@ -20,7 +19,7 @@ import {
 } from "@/components/ui/general-modal";
 import { useProveedores } from "@/components/(base)/proveedores/lib/hooks";
 import type { Proveedor } from "@/components/(base)/proveedores/lib/zod";
-import { useGuardarProducto, useUbicaciones } from "../lib/hooks";
+import { useGuardarProducto } from "../lib/hooks";
 import type { ProductFormValues, Producto } from "../lib/zod";
 
 interface EditarProductoProps {
@@ -31,39 +30,27 @@ interface EditarProductoProps {
 }
 
 export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: EditarProductoProps) {
-  const [codigo, setCodigo] = useState("");
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [precioBase, setPrecioBase] = useState("");
-  const [precioCosto, setPrecioCosto] = useState("");
-  const [stockActual, setStockActual] = useState("");
   const [stockMinimo, setStockMinimo] = useState("");
   const [activo, setActivo] = useState(true);
-  const [fechaVencimiento, setFechaVencimiento] = useState("");
-  const [numeroLote, setNumeroLote] = useState("");
   const [imagenUrl, setImagenUrl] = useState<string | null>(null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [ubicacion, setUbicacion] = useState("");
   const [proveedorBusqueda, setProveedorBusqueda] = useState("");
   const [mostrarSugerenciasProv, setMostrarSugerenciasProv] = useState(false);
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<{ id: string; nombre: string } | null>(null);
-  const [mostrarSugerenciasUbicacion, setMostrarSugerenciasUbicacion] = useState(false);
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const provDropdownRef = useRef<HTMLDivElement>(null);
-  const ubiDropdownRef = useRef<HTMLDivElement>(null);
 
   const { data: proveedores = [] } = useProveedores();
-  const { data: ubicacionesExistentes = [] } = useUbicaciones();
   const { mutateAsync: guardarProducto, isPending } = useGuardarProducto();
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (provDropdownRef.current && !provDropdownRef.current.contains(event.target as Node)) {
         setMostrarSugerenciasProv(false);
-      }
-      if (ubiDropdownRef.current && !ubiDropdownRef.current.contains(event.target as Node)) {
-        setMostrarSugerenciasUbicacion(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -73,22 +60,12 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
   useEffect(() => {
     if (!producto) return;
 
-    setCodigo(producto.codigo || "");
     setNombre(producto.nombre || "");
     setDescripcion(producto.descripcion || "");
     setPrecioBase(producto.precio_base?.toString() || "0");
-    setPrecioCosto(
-      producto.precio_costo !== undefined && producto.precio_costo !== null
-        ? producto.precio_costo.toString()
-        : "",
-    );
-    setStockActual(producto.stock_actual?.toString() || "0");
     setStockMinimo(producto.stock_minimo?.toString() || "0");
     setActivo(producto.activo !== false);
     setImagenUrl(producto.imagen_url || null);
-    setFechaVencimiento(producto.fecha_vencimiento || "");
-    setNumeroLote(producto.numero_lote || "");
-    setUbicacion(producto.ubicacion && producto.ubicacion !== "Sin asignar" ? producto.ubicacion : "");
 
     if (producto.proveedor_id) {
       const pNombre = producto.inv_proveedores?.nombre || "";
@@ -118,10 +95,6 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
           (p.nit && p.nit.toLowerCase().includes(proveedorBusqueda.toLowerCase())),
       );
 
-  const sugerenciasUbicaciones = ubicacion.trim() === ""
-    ? ubicacionesExistentes
-    : ubicacionesExistentes.filter((u) => u.toLowerCase().includes(ubicacion.toLowerCase()));
-
   const handleClose = () => {
     setValidationError(null);
     onClose();
@@ -129,18 +102,12 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
 
   const buildInput = (): ProductFormValues => ({
     nombre: nombre.trim(),
-    codigo: codigo.trim(),
     descripcion: descripcion.trim(),
     precio_base: parseFloat(precioBase) || 0,
-    precio_costo: precioCosto.trim() ? parseFloat(precioCosto) : 0,
-    stock_actual: parseFloat(stockActual) || 0,
     stock_minimo: parseFloat(stockMinimo) || 0,
     activo,
     imagen_url: imagenUrl,
     proveedor_id: proveedorSeleccionado?.id || null,
-    ubicacion: ubicacion.trim() || "Sin asignar",
-    fecha_vencimiento: fechaVencimiento || null,
-    numero_lote: numeroLote.trim() || null,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -156,12 +123,6 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
     const priceNum = parseFloat(precioBase);
     if (isNaN(priceNum) || priceNum < 0) {
       setValidationError("El precio base debe ser un número válido mayor o igual a 0");
-      return;
-    }
-
-    const stockActualNum = parseFloat(stockActual);
-    if (isNaN(stockActualNum) || stockActualNum < 0) {
-      setValidationError("El stock actual debe ser un número válido mayor o igual a 0");
       return;
     }
 
@@ -187,21 +148,11 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
       isOpen={isOpen}
       onClose={handleClose}
       title="Editar Producto"
-      subtitle="Actualización de datos"
+      subtitle="Catálogo maestro"
       maxWidth="max-w-2xl"
       fullHeight
     >
       <ModalForm onSubmit={handleSubmit}>
-        <ModalField>
-          <ModalLabel htmlFor="editar-producto-codigo">Código de Barras / ID</ModalLabel>
-          <ModalInput
-            id="editar-producto-codigo"
-            value={codigo}
-            onChange={(e) => setCodigo(e.target.value)}
-            placeholder="Ej: D30-4EB"
-          />
-        </ModalField>
-
         <ModalField>
           <ModalLabel htmlFor="editar-producto-nombre">Nombre Comercial *</ModalLabel>
           <ModalInput
@@ -210,13 +161,10 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
             onChange={(e) => setNombre(e.target.value)}
             required
           />
-          {validationError?.includes("nombre") ? (
-            <p className="text-xs font-bold text-red-500">{validationError}</p>
-          ) : null}
         </ModalField>
 
         <ModalField>
-          <ModalLabel htmlFor="editar-producto-descripcion">Descripción / Componentes</ModalLabel>
+          <ModalLabel htmlFor="editar-producto-descripcion">Descripción</ModalLabel>
           <ModalTextarea
             id="editar-producto-descripcion"
             value={descripcion}
@@ -224,53 +172,14 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
           />
         </ModalField>
 
-        <ModalField>
-          <div className="relative" ref={ubiDropdownRef}>
-            <ModalLabel htmlFor="editar-producto-ubicacion">Ubicación</ModalLabel>
-            <div className="relative">
-              <Box className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-              <ModalInput
-                id="editar-producto-ubicacion"
-                value={ubicacion}
-                onChange={(e) => {
-                  setUbicacion(e.target.value);
-                  setMostrarSugerenciasUbicacion(true);
-                }}
-                onFocus={() => setMostrarSugerenciasUbicacion(true)}
-                placeholder="Seleccionar o escribir ubicación..."
-                className="pl-9"
-              />
-            </div>
-            <AnimatePresence>
-              {mostrarSugerenciasUbicacion && sugerenciasUbicaciones.length > 0 ? (
-                <motion.div
-                  initial={{ opacity: 0, y: -5 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -5 }}
-                  className="absolute z-[200] mt-1 max-h-[150px] w-full overflow-y-auto rounded-lg border border-zinc-200 bg-white opacity-100 dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  {sugerenciasUbicaciones.map((ubi) => (
-                    <button
-                      key={ubi}
-                      type="button"
-                      onClick={() => {
-                        setUbicacion(ubi);
-                        setMostrarSugerenciasUbicacion(false);
-                      }}
-                      className="w-full border-b border-zinc-100 px-4 py-2 text-left text-sm font-medium text-zinc-700 transition-colors last:border-0 hover:bg-zinc-50 dark:border-zinc-800 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                    >
-                      {ubi}
-                    </button>
-                  ))}
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-        </ModalField>
+        {producto ? (
+          <p className="text-xs text-zinc-500">
+            Stock actual (suma de lotes): <strong>{producto.stock_actual}</strong> unidades
+          </p>
+        ) : null}
 
         <ModalField>
           <ModalLabel>Imagen del Producto</ModalLabel>
-          <p className="text-[11px] text-zinc-500">Formato vertical 4:3 (ancho 3 × alto 4).</p>
           <ImageUploader
             bucketName="Imagenes_Farmacia"
             currentImagePath={imagenUrl}
@@ -298,7 +207,7 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
                   if (!e.target.value) setProveedorSeleccionado(null);
                 }}
                 onFocus={() => setMostrarSugerenciasProv(true)}
-                placeholder="Buscar o seleccionar proveedor..."
+                placeholder="Buscar proveedor..."
                 className="pl-9"
               />
             </div>
@@ -322,7 +231,6 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
                       className="w-full border-b border-zinc-100 px-4 py-2 text-left transition-colors last:border-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
                     >
                       <p className="text-xs font-bold text-zinc-950 dark:text-white">{p.nombre}</p>
-                      {p.nit ? <p className="text-[10px] text-zinc-500">NIT: {p.nit}</p> : null}
                     </button>
                   ))}
                 </motion.div>
@@ -345,30 +253,6 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
           </ModalField>
 
           <ModalField>
-            <ModalLabel htmlFor="editar-producto-precio-costo">Precio de Costo</ModalLabel>
-            <ModalInput
-              id="editar-producto-precio-costo"
-              type="number"
-              step="0.01"
-              min="0"
-              value={precioCosto}
-              onChange={(e) => setPrecioCosto(e.target.value)}
-              placeholder="Opcional"
-            />
-          </ModalField>
-
-          <ModalField>
-            <ModalLabel htmlFor="editar-producto-stock-actual">Existencias *</ModalLabel>
-            <ModalInput
-              id="editar-producto-stock-actual"
-              type="number"
-              min="0"
-              value={stockActual}
-              onChange={(e) => setStockActual(e.target.value)}
-            />
-          </ModalField>
-
-          <ModalField>
             <ModalLabel htmlFor="editar-producto-stock-minimo">Stock Mínimo *</ModalLabel>
             <ModalInput
               id="editar-producto-stock-minimo"
@@ -378,43 +262,21 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
               onChange={(e) => setStockMinimo(e.target.value)}
             />
           </ModalField>
-
-          <ModalField>
-            <ModalLabel htmlFor="editar-producto-lote">Lote</ModalLabel>
-            <ModalInput
-              id="editar-producto-lote"
-              value={numeroLote}
-              onChange={(e) => setNumeroLote(e.target.value)}
-              placeholder="Opcional"
-            />
-          </ModalField>
-
-          <ModalField>
-            <ModalLabel htmlFor="editar-producto-vencimiento">Vencimiento</ModalLabel>
-            <ModalFechaInput
-              id="editar-producto-vencimiento"
-              value={fechaVencimiento}
-              onChange={setFechaVencimiento}
-            />
-          </ModalField>
         </div>
 
         <ModalField>
-          <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 text-sm font-bold text-zinc-700 dark:text-zinc-200">
             <input
               type="checkbox"
-              id="editar-producto-activo"
               checked={activo}
               onChange={(e) => setActivo(e.target.checked)}
-              className="size-4 rounded border-zinc-200 text-[#2c5f9b] focus:ring-[#2c5f9b] dark:border-zinc-700"
+              className="size-4 rounded border-zinc-300"
             />
-            <ModalLabel htmlFor="editar-producto-activo" className="mb-0 cursor-pointer">
-              Producto Activo
-            </ModalLabel>
-          </div>
+            Producto activo en catálogo
+          </label>
         </ModalField>
 
-        {validationError && !validationError.includes("nombre") ? (
+        {validationError ? (
           <p className="text-xs font-bold text-red-500">{validationError}</p>
         ) : null}
 

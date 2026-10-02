@@ -7,16 +7,19 @@ import {
   Producto,
   Cliente,
   SolicitudRebajaPayloadSchema,
+  MotivoModificacionVentaSchema,
 } from "./zod";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { sendPushNotification } from "@/utils/pushServer";
 import { sendPushToRoles, sendPushToUsers } from "@/utils/push-utils";
 import { esRebajaDePrecio, payloadCoincideConVenta, precioMenorQueCosto } from "./helpers";
+import { ajustarStockPorVenta, obtenerCostoProductoOLote } from "./lotes-stock";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface ItemVentaInput {
   producto_id: string;
+  lote_id?: string | null;
   cantidad: number;
   precio_aplicado: number;
   subtotal: number;
@@ -53,6 +56,111 @@ export async function obtenerProductosYClientes() {
   }
 }
 
+export async function buscarLotePorCodigoBarras(codigo: string) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida o expirada." };
+    }
+
+    const codigoNorm = codigo.trim();
+    if (!codigoNorm) {
+      return { success: false as const, error: "Código de barras vacío." };
+    }
+
+    const { data: lote, error } = await supabase
+      .from("inv_lotes")
+      .select(
+        "id, producto_id, codigo_barras, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, ubicacion, activo, inv_productos(*)",
+      )
+      .eq("codigo_barras", codigoNorm)
+      .eq("activo", true)
+      .gt("cantidad_actual", 0)
+      .maybeSingle();
+
+    if (error) {
+      return { success: false as const, error: error.message };
+    }
+    const productoJoin = lote?.inv_productos;
+    const productoRow = Array.isArray(productoJoin) ? productoJoin[0] : productoJoin;
+    if (!lote || !productoRow) {
+      return { success: false as const, error: "No hay lote activo con stock para ese código." };
+    }
+
+    const producto = productoRow as Producto;
+    if (!producto.activo) {
+      return { success: false as const, error: "El producto del lote está inactivo." };
+    }
+
+    return {
+      success: true as const,
+      lote: {
+        id: lote.id as string,
+        producto_id: lote.producto_id as string,
+        codigo_barras: lote.codigo_barras as string,
+        numero_lote: (lote.numero_lote as string | null) ?? null,
+        cantidad_actual: Number(lote.cantidad_actual) || 0,
+        precio_costo: Number(lote.precio_costo) || 0,
+        fecha_vencimiento: (lote.fecha_vencimiento as string | null) ?? null,
+        ubicacion: (lote.ubicacion as string | null) ?? null,
+      },
+      producto,
+    };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Error al buscar el lote.";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function resolverLoteParaProducto(productoId: string, cantidad: number) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida o expirada." };
+    }
+
+    const { data: lotes, error } = await supabase
+      .from("inv_lotes")
+      .select("id, codigo_barras, cantidad_actual, precio_costo, fecha_vencimiento")
+      .eq("producto_id", productoId)
+      .eq("activo", true)
+      .gt("cantidad_actual", 0)
+      .order("fecha_vencimiento", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      return { success: false as const, error: error.message };
+    }
+
+    const elegido = (lotes ?? []).find(
+      (l) => Number(l.cantidad_actual) >= cantidad,
+    );
+    if (!elegido) {
+      return {
+        success: false as const,
+        error: "No hay un lote con stock suficiente para esta cantidad.",
+      };
+    }
+
+    return {
+      success: true as const,
+      lote_id: elegido.id as string,
+      codigo_barras: elegido.codigo_barras as string,
+      stock_lote: Number(elegido.cantidad_actual) || 0,
+      precio_costo: Number(elegido.precio_costo) || 0,
+    };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "No se pudo asignar lote.";
+    return { success: false as const, error: message };
+  }
+}
+
 async function obtenerRolUsuario(
   supabase: SupabaseClient,
   userId: string,
@@ -65,6 +173,59 @@ async function obtenerRolUsuario(
   return profile?.rol ?? "user";
 }
 
+async function assertAdminHistorialVentas(supabase: SupabaseClient) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("Sesión no válida o expirada.");
+  }
+  const rol = await obtenerRolUsuario(supabase, user.id);
+  if (rol !== "admin" && rol !== "super") {
+    throw new Error("No tienes permiso para modificar ventas del historial.");
+  }
+  return user;
+}
+
+function parseMotivoModificacionVenta(motivo: string) {
+  const parsed = MotivoModificacionVentaSchema.safeParse(motivo);
+  if (!parsed.success) {
+    throw new Error(parsed.error.issues[0]?.message ?? "Motivo inválido.");
+  }
+  return parsed.data;
+}
+
+async function registrarBitacoraVenta(
+  supabase: SupabaseClient,
+  params: {
+    ventaId: string;
+    usuarioId: string;
+    accion: "editar_linea" | "quitar_linea" | "anular";
+    motivo: string;
+    detalle?: Record<string, unknown>;
+  },
+) {
+  const { error } = await supabase.from("ven_ventas_bitacora").insert({
+    venta_id: params.ventaId,
+    usuario_id: params.usuarioId,
+    accion: params.accion,
+    motivo: params.motivo,
+    detalle: params.detalle ?? {},
+  });
+  if (error) {
+    const msg = error.message ?? "";
+    if (
+      msg.includes("ven_ventas_bitacora") &&
+      (msg.includes("schema cache") || msg.includes("does not exist"))
+    ) {
+      throw new Error(
+        "Falta crear la tabla ven_ventas_bitacora en Supabase. Abre SQL Editor y ejecuta el archivo db/ven_ventas_bitacora.sql del proyecto.",
+      );
+    }
+    throw new Error(`No se pudo registrar la bitácora: ${msg}`);
+  }
+}
+
 async function assertPreciosNoMenoresAlCosto(
   supabase: SupabaseClient,
   items: ItemVentaInput[],
@@ -72,7 +233,7 @@ async function assertPreciosNoMenoresAlCosto(
   for (const item of items) {
     const { data: prod } = await supabase
       .from("inv_productos")
-      .select("nombre, precio_costo")
+      .select("nombre")
       .eq("id", item.producto_id)
       .maybeSingle();
 
@@ -80,7 +241,11 @@ async function assertPreciosNoMenoresAlCosto(
       throw new Error(`Producto con ID ${item.producto_id} no encontrado.`);
     }
 
-    const costo = Math.max(0, Number(prod.precio_costo) || 0);
+    const costo = await obtenerCostoProductoOLote(
+      supabase,
+      item.producto_id,
+      item.lote_id,
+    );
     if (precioMenorQueCosto(item.precio_aplicado, costo)) {
       throw new Error(
         `El precio de "${prod.nombre}" no puede ser menor al costo (Q${costo.toFixed(2)}).`,
@@ -201,21 +366,51 @@ export async function crearVenta(params: {
 
     await assertPreciosNoMenoresAlCosto(supabase, items);
 
-    // 1. Validar existencias de stock en el servidor para evitar sobreventas
+    const itemsConLote: ItemVentaInput[] = [];
     for (const item of items) {
-      const { data: prod, error: findError } = await supabase
-        .from("inv_productos")
-        .select("nombre, stock_actual")
-        .eq("id", item.producto_id)
-        .single();
-      
-      if (findError || !prod) {
-        throw new Error(`Producto con ID ${item.producto_id} no encontrado.`);
+      let loteId = item.lote_id ?? null;
+      if (!loteId) {
+        const resLote = await resolverLoteParaProducto(item.producto_id, item.cantidad);
+        if (!resLote.success) {
+          const { data: prod } = await supabase
+            .from("inv_productos")
+            .select("nombre, stock_actual")
+            .eq("id", item.producto_id)
+            .maybeSingle();
+          if (!prod) {
+            throw new Error(`Producto con ID ${item.producto_id} no encontrado.`);
+          }
+          if (Number(prod.stock_actual) < item.cantidad) {
+            throw new Error(
+              `Stock insuficiente para ${prod.nombre} (Disponibles: ${prod.stock_actual}, Solicitados: ${item.cantidad}).`,
+            );
+          }
+        } else {
+          loteId = resLote.lote_id;
+        }
       }
 
-      if (prod.stock_actual < item.cantidad) {
-        throw new Error(`Stock insuficiente para ${prod.nombre} (Disponibles: ${prod.stock_actual}, Solicitados: ${item.cantidad}).`);
+      if (loteId) {
+        const { data: lote, error: loteErr } = await supabase
+          .from("inv_lotes")
+          .select("cantidad_actual, activo, inv_productos(nombre)")
+          .eq("id", loteId)
+          .single();
+
+        if (loteErr || !lote || !lote.activo) {
+          throw new Error("Lote no válido o inactivo para la venta.");
+        }
+        const disp = Number(lote.cantidad_actual) || 0;
+        const nombre =
+          (lote.inv_productos as { nombre?: string } | null)?.nombre ?? "Producto";
+        if (disp < item.cantidad) {
+          throw new Error(
+            `Stock insuficiente en lote para ${nombre} (Disponibles: ${disp}, Solicitados: ${item.cantidad}).`,
+          );
+        }
       }
+
+      itemsConLote.push({ ...item, lote_id: loteId });
     }
 
     // 2. Insertar la venta
@@ -236,9 +431,10 @@ export async function crearVenta(params: {
     }
 
     // 3. Insertar los detalles de venta
-    const detalles = items.map((item) => ({
+    const detalles = itemsConLote.map((item) => ({
       venta_id: venta.id,
       producto_id: item.producto_id,
+      lote_id: item.lote_id ?? null,
       cantidad: item.cantidad,
       precio_aplicado: item.precio_aplicado,
       subtotal: item.subtotal,
@@ -254,26 +450,22 @@ export async function crearVenta(params: {
       throw new Error(`Error al registrar los detalles de venta: ${detallesError.message}`);
     }
 
-    // 4. Descontar las existencias del inventario
-    for (const item of items) {
+    // 4. Descontar las existencias del inventario (lote o legacy)
+    for (const item of itemsConLote) {
+      await ajustarStockPorVenta(supabase, {
+        producto_id: item.producto_id,
+        lote_id: item.lote_id,
+        delta: -item.cantidad,
+      });
+
       const { data: prod } = await supabase
         .from("inv_productos")
         .select("nombre, stock_actual, stock_minimo")
         .eq("id", item.producto_id)
         .single();
 
-      const nuevoStock = (prod?.stock_actual || 0) - item.cantidad;
+      const nuevoStock = Number(prod?.stock_actual) || 0;
 
-      const { error: stockError } = await supabase
-        .from("inv_productos")
-        .update({ stock_actual: nuevoStock })
-        .eq("id", item.producto_id);
-
-      if (stockError) {
-        throw new Error(`Error al actualizar el stock del producto ID ${item.producto_id}: ${stockError.message}`);
-      }
-
-      // Enviar notificación si cae por debajo del mínimo (o igual)
       if (prod && nuevoStock <= prod.stock_minimo) {
         await sendPushNotification(
           {
@@ -402,13 +594,67 @@ export async function obtenerHistorialVentas() {
   }
 }
 
+export async function obtenerBitacoraVenta(ventaId: string) {
+  try {
+    const supabase = await createClient();
+    await assertAdminHistorialVentas(supabase);
+
+    const { data, error } = await supabase
+      .from("ven_ventas_bitacora")
+      .select("*")
+      .eq("venta_id", ventaId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      const msg = error.message ?? "";
+      if (
+        msg.includes("ven_ventas_bitacora") &&
+        (msg.includes("schema cache") || msg.includes("does not exist"))
+      ) {
+        return [];
+      }
+      throw new Error(msg);
+    }
+
+    const filas = data || [];
+    const usuarioIds = [
+      ...new Set(filas.map((f) => f.usuario_id).filter(Boolean)),
+    ] as string[];
+
+    let perfilesPorId: Record<string, { nombre: string }> = {};
+    if (usuarioIds.length > 0) {
+      const { data: perfiles, error: perfilesError } = await supabase
+        .from("profiles")
+        .select("id, nombre")
+        .in("id", usuarioIds);
+      if (perfilesError) throw new Error(perfilesError.message);
+      perfilesPorId = Object.fromEntries(
+        (perfiles || []).map((p) => [
+          p.id,
+          { nombre: p.nombre?.trim() || "Sin nombre" },
+        ]),
+      );
+    }
+
+    return filas.map((fila) => ({
+      ...fila,
+      profiles: perfilesPorId[fila.usuario_id] ?? null,
+    }));
+  } catch (error: unknown) {
+    console.error("Error en obtenerBitacoraVenta:", error);
+    const message =
+      error instanceof Error ? error.message : "No se pudo cargar la bitácora.";
+    throw new Error(message);
+  }
+}
+
 export async function obtenerDetalleVenta(ventaId: string) {
   try {
     const supabase = await createClient();
 
     const { data, error } = await supabase
       .from("ven_detalles")
-      .select("*, inv_productos(nombre, codigo)")
+      .select("*, inv_lotes(codigo_barras, numero_lote), inv_productos(nombre)")
       .eq("venta_id", ventaId);
 
     if (error) throw new Error(error.message);
@@ -420,34 +666,32 @@ export async function obtenerDetalleVenta(ventaId: string) {
   }
 }
 
-export async function anularVenta(ventaId: string) {
+export async function anularVenta(ventaId: string, motivo: string) {
   try {
     const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Sesión no válida o expirada.");
+    }
+    const motivoLimpio = parseMotivoModificacionVenta(motivo);
 
     // 1. Obtener detalles de la venta (productos y cantidades)
     const { data: detalles, error: detError } = await supabase
       .from("ven_detalles")
-      .select("producto_id, cantidad")
+      .select("producto_id, cantidad, lote_id")
       .eq("venta_id", ventaId);
 
     if (detError) throw new Error(detError.message);
 
-    // 2. Devolver las cantidades al stock en inv_productos
     if (detalles && detalles.length > 0) {
       for (const item of detalles) {
-        const { data: prod, error: prodError } = await supabase
-          .from("inv_productos")
-          .select("stock_actual")
-          .eq("id", item.producto_id)
-          .single();
-
-        if (!prodError && prod) {
-          const nuevoStock = prod.stock_actual + item.cantidad;
-          await supabase
-            .from("inv_productos")
-            .update({ stock_actual: nuevoStock })
-            .eq("id", item.producto_id);
-        }
+        await ajustarStockPorVenta(supabase, {
+          producto_id: item.producto_id,
+          lote_id: item.lote_id,
+          delta: item.cantidad,
+        });
       }
     }
 
@@ -492,6 +736,13 @@ export async function anularVenta(ventaId: string) {
       if (updVentaError) throw new Error(updVentaError.message);
     }
 
+    await registrarBitacoraVenta(supabase, {
+      ventaId,
+      usuarioId: user.id,
+      accion: "anular",
+      motivo: motivoLimpio,
+    });
+
     // Revalidar rutas para refrescar cache de inventario, ventas y finanzas
     revalidatePath("/farmamuni/inventario");
     revalidatePath("/farmamuni/ventas");
@@ -513,15 +764,20 @@ export async function editarDetalleVentaDirecto(params: {
   productoId: string;
   nuevaCantidad: number;
   nuevoPrecio: number;
+  motivo: string;
+  productoNombre?: string;
 }) {
   try {
     const supabase = await createClient();
-    const { detalleId, ventaId, productoId, nuevaCantidad, nuevoPrecio } = params;
+    const user = await assertAdminHistorialVentas(supabase);
+    const motivoLimpio = parseMotivoModificacionVenta(params.motivo);
+    const { detalleId, ventaId, productoId, nuevaCantidad, nuevoPrecio, productoNombre } =
+      params;
 
     // 1. Obtener la cantidad anterior del detalle para calcular la diferencia de stock
     const { data: detAnterior, error: getDetError } = await supabase
       .from("ven_detalles")
-      .select("cantidad")
+      .select("cantidad, precio_aplicado, lote_id")
       .eq("id", detalleId)
       .single();
 
@@ -532,39 +788,46 @@ export async function editarDetalleVentaDirecto(params: {
     const cantidadAnterior = detAnterior.cantidad;
     const diffCantidad = nuevaCantidad - cantidadAnterior; // Si aumenta, descontamos más stock. Si disminuye, devolvemos stock.
 
-    // 2. Si aumentó la cantidad, verificar que haya stock disponible en inv_productos
+    const loteId = detAnterior.lote_id as string | null;
+
     if (diffCantidad > 0) {
-      const { data: prod, error: getProdError } = await supabase
-        .from("inv_productos")
-        .select("nombre, stock_actual")
-        .eq("id", productoId)
-        .single();
+      if (loteId) {
+        const { data: lote } = await supabase
+          .from("inv_lotes")
+          .select("cantidad_actual")
+          .eq("id", loteId)
+          .maybeSingle();
+        const disp = Number(lote?.cantidad_actual) || 0;
+        if (disp < diffCantidad) {
+          throw new Error(
+            `Stock insuficiente en el lote para aumentar la cantidad. Disponibles: ${disp}.`,
+          );
+        }
+      } else {
+        const { data: prod, error: getProdError } = await supabase
+          .from("inv_productos")
+          .select("nombre, stock_actual")
+          .eq("id", productoId)
+          .single();
 
-      if (getProdError || !prod) {
-        throw new Error("Producto no encontrado.");
-      }
+        if (getProdError || !prod) {
+          throw new Error("Producto no encontrado.");
+        }
 
-      if (prod.stock_actual < diffCantidad) {
-        throw new Error(`Stock insuficiente para aumentar la cantidad. Disponibles: ${prod.stock_actual}.`);
+        if (prod.stock_actual < diffCantidad) {
+          throw new Error(
+            `Stock insuficiente para aumentar la cantidad. Disponibles: ${prod.stock_actual}.`,
+          );
+        }
       }
     }
 
-    // 3. Actualizar el stock del producto
-    const { data: prodStock } = await supabase
-      .from("inv_productos")
-      .select("stock_actual")
-      .eq("id", productoId)
-      .single();
-
-    const nuevoStock = (prodStock?.stock_actual || 0) - diffCantidad;
-
-    const { error: stockError } = await supabase
-      .from("inv_productos")
-      .update({ stock_actual: nuevoStock })
-      .eq("id", productoId);
-
-    if (stockError) {
-      throw new Error(`Error al actualizar el stock: ${stockError.message}`);
+    if (diffCantidad !== 0) {
+      await ajustarStockPorVenta(supabase, {
+        producto_id: productoId,
+        lote_id: loteId,
+        delta: -diffCantidad,
+      });
     }
 
     // 4. Actualizar el item del detalle
@@ -603,6 +866,21 @@ export async function editarDetalleVentaDirecto(params: {
       throw new Error(`Error al actualizar el total de la venta: ${updateVentaError.message}`);
     }
 
+    await registrarBitacoraVenta(supabase, {
+      ventaId,
+      usuarioId: user.id,
+      accion: "editar_linea",
+      motivo: motivoLimpio,
+      detalle: {
+        producto_id: productoId,
+        producto_nombre: productoNombre ?? null,
+        cantidad_anterior: cantidadAnterior,
+        cantidad_nueva: nuevaCantidad,
+        precio_anterior: detAnterior.precio_aplicado,
+        precio_nuevo: nuevoPrecio,
+      },
+    });
+
     return { success: true, nuevoTotal: nuevoTotalVenta };
   } catch (error: any) {
     console.error("Error en editarDetalleVentaDirecto:", error);
@@ -615,33 +893,26 @@ export async function eliminarDetalleVentaDirecto(params: {
   ventaId: string;
   productoId: string;
   cantidadADevolver: number;
+  motivo: string;
+  productoNombre?: string;
 }) {
   try {
     const supabase = await createClient();
-    const { detalleId, ventaId, productoId, cantidadADevolver } = params;
+    const user = await assertAdminHistorialVentas(supabase);
+    const motivoLimpio = parseMotivoModificacionVenta(params.motivo);
+    const { detalleId, ventaId, productoId, cantidadADevolver, productoNombre } = params;
 
-    // 1. Obtener el stock actual del producto para sumarle la cantidad devuelta
-    const { data: prod, error: getProdError } = await supabase
-      .from("inv_productos")
-      .select("stock_actual")
-      .eq("id", productoId)
-      .single();
+    const { data: detRow } = await supabase
+      .from("ven_detalles")
+      .select("lote_id")
+      .eq("id", detalleId)
+      .maybeSingle();
 
-    if (getProdError || !prod) {
-      throw new Error("No se pudo obtener el stock del producto.");
-    }
-
-    const nuevoStock = prod.stock_actual + cantidadADevolver;
-
-    // 2. Actualizar el stock del producto
-    const { error: updateStockError } = await supabase
-      .from("inv_productos")
-      .update({ stock_actual: nuevoStock })
-      .eq("id", productoId);
-
-    if (updateStockError) {
-      throw new Error(`Error al devolver stock al inventario: ${updateStockError.message}`);
-    }
+    await ajustarStockPorVenta(supabase, {
+      producto_id: productoId,
+      lote_id: detRow?.lote_id ?? null,
+      delta: cantidadADevolver,
+    });
 
     // 3. Eliminar el registro del detalle de venta
     const { error: deleteDetError } = await supabase
@@ -684,6 +955,18 @@ export async function eliminarDetalleVentaDirecto(params: {
       },
       ['admin', 'super']
     );
+
+    await registrarBitacoraVenta(supabase, {
+      ventaId,
+      usuarioId: user.id,
+      accion: "quitar_linea",
+      motivo: motivoLimpio,
+      detalle: {
+        producto_id: productoId,
+        producto_nombre: productoNombre ?? null,
+        cantidad_devuelta: cantidadADevolver,
+      },
+    });
 
     return { success: true, nuevoTotal: nuevoTotalVenta };
   } catch (error: any) {
@@ -812,10 +1095,10 @@ export async function crearSolicitudRebaja(payload: unknown) {
     for (const item of parsed.data.payload.items) {
       const { data: prod } = await supabaseRead
         .from("inv_productos")
-        .select("nombre, precio_costo")
+        .select("nombre")
         .eq("id", item.producto_id)
         .maybeSingle();
-      const costo = Math.max(0, Number(prod?.precio_costo) || 0);
+      const costo = await obtenerCostoProductoOLote(supabaseRead, item.producto_id);
       if (precioMenorQueCosto(item.precio_aplicado, costo)) {
         return {
           success: false as const,
@@ -916,6 +1199,42 @@ export async function obtenerSolicitudRebaja(solicitudId: string) {
   }
 }
 
+export async function obtenerMiSolicitudRebajaPendiente() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida.", solicitud: null };
+    }
+
+    const { data, error } = await supabase
+      .from("ven_solicitudes_rebaja")
+      .select("id, solicitante_id, estado, payload, created_at")
+      .eq("solicitante_id", user.id)
+      .eq("estado", "pendiente")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      if (error.code === "42P01") {
+        return { success: true as const, solicitud: null };
+      }
+      return { success: false as const, error: error.message, solicitud: null };
+    }
+
+    return { success: true as const, solicitud: data };
+  } catch {
+    return {
+      success: false as const,
+      error: "Error al consultar tu solicitud.",
+      solicitud: null,
+    };
+  }
+}
+
 export async function listarSolicitudesRebajaPendientes() {
   try {
     const supabase = await createClient();
@@ -933,9 +1252,7 @@ export async function listarSolicitudesRebajaPendientes() {
 
     const { data, error } = await supabase
       .from("ven_solicitudes_rebaja")
-      .select(
-        "id, solicitante_id, estado, payload, created_at, profiles:solicitante_id ( nombre )",
-      )
+      .select("id, solicitante_id, estado, payload, created_at")
       .eq("estado", "pendiente")
       .order("created_at", { ascending: true });
 

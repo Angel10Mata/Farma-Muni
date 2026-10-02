@@ -107,7 +107,7 @@ export function descargarReporteGestion(productos: ProductoInventarioReporte[]) 
     0,
   );
   const valorCostoEst = activos.reduce(
-    (s, p) => s + p.stock_actual * (Number(p.precio_costo) || 0),
+    (s, p) => s + p.stock_actual * (Number(p.precio_costo) || Number(p.precio_base) * 0.65 || 0),
     0,
   );
   const unidadesPorVencer = porVencer.reduce((s, p) => s + p.stock_actual, 0);

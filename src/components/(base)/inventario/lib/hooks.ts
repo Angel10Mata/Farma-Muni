@@ -18,6 +18,7 @@ import {
   activarProducto,
   desactivarProducto,
   obtenerUbicaciones,
+  obtenerLotes,
   registrarBajaPorVencimiento,
 } from "./actions";
 import { type ProductFormValues } from "./zod";
@@ -31,6 +32,40 @@ export function useEditMode(initial = false) {
     toggleEdit: () => setIsEditing((prev) => !prev),
     setIsEditing,
   };
+}
+
+export function useLotes() {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["inventario", "lotes"], isDemoMode),
+    queryFn: async () => {
+      if (isDemoMode) {
+        return DEMO_PRODUCTOS.map((p, i) => ({
+          id: `demo-lote-${p.id}`,
+          producto_id: p.id,
+          codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
+          numero_lote: `L-${2400 + i}`,
+          cantidad_inicial: p.stock_actual,
+          cantidad_actual: p.stock_actual,
+          precio_costo: Math.round(p.precio_base * 0.65 * 100) / 100,
+          fecha_vencimiento: `2026-${String((i % 12) + 1).padStart(2, "0")}-28`,
+          ubicacion: "Demo",
+          activo: p.activo,
+          inv_productos: {
+            id: p.id,
+            nombre: p.nombre,
+            precio_base: p.precio_base,
+            stock_minimo: p.stock_minimo,
+            stock_actual: p.stock_actual,
+            activo: p.activo,
+          },
+        }));
+      }
+      const res = await obtenerLotes();
+      if (!res.success) throw new Error(res.code);
+      return res.data;
+    },
+  });
 }
 
 export function useProductos() {
@@ -109,7 +144,7 @@ export function useRegistrarBajaVencido() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { producto_id: string; notas?: string }) => {
+    mutationFn: async (input: { lote_id: string; notas?: string }) => {
       assertWritableDemo(isDemoMode);
       const res = await registrarBajaPorVencimiento(input);
       if (!res.success) throw new Error(res.code);
@@ -117,6 +152,7 @@ export function useRegistrarBajaVencido() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["productos"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
       queryClient.invalidateQueries({ queryKey: ["finanzas"] });
     },
   });

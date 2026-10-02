@@ -116,11 +116,9 @@ export const DEMO_PRODUCTOS: Producto[] = PRODUCTOS_CATALOGO.map((p, i) => {
   const venceMonth = String((i % 12) + 1).padStart(2, "0");
   return {
     id: `demo-prod-${pad(i + 1)}`,
-    codigo: p.codigo,
     nombre: p.nombre,
     descripcion: p.desc,
     precio_base: p.precio,
-    precio_costo: p.costo,
     stock_actual: p.stock,
     stock_minimo: p.minimo,
     activo: true,
@@ -128,9 +126,6 @@ export const DEMO_PRODUCTOS: Producto[] = PRODUCTOS_CATALOGO.map((p, i) => {
     inv_proveedores: { nombre: prov.nombre },
     created_at: daysAgo(30 - (i % 25)),
     imagen_url: null,
-    fecha_vencimiento: `${venceYear}-${venceMonth}-28`,
-    numero_lote: `L-${2400 + i}`,
-    ubicacion: p.ubicacion,
   };
 });
 
@@ -139,7 +134,7 @@ export const DEMO_LOW_STOCK_COUNT = DEMO_PRODUCTOS.filter(
 ).length;
 
 export const DEMO_UBICACIONES = [
-  ...new Set(DEMO_PRODUCTOS.map((p) => p.ubicacion).filter(Boolean) as string[]),
+  ...new Set(PRODUCTOS_CATALOGO.map((p) => p.ubicacion)),
 ];
 
 export const DEMO_CLIENTES_DB = NOMBRES.map((nombre, i) => ({
@@ -199,7 +194,10 @@ export const DEMO_VENTA_DETALLE = DEMO_VENTAS_HISTORIAL.flatMap((venta, vi) => {
       cantidad,
       precio_aplicado: precio,
       subtotal: Math.round(cantidad * precio * 100) / 100,
-      inv_productos: { nombre: prod.nombre, codigo: prod.codigo },
+      inv_productos: {
+        nombre: prod.nombre,
+        codigo: PRODUCTOS_CATALOGO[(vi + j) % PRODUCTOS_CATALOGO.length].codigo,
+      },
     };
   });
 });
@@ -240,7 +238,7 @@ export const DEMO_COMPRA_DETALLE = DEMO_COMPRAS.flatMap((compra, ci) => {
   return Array.from({ length: numItems }, (_, j) => {
     const prod = DEMO_PRODUCTOS[(ci + j) % DEMO_PRODUCTOS.length];
     const cantidad = 10 + ((ci + j) * 3) % 80;
-    const costo = prod.precio_costo ?? prod.precio_base * 0.65;
+    const costo = Math.round(prod.precio_base * 0.65 * 100) / 100;
     return {
       id: `demo-compra-det-${pad(ci * 4 + j + 1, 4)}`,
       compra_id: compra.id,
@@ -248,7 +246,10 @@ export const DEMO_COMPRA_DETALLE = DEMO_COMPRAS.flatMap((compra, ci) => {
       cantidad,
       precio_costo: costo,
       subtotal: Math.round(cantidad * costo * 100) / 100,
-      inv_productos: { nombre: prod.nombre, codigo: prod.codigo },
+      inv_productos: {
+        nombre: prod.nombre,
+        codigo: PRODUCTOS_CATALOGO[(ci + j) % PRODUCTOS_CATALOGO.length].codigo,
+      },
     };
   });
 });
@@ -367,10 +368,8 @@ export function demoProveedoresYProductos() {
     proveedores: DEMO_PROVEEDORES,
     productos: DEMO_PRODUCTOS.map((p) => ({
       id: p.id,
-      codigo: p.codigo,
       nombre: p.nombre,
       precio_base: p.precio_base,
-      precio_costo: p.precio_costo ?? null,
       stock_actual: p.stock_actual,
       activo: p.activo,
       proveedor_id: p.proveedor_id ?? null,

@@ -2,17 +2,13 @@ import { z } from "zod";
 
 export const ProductoSchema = z.object({
   id: z.string(),
-  codigo: z.string(),
+  codigo: z.string().optional(),
   nombre: z.string(),
-  descripcion: z.string(),
+  descripcion: z.string().optional().default(""),
   precio_base: z.number(),
-  precio_costo: z.number().nonnegative().optional(),
   stock_actual: z.number(),
   stock_minimo: z.number(),
   imagen_url: z.string().nullable().optional(),
-  imagen_url_2: z.string().nullable().optional(),
-  imagen_url_3: z.string().nullable().optional(),
-  ubicacion: z.string().optional(),
   activo: z.boolean(),
 });
 
@@ -27,6 +23,10 @@ export const ClienteSchema = z.object({
 
 export const ItemCarritoSchema = z.object({
   producto: ProductoSchema,
+  lote_id: z.string().uuid().optional(),
+  codigo_barras_lote: z.string().optional(),
+  stock_lote: z.number().optional(),
+  precio_costo_lote: z.number().optional(),
   cantidad: z.number(),
   precio_aplicado: z.number(),
   subtotal: z.number(),
@@ -63,6 +63,7 @@ export type Venta = z.infer<typeof VentaSchema>;
 
 export const ItemVentaSchema = z.object({
   producto_id: z.string().uuid(),
+  lote_id: z.string().uuid().optional().nullable(),
   cantidad: z.number().positive(),
   precio_aplicado: z.number().min(0),
   subtotal: z.number().min(0),
@@ -130,3 +131,30 @@ export const CrearSolicitudRebajaSchema = z.object({
 });
 
 export type CrearSolicitudRebajaInput = z.infer<typeof CrearSolicitudRebajaSchema>;
+
+export const VentaBitacoraAccionSchema = z.enum([
+  "editar_linea",
+  "quitar_linea",
+  "anular",
+]);
+
+export const VentaBitacoraEntrySchema = z.object({
+  id: z.string().uuid(),
+  venta_id: z.string().uuid(),
+  usuario_id: z.string().uuid(),
+  accion: VentaBitacoraAccionSchema,
+  motivo: z.string(),
+  detalle: z.record(z.string(), z.unknown()),
+  created_at: z.string(),
+  profiles: z
+    .object({ nombre: z.string().nullable().optional() })
+    .nullable()
+    .optional(),
+});
+
+export type VentaBitacoraEntry = z.infer<typeof VentaBitacoraEntrySchema>;
+
+export const MotivoModificacionVentaSchema = z
+  .string()
+  .trim()
+  .min(3, "El motivo debe tener al menos 3 caracteres.");

@@ -263,6 +263,20 @@ export function BarraCarritoVentas() {
         </div>
 
         {/* Cobrar Button */}
+        {ventas.esperandoAutorizacionRebaja && !ventas.rebajaAutorizada ? (
+          <button
+            type="button"
+            onClick={() => ventas.setShowModalAutorizacionRebaja(true)}
+            className="w-full rounded-xl border border-amber-400/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 text-left cursor-pointer transition-colors hover:bg-amber-100/80 dark:hover:bg-amber-950/60"
+          >
+            <p className="text-[10px] font-black uppercase tracking-wide text-amber-800 dark:text-amber-200">
+              Rebaja en espera de confirmación
+            </p>
+            <p className="text-xs text-amber-900/80 dark:text-amber-100/80 mt-0.5">
+              Toca aquí para ver el estado · luego pulsa Cobrar de nuevo
+            </p>
+          </button>
+        ) : null}
         <div className="flex justify-end w-full mt-4">
           <SigetActionButton
             label="Cobrar"

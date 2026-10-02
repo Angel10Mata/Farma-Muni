@@ -33,6 +33,8 @@ import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-but
 import { modulePageShellClass } from "@/lib/module-layout";
 import { cn } from "@/lib/utils";
 import { ModalAutorizacionRebajaVentas } from "./ModalAutorizacionRebajaVentas";
+import { PanelSolicitudesRebajaVentas } from "./PanelSolicitudesRebajaVentas";
+import { SolicitudesRebajaAdmin } from "./SolicitudesRebajaAdmin";
 
 function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
   const { effectiveRole, realRole } = useUserContext();
@@ -133,7 +135,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
     setIsLoading(true);
     try {
-      const res = await anularVenta(ventaId);
+      const res = await anularVenta(ventaId, "Anulación desde punto de venta");
       if (!res.success) throw new Error(res.error);
 
       toast.success("La venta ha sido anulada y el stock restablecido.");
@@ -178,7 +180,10 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       const detalles = await fetchDetalleVenta(venta.id, isDemoMode);
       if (!detalles || detalles.length === 0) throw new Error("No se pudieron cargar los detalles.");
 
-      const resAnulacion = await anularVenta(venta.id);
+      const resAnulacion = await anularVenta(
+        venta.id,
+        "Edición: venta reabierta en el punto de venta",
+      );
       if (!resAnulacion.success) throw new Error(resAnulacion.error);
 
       const dataMaster = await obtenerProductosYClientes();
@@ -189,7 +194,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         return {
           producto: prodEncontrado || {
             id: d.producto_id,
-            codigo: d.inv_productos?.codigo || "",
+            codigo: d.inv_lotes?.codigo_barras || "",
             nombre: d.inv_productos?.nombre || "Producto",
             descripcion: "",
             precio_base: d.precio_aplicado,
@@ -574,7 +579,13 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
           </div>
         </div>
 
-        <div className="flex bg-[#F5F5F1] dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 p-1.5 rounded-2xl w-fit">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+          {ventas.activeTab === "pos" ? (
+            <PanelSolicitudesRebajaVentas
+              onRevisarAdmin={(id) => router.replace(`/farmamuni/ventas?rebaja=${id}`)}
+            />
+          ) : null}
+          <div className="flex bg-[#F5F5F1] dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 p-1.5 rounded-2xl w-fit">
           <button
             onClick={() => ventas.setActiveTab("pos")}
             className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
@@ -593,10 +604,12 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
               Historial de Ventas
             </button>
           ) : null}
+          </div>
         </div>
       </div>
 
       <ModalAutorizacionRebajaVentas />
+      <SolicitudesRebajaAdmin />
 
       {ventas.activeTab === "pos" || !puedeVerHistorial ? (
         <div className="flex flex-col lg:flex-row gap-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">

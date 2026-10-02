@@ -42,6 +42,14 @@ interface ComprasContextProps {
   setCantSeleccionada: (val: number | "") => void;
   costoSeleccionado: number | "";
   setCostoSeleccionado: (val: number | "") => void;
+  codigoBarrasLote: string;
+  setCodigoBarrasLote: (val: string) => void;
+  numeroLote: string;
+  setNumeroLote: (val: string) => void;
+  fechaVencimientoLote: string;
+  setFechaVencimientoLote: (val: string) => void;
+  ubicacionLote: string;
+  setUbicacionLote: (val: string) => void;
 
   // Datos orden
   estadoPago: "Pendiente" | "Pagado";
@@ -79,6 +87,10 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const [mostrarSugerenciasProd, setMostrarSugerenciasProd] = useState(false);
   const [cantSeleccionada, setCantSeleccionada] = useState<number | "">(1);
   const [costoSeleccionado, setCostoSeleccionado] = useState<number | "">("");
+  const [codigoBarrasLote, setCodigoBarrasLote] = useState("");
+  const [numeroLote, setNumeroLote] = useState("");
+  const [fechaVencimientoLote, setFechaVencimientoLote] = useState("");
+  const [ubicacionLote, setUbicacionLote] = useState("");
 
   const [estadoPago, setEstadoPago] = useState<"Pendiente" | "Pagado">("Pagado");
   const [observaciones, setObservaciones] = useState("");
@@ -86,7 +98,12 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
 
   const agregarAlCarrito = (item: ItemCarritoCompra) => {
     setCarrito((prev) => {
-      const exists = prev.findIndex((p) => p.producto.id === item.producto.id && p.precio_costo === item.precio_costo);
+      const exists = prev.findIndex(
+        (p) =>
+          p.producto.id === item.producto.id &&
+          p.codigo_barras === item.codigo_barras &&
+          p.precio_costo === item.precio_costo,
+      );
       if (exists !== -1) {
         const copy = [...prev];
         copy[exists].cantidad += item.cantidad;
@@ -108,6 +125,10 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     setProveedorAutoSeleccionado(false);
     setObservaciones("");
     setEstadoPago("Pagado");
+    setCodigoBarrasLote("");
+    setNumeroLote("");
+    setFechaVencimientoLote("");
+    setUbicacionLote("");
   };
 
   return (
@@ -129,6 +150,10 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         mostrarSugerenciasProd, setMostrarSugerenciasProd,
         cantSeleccionada, setCantSeleccionada,
         costoSeleccionado, setCostoSeleccionado,
+        codigoBarrasLote, setCodigoBarrasLote,
+        numeroLote, setNumeroLote,
+        fechaVencimientoLote, setFechaVencimientoLote,
+        ubicacionLote, setUbicacionLote,
         estadoPago, setEstadoPago,
         observaciones, setObservaciones,
         isProcesando, setIsProcesando,

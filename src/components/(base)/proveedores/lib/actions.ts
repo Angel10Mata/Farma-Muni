@@ -4,6 +4,37 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from "./zod";
 
+type ActionFail = { success?: false; code: string; detail?: string };
+
+function mapDbError(error: { code?: string; message?: string }): ActionFail {
+  const msg = error.message ?? "";
+  if (error.code === "23505" || msg.includes("inv_lotes_codigo_barras_unique") || msg.includes("codigo_barras")) {
+    return {
+      code: "DUPLICATE",
+      detail: "Ese código de barras ya existe en otro lote. Usa un código distinto.",
+    };
+  }
+  if (error.code === "42501" || msg.toLowerCase().includes("row-level security")) {
+    return {
+      code: "FORBIDDEN",
+      detail: "Permiso denegado (RLS). Ejecuta la migración de políticas de compras en Supabase.",
+    };
+  }
+  return { code: "DB_ERROR", detail: msg.slice(0, 200) || undefined };
+}
+
+function esEstadoPagado(estado: string) {
+  return estado.trim().toLowerCase() === "pagado";
+}
+
+function normalizarFechaLote(fecha: string) {
+  const trimmed = fecha.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return trimmed.slice(0, 10);
+  }
+  return trimmed;
+}
+
 export async function obtenerProveedores() {
   try {
     const supabase = await createClient();
@@ -85,7 +116,7 @@ export async function obtenerProveedoresYProductos() {
 
     const { data: productos, error: prodError } = await supabase
       .from("inv_productos")
-      .select("id, codigo, nombre, precio_base, precio_costo, stock_actual, activo, proveedor_id")
+      .select("id, nombre, precio_base, stock_actual, activo, proveedor_id")
       .eq("activo", true)
       .order("nombre", { ascending: true });
 
@@ -110,52 +141,70 @@ export async function crearCompra(input: CompraInput) {
     if (!parsed.success) return { code: "VALIDATION" as const };
 
     const { proveedor_id, total, estado_pago, observaciones, items } = parsed.data;
+    const pagado = esEstadoPagado(estado_pago);
 
     const { data: compra, error: compraError } = await supabase
       .from("inv_compras")
       .insert({
         proveedor_id,
         total,
-        estado_pago,
-        fecha_pago: estado_pago === "Pagado" ? new Date().toISOString() : null,
+        estado_pago: pagado ? "Pagado" : estado_pago,
+        fecha_pago: pagado ? new Date().toISOString() : null,
         observaciones: observaciones?.trim() || null,
       })
       .select("id")
       .single();
 
-    if (compraError || !compra) return { code: "INTERNAL" as const };
-
-    const detalles = items.map((item) => ({
-      compra_id: compra.id,
-      producto_id: item.producto_id,
-      cantidad: item.cantidad,
-      precio_costo: item.precio_costo,
-      subtotal: item.subtotal,
-    }));
-
-    const { error: detallesError } = await supabase.from("inv_compras_detalles").insert(detalles);
-    if (detallesError) return { code: "INTERNAL" as const };
-
-    for (const item of items) {
-      const { data: prod, error: findError } = await supabase
-        .from("inv_productos")
-        .select("stock_actual")
-        .eq("id", item.producto_id)
-        .single();
-
-      if (findError || !prod) return { code: "NOT_FOUND" as const };
-
-      const nuevoStock = (prod.stock_actual || 0) + item.cantidad;
-      const { error: stockError } = await supabase
-        .from("inv_productos")
-        .update({ stock_actual: nuevoStock, proveedor_id })
-        .eq("id", item.producto_id);
-
-      if (stockError) return { code: "INTERNAL" as const };
+    if (compraError || !compra) {
+      return mapDbError(compraError ?? { message: "No se creó la compra." });
     }
 
-    if (estado_pago === "Pagado") {
-      await supabase.from("fin_transacciones").insert({
+    for (const item of items) {
+      const { data: detalleRow, error: detalleError } = await supabase
+        .from("inv_compras_detalles")
+        .insert({
+          compra_id: compra.id,
+          producto_id: item.producto_id,
+          cantidad: item.cantidad,
+          precio_costo: item.precio_costo,
+          subtotal: item.subtotal,
+        })
+        .select("id")
+        .single();
+
+      if (detalleError || !detalleRow) {
+        return mapDbError(detalleError ?? { message: "No se guardó el detalle de compra." });
+      }
+
+      const { error: loteError } = await supabase.from("inv_lotes").insert({
+        producto_id: item.producto_id,
+        compra_detalle_id: detalleRow.id,
+        codigo_barras: item.codigo_barras.trim(),
+        numero_lote: item.numero_lote.trim(),
+        cantidad_inicial: item.cantidad,
+        cantidad_actual: item.cantidad,
+        precio_costo: item.precio_costo,
+        fecha_vencimiento: normalizarFechaLote(item.fecha_vencimiento),
+        ubicacion: item.ubicacion?.trim() || null,
+        activo: true,
+      });
+
+      if (loteError) {
+        return mapDbError(loteError);
+      }
+
+      const { error: provError } = await supabase
+        .from("inv_productos")
+        .update({ proveedor_id })
+        .eq("id", item.producto_id);
+
+      if (provError) {
+        return mapDbError(provError);
+      }
+    }
+
+    if (pagado) {
+      const { error: finError } = await supabase.from("fin_transacciones").insert({
         tipo_movimiento: "egreso",
         categoria: "pago_proveedor",
         monto: total,
@@ -163,6 +212,9 @@ export async function crearCompra(input: CompraInput) {
         usuario_id: user.id,
         compra_id: compra.id,
       });
+      if (finError) {
+        return mapDbError(finError);
+      }
     }
 
     revalidatePath("/farmamuni/inventario");
@@ -170,8 +222,9 @@ export async function crearCompra(input: CompraInput) {
     revalidatePath("/farmamuni/finanzas");
 
     return { success: true as const, compra_id: compra.id };
-  } catch {
-    return { code: "INTERNAL" as const };
+  } catch (e: unknown) {
+    const message = e instanceof Error ? e.message : "Error inesperado.";
+    return { code: "INTERNAL" as const, detail: message };
   }
 }
 
@@ -183,7 +236,7 @@ export async function obtenerHistorialCompras() {
 
     const { data, error } = await supabase
       .from("inv_compras")
-      .select("*, inv_proveedores(nombre, nit), fin_transacciones(*), inv_compras_detalles(*, inv_productos(nombre, codigo))")
+      .select("*, inv_proveedores(nombre, nit), fin_transacciones(*), inv_compras_detalles(*, inv_productos(nombre))")
       .order("created_at", { ascending: false });
 
     if (error) return { code: "INTERNAL" as const };
@@ -220,7 +273,7 @@ export async function obtenerDetalleCompra(compraId: string) {
 
     const { data, error } = await supabase
       .from("inv_compras_detalles")
-      .select("*, inv_productos(nombre, codigo)")
+      .select("*, inv_productos(nombre)")
       .eq("compra_id", compraId);
 
     if (error) return { code: "INTERNAL" as const };

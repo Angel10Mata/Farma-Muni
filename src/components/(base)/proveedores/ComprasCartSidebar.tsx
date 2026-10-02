@@ -7,7 +7,7 @@ import { Save, Check } from "lucide";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { modalActionMessage } from "@/components/ui/general-modal";
+import { actionErrorMessage } from "@/lib/modal-toast";
 import { useCompras } from "./ComprasContext";
 import { Proveedor } from "./lib/zod";
 import { fmtQ, getSwalThemeOpts } from "@/lib/utils";
@@ -68,9 +68,13 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
     try {
       const itemsFormatted: ItemCompraInput[] = context.carrito.map((i) => ({
         producto_id: i.producto.id,
+        codigo_barras: i.codigo_barras,
+        numero_lote: i.numero_lote,
+        fecha_vencimiento: i.fecha_vencimiento,
+        ubicacion: i.ubicacion ?? null,
         cantidad: i.cantidad,
         precio_costo: i.precio_costo,
-        subtotal: i.subtotal
+        subtotal: i.subtotal,
       }));
 
       const res = await crearCompraAsync({
@@ -82,7 +86,10 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
       });
 
       if (!res.success) {
-        throw new Error(res.code || "Error");
+        const fail = res as { code?: string; detail?: string };
+        const err = new Error(fail.code || "INTERNAL") as Error & { detail?: string };
+        err.detail = fail.detail;
+        throw err;
       }
 
       toast.success("Compra registrada correctamente. El inventario se actualizó.");
@@ -90,8 +97,13 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
       context.limpiarCarrito();
       cargarDatos();
     } catch (e: unknown) {
-      const code = e instanceof Error ? e.message : undefined;
-      toast.error(modalActionMessage(code, "No se pudo registrar la compra."));
+      const err = e as Error & { detail?: string };
+      toast.error(
+        actionErrorMessage(
+          { error: err.message, detail: err.detail },
+          "No se pudo registrar la compra.",
+        ),
+      );
     } finally {
       context.setIsProcesando(false);
     }

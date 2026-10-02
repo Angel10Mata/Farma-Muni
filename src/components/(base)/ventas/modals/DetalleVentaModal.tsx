@@ -8,7 +8,6 @@ import { createClient } from "@/utils/supabase/client";
 import { fmtQ } from "@/lib/utils";
 import {
   ModalCancelButton,
-  ModalConfirmDelete,
   ModalField,
   ModalFooter,
   ModalForm,
@@ -18,8 +17,9 @@ import {
   toast,
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { useDetalleVenta, useAnularVenta, useEditarDetalleVenta, useEliminarDetalleVenta } from "../lib/hooks";
-import { obtenerCodigoRecibo } from "../lib/helpers";
+import { useDetalleVenta, useAnularVenta, useEditarDetalleVenta, useEliminarDetalleVenta, useBitacoraVenta } from "../lib/hooks";
+import { obtenerCodigoRecibo, resumenAccionBitacoraVenta } from "../lib/helpers";
+import { formatFechaHoraTablaCompactGt } from "@/lib/fechas-gt";
 
 interface DetalleVentaModalProps {
   venta: any;
@@ -29,6 +29,7 @@ interface DetalleVentaModalProps {
 
 export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModalProps) {
   const { data: detalles = [], isLoading } = useDetalleVenta(venta.id);
+  const { data: bitacora = [], isLoading: bitacoraLoading } = useBitacoraVenta(venta.id);
   const { mutate: anularVenta, isPending: isAnulando } = useAnularVenta();
   const { mutate: editarDetalle, isPending: isEditando } = useEditarDetalleVenta();
   const { mutate: eliminarDetalle, isPending: isEliminando } = useEliminarDetalleVenta();
@@ -37,7 +38,6 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
   const [editingDetalleQty, setEditingDetalleQty] = useState(0);
   const [editingDetallePrice, setEditingDetallePrice] = useState(0);
 
-  const [confirmAnularOpen, setConfirmAnularOpen] = useState(false);
   const [promptModal, setPromptModal] = useState<{
     isOpen: boolean;
     message: string;
@@ -62,7 +62,9 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
           ventaId: venta.id,
           productoId: detalle.producto_id,
           nuevaCantidad: editingDetalleQty,
-          nuevoPrecio: editingDetallePrice
+          nuevoPrecio: editingDetallePrice,
+          motivo: motivo.trim(),
+          productoNombre: detalle.inv_productos?.nombre,
         }, {
           onSuccess: () => setEditingDetalleId(null)
         });
@@ -85,7 +87,9 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
           detalleId: detalle.id,
           ventaId: venta.id,
           productoId: detalle.producto_id,
-          cantidadADevolver: detalle.cantidad
+          cantidadADevolver: detalle.cantidad,
+          motivo: motivo.trim(),
+          productoNombre: detalle.inv_productos?.nombre,
         });
         setPromptModal((prev) => ({ ...prev, isOpen: false, value: "" }));
       }
@@ -143,7 +147,54 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                   {venta.profiles?.nombre || "N/A"}
                 </span>
               </div>
+              {bitacora.length > 0 && (
+                <div className="flex justify-between items-start gap-2 text-xs border-t border-zinc-100 dark:border-zinc-700 pt-2 mt-1">
+                  <span className="text-zinc-500 font-semibold uppercase shrink-0">Última modificación:</span>
+                  <span className="text-zinc-900 dark:text-white font-bold text-right leading-snug">
+                    {bitacora[0].profiles?.nombre ?? "Usuario"}
+                    <span className="block text-[10px] font-medium text-zinc-500 mt-0.5">
+                      {formatFechaHoraTablaCompactGt(bitacora[0].created_at)}
+                    </span>
+                  </span>
+                </div>
+              )}
             </div>
+
+            {(bitacoraLoading || bitacora.length > 0) && (
+              <div className="space-y-2">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                  Quién modificó esta factura
+                </h4>
+                <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl overflow-hidden shadow-sm">
+                  {bitacoraLoading ? (
+                    <div className="py-6 flex justify-center">
+                      <div className="size-5 rounded-full border-2 border-[#8DA78E]/30 border-t-[#8DA78E] animate-spin" />
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
+                      {bitacora.map((entry) => (
+                        <li key={entry.id} className="p-3.5 space-y-1.5 text-xs">
+                          <div className="flex justify-between items-start gap-2">
+                            <span className="font-bold text-zinc-900 dark:text-white">
+                              {entry.profiles?.nombre ?? "Sin nombre"}
+                            </span>
+                            <span className="text-[10px] text-zinc-500 shrink-0">
+                              {formatFechaHoraTablaCompactGt(entry.created_at)}
+                            </span>
+                          </div>
+                          <p className="text-[11px] font-semibold text-[#8DA78E]">
+                            {resumenAccionBitacoraVenta(entry)}
+                          </p>
+                          <p className="text-[10px] text-zinc-500 italic leading-relaxed">
+                            Motivo: {entry.motivo}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Detalle de Artículos</h4>
@@ -281,7 +332,29 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
               accentColor={sigetAccent.quitar}
               morphFrom={Trash2Node}
               morphTo={TrashNode}
-              onClick={() => setConfirmAnularOpen(true)}
+              onClick={() =>
+                setPromptModal({
+                  isOpen: true,
+                  message:
+                    "Anular venta completa.\nRevertirá inventario y quedará registrado en bitácora.\n\nIngresa el motivo (obligatorio):",
+                  value: "",
+                  onConfirm: (motivo) => {
+                    if (!motivo.trim()) {
+                      toast.warn("El motivo es obligatorio.");
+                      return;
+                    }
+                    anularVenta(
+                      { ventaId: venta.id, motivo: motivo.trim() },
+                      {
+                        onSuccess: () => {
+                          setPromptModal((prev) => ({ ...prev, isOpen: false, value: "" }));
+                          onClose();
+                        },
+                      },
+                    );
+                  },
+                })
+              }
               disabled={isLoading || isAnulando}
               className="w-full"
             />
@@ -302,30 +375,6 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
           </motion.div>
         </motion.div>
       </AnimatePresence>
-
-      <ModalShell
-        open={confirmAnularOpen}
-        onClose={() => setConfirmAnularOpen(false)}
-        title="Anular venta"
-        maxWidth="max-w-sm"
-      >
-        {confirmAnularOpen && (
-          <ModalConfirmDelete
-            message="¿Estás seguro de anular esta venta? Esta acción revertirá el inventario y no se puede deshacer."
-            pending={isAnulando}
-            confirmText="Anular"
-            onCancel={() => setConfirmAnularOpen(false)}
-            onConfirm={() => {
-              anularVenta(venta.id, {
-                onSuccess: () => {
-                  setConfirmAnularOpen(false);
-                  onClose();
-                }
-              });
-            }}
-          />
-        )}
-      </ModalShell>
 
       <ModalShell
         open={promptModal.isOpen}

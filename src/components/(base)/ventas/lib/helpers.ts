@@ -1,4 +1,5 @@
-import type { ItemCarrito, SolicitudRebajaPayload } from "./zod";
+import type { ItemCarrito, SolicitudRebajaPayload, VentaBitacoraEntry } from "./zod";
+import { fechaCalendarioGt } from "@/lib/fechas-gt";
 
 export const obtenerCodigoRecibo = (id: string) => {
   if (!id) return "N/A";
@@ -48,7 +49,7 @@ export function mensajePrecioBajoCosto(nombre: string, costo: number): string {
 /** Primer error del carrito respecto al costo, o null si todo es válido. */
 export function validarCarritoPrecioCosto(carrito: ItemCarrito[]): string | null {
   for (const item of carrito) {
-    const costo = costoUnitarioProducto(item.producto.precio_costo);
+    const costo = costoUnitarioProducto(item.precio_costo_lote);
     if (precioMenorQueCosto(item.precio_aplicado, costo)) {
       return mensajePrecioBajoCosto(item.producto.nombre, costo);
     }
@@ -79,7 +80,7 @@ export function buildSolicitudRebajaPayload(params: {
       cantidad: i.cantidad,
       precio_aplicado: i.precio_aplicado,
       precio_base: i.producto.precio_base,
-      precio_costo: costoUnitarioProducto(i.producto.precio_costo),
+      precio_costo: costoUnitarioProducto(i.precio_costo_lote),
       subtotal: i.subtotal,
       producto_nombre: i.producto.nombre,
       producto_codigo: i.producto.codigo,
@@ -125,4 +126,55 @@ export function payloadCoincideConVenta(
     }
   }
   return true;
+}
+
+export function fechaVentaCalendarioGt(createdAt: string | null | undefined): string {
+  if (!createdAt) return "";
+  const date = new Date(createdAt);
+  if (Number.isNaN(date.getTime())) return "";
+  return fechaCalendarioGt(date);
+}
+
+export function ventaEsContadoHistorial(tipoVenta: string | null | undefined): boolean {
+  const t = (tipoVenta ?? "Contado").trim();
+  return ["Efectivo", "Contado", "Transferencia", "Tarjeta"].includes(t);
+}
+
+export function ventaEsCreditoHistorial(tipoVenta: string | null | undefined): boolean {
+  const t = (tipoVenta ?? "").trim();
+  return t === "Crédito" || t.toLowerCase() === "credito";
+}
+
+export function ventaCoincideFiltroPagoHistorial(
+  tipoVenta: string | null | undefined,
+  filtro: "todos" | "contado" | "credito",
+): boolean {
+  if (filtro === "todos") return true;
+  if (filtro === "contado") return ventaEsContadoHistorial(tipoVenta);
+  return ventaEsCreditoHistorial(tipoVenta);
+}
+
+export function resumenAccionBitacoraVenta(entry: Pick<VentaBitacoraEntry, "accion" | "detalle">): string {
+  const det = entry.detalle ?? {};
+  const nombre =
+    typeof det.producto_nombre === "string" && det.producto_nombre.trim()
+      ? det.producto_nombre
+      : "Producto";
+
+  if (entry.accion === "quitar_linea") {
+    const cant =
+      typeof det.cantidad_devuelta === "number" ? det.cantidad_devuelta : null;
+    return cant != null ? `Quitó ${nombre} (${cant} ud.)` : `Quitó ${nombre}`;
+  }
+
+  if (entry.accion === "editar_linea") {
+    const cantAnt = typeof det.cantidad_anterior === "number" ? det.cantidad_anterior : null;
+    const cantNueva = typeof det.cantidad_nueva === "number" ? det.cantidad_nueva : null;
+    if (cantAnt != null && cantNueva != null) {
+      return `Editó ${nombre}: ${cantAnt} → ${cantNueva} ud.`;
+    }
+    return `Editó línea: ${nombre}`;
+  }
+
+  return "Anuló la venta completa";
 }

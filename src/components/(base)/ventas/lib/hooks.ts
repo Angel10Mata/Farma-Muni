@@ -14,6 +14,7 @@ import {
 import {
   obtenerHistorialVentas,
   obtenerDetalleVenta,
+  obtenerBitacoraVenta,
   anularVenta,
   editarDetalleVentaDirecto,
   eliminarDetalleVentaDirecto,
@@ -22,6 +23,7 @@ import {
   aprobarSolicitudRebaja,
   rechazarSolicitudRebaja,
   obtenerSolicitudRebaja,
+  obtenerMiSolicitudRebajaPendiente,
 } from "./actions";
 
 export function useDatosVentas() {
@@ -70,17 +72,32 @@ export function useDetalleVenta(ventaId: string | null) {
   });
 }
 
+export function useBitacoraVenta(ventaId: string | null) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["ventas", "bitacora", ventaId], isDemoMode),
+    queryFn: async () => {
+      if (!ventaId) return [];
+      return await obtenerBitacoraVenta(ventaId);
+    },
+    enabled: !!ventaId && !isDemoMode,
+  });
+}
+
 export function useAnularVenta() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (ventaId: string) => {
+    mutationFn: async (params: { ventaId: string; motivo: string }) => {
       assertWritableDemo(isDemoMode);
-      return await anularVenta(ventaId);
+      const res = await anularVenta(params.ventaId, params.motivo);
+      if (!res.success) throw new Error(res.error ?? "Error al anular");
+      return res;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success("Venta anulada correctamente");
       queryClient.invalidateQueries({ queryKey: ["ventas", "historial"] });
+      queryClient.invalidateQueries({ queryKey: ["ventas", "bitacora", variables.ventaId] });
       queryClient.invalidateQueries({ queryKey: ["finanzas"] });
       queryClient.invalidateQueries({ queryKey: ["inventario"] });
     },
@@ -100,19 +117,38 @@ export function useEditarDetalleVenta() {
       productoId: string;
       nuevaCantidad: number;
       nuevoPrecio: number;
+      motivo: string;
+      productoNombre?: string;
     }) => {
       assertWritableDemo(isDemoMode);
-      return await editarDetalleVentaDirecto(params);
+      const res = await editarDetalleVentaDirecto(params);
+      if (!res.success) throw new Error(res.error ?? "Error al editar");
+      return res;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success("Detalle actualizado correctamente");
       queryClient.invalidateQueries({ queryKey: ["ventas", "detalle"] });
       queryClient.invalidateQueries({ queryKey: ["ventas", "historial"] });
+      queryClient.invalidateQueries({ queryKey: ["ventas", "bitacora", variables.ventaId] });
       queryClient.invalidateQueries({ queryKey: ["inventario"] });
     },
     onError: (error: Error) => {
       toast.error(error.message || "Error al editar detalle");
     },
+  });
+}
+
+export function useMiSolicitudRebajaPendiente(enabled: boolean) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["ventas", "mi-rebaja-pendiente"], isDemoMode),
+    queryFn: async () => {
+      if (isDemoMode) return null;
+      const res = await obtenerMiSolicitudRebajaPendiente();
+      if (!res.success) throw new Error(res.error ?? "Error al cargar solicitud");
+      return res.solicitud;
+    },
+    enabled: enabled && !isDemoMode,
   });
 }
 
@@ -127,7 +163,6 @@ export function useSolicitudesRebajaPendientes(enabled: boolean) {
       return res.solicitudes;
     },
     enabled: enabled && !isDemoMode,
-    refetchInterval: enabled && !isDemoMode ? 8000 : false,
   });
 }
 
@@ -142,7 +177,6 @@ export function useEstadoSolicitudRebaja(solicitudId: string | null) {
       return res.solicitud;
     },
     enabled: !!solicitudId && !isDemoMode,
-    refetchInterval: solicitudId && !isDemoMode ? 3000 : false,
   });
 }
 
@@ -158,6 +192,7 @@ export function useAprobarSolicitudRebaja() {
       if (res.success) {
         toast.success("Rebaja autorizada");
         queryClient.invalidateQueries({ queryKey: ["ventas", "rebajas-pendientes"] });
+        queryClient.invalidateQueries({ queryKey: ["ventas", "mi-rebaja-pendiente"] });
       } else {
         toast.error(res.error ?? "No se pudo aprobar");
       }
@@ -180,6 +215,7 @@ export function useRechazarSolicitudRebaja() {
       if (res.success) {
         toast.success("Solicitud rechazada");
         queryClient.invalidateQueries({ queryKey: ["ventas", "rebajas-pendientes"] });
+        queryClient.invalidateQueries({ queryKey: ["ventas", "mi-rebaja-pendiente"] });
       } else {
         toast.error(res.error ?? "No se pudo rechazar");
       }
@@ -199,14 +235,19 @@ export function useEliminarDetalleVenta() {
       ventaId: string;
       productoId: string;
       cantidadADevolver: number;
+      motivo: string;
+      productoNombre?: string;
     }) => {
       assertWritableDemo(isDemoMode);
-      return await eliminarDetalleVentaDirecto(params);
+      const res = await eliminarDetalleVentaDirecto(params);
+      if (!res.success) throw new Error(res.error ?? "Error al eliminar");
+      return res;
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
       toast.success("Producto eliminado de la venta");
       queryClient.invalidateQueries({ queryKey: ["ventas", "detalle"] });
       queryClient.invalidateQueries({ queryKey: ["ventas", "historial"] });
+      queryClient.invalidateQueries({ queryKey: ["ventas", "bitacora", variables.ventaId] });
       queryClient.invalidateQueries({ queryKey: ["inventario"] });
     },
     onError: (error: Error) => {

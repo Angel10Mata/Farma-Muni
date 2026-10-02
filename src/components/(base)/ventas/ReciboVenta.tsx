@@ -127,8 +127,8 @@ export function mapDetallesToReciboItems(detalles: any[]): ReciboVentaItem[] {
   return detalles.map((d) => ({
     cantidad: d.cantidad,
     nombre: d.inv_productos?.nombre || "Producto",
-    descripcion: d.inv_productos?.codigo
-      ? `${d.inv_productos.codigo}${d.precio_aplicado ? ` · ${fmtQ(d.precio_aplicado)} c/u` : ""}`
+    descripcion: (d.inv_lotes?.codigo_barras ?? d.inv_productos?.codigo)
+      ? `${d.inv_lotes?.codigo_barras ?? d.inv_productos?.codigo}${d.precio_aplicado ? ` · ${fmtQ(d.precio_aplicado)} c/u` : ""}`
       : d.precio_aplicado
         ? `${fmtQ(d.precio_aplicado)} c/u`
         : null,

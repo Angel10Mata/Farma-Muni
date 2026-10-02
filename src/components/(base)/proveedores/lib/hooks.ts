@@ -162,14 +162,19 @@ export function useCrearCompra() {
     mutationFn: async (data: CompraInput) => {
       assertWritableDemo(isDemoMode);
       const res = await crearCompra(data);
-      if (!res.success) throw new Error(res.code);
+      if (!res.success) {
+        const err = new Error(res.code) as Error & { detail?: string };
+        err.detail = "detail" in res ? res.detail : undefined;
+        throw err;
+      }
       return res;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["proveedores-productos"] });
       queryClient.invalidateQueries({ queryKey: ["compras-historial"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
+      queryClient.invalidateQueries({ queryKey: ["productos"] });
     },
-    onError: (error: Error) => toast.error(error.message),
   });
 }
 

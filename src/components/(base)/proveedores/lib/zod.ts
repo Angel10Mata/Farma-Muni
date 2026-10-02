@@ -11,16 +11,18 @@ export const ProveedorSchema = z.object({
 
 export const ProductoSchema = z.object({
   id: z.string(),
-  codigo: z.string(),
   nombre: z.string(),
   precio_base: z.number(),
-  precio_costo: z.number().nullable().optional(),
   stock_actual: z.number(),
   proveedor_id: z.string().nullable().optional(),
 });
 
 export const ItemCarritoCompraSchema = z.object({
   producto: ProductoSchema,
+  codigo_barras: z.string().min(1, "Código de barras obligatorio"),
+  numero_lote: z.string().min(1, "Número de lote obligatorio"),
+  fecha_vencimiento: z.string().min(1, "Fecha de vencimiento obligatoria"),
+  ubicacion: z.string().nullable().optional(),
   cantidad: z.number(),
   precio_costo: z.number(),
   subtotal: z.number(),
@@ -62,6 +64,10 @@ export type ProveedorInput = z.infer<typeof ProveedorInputSchema>;
 
 export const ItemCompraSchema = z.object({
   producto_id: z.string().min(1),
+  codigo_barras: z.string().min(1, "El código de barras del lote es obligatorio"),
+  numero_lote: z.string().min(1, "Número de lote obligatorio"),
+  fecha_vencimiento: z.string().min(1, "Fecha de vencimiento obligatoria"),
+  ubicacion: z.string().nullable().optional(),
   cantidad: z.number().positive(),
   precio_costo: z.number().nonnegative(),
   subtotal: z.number().nonnegative(),

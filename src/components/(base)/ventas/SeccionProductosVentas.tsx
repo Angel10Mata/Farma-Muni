@@ -8,6 +8,8 @@ import { fmtQ } from "@/lib/utils";
 import { Producto, Cliente } from "./lib/zod";
 import { useVentas } from "./ContextoVentas";
 import { toast } from "@/components/ui/general-modal";
+import { buscarLotePorCodigoBarras } from "./lib/actions";
+import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 
 interface SeccionProductosVentasProps {
   productos: Producto[];
@@ -16,6 +18,7 @@ interface SeccionProductosVentasProps {
 
 export function SeccionProductosVentas({ productos, clientes }: SeccionProductosVentasProps) {
   const ventas = useVentas();
+  const { isDemoMode } = useDemoMode();
   
   const clienteDropdownRef = useRef<HTMLDivElement>(null);
   const prodDropdownRef = useRef<HTMLDivElement>(null);
@@ -32,10 +35,7 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
   const sugerenciasProductos = productos.filter((p) => {
     if (!ventas.productoBusqueda) return false;
     const query = ventas.productoBusqueda.toLowerCase();
-    return (
-      (p.nombre || "").toLowerCase().includes(query) ||
-      (p.codigo && p.codigo.toLowerCase().includes(query))
-    );
+    return (p.nombre || "").toLowerCase().includes(query);
   });
 
   return (
@@ -188,15 +188,35 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
                 ventas.setMostrarSugerenciasProd(true);
               }}
               onFocus={() => ventas.setMostrarSugerenciasProd(true)}
-              onKeyDown={(e) => {
+              onKeyDown={async (e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  const query = e.currentTarget.value.trim().toLowerCase();
+                  const query = e.currentTarget.value.trim();
                   if (!query) return;
-                  
-                  const exactMatch = productos.find(p => p.codigo?.toLowerCase() === query);
+
+                  if (!isDemoMode) {
+                    const res = await buscarLotePorCodigoBarras(query);
+                    if (res.success) {
+                      const prod = {
+                        ...res.producto,
+                        codigo: res.lote.codigo_barras,
+                      };
+                      await ventas.handleAgregarAlCarrito(prod, 1, {
+                        lote_id: res.lote.id,
+                        codigo_barras_lote: res.lote.codigo_barras,
+                        stock_lote: res.lote.cantidad_actual,
+                        precio_costo_lote: res.lote.precio_costo,
+                      });
+                      ventas.setProductoBusqueda("");
+                      return;
+                    }
+                  }
+
+                  const exactMatch = productos.find(
+                    (p) => p.codigo?.toLowerCase() === query.toLowerCase(),
+                  );
                   if (exactMatch) {
-                    ventas.handleAgregarAlCarrito(exactMatch, 1);
+                    await ventas.handleAgregarAlCarrito(exactMatch, 1);
                   } else {
                     toast.error(`No se encontró el código: ${query}`);
                     ventas.setProductoBusqueda("");

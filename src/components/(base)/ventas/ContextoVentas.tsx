@@ -1,12 +1,18 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useEffect, useRef } from "react";
+import React, { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback } from "react";
 import { Producto, Cliente, ItemCarrito, Venta } from "./lib/zod";
 import Swal from "sweetalert2";
 import { toast } from "@/components/ui/general-modal";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
-import { ItemVentaInput, autorizarRebajaConCredencialesAdmin, crearSolicitudRebaja, crearVenta } from "./lib/actions";
+import {
+  ItemVentaInput,
+  autorizarRebajaConCredencialesAdmin,
+  crearSolicitudRebaja,
+  crearVenta,
+  resolverLoteParaProducto,
+} from "./lib/actions";
 import { buildSolicitudRebajaPayload, carritoTieneRebajas, validarCarritoPrecioCosto } from "./lib/helpers";
 import { useEstadoSolicitudRebaja } from "./lib/hooks";
 import { getSwalThemeOpts } from "@/lib/utils";
@@ -73,7 +79,16 @@ interface VentasContextType {
   setReciboModalData: React.Dispatch<React.SetStateAction<any>>;
 
   // Handlers Globales
-  handleAgregarAlCarrito: (productoOverride?: Producto, cantOverride?: number) => void;
+  handleAgregarAlCarrito: (
+    productoOverride?: Producto,
+    cantOverride?: number,
+    loteMeta?: {
+      lote_id: string;
+      codigo_barras_lote: string;
+      stock_lote: number;
+      precio_costo_lote: number;
+    },
+  ) => Promise<void>;
   handleAjustarCantidad: (index: number, delta: number) => void;
   handleEliminarDelCarrito: (index: number) => void;
   handleFinalizarVenta: () => void;
@@ -86,6 +101,7 @@ interface VentasContextType {
   confirmarRebajaConAdmin: (usuario: string, clave: string) => Promise<void>;
   isValidandoAutorizacionRebaja: boolean;
   abrirAutorizacionRebajaDesdeNotificacion: (solicitudId: string) => void;
+  restaurarEsperaRebaja: (solicitudId: string) => void;
 }
 
 const VentasContext = createContext<VentasContextType | undefined>(undefined);
@@ -168,10 +184,16 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     }
   };
 
-  const abrirAutorizacionRebajaDesdeNotificacion = (id: string) => {
+  const abrirAutorizacionRebajaDesdeNotificacion = useCallback((id: string) => {
     setSolicitudRebajaId(id);
     setShowModalAutorizacionRebaja(true);
-  };
+  }, []);
+
+  const restaurarEsperaRebaja = useCallback((id: string) => {
+    setSolicitudRebajaId(id);
+    setEsperandoAutorizacionRebaja(true);
+    setRebajaAutorizada(false);
+  }, []);
 
   const { data: solicitudRebajaRemota } = useEstadoSolicitudRebaja(
     esperandoAutorizacionRebaja && solicitudRebajaId ? solicitudRebajaId : null,
@@ -223,34 +245,69 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
 
   const totalCarrito = carrito.reduce((sum, item) => sum + item.subtotal, 0);
 
-  const handleAgregarAlCarrito = (productoOverride?: Producto, cantOverride?: number) => {
+  const handleAgregarAlCarrito = async (
+    productoOverride?: Producto,
+    cantOverride?: number,
+    loteMeta?: {
+      lote_id: string;
+      codigo_barras_lote: string;
+      stock_lote: number;
+      precio_costo_lote: number;
+    },
+  ) => {
     const prod = productoOverride || productoSeleccionado;
     if (!prod) return;
-    
-    const cant = cantOverride !== undefined ? cantOverride : (Number(cantSeleccionada) || 0);
+
+    const cant = cantOverride !== undefined ? cantOverride : Number(cantSeleccionada) || 0;
     if (cant <= 0) return;
-    
-    setCarrito(prev => {
-      const itemExistente = prev.find((i) => i.producto.id === prod.id);
+
+    let lote = loteMeta;
+    if (!lote && !isDemoMode) {
+      const res = await resolverLoteParaProducto(prod.id, cant);
+      if (res.success) {
+        lote = {
+          lote_id: res.lote_id,
+          codigo_barras_lote: res.codigo_barras,
+          stock_lote: res.stock_lote,
+          precio_costo_lote: res.precio_costo,
+        };
+      }
+    }
+
+    const stockMax = lote?.stock_lote ?? prod.stock_actual;
+    const loteId = lote?.lote_id;
+
+    setCarrito((prev) => {
+      const itemExistente = prev.find(
+        (i) => i.producto.id === prod.id && (i.lote_id ?? null) === (loteId ?? null),
+      );
       const cantidadFinal = (itemExistente?.cantidad || 0) + cant;
 
-      if (cantidadFinal > prod.stock_actual) {
-        toast.warn(`Stock insuficiente. Disponibles: ${prod.stock_actual}.`);
+      if (cantidadFinal > stockMax) {
+        toast.warn(`Stock insuficiente. Disponibles: ${stockMax}.`);
         return prev;
       }
 
       if (itemExistente) {
         return prev.map((i) =>
-          i.producto.id === prod.id
+          i.producto.id === prod.id && (i.lote_id ?? null) === (loteId ?? null)
             ? { ...i, cantidad: cantidadFinal, subtotal: cantidadFinal * i.precio_aplicado }
-            : i
+            : i,
         );
-      } else {
-        return [
-          ...prev,
-          { producto: prod, cantidad: cant, precio_aplicado: prod.precio_base, subtotal: cant * prod.precio_base }
-        ];
       }
+      return [
+        ...prev,
+        {
+          producto: prod,
+          lote_id: loteId,
+          codigo_barras_lote: lote?.codigo_barras_lote,
+          stock_lote: lote?.stock_lote,
+          precio_costo_lote: lote?.precio_costo_lote,
+          cantidad: cant,
+          precio_aplicado: prod.precio_base,
+          subtotal: cant * prod.precio_base,
+        },
+      ];
     });
 
     setAnimateCart(true);
@@ -273,8 +330,9 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       return;
     }
 
-    if (nuevaCant > item.producto.stock_actual) {
-      toast.warn(`Solo hay ${item.producto.stock_actual} unidades disponibles.`);
+    const stockMax = item.stock_lote ?? item.producto.stock_actual;
+    if (nuevaCant > stockMax) {
+      toast.warn(`Solo hay ${stockMax} unidades disponibles.`);
       return;
     }
 
@@ -418,7 +476,10 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
           cantidad: i.cantidad,
           precio_aplicado: i.precio_aplicado,
           subtotal: i.subtotal,
-          inv_productos: { nombre: i.producto.nombre, codigo: i.producto.codigo },
+          inv_productos: {
+            nombre: i.producto.nombre,
+            codigo: i.codigo_barras_lote ?? i.producto.codigo ?? "",
+          },
         }));
         const clientSave = clienteSeleccionado;
         setCarrito([]);
@@ -436,9 +497,10 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
 
       const itemsFormatted: ItemVentaInput[] = carrito.map((i) => ({
         producto_id: i.producto.id,
+        lote_id: i.lote_id ?? null,
         cantidad: i.cantidad,
         precio_aplicado: i.precio_aplicado,
-        subtotal: i.subtotal
+        subtotal: i.subtotal,
       }));
 
       const res = await crearVenta({
@@ -471,7 +533,10 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
         cantidad: i.cantidad,
         precio_aplicado: i.precio_aplicado,
         subtotal: i.subtotal,
-        inv_productos: { nombre: i.producto.nombre, codigo: i.producto.codigo }
+        inv_productos: {
+          nombre: i.producto.nombre,
+          codigo: i.codigo_barras_lote ?? i.producto.codigo ?? "",
+        },
       }));
 
       refetchDatos();
@@ -534,6 +599,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       confirmarRebajaConAdmin,
       isValidandoAutorizacionRebaja,
       abrirAutorizacionRebajaDesdeNotificacion,
+      restaurarEsperaRebaja,
     }}>
       {children}
     </VentasContext.Provider>

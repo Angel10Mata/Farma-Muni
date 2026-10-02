@@ -1,10 +1,12 @@
 "use server";
 
-import { createClient } from "@/utils/supabase/server";
 import { createClient as createSupabaseAdmin } from "@supabase/supabase-js";
+import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { authSchema } from "./lib/zod";
+import { authSchema, INITIAL_USER_PASSWORD } from "./zod";
 import { mensajeErrorEs } from "@/lib/supabase-errors-es";
+import { mensajeSiServiceRoleKeyInvalida } from "@/lib/supabase-service-role-env";
+import { canAssignRole, canCreateUsers } from "@/components/(base)/(users)/usuarios/lib/permissions";
 
 function getAdminClient() {
   return createSupabaseAdmin(
@@ -45,7 +47,7 @@ async function obtenerRolCreador(): Promise<
     .maybeSingle();
 
   const rol = profile?.rol ?? user.user_metadata?.rol ?? "user";
-  if (rol !== "admin" && rol !== "super") {
+  if (!canCreateUsers(rol)) {
     return {
       ok: false,
       message: "No tienes permiso para crear usuarios.",
@@ -79,19 +81,20 @@ export async function signup(
       };
     }
 
-    const { name, username, password, rol } = validated.data;
+    const { name, username, rol } = validated.data;
+    const password = INITIAL_USER_PASSWORD;
 
-    if (rol === "super" && creador.rol !== "super") {
+    if (!canAssignRole(creador.rol, rol)) {
       return {
-        errors: { rol: ["Solo un Super Admin puede asignar el rol Super Admin."] },
+        errors: {
+          rol: ["No tienes permisos para asignar este rol."],
+        },
       };
     }
 
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY?.trim()) {
-      return {
-        message:
-          "Falta SUPABASE_SERVICE_ROLE_KEY en el entorno del servidor. No se puede crear usuarios hasta configurarla.",
-      };
+    const serviceKeyError = mensajeSiServiceRoleKeyInvalida();
+    if (serviceKeyError) {
+      return { message: serviceKeyError };
     }
 
     const fakeEmail = `${username}@app.com`;
@@ -100,10 +103,11 @@ export async function signup(
 
     const { data, error } = await supabaseAdmin.auth.admin.createUser({
       email: fakeEmail,
-      password: password,
+      password,
       email_confirm: true,
       user_metadata: {
         name,
+        nombre: name,
         username,
         rol,
       },
@@ -123,12 +127,15 @@ export async function signup(
     if (data.user) {
       const { error: profileError } = await supabaseAdmin
         .from("profiles")
-        .insert({
-          id: data.user.id,
-          nombre: name,
-          rol: rol,
-          email: fakeEmail,
-        });
+        .upsert(
+          {
+            id: data.user.id,
+            nombre: name,
+            rol,
+            email: fakeEmail,
+          },
+          { onConflict: "id" },
+        );
 
       if (profileError) {
         await supabaseAdmin.auth.admin.deleteUser(data.user.id);
@@ -145,8 +152,7 @@ export async function signup(
     return { success: true };
   } catch (err: unknown) {
     console.error("Signup error:", err);
-    const raw =
-      err instanceof Error ? err.message : "Error desconocido";
+    const raw = err instanceof Error ? err.message : "Error desconocido";
     return { message: mensajeErrorEs(raw) };
   }
 }

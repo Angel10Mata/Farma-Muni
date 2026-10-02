@@ -24,6 +24,150 @@ function sanitizeSearchTerm(term: string): string {
   return term.trim().replace(/[%_,]/g, (match) => `\\${match}`);
 }
 
+function rpcFinanzasNoDisponible(message: string): boolean {
+  return (
+    message.includes("schema cache") ||
+    message.includes("Could not find the function")
+  );
+}
+
+function ventaEsCreditoFinanzas(tipoVenta: string | null | undefined): boolean {
+  const t = (tipoVenta ?? "").trim().toLowerCase();
+  return t === "crédito" || t === "credito";
+}
+
+function ventaAnuladaFinanzas(observaciones: string | null | undefined): boolean {
+  return (observaciones ?? "").includes("[ANULADA]");
+}
+
+async function listarCuentasPorCobrarFallback(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<CuentaPorCobrar[]> {
+  const { data: ventas, error } = await supabase
+    .from("ventas")
+    .select(
+      "id, cliente_id, numero_recibo, created_at, total, observaciones, tipo_venta, ven_clientes(nombre)",
+    )
+    .not("cliente_id", "is", null);
+
+  if (error) throw new Error(error.message);
+
+  const creditoVentas = (ventas ?? []).filter(
+    (v) =>
+      ventaEsCreditoFinanzas(v.tipo_venta as string) &&
+      !ventaAnuladaFinanzas(v.observaciones as string | null) &&
+      v.cliente_id,
+  );
+
+  const ventaIds = creditoVentas.map((v) => v.id as string);
+  const cobradoPorVenta = new Map<string, number>();
+
+  const CHUNK = 200;
+  for (let i = 0; i < ventaIds.length; i += CHUNK) {
+    const chunk = ventaIds.slice(i, i + CHUNK);
+    const { data: txs, error: txError } = await supabase
+      .from("fin_transacciones")
+      .select("venta_id, monto, categoria")
+      .in("venta_id", chunk)
+      .in("categoria", ["abono_cliente", "venta"]);
+
+    if (txError) throw new Error(txError.message);
+
+    for (const tx of txs ?? []) {
+      if (!tx.venta_id) continue;
+      const prev = cobradoPorVenta.get(tx.venta_id) ?? 0;
+      cobradoPorVenta.set(tx.venta_id, prev + Number(tx.monto));
+    }
+  }
+
+  const resultado: CuentaPorCobrar[] = [];
+
+  for (const v of creditoVentas) {
+    const total = Number(v.total) || 0;
+    const totalCobrado = cobradoPorVenta.get(v.id as string) ?? 0;
+    const saldo = Math.max(0, total - totalCobrado);
+    if (saldo <= 0) continue;
+
+    const cliente = v.ven_clientes as { nombre?: string } | null;
+    resultado.push({
+      venta_id: v.id as string,
+      cliente_id: v.cliente_id as string,
+      cliente_nombre: cliente?.nombre?.trim() || "Cliente sin nombre",
+      numero_recibo:
+        v.numero_recibo != null ? String(v.numero_recibo) : null,
+      fecha_venta: v.created_at as string,
+      total,
+      total_cobrado: totalCobrado,
+      saldo_pendiente: saldo,
+    });
+  }
+
+  resultado.sort(
+    (a, b) =>
+      new Date(b.fecha_venta).getTime() - new Date(a.fecha_venta).getTime(),
+  );
+
+  return resultado;
+}
+
+async function listarCuentasPorPagarFallback(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+): Promise<CuentaPorPagar[]> {
+  const { data: compras, error } = await supabase
+    .from("inv_compras")
+    .select("id, proveedor_id, created_at, total, inv_proveedores(nombre)");
+
+  if (error) throw new Error(error.message);
+
+  const compraIds = (compras ?? []).map((c) => c.id as string);
+  const pagadoPorCompra = new Map<string, number>();
+
+  const CHUNK = 200;
+  for (let i = 0; i < compraIds.length; i += CHUNK) {
+    const chunk = compraIds.slice(i, i + CHUNK);
+    const { data: txs, error: txError } = await supabase
+      .from("fin_transacciones")
+      .select("compra_id, monto, categoria")
+      .in("compra_id", chunk)
+      .in("categoria", ["pago_proveedor", "compra"]);
+
+    if (txError) throw new Error(txError.message);
+
+    for (const tx of txs ?? []) {
+      if (!tx.compra_id) continue;
+      const prev = pagadoPorCompra.get(tx.compra_id) ?? 0;
+      pagadoPorCompra.set(tx.compra_id, prev + Math.abs(Number(tx.monto)));
+    }
+  }
+
+  const resultado: CuentaPorPagar[] = [];
+
+  for (const c of compras ?? []) {
+    const total = Number(c.total) || 0;
+    const totalPagado = pagadoPorCompra.get(c.id as string) ?? 0;
+    const saldo = Math.max(0, total - totalPagado);
+    if (saldo <= 0) continue;
+
+    const prov = c.inv_proveedores as { nombre?: string } | null;
+    resultado.push({
+      compra_id: c.id as string,
+      proveedor_id: c.proveedor_id as string,
+      proveedor_nombre: prov?.nombre?.trim() || "Proveedor sin nombre",
+      fecha_compra: c.created_at as string,
+      total,
+      total_pagado: totalPagado,
+      saldo_pendiente: saldo,
+    });
+  }
+
+  resultado.sort(
+    (a, b) =>
+      new Date(b.fecha_compra).getTime() - new Date(a.fecha_compra).getTime(),
+  );
+
+  return resultado;
+}
+
 export interface ObtenerMovimientosParams {
   page?: number;
   pageSize?: number;
@@ -251,7 +395,12 @@ export async function obtenerCuentasPorCobrar(): Promise<CuentaPorCobrar[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc("fin_cuentas_por_cobrar");
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (rpcFinanzasNoDisponible(error.message ?? "")) {
+        return await listarCuentasPorCobrarFallback(supabase);
+      }
+      throw new Error(error.message);
+    }
     return (data ?? []) as CuentaPorCobrar[];
   } catch (error: unknown) {
     console.error("Error en obtenerCuentasPorCobrar:", error);
@@ -264,7 +413,12 @@ export async function obtenerCuentasPorPagar(): Promise<CuentaPorPagar[]> {
     const supabase = await createClient();
     const { data, error } = await supabase.rpc("fin_cuentas_por_pagar");
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      if (rpcFinanzasNoDisponible(error.message ?? "")) {
+        return await listarCuentasPorPagarFallback(supabase);
+      }
+      throw new Error(error.message);
+    }
     return (data ?? []) as CuentaPorPagar[];
   } catch (error: unknown) {
     console.error("Error en obtenerCuentasPorPagar:", error);

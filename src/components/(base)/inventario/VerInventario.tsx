@@ -41,10 +41,12 @@ import { cn, fmtNum, fmtQ } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import {
   useProductos,
+  useLotes,
   useActivarProducto,
   useDesactivarProducto,
   useRegistrarBajaVencido,
 } from "./lib/hooks";
+import type { LoteInventario } from "./lib/zod";
 import {
   isProductoProximoAVencer,
   isProductoVencido,
@@ -106,6 +108,32 @@ interface Producto {
       } | null;
     } | null;
   }[];
+  producto_maestro_id?: string;
+}
+
+function idProductoCatalogo(producto: Producto) {
+  return producto.producto_maestro_id ?? producto.id;
+}
+
+function mapLoteAFila(lote: LoteInventario): Producto {
+  const raw = lote.inv_productos;
+  const p = Array.isArray(raw) ? raw[0] : raw;
+  return {
+    id: lote.id,
+    producto_maestro_id: lote.producto_id,
+    codigo: lote.codigo_barras,
+    nombre: p?.nombre ?? "—",
+    descripcion: "",
+    precio_base: p?.precio_base ?? 0,
+    precio_costo: lote.precio_costo,
+    stock_actual: Number(lote.cantidad_actual) || 0,
+    stock_minimo: p?.stock_minimo ?? 0,
+    activo: lote.activo && (p?.activo ?? true),
+    fecha_vencimiento: lote.fecha_vencimiento ?? null,
+    numero_lote: lote.numero_lote ?? null,
+    ubicacion: lote.ubicacion ?? null,
+    inv_proveedores: p?.inv_proveedores ?? null,
+  };
 }
 
 function ProductoAccionesMenu({
@@ -615,11 +643,17 @@ export function VerInventario() {
   const [filtroVencidos, setFiltroVencidos] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("activos");
   const [filtroUbicacion, setFiltroUbicacion] = useState("");
+  const [vistaInventario, setVistaInventario] = useState<"lotes" | "catalogo">("lotes");
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
 
 
-  // Estados de Base de Datos Real
-  const { data: productos = [], isLoading, refetch: refetchProductos } = useProductos();
+  const { data: productosCatalogo = [], isLoading: isLoadingCatalogo, refetch: refetchProductos } = useProductos();
+  const { data: lotes = [], isLoading: isLoadingLotes, refetch: refetchLotes } = useLotes();
+  const isLoading = vistaInventario === "lotes" ? isLoadingLotes : isLoadingCatalogo;
+  const productos =
+    vistaInventario === "lotes"
+      ? (lotes as LoteInventario[]).map(mapLoteAFila)
+      : productosCatalogo;
   const { mutateAsync: desactivarProductoAsync, isPending: isDesactivando } =
     useDesactivarProducto();
   const { mutateAsync: activarProductoAsync } = useActivarProducto();
@@ -685,7 +719,7 @@ export function VerInventario() {
       if (e.key === "Enter") {
         if (barcodeBuffer.length > 2) {
           const scannedCode = barcodeBuffer;
-          const found = productos.find(p => p.codigo === scannedCode);
+          const found = productos.find((p) => p.codigo === scannedCode);
           if (found) {
             setBusqueda(scannedCode);
             setProductoSeleccionado(found);
@@ -818,7 +852,11 @@ export function VerInventario() {
   const confirmBajaVencido = async () => {
     if (!showBajaModal) return;
     try {
-      const res = await registrarBajaAsync({ producto_id: showBajaModal.id });
+      if (vistaInventario !== "lotes") {
+        toast.error("La baja por vencimiento se registra desde la vista Por lotes.");
+        return;
+      }
+      const res = await registrarBajaAsync({ lote_id: showBajaModal.id });
       toast.success(
         `Baja registrada: ${fmtNum(res.unidades)} unidades de ${showBajaModal.nombre}.`,
       );
@@ -944,6 +982,43 @@ export function VerInventario() {
           onClick={handleNuevoProducto}
           className="w-auto shrink-0"
         />
+      </div>
+
+      <div className="px-2.5 md:px-0 mt-2 flex flex-col items-center gap-2">
+        <div className="flex bg-[#F5F5F1] dark:bg-zinc-900/60 border border-[#C1D1C5]/40 dark:border-zinc-800 p-1 rounded-2xl w-full max-w-md">
+          <button
+            type="button"
+            onClick={() => {
+              setVistaInventario("lotes");
+              setProductoSeleccionado(null);
+              setCurrentPage(1);
+            }}
+            className={cn(
+              "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors",
+              vistaInventario === "lotes"
+                ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
+                : "text-slate-500",
+            )}
+          >
+            Por lotes
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setVistaInventario("catalogo");
+              setProductoSeleccionado(null);
+              setCurrentPage(1);
+            }}
+            className={cn(
+              "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors",
+              vistaInventario === "catalogo"
+                ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
+                : "text-slate-500",
+            )}
+          >
+            Catálogo
+          </button>
+        </div>
       </div>
 
       {/* Tabs Selector: Activos / Inactivos (arriba del Buscador) */}
@@ -1121,8 +1196,10 @@ export function VerInventario() {
                     onClick={() => {
                       setProductoSeleccionado(p);
                     }}
-                    onEdit={() => router.push("/farmamuni/inventario/editar/" + p.id)}
-                    onDesactivar={() => handleDesactivarProducto(p)}
+                    onEdit={() =>
+                      router.push("/farmamuni/inventario/editar/" + idProductoCatalogo(p))
+                    }
+                    onDesactivar={() => handleDesactivarProducto({ ...p, id: idProductoCatalogo(p) })}
                     onActivar={() => handleActivarProducto(p)}
                     onBaja={() => handleBajaVencido(p)}
                   />
@@ -1253,9 +1330,13 @@ export function VerInventario() {
                                 onBaja={() => handleBajaVencido(p)}
                                 onEdit={() => {
                                   setProductoSeleccionado(p);
-                                  router.push("/farmamuni/inventario/editar/" + p.id);
+                                  router.push(
+                                    "/farmamuni/inventario/editar/" + idProductoCatalogo(p),
+                                  );
                                 }}
-                                onDesactivar={() => handleDesactivarProducto(p)}
+                                onDesactivar={() =>
+                                  handleDesactivarProducto({ ...p, id: idProductoCatalogo(p) })
+                                }
                                 onActivar={() => handleActivarProducto(p)}
                               />
                             </div>
@@ -1299,7 +1380,11 @@ export function VerInventario() {
                 <ProductoDetalle
                   producto={productoSeleccionado}
                   onClose={() => setProductoSeleccionado(null)}
-                  onEditClick={() => router.push(`/farmamuni/inventario/editar/${productoSeleccionado.id}`)}
+                  onEditClick={() =>
+                    router.push(
+                      `/farmamuni/inventario/editar/${idProductoCatalogo(productoSeleccionado)}`,
+                    )
+                  }
                 />
               </div>
             </motion.div>

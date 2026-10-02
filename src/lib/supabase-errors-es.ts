@@ -11,6 +11,10 @@ export function mensajeErrorEs(mensaje: string | undefined | null): string {
 
   const reglas: { match: (s: string) => boolean; es: string }[] = [
     {
+      match: (s) => s.includes("valid bearer token"),
+      es: "La clave SUPABASE_SERVICE_ROLE_KEY no es válida o está incompleta. Copia de nuevo la service_role completa en .env.local y reinicia pnpm dev.",
+    },
+    {
       match: (s) => s.includes("user not allowed"),
       es: "No se permite crear el usuario. Verifica que SUPABASE_SERVICE_ROLE_KEY esté configurada en el servidor y que Auth en Supabase permita crear usuarios (Dashboard → Authentication → Settings).",
     },

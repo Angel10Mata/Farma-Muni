@@ -5,9 +5,10 @@ import { Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import { Eye as EyeNode, MessageCircle as MessageCircleNode, Printer as PrinterNode } from "lucide";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, fmtQ } from "@/lib/utils";
-import { ModalFechaInput } from "@/components/ui/general-modal";
+import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { obtenerCodigoRecibo } from "./lib/helpers";
+import { obtenerCodigoRecibo, ventaCoincideFiltroPagoHistorial, fechaVentaCalendarioGt } from "./lib/helpers";
+import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import { useHistorialVentas } from "./lib/hooks";
 import { DetalleVentaModal } from "./modals/DetalleVentaModal";
 import {
@@ -54,12 +55,16 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
   
   // Filtros de Fecha
   const [tipoFiltroFecha, setTipoFiltroFecha] = useState<"dia" | "semana" | "rango">("dia");
-  const [fechaDia, setFechaDia] = useState<string>(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-  });
+  const [fechaDia, setFechaDia] = useState<string>(() => fechaCalendarioGt());
   const [fechaRangoDesde, setFechaRangoDesde] = useState<string>("");
   const [fechaRangoHasta, setFechaRangoHasta] = useState<string>("");
+
+  const aplicarRangoMesActual = () => {
+    const hoy = fechaCalendarioGt();
+    setFechaRangoDesde(`${hoy.slice(0, 7)}-01`);
+    setFechaRangoHasta(hoy);
+    setCurrentPage(1);
+  };
 
   const [activeMonth, setActiveMonth] = useState(new Date().getMonth());
   const [activeYear, setActiveYear] = useState(new Date().getFullYear());
@@ -83,24 +88,25 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
       obtenerCodigoRecibo(v.id).toLowerCase().includes(query);
     
     // 2. Tipo Pago
-    const matchesTipoPago = 
-      tipoPagoSwitch === "todos" || 
-      (tipoPagoSwitch === "contado" && (v.tipo_venta === "Efectivo" || v.tipo_venta === "Contado" || v.tipo_venta === "Transferencia" || v.tipo_venta === "Tarjeta")) ||
-      (tipoPagoSwitch === "credito" && v.tipo_venta === "Crédito");
+    const matchesTipoPago = ventaCoincideFiltroPagoHistorial(
+      v.tipo_venta,
+      tipoPagoSwitch,
+    );
 
     if (!matchesQuery || !matchesTipoPago) return false;
 
-    // 3. Fecha
+    const fechaVenta = fechaVentaCalendarioGt(v.created_at);
+    if (!fechaVenta) return false;
+
     if (tipoFiltroFecha === "dia" && fechaDia) {
-      if (!v.created_at.startsWith(fechaDia)) return false;
-    } else if (tipoFiltroFecha === "rango" && fechaRangoDesde && fechaRangoHasta) {
-      const d = v.created_at.split("T")[0];
-      if (d < fechaRangoDesde || d > fechaRangoHasta) return false;
+      if (fechaVenta !== fechaDia) return false;
+    } else if (tipoFiltroFecha === "rango") {
+      if (fechaRangoDesde && fechaVenta < fechaRangoDesde) return false;
+      if (fechaRangoHasta && fechaVenta > fechaRangoHasta) return false;
     } else if (tipoFiltroFecha === "semana") {
-      const vTime = new Date(v.created_at).getTime();
-      const start = new Date(activeYear, activeMonth, 1).getTime();
-      const end = new Date(activeYear, activeMonth + 1, 0, 23, 59, 59).getTime();
-      if (vTime < start || vTime > end) return false;
+      const mesVenta = fechaVenta.slice(0, 7);
+      const mesFiltro = `${activeYear}-${String(activeMonth + 1).padStart(2, "0")}`;
+      if (mesVenta !== mesFiltro) return false;
     }
 
     return true;
@@ -112,7 +118,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
-    <div className={moduleTableShellClass}>
+    <div className={cn(moduleTableShellClass, "overflow-visible")}>
       <div className="flex flex-col xl:flex-row gap-4 mb-4 justify-between items-start">
         
         {/* Lado Izquierdo: Buscador y Filtros de Fecha */}
@@ -144,7 +150,10 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
               key={opt.id}
               type="button"
               onClick={() => {
-                setTipoFiltroFecha(opt.id as any);
+                setTipoFiltroFecha(opt.id as "dia" | "semana" | "rango");
+                if (opt.id === "rango" && !fechaRangoDesde && !fechaRangoHasta) {
+                  aplicarRangoMesActual();
+                }
                 setCurrentPage(1);
               }}
               className={cn(
@@ -162,10 +171,16 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
         <div className="flex items-center gap-3">
           <AnimatePresence mode="wait">
             {tipoFiltroFecha === "dia" && (
-              <motion.div key="dia" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
-                <div className="w-[130px]">
-                  <ModalFechaInput value={fechaDia} onChange={(val) => { setFechaDia(val); setCurrentPage(1); }} />
-                </div>
+              <motion.div key="dia" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex items-center gap-2">
+                <CustomDatePicker
+                  value={fechaDia}
+                  onChange={(val) => {
+                    setFechaDia(val);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Elegir día"
+                  align="left"
+                />
               </motion.div>
             )}
 
@@ -222,15 +237,34 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
             )}
 
             {tipoFiltroFecha === "rango" && (
-              <motion.div key="rango" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex items-center gap-2">
-                <span className="text-[10px] font-bold text-zinc-400">Desde:</span>
-                <div className="w-[130px]">
-                  <ModalFechaInput value={fechaRangoDesde} onChange={(val) => { setFechaRangoDesde(val); setCurrentPage(1); }} />
-                </div>
-                <span className="text-[10px] font-bold text-zinc-400">Hasta:</span>
-                <div className="w-[130px]">
-                  <ModalFechaInput value={fechaRangoHasta} onChange={(val) => { setFechaRangoHasta(val); setCurrentPage(1); }} />
-                </div>
+              <motion.div key="rango" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-wrap items-center gap-2">
+                <span className="text-[10px] font-bold text-zinc-400 shrink-0">Desde:</span>
+                <CustomDatePicker
+                  value={fechaRangoDesde}
+                  onChange={(val) => {
+                    setFechaRangoDesde(val);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Calendario"
+                  align="left"
+                />
+                <span className="text-[10px] font-bold text-zinc-400 shrink-0">Hasta:</span>
+                <CustomDatePicker
+                  value={fechaRangoHasta}
+                  onChange={(val) => {
+                    setFechaRangoHasta(val);
+                    setCurrentPage(1);
+                  }}
+                  placeholder="Calendario"
+                  align="right"
+                />
+                <button
+                  type="button"
+                  onClick={aplicarRangoMesActual}
+                  className="text-[10px] font-bold text-[#8DA78E] hover:underline cursor-pointer px-1"
+                >
+                  Mes actual
+                </button>
               </motion.div>
             )}
           </AnimatePresence>
@@ -279,7 +313,9 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
           <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div></div>
         ) : paginatedData.length === 0 ? (
           <div className={moduleTableEmptyClass}>
-            No se encontraron registros de ventas
+            {historialData.length > 0
+              ? "No hay ventas con estos filtros. Prueba «Mes», otra fecha en «Día», o «Todos» en tipo de pago."
+              : "No se encontraron registros de ventas"}
           </div>
         ) : (
           <>

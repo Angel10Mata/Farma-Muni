@@ -2,10 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { ShieldAlert } from "lucide-react";
 import {
   Check as CheckNode,
-  ShieldAlert as ShieldAlertNode,
   X as XNode,
 } from "lucide";
 import { fmtQ } from "@/lib/utils";
@@ -31,12 +29,11 @@ type SolicitudRow = {
   estado: string;
   payload: unknown;
   created_at: string;
-  profiles?: { nombre?: string | null } | null;
 };
 
 export function SolicitudesRebajaAdmin() {
-  const { effectiveRole } = useUserContext();
-  const isAdmin = ["admin", "super"].includes(effectiveRole);
+  const { realRole } = useUserContext();
+  const isAdmin = ["admin", "super"].includes(realRole);
   const searchParams = useSearchParams();
   const router = useRouter();
   const rebajaQuery = searchParams.get("rebaja");
@@ -79,40 +76,13 @@ export function SolicitudesRebajaAdmin() {
 
   return (
     <>
-      {!isLoading && pendientes.length > 0 && (
-        <div className="mt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border border-amber-300/60 bg-amber-50 dark:bg-amber-950/30 dark:border-amber-700/40 px-4 py-3">
-          <div className="flex items-start gap-3">
-            <div className="size-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-              <ShieldAlert className="size-5 text-amber-700 dark:text-amber-400" />
-            </div>
-            <div>
-              <p className="text-sm font-black uppercase tracking-wide text-amber-900 dark:text-amber-200">
-                Rebajas por autorizar
-              </p>
-              <p className="text-sm text-amber-800/90 dark:text-amber-100/80">
-                {pendientes.length} solicitud{pendientes.length === 1 ? "" : "es"} pendiente
-                {pendientes.length === 1 ? "" : "s"} de aprobación.
-              </p>
-            </div>
-          </div>
-          <SigetActionButton
-            label="Revisar"
-            accentColor={sigetAccent.guardar}
-            morphFrom={ShieldAlertNode}
-            morphTo={CheckNode}
-            onClick={() => setDetalleId(pendientes[0].id)}
-            className="w-full sm:w-auto shrink-0"
-          />
-        </div>
-      )}
-
       <ModalShell
         open={!!detalleId}
         onClose={cerrarDetalle}
         title="Autorizar rebaja de precios"
         subtitle={
           solicitudActiva
-            ? `Solicitud de ${solicitudActiva.profiles?.nombre?.trim() || "vendedor"} · ${new Date(solicitudActiva.created_at).toLocaleString("es-GT")}`
+            ? `Solicitud · ${new Date(solicitudActiva.created_at).toLocaleString("es-GT")}`
             : undefined
         }
         maxWidth="max-w-2xl"
