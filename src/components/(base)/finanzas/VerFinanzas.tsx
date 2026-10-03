@@ -24,7 +24,7 @@ import { getSwalThemeOpts } from "@/lib/utils";
 import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { cn } from "@/lib/utils";
-import { modulePageShellClass } from "@/lib/module-layout";
+import { moduleListPageShellClass } from "@/lib/module-layout";
 import {
   moduleTableBodyClass,
   moduleTableClass,
@@ -38,7 +38,7 @@ import {
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
-import { ModalFechaInput } from "@/components/ui/general-modal";
+import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { fechaCalendarioGt, obtenerSemanasDelMes } from "@/lib/fechas-gt";
 
 import {
@@ -227,10 +227,9 @@ export function VerFinanzas() {
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / pageSize));
 
   return (
-    <div className={modulePageShellClass}>
-      {/* Header */}
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-4 md:px-0">
+    <div className={moduleListPageShellClass}>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-1">
           <div>
             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-zinc-900 dark:text-white flex items-center gap-3">
               <div className="p-2.5 bg-[#8DA78E]/10 dark:bg-[#8DA78E]/20 text-[#8DA78E] rounded-xl">
@@ -264,7 +263,7 @@ export function VerFinanzas() {
         </div>
 
         {/* Totales — siempre el balance real de TODO el libro mayor, calculado en Postgres */}
-        <div className="grid grid-cols-3 gap-2 md:gap-4 px-4 md:px-0">
+        <div className="grid grid-cols-3 gap-2 md:gap-4 px-1">
           <div className="bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 rounded-2xl p-3 md:p-5 shadow-sm">
             <div className="flex flex-col lg:flex-row items-start lg:items-center gap-2 mb-2">
               <div className="p-1.5 md:p-2 bg-[#8DA78E]/10 rounded-lg text-[#8DA78E] shrink-0">
@@ -312,7 +311,7 @@ export function VerFinanzas() {
         </div>
 
         {/* Filtros de Fecha */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-4 md:px-0">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-1">
           <div className="flex-1 w-full sm:w-auto">
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 rounded-2xl p-2 shadow-sm w-full md:w-fit z-20 mx-auto sm:mx-0">
                 <div className="flex items-center justify-center gap-1 bg-slate-50 dark:bg-zinc-900/50 p-1 rounded-xl border border-slate-100 dark:border-zinc-800 w-full sm:w-auto">
@@ -339,10 +338,12 @@ export function VerFinanzas() {
 
                 <div className="flex items-center justify-center gap-2 w-full sm:w-auto">
                   {tipoFiltroFecha === "dia" && (
-                    <ModalFechaInput
+                    <CustomDatePicker
                       value={fechaDia}
                       onChange={setFechaDia}
-                      className="w-[140px]"
+                      placeholder="Elegir día"
+                      align="left"
+                      dropDirection="down"
                     />
                   )}
 
@@ -478,17 +479,21 @@ export function VerFinanzas() {
                   )}
 
                   {tipoFiltroFecha === "rango" && (
-                    <div className="flex items-center justify-center gap-2">
-                      <ModalFechaInput
+                    <div className="flex flex-wrap items-center justify-center gap-2">
+                      <CustomDatePicker
                         value={fechaRangoDesde}
                         onChange={setFechaRangoDesde}
-                        className="w-[120px]"
+                        placeholder="Desde"
+                        align="left"
+                        dropDirection="down"
                       />
                       <span className="text-xs text-slate-400">-</span>
-                      <ModalFechaInput
+                      <CustomDatePicker
                         value={fechaRangoHasta}
                         onChange={setFechaRangoHasta}
-                        className="w-[120px]"
+                        placeholder="Hasta"
+                        align="right"
+                        dropDirection="down"
                       />
                     </div>
                   )}

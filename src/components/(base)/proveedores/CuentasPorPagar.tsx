@@ -41,7 +41,7 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
   const [compraAAbonar, setCompraAAbonar] = useState<Compra | null>(null);
   const [isAbonoModalOpen, setIsAbonoModalOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
 
   const { mutateAsync: registrarAbonoAsync } = useRegistrarAbonoCompra();
 
@@ -256,6 +256,7 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
         <ModuleTableFooter
           itemCount={cuentasPendientes.length}
           pageSize={pageSize}
+          pageSizeOptions={[15, 30, 45]}
           setPageSize={setPageSize}
           currentPage={currentPage}
           totalPages={totalPages}

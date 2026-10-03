@@ -7,7 +7,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { cn, fmtQ } from "@/lib/utils";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { obtenerCodigoRecibo, ventaCoincideFiltroPagoHistorial, fechaVentaCalendarioGt } from "./lib/helpers";
+import {
+  obtenerCodigoRecibo,
+  ventaCoincideFiltroPagoHistorial,
+  fechaVentaCalendarioGt,
+  ventaEsCreditoHistorial,
+  etiquetaTipoVentaHistorial,
+} from "./lib/helpers";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import { useHistorialVentas } from "./lib/hooks";
 import { DetalleVentaModal } from "./modals/DetalleVentaModal";
@@ -73,7 +79,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
 
   const [ventaDetalleSeleccionada, setVentaDetalleSeleccionada] = useState<any | null>(null);
 
@@ -285,7 +291,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                 key={opt.id}
                 type="button"
                 onClick={() => {
-                  setTipoPagoSwitch(opt.id as any);
+                  setTipoPagoSwitch(opt.id as "todos" | "contado" | "credito");
                   setCurrentPage(1);
                 }}
                 className={cn(
@@ -329,13 +335,17 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                       <span className="text-xs font-black text-slate-900 dark:text-white">
                         Venta #{obtenerCodigoRecibo(v.id)}
                       </span>
-                      <span className={cn(
-                        "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                        ["Efectivo", "Contado"].includes(v.tipo_venta) ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" :
-                        v.tipo_venta === "Tarjeta" ? "bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400" :
-                        "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
-                      )}>
-                        {v.tipo_venta}
+                      <span
+                        className={cn(
+                          "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          ventaEsCreditoHistorial(v.tipo_venta)
+                            ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+                            : v.tipo_venta === "Tarjeta"
+                              ? "bg-purple-50 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400"
+                              : "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+                        )}
+                      >
+                        {etiquetaTipoVentaHistorial(v.tipo_venta)}
                       </span>
                     </div>
 
@@ -432,13 +442,17 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                           {v.ven_clientes?.nombre || "Consumidor Final"}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap">
-                          <span className={cn(
-                            "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                            ["Efectivo", "Contado"].includes(v.tipo_venta) ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400" :
-                            v.tipo_venta === "Tarjeta" ? "bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400" :
-                            "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
-                          )}>
-                            {v.tipo_venta}
+                          <span
+                            className={cn(
+                              "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                              ventaEsCreditoHistorial(v.tipo_venta)
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+                                : v.tipo_venta === "Tarjeta"
+                                  ? "bg-purple-100 text-purple-700 dark:bg-purple-950/30 dark:text-purple-400"
+                                  : "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400",
+                            )}
+                          >
+                            {etiquetaTipoVentaHistorial(v.tipo_venta)}
                           </span>
                         </td>
                         <td className={cn(moduleTableCellClass, "text-right font-black text-[#8DA78E] whitespace-nowrap")}>
@@ -493,6 +507,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
       <ModuleTableFooter
         itemCount={filtered.length}
         pageSize={pageSize}
+        pageSizeOptions={[15, 30, 45]}
         setPageSize={setPageSize}
         currentPage={currentPage}
         totalPages={totalPages}

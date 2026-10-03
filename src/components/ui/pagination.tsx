@@ -89,7 +89,17 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
   );
 }
 
-export function PageSizeSelect({ pageSize, setPageSize }: { pageSize: number, setPageSize: (size: number) => void }) {
+const DEFAULT_PAGE_SIZE_OPTIONS = [10, 50, 100] as const;
+
+export function PageSizeSelect({
+  pageSize,
+  setPageSize,
+  options = DEFAULT_PAGE_SIZE_OPTIONS,
+}: {
+  pageSize: number;
+  setPageSize: (size: number) => void;
+  options?: readonly number[];
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -116,7 +126,7 @@ export function PageSizeSelect({ pageSize, setPageSize }: { pageSize: number, se
 
       {isOpen && (
         <div className="absolute bottom-full left-0 mb-1.5 w-full bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-zinc-800 rounded-xl shadow-lg z-50 py-1 flex flex-col min-w-[90px]">
-          {[10, 50, 100].map((size) => (
+          {options.map((size) => (
             <button
               key={size}
               type="button"

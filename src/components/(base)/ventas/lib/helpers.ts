@@ -135,14 +135,33 @@ export function fechaVentaCalendarioGt(createdAt: string | null | undefined): st
   return fechaCalendarioGt(date);
 }
 
-export function ventaEsContadoHistorial(tipoVenta: string | null | undefined): boolean {
-  const t = (tipoVenta ?? "Contado").trim();
-  return ["Efectivo", "Contado", "Transferencia", "Tarjeta"].includes(t);
+function claveTipoVentaHistorial(tipoVenta: string | null | undefined): string {
+  return (tipoVenta ?? "")
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
 }
 
 export function ventaEsCreditoHistorial(tipoVenta: string | null | undefined): boolean {
-  const t = (tipoVenta ?? "").trim();
-  return t === "Crédito" || t.toLowerCase() === "credito";
+  return claveTipoVentaHistorial(tipoVenta) === "credito";
+}
+
+export function ventaEsContadoHistorial(tipoVenta: string | null | undefined): boolean {
+  if (ventaEsCreditoHistorial(tipoVenta)) return false;
+  const key = claveTipoVentaHistorial(tipoVenta) || "contado";
+  return ["efectivo", "contado", "transferencia", "tarjeta"].includes(key);
+}
+
+export function etiquetaTipoVentaHistorial(tipoVenta: string | null | undefined): string {
+  if (ventaEsCreditoHistorial(tipoVenta)) return "Crédito";
+  if (ventaEsContadoHistorial(tipoVenta)) {
+    const raw = (tipoVenta ?? "").trim();
+    if (["Tarjeta", "Transferencia", "Efectivo"].includes(raw)) return raw;
+    return "Contado";
+  }
+  const raw = (tipoVenta ?? "").trim();
+  return raw || "—";
 }
 
 export function ventaCoincideFiltroPagoHistorial(

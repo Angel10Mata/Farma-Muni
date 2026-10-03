@@ -2,8 +2,37 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { isProductoVencido } from "./helpers";
-import { bajaVencidoSchema, productSchema, type ProductFormValues } from "./zod";
+import { isProductoVencido, patchInvLoteCantidadActual } from "./helpers";
+import {
+  activarProductoCatalogoPorNuevoLote,
+  syncInvProductoCatalogoDesdeLotes,
+} from "./sync-producto-catalogo";
+import {
+  bajaVencidoSchema,
+  crearLoteManualSchema,
+  productSchema,
+  type ProductFormValues,
+} from "./zod";
+
+function normalizarFechaLote(fecha: string) {
+  const trimmed = fecha.trim();
+  if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
+    return trimmed.slice(0, 10);
+  }
+  return trimmed;
+}
+
+function mapLoteDbError(error: { code?: string; message?: string }) {
+  const msg = error.message ?? "";
+  if (
+    error.code === "23505" ||
+    msg.includes("inv_lotes_codigo_barras_unique") ||
+    msg.includes("codigo_barras")
+  ) {
+    return { code: "DUPLICATE" as const };
+  }
+  return { code: "INTERNAL" as const };
+}
 
 export async function obtenerProductos() {
   try {
@@ -149,12 +178,58 @@ export async function guardarProducto(id: string | undefined, input: ProductForm
     if (id) {
       const { error } = await supabase.from("inv_productos").update(payload).eq("id", id);
       if (error) return { code: "INTERNAL" as const };
-    } else {
-      const { error } = await supabase.from("inv_productos").insert({
+      revalidatePath("/farmamuni/inventario");
+      return { success: true as const, id };
+    }
+
+    const { data: inserted, error } = await supabase
+      .from("inv_productos")
+      .insert({
         ...payload,
         stock_actual: 0,
-      });
-      if (error) return { code: "INTERNAL" as const };
+      })
+      .select("id")
+      .single();
+
+    if (error || !inserted) return { code: "INTERNAL" as const };
+
+    revalidatePath("/farmamuni/inventario");
+    return { success: true as const, id: inserted.id as string };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function crearLoteManual(input: unknown) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { code: "UNAUTHORIZED" as const };
+
+    const parsed = crearLoteManualSchema.safeParse(input);
+    if (!parsed.success) return { code: "VALIDATION" as const };
+
+    const { error } = await supabase.from("inv_lotes").insert({
+      producto_id: parsed.data.producto_id,
+      compra_detalle_id: null,
+      codigo_barras: parsed.data.codigo_barras.trim(),
+      numero_lote: parsed.data.numero_lote.trim(),
+      cantidad_inicial: parsed.data.cantidad,
+      cantidad_actual: parsed.data.cantidad,
+      precio_costo: parsed.data.precio_costo,
+      fecha_vencimiento: normalizarFechaLote(parsed.data.fecha_vencimiento),
+      ubicacion: parsed.data.ubicacion?.trim() || null,
+      activo: true,
+    });
+
+    if (error) return mapLoteDbError(error);
+
+    try {
+      await activarProductoCatalogoPorNuevoLote(supabase, parsed.data.producto_id);
+    } catch {
+      return { code: "INTERNAL" as const };
     }
 
     revalidatePath("/farmamuni/inventario");
@@ -178,7 +253,7 @@ export async function registrarBajaPorVencimiento(input: unknown) {
     const { data: lote, error: findError } = await supabase
       .from("inv_lotes")
       .select(
-        "id, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, activo, inv_productos(nombre)",
+        "id, producto_id, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, activo, inv_productos(nombre)",
       )
       .eq("id", parsed.data.lote_id)
       .single();
@@ -196,14 +271,23 @@ export async function registrarBajaPorVencimiento(input: unknown) {
 
     const { error: updateError } = await supabase
       .from("inv_lotes")
-      .update({ cantidad_actual: 0 })
+      .update(patchInvLoteCantidadActual(0))
       .eq("id", lote.id);
 
     if (updateError) return { code: "INTERNAL" as const };
 
+    try {
+      await syncInvProductoCatalogoDesdeLotes(supabase, lote.producto_id);
+    } catch {
+      return { code: "INTERNAL" as const };
+    }
+
     const costoUnit = Number(lote.precio_costo) || 0;
     const montoPerdida = costoUnit > 0 ? costoUnit * unidades : 0;
-    const productoJoin = lote.inv_productos;
+    const productoJoin = lote.inv_productos as
+      | { nombre?: string }
+      | { nombre?: string }[]
+      | null;
     const nombreProd = Array.isArray(productoJoin)
       ? productoJoin[0]?.nombre
       : productoJoin?.nombre;

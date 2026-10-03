@@ -19,6 +19,18 @@ export const bajaVencidoSchema = z.object({
 
 export type BajaVencidoInput = z.infer<typeof bajaVencidoSchema>;
 
+export const crearLoteManualSchema = z.object({
+  producto_id: z.string().uuid(),
+  codigo_barras: z.string().trim().min(1, "El código de barras es requerido"),
+  numero_lote: z.string().trim().min(1, "El número de lote es requerido"),
+  cantidad: z.number().positive("La cantidad debe ser mayor a 0"),
+  precio_costo: z.number().nonnegative("El costo debe ser un número válido"),
+  fecha_vencimiento: z.string().trim().min(1, "La fecha de vencimiento es requerida"),
+  ubicacion: z.string().trim().optional().nullable(),
+});
+
+export type CrearLoteManualInput = z.infer<typeof crearLoteManualSchema>;
+
 export const loteInventarioSchema = z.object({
   id: z.string().uuid(),
   producto_id: z.string().uuid(),

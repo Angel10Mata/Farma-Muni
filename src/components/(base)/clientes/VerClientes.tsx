@@ -32,7 +32,7 @@ import {
 import { toast } from "react-toastify";
 import { Clock as ClockNode, Download as DownloadNode, FileDown, History, Pencil, Plus as PlusNode, SquarePen, UserPlus } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { modulePageShellClass } from "@/lib/module-layout";
+import { moduleControlsShellClass, moduleListPageShellClass } from "@/lib/module-layout";
 import {
   moduleTableBodyClass,
   moduleTableCellClass,
@@ -45,14 +45,13 @@ import {
   moduleTableHeadCellClass,
   moduleTableHeadRowClass,
   moduleTableRowClass,
-  moduleTableScrollClass,
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { ModalFechaInput } from "@/components/ui/general-modal";
+import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { obtenerSemanasDelMes } from "@/lib/fechas-gt";
 import { CrearCliente } from "./forms/Crear";
 import { EditarCliente } from "./forms/VerEditar";
@@ -64,13 +63,14 @@ function ClienteDetalle({
   cliente,
   onClose,
   onEdit,
+  onOpenHistorial,
 }: {
   cliente: Cliente;
   onClose: () => void;
   onEdit: () => void;
+  onOpenHistorial?: () => void;
 }) {
   const { data: ventas = [], isLoading: loadingVentas } = useVentasCliente(cliente.id);
-  const [showHistorial, setShowHistorial] = useState(false);
 
   return (
     <motion.div
@@ -79,32 +79,34 @@ function ClienteDetalle({
       exit={{ opacity: 0, x: 24 }}
       className="bg-white dark:bg-zinc-800 flex flex-col h-full w-full animate-fade-in text-left"
     >
-      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-6 pb-6 space-y-4 custom-scrollbar">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="shrink-0 size-8 rounded-lg bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center">
-            <Users className="size-4.5 text-[#8DA78E]" />
+      <div className="flex-1 overflow-y-auto px-4 md:px-6 pt-6 pb-6 space-y-5 custom-scrollbar">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
+            <Users className="size-5 text-[#8DA78E]" />
           </div>
-          <div>
-            <h2 className="font-black text-slate-900 dark:text-white text-base leading-none">{cliente.nombre}</h2>
+          <div className="min-w-0">
+            <h2 className="text-lg font-black leading-snug text-slate-900 dark:text-white md:text-xl">
+              {cliente.nombre}
+            </h2>
           </div>
         </div>
         <button
           onClick={onClose}
-          className="text-slate-400 transition-colors text-lg font-bold px-2 cursor-pointer"
+          className="cursor-pointer px-2 text-xl font-bold text-slate-400 transition-colors"
         >
           ✕
         </button>
       </div>
 
-      <div className="space-y-2">
-        <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Contacto</h4>
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <Mail className="size-4 text-[#8DA78E] shrink-0" />
+      <div className="space-y-2.5">
+        <h4 className="text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Contacto</h4>
+        <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
+          <Mail className="size-5 shrink-0 text-[#8DA78E]" />
           <span className="truncate">{cliente.email || "No registrado"}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <Phone className="size-4 text-[#8DA78E] shrink-0" />
+        <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
+          <Phone className="size-5 shrink-0 text-[#8DA78E]" />
           {cliente.telefono && cliente.telefono !== "No registrado" ? (
             <a
               href={getWhatsappUrl(cliente.telefono)}
@@ -118,20 +120,20 @@ function ClienteDetalle({
             <span className="truncate text-slate-400">No registrado</span>
           )}
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <MapPin className="size-4 text-[#8DA78E] shrink-0" />
+        <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
+          <MapPin className="size-5 shrink-0 text-[#8DA78E]" />
           <span className="truncate">{cliente.direccion || "No registrada"}</span>
         </div>
-        <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <CreditCard className="size-4 text-[#8DA78E] shrink-0" />
+        <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
+          <CreditCard className="size-5 shrink-0 text-[#8DA78E]" />
           <span className="truncate">NIT: {cliente.nit || "C/F"}</span>
         </div>
       </div>
 
-      <div className="space-y-3 pt-2 border-t border-[#C1D1C5]/20">
-        <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Estado Financiero</h4>
+      <div className="space-y-3 border-t border-[#C1D1C5]/20 pt-3">
+        <h4 className="text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Estado Financiero</h4>
         {loadingVentas ? (
-          <p className="text-xs text-slate-400">Cargando transacciones...</p>
+          <p className="text-sm text-slate-400">Cargando transacciones...</p>
         ) : (() => {
           const ventasPendientes = (ventas as VentaCliente[]).filter((v) => {
             if (v.tipo_venta !== "Crédito") return false;
@@ -145,19 +147,19 @@ function ClienteDetalle({
 
           if (ventasPendientes.length === 0) {
             return (
-              <div className="flex items-center gap-2.5 bg-emerald-50 dark:bg-emerald-950/15 border border-emerald-100 dark:border-emerald-900/30 rounded-xl p-3">
-                <div className="size-7 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center shrink-0">
-                  <Check className="size-4 text-emerald-600 dark:text-emerald-400" />
+              <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3.5 dark:border-emerald-900/30 dark:bg-emerald-950/15">
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
+                  <Check className="size-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
-                <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300">No tiene pagos pendientes</p>
+                <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">No tiene pagos pendientes</p>
               </div>
             );
           }
 
           return (
             <div className="space-y-1.5">
-              <div className="flex items-center justify-start bg-[#8DA78E]/10 dark:bg-[#8DA78E]/5 border border-[#8DA78E]/20 dark:border-[#A3BEB0]/15 rounded-xl px-3 py-3">
-                <span className="text-[10px] uppercase font-bold text-[#525D53] dark:text-[#A3BEB0]">Pendiente ({ventasPendientes.length} {ventasPendientes.length === 1 ? "crédito" : "créditos"})</span>
+              <div className="flex items-center justify-start rounded-xl border border-[#8DA78E]/20 bg-[#8DA78E]/10 px-3.5 py-3.5 dark:border-[#A3BEB0]/15 dark:bg-[#8DA78E]/5">
+                <span className="text-xs font-bold uppercase text-[#525D53] dark:text-[#A3BEB0]">Pendiente ({ventasPendientes.length} {ventasPendientes.length === 1 ? "crédito" : "créditos"})</span>
               </div>
             </div>
           );
@@ -165,19 +167,19 @@ function ClienteDetalle({
       </div>
 
       <div>
-        <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70 mb-2">Estadísticas</h4>
-        <div className="grid grid-cols-3 gap-2">
+        <h4 className="mb-2.5 text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Estadísticas</h4>
+        <div className="grid grid-cols-3 gap-2.5">
           {[
             { icon: ShoppingBag, label: "Total Compras", value: cliente.totalCompras, color: "text-[#8DA78E] dark:text-[#A3BEB0]" },
             { icon: TrendingUp, label: "Pendiente", value: `${cliente.creditosPendientes || 0} créditos`, color: "text-rose-500" },
             { icon: Calendar, label: "Última Compra", value: cliente.ultimaCompra ? (() => { const parts = cliente.ultimaCompra.split("T")[0].split("-"); return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).toLocaleDateString("es-GT"); })() : "Sin compras", color: "text-[#8DA78E] dark:text-[#A3BEB0]" },
           ].map(({ icon: Icon, label, value, color }) => (
-            <div key={label} className="bg-white dark:bg-[#525D53]/10 rounded-lg p-2 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 flex flex-col justify-center">
-              <div className="flex items-center gap-1 mb-0.5">
-                <Icon className={`size-3 ${color} shrink-0`} />
-                <span className="text-[8px] text-[#525D53] dark:text-[#A3BEB0]/70 font-bold uppercase tracking-wider truncate leading-tight">{label}</span>
+            <div key={label} className="flex flex-col justify-center rounded-xl border border-[#C1D1C5]/30 bg-white p-2.5 dark:border-[#A3BEB0]/10 dark:bg-[#525D53]/10">
+              <div className="mb-1 flex items-center gap-1.5">
+                <Icon className={`size-4 shrink-0 ${color}`} />
+                <span className="truncate text-[10px] font-bold uppercase leading-tight tracking-wider text-[#525D53] dark:text-[#A3BEB0]/70">{label}</span>
               </div>
-              <p className={`text-xs font-black ${color} truncate leading-tight`}>{value}</p>
+              <p className={`text-sm font-black leading-snug ${color} truncate`}>{value}</p>
             </div>
           ))}
         </div>
@@ -186,15 +188,17 @@ function ClienteDetalle({
       </div>
 
       <div className="flex gap-3 p-4 md:p-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0 bg-[#F5F5F1] dark:bg-zinc-900 justify-end">
-        <SigetActionButton
-          label="Historial"
-          accentColor={sigetAccent.abrir}
-          morphFrom={History}
-          morphTo={ClockNode}
-          morphOnHover={true}
-          onClick={() => setShowHistorial(true)}
-          className="w-auto shrink-0 flex-1 sm:flex-initial"
-        />
+        {onOpenHistorial ? (
+          <SigetActionButton
+            label="Historial"
+            accentColor={sigetAccent.abrir}
+            morphFrom={History}
+            morphTo={ClockNode}
+            morphOnHover={true}
+            onClick={onOpenHistorial}
+            className="w-auto shrink-0 flex-1 sm:flex-initial md:hidden"
+          />
+        ) : null}
         <SigetActionButton
           label="Editar"
           accentColor={sigetAccent.editar}
@@ -204,28 +208,20 @@ function ClienteDetalle({
           className="w-auto shrink-0 flex-1 sm:flex-initial"
         />
       </div>
-
-      <AnimatePresence>
-        {showHistorial && (
-          <HistorialComprasModal
-            cliente={cliente}
-            ventas={ventas as VentaCliente[]}
-            onClose={() => setShowHistorial(false)}
-          />
-        )}
-      </AnimatePresence>
     </motion.div>
   );
 }
 
-function HistorialComprasModal({
+function HistorialComprasPanel({
   cliente,
   ventas,
-  onClose
+  onClose,
+  className,
 }: {
   cliente: Cliente;
   ventas: VentaCliente[];
   onClose: () => void;
+  className?: string;
 }) {
   const [tipoFiltroFecha, setTipoFiltroFecha] = useState<string>("semana");
   const [fechaDia, setFechaDia] = useState<string>(() => {
@@ -265,7 +261,9 @@ function HistorialComprasModal({
     return ventas.filter(v => {
       const fechaCal = v.created_at.split("T")[0];
       if (tipoFiltroFecha === "dia") {
-        return fechaCal === fechaDia;
+        const [y, m] = fechaDia.split("-");
+        const [vy, vm] = fechaCal.split("-");
+        return vy === y && vm === m;
       } else if (tipoFiltroFecha === "semana") {
         const [vy, vm] = fechaCal.split("-").map(Number);
         if (vm - 1 !== activeMonth || vy !== activeYear) return false;
@@ -354,12 +352,14 @@ function HistorialComprasModal({
   }, [ventas, tipoFiltroFecha, fechaDia, activeYear, fechaRangoDesde, fechaRangoHasta]);
 
   return (
-    <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        exit={{ opacity: 0, scale: 0.95 }}
-        className="w-[85vw] max-w-5xl h-[80vh] bg-white dark:bg-zinc-900 rounded-3xl shadow-xl overflow-hidden flex flex-col mt-10"
+        initial={{ opacity: 0, x: 32 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: 32 }}
+        className={cn(
+          "flex h-full min-h-0 w-full flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl dark:bg-zinc-900",
+          className,
+        )}
       >
         <div className="p-5 border-b border-zinc-100 dark:border-zinc-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-zinc-50 dark:bg-zinc-800/50 shrink-0">
           <div>
@@ -373,7 +373,7 @@ function HistorialComprasModal({
             <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full md:w-fit mx-auto sm:mx-0">
               <div className="flex items-center justify-center gap-1 bg-slate-50 dark:bg-zinc-900/50 p-1 rounded-xl border border-slate-100 dark:border-zinc-800 w-full sm:w-auto">
                 {[
-                  { id: "dia", label: "Día" },
+                  { id: "dia", label: "Mes/Año" },
                   { id: "semana", label: "Mes" },
                   { id: "rango", label: "Rango" },
                 ].map((opt) => (
@@ -395,10 +395,13 @@ function HistorialComprasModal({
 
               <div className="flex items-center justify-center gap-2 w-full sm:w-auto">
                 {tipoFiltroFecha === "dia" && (
-                  <ModalFechaInput
+                  <CustomDatePicker
                     value={fechaDia}
                     onChange={setFechaDia}
-                    className="w-[140px]"
+                    placeholder="Mes y año"
+                    align="left"
+                    dropDirection="down"
+                    granularity="month"
                   />
                 )}
 
@@ -534,17 +537,21 @@ function HistorialComprasModal({
                 )}
 
                 {tipoFiltroFecha === "rango" && (
-                  <div className="flex items-center justify-center gap-2">
-                    <ModalFechaInput
+                  <div className="flex flex-wrap items-center justify-center gap-2">
+                    <CustomDatePicker
                       value={fechaRangoDesde}
                       onChange={setFechaRangoDesde}
-                      className="w-[120px]"
+                      placeholder="Desde"
+                      align="left"
+                      dropDirection="down"
                     />
                     <span className="text-xs text-slate-400">-</span>
-                    <ModalFechaInput
+                    <CustomDatePicker
                       value={fechaRangoHasta}
                       onChange={setFechaRangoHasta}
-                      className="w-[120px]"
+                      placeholder="Hasta"
+                      align="right"
+                      dropDirection="down"
                     />
                   </div>
                 )}
@@ -594,21 +601,27 @@ function HistorialComprasModal({
           </div>
         </div>
       </motion.div>
-    </div>
   );
 }
 
 export function VerClientes() {
   const [busqueda, setBusqueda] = useState("");
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
+  const [historialMovilAbierto, setHistorialMovilAbierto] = useState(false);
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [clienteParaEditar, setClienteParaEditar] = useState<Cliente | null>(null);
   const [criterioOrden, setCriterioOrden] = useState<"nombre-asc" | "nombre-desc" | "compras-desc" | "saldo-asc" | "saldo-desc">("nombre-asc");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
 
   const { data: clientes = [], isLoading, refetch } = useClientes();
+  const { data: ventasClienteSeleccionado = [] } = useVentasCliente(clienteSeleccionado?.id ?? null);
+
+  const cerrarClienteSeleccionado = () => {
+    setClienteSeleccionado(null);
+    setHistorialMovilAbierto(false);
+  };
 
   const clientesFiltrados = clientes.filter((c) => {
     const q = busqueda.toLowerCase();
@@ -678,15 +691,15 @@ export function VerClientes() {
   };
 
   return (
-    <div className={modulePageShellClass}>
-      <div className="flex items-center justify-between gap-4 w-full">
-        <div className="flex items-center gap-4">
-          <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center overflow-hidden">
-            <Users className="size-7 text-[#8DA78E] dark:text-[#A3BEB0]" />
+    <div className={moduleListPageShellClass}>
+      <div className="flex shrink-0 items-center justify-between gap-3 w-full">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
+            <Users className="size-6 text-[#8DA78E] dark:text-[#A3BEB0]" />
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">
+            <h1 className="text-xl font-black uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-2xl">
               Clientes
             </h1>
           </div>
@@ -702,44 +715,51 @@ export function VerClientes() {
         />
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-          <input
-            type="text"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className={moduleTableSearchClass}
-          />
+      <section
+        className={cn(
+          moduleControlsShellClass,
+          "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
+        )}
+      >
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+            <input
+              type="text"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className={moduleTableSearchClass}
+            />
+          </div>
+          <div className="flex gap-2 shrink-0 w-full sm:w-auto">
+            <Select
+              value={criterioOrden}
+              onValueChange={(val) => setCriterioOrden(val as typeof criterioOrden)}
+            >
+              <SelectTrigger className="flex-1 sm:flex-none w-full sm:w-[280px] h-10 rounded-xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-white focus:ring-1 focus:ring-[#8DA78E] shadow-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[200] rounded-xl border-slate-200 bg-white opacity-100 dark:border-slate-800 dark:bg-zinc-900 shadow-md">
+                <SelectItem value="nombre-asc" className="text-xs font-semibold cursor-pointer">Nombre (A-Z)</SelectItem>
+                <SelectItem value="nombre-desc" className="text-xs font-semibold cursor-pointer">Nombre (Z-A)</SelectItem>
+                <SelectItem value="compras-desc" className="text-xs font-semibold cursor-pointer">Nivel de Consumo (Compras)</SelectItem>
+                <SelectItem value="saldo-asc" className="text-xs font-semibold cursor-pointer">Saldo Pendiente (Menor a Mayor)</SelectItem>
+                <SelectItem value="saldo-desc" className="text-xs font-semibold cursor-pointer">Saldo Pendiente (Mayor a Menor)</SelectItem>
+              </SelectContent>
+            </Select>
+            <SigetActionButton
+              label="Exportar"
+              accentColor={sigetAccent.excel}
+              morphFrom={DownloadNode}
+              morphTo={FileDown}
+              onClick={handleExportarPDF}
+              className="w-auto shrink-0"
+            />
+          </div>
         </div>
-        <div className="flex gap-2 shrink-0 w-full sm:w-auto">
-          <Select
-            value={criterioOrden}
-            onValueChange={(val) => setCriterioOrden(val as typeof criterioOrden)}
-          >
-            <SelectTrigger className="flex-1 sm:flex-none w-full sm:w-[280px] h-10 rounded-xl bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-700/60 text-xs font-bold text-slate-700 dark:text-white focus:ring-1 focus:ring-[#8DA78E] shadow-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent className="z-[200] rounded-xl border-slate-200 bg-white opacity-100 dark:border-slate-800 dark:bg-zinc-900 shadow-md">
-              <SelectItem value="nombre-asc" className="text-xs font-semibold cursor-pointer">Nombre (A-Z)</SelectItem>
-              <SelectItem value="nombre-desc" className="text-xs font-semibold cursor-pointer">Nombre (Z-A)</SelectItem>
-              <SelectItem value="compras-desc" className="text-xs font-semibold cursor-pointer">Nivel de Consumo (Compras)</SelectItem>
-              <SelectItem value="saldo-asc" className="text-xs font-semibold cursor-pointer">Saldo Pendiente (Menor a Mayor)</SelectItem>
-              <SelectItem value="saldo-desc" className="text-xs font-semibold cursor-pointer">Saldo Pendiente (Mayor a Menor)</SelectItem>
-            </SelectContent>
-          </Select>
-          <SigetActionButton
-            label="Exportar"
-            accentColor={sigetAccent.excel}
-            morphFrom={DownloadNode}
-            morphTo={FileDown}
-            onClick={handleExportarPDF}
-            className="w-auto shrink-0"
-          />
-        </div>
-      </div>
+      </section>
 
-      <div className="flex gap-4 relative w-full flex-1 min-h-0 overflow-x-hidden p-1">
+      <div className="relative flex w-full flex-col">
         {isLoading && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-xs flex items-center justify-center z-50 rounded-2xl">
             <div className="flex flex-col items-center gap-3">
@@ -749,8 +769,8 @@ export function VerClientes() {
           </div>
         )}
 
-        <div className={moduleTableShellClass}>
-          <div className={cn(moduleTableScrollClass, "min-h-0")}>
+        <div className={cn(moduleTableShellClass, "flex-none overflow-visible p-3 md:p-4")}>
+          <div className="w-full flex-none">
             <div className="md:hidden flex flex-col gap-3 pr-2 w-full">
               {paginatedClientes.length === 0 ? (
                 <div className={cn(moduleTableEmptyClass, "text-sm")}>
@@ -840,16 +860,16 @@ export function VerClientes() {
 
             <div className={moduleTableDesktopWrapClass}>
               <div className={moduleTableDesktopScrollClass}>
-              <table className={moduleTableClass}>
+              <table className={cn(moduleTableClass, "text-center")}>
                 <thead>
                   <tr className={moduleTableHeadRowClass}>
-                    <th className={cn(moduleTableHeadCellClass, "text-center w-12")}>#</th>
-                    <th className={moduleTableHeadCellClass}>Nombre Completo</th>
-                    <th className={moduleTableHeadCellClass}>Teléfono</th>
-                    <th className={moduleTableHeadCellClass}>Correo Electrónico</th>
-                    <th className={moduleTableHeadCellClass}>NIT</th>
-                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Compras</th>
-                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Saldo Pendiente</th>
+                    <th className={cn(moduleTableHeadCellClass, "w-12 text-center")}>#</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Nombre Completo</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Teléfono</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Correo Electrónico</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>NIT</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Compras</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Saldo Pendiente</th>
                     <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                   </tr>
                 </thead>
@@ -878,16 +898,16 @@ export function VerClientes() {
                         <td className="px-5 py-3.5 text-center font-bold text-slate-400 dark:text-slate-500">
                           {(currentPage - 1) * pageSize + index + 1}
                         </td>
-                        <td className="px-5 py-3.5 font-bold text-slate-900 dark:text-white">
+                        <td className="px-5 py-3.5 text-center font-bold text-slate-900 dark:text-white">
                           {cliente.nombre}
                         </td>
-                        <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                        <td className="px-5 py-3.5 text-center" onClick={(e) => e.stopPropagation()}>
                           {cliente.telefono && cliente.telefono !== "No registrado" ? (
                             <a
                               href={getWhatsappUrl(cliente.telefono)}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="inline-flex items-center gap-1 text-green-600 dark:text-green-400 hover:underline font-bold"
+                              className="inline-flex items-center justify-center gap-1 text-green-600 dark:text-green-400 hover:underline font-bold"
                             >
                               <Phone className="size-3" /> {formatPhoneDisplay(cliente.telefono)}
                             </a>
@@ -895,12 +915,12 @@ export function VerClientes() {
                             <span className="text-slate-400">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500">{cliente.email}</td>
-                        <td className="px-5 py-3.5 font-mono text-slate-500">{cliente.nit}</td>
-                        <td className="px-5 py-3.5 text-right font-bold text-slate-900 dark:text-white">
+                        <td className="px-5 py-3.5 text-center text-slate-500">{cliente.email}</td>
+                        <td className="px-5 py-3.5 text-center font-mono text-slate-500">{cliente.nit}</td>
+                        <td className="px-5 py-3.5 text-center font-bold tabular-nums text-slate-900 dark:text-white">
                           {cliente.totalCompras}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0]">
+                        <td className="px-5 py-3.5 text-center font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
                           {fmtQ(cliente.saldo)}
                         </td>
                         <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
@@ -931,42 +951,74 @@ export function VerClientes() {
             <ModuleTableFooter
               itemCount={clientesOrdenados.length}
               pageSize={pageSize}
+              pageSizeOptions={[15, 30, 45]}
               setPageSize={setPageSize}
               currentPage={currentPage}
               totalPages={totalPages}
               onPageChange={setCurrentPage}
+              className="justify-center sm:justify-between"
             />
           )}
         </div>
 
         <AnimatePresence>
           {clienteSeleccionado && (
-            <div className="fixed inset-0 z-[100] flex justify-end">
-              <motion.div 
+            <div className="fixed inset-0 z-[100]">
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                onClick={() => setClienteSeleccionado(null)}
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm cursor-pointer"
+                onClick={cerrarClienteSeleccionado}
+                className="absolute inset-0 cursor-pointer bg-black/40 backdrop-blur-sm"
               />
-              <motion.div
-                initial={{ x: "100%" }}
-                animate={{ x: 0 }}
-                exit={{ x: "100%" }}
-                transition={{ type: "spring", damping: 25, stiffness: 200 }}
-                className="relative w-full max-w-md h-[calc(100%-2rem)] m-4 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col rounded-[2rem] overflow-hidden"
-              >
-                <div className="h-full">
-                  <ClienteDetalle
-                    cliente={clienteSeleccionado}
-                    onClose={() => setClienteSeleccionado(null)}
-                    onEdit={() => {
-                      setClienteParaEditar(clienteSeleccionado);
-                      setIsEditOpen(true);
-                    }}
-                  />
+              <div className="pointer-events-none absolute inset-0 flex items-stretch p-4">
+                <div className="pointer-events-auto flex h-[calc(100dvh-var(--banner-height,0px)-2rem)] max-h-[calc(100dvh-var(--banner-height,0px)-2rem)] w-full max-w-full flex-row items-stretch gap-3">
+                  <div className="hidden min-h-0 min-w-0 md:flex md:flex-[7]">
+                    <HistorialComprasPanel
+                      cliente={clienteSeleccionado}
+                      ventas={ventasClienteSeleccionado as VentaCliente[]}
+                      onClose={cerrarClienteSeleccionado}
+                    />
+                  </div>
+                  <motion.div
+                    initial={{ x: "100%" }}
+                    animate={{ x: 0 }}
+                    exit={{ x: "100%" }}
+                    transition={{ type: "spring", damping: 25, stiffness: 200 }}
+                    className="relative flex h-full w-full min-w-0 flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl dark:bg-zinc-900 md:flex-[3]"
+                  >
+                    <ClienteDetalle
+                      cliente={clienteSeleccionado}
+                      onClose={cerrarClienteSeleccionado}
+                      onOpenHistorial={() => setHistorialMovilAbierto(true)}
+                      onEdit={() => {
+                        setClienteParaEditar(clienteSeleccionado);
+                        setIsEditOpen(true);
+                      }}
+                    />
+                  </motion.div>
                 </div>
-              </motion.div>
+              </div>
+              <AnimatePresence>
+                {historialMovilAbierto ? (
+                  <div
+                    className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm md:hidden"
+                    onClick={() => setHistorialMovilAbierto(false)}
+                  >
+                    <div
+                      className="h-[min(80vh,calc(100dvh-var(--banner-height,0px)-2rem))] w-[92vw] max-w-lg"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <HistorialComprasPanel
+                        cliente={clienteSeleccionado}
+                        ventas={ventasClienteSeleccionado as VentaCliente[]}
+                        onClose={() => setHistorialMovilAbierto(false)}
+                        className="h-full w-full"
+                      />
+                    </div>
+                  </div>
+                ) : null}
+              </AnimatePresence>
             </div>
           )}
         </AnimatePresence>

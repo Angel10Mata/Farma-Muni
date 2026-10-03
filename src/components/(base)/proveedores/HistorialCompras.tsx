@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Calendar, ChevronLeft, ChevronRight, ChevronDown, Check } from "lucide-react";
-import { ModalFechaInput } from "@/components/ui/general-modal";
+import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import { cn, fmtQ } from "@/lib/utils";
+import { moduleControlsShellClass } from "@/lib/module-layout";
 import { Compra } from "./lib/zod";
 import { CompraDetalleModal } from "./modals/CompraDetalleModal";
 import {
@@ -48,8 +49,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
   const [selectedWeekIndexCompras, setSelectedWeekIndexCompras] = useState(-1);
 
   const [currentPageCompras, setCurrentPageCompras] = useState(1);
-  const [pageSizeCompras, setPageSizeCompras] = useState(25);
-  const [mostrarPageSizeDropdownCompras, setMostrarPageSizeDropdownCompras] = useState(false);
+  const [pageSizeCompras, setPageSizeCompras] = useState(15);
 
   const [mostrarMesDropdownCompras, setMostrarMesDropdownCompras] = useState(false);
   const [mostrarSemanaDropdownCompras, setMostrarSemanaDropdownCompras] = useState(false);
@@ -194,11 +194,16 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
   return (
     <div className="flex flex-col gap-4 flex-1 h-full min-h-[550px]">
       
-      {/* Filtros Superiores */}
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start px-1">
-        {/* Búsqueda */}
-        <div className="relative w-full sm:max-w-xl text-left shrink-0">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+      <section
+        className={cn(
+          moduleControlsShellClass,
+          "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
+        )}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="relative w-full min-w-0 flex-1 text-left lg:max-w-xl">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
           <input
             type="text"
             value={busquedaHistorial}
@@ -207,12 +212,11 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
               setCurrentPageCompras(1);
             }}
             placeholder="Buscar por código, proveedor..."
-            className={cn(moduleTableSearchClass, "pl-11 py-3 shadow-sm")}
+            className={cn(moduleTableSearchClass, "py-2 pl-9")}
           />
         </div>
 
-        {/* Switch de pago segmentado horizontal */}
-        <div className="flex bg-white/50 dark:bg-zinc-900/40 rounded-2xl p-1.5 w-fit h-[46px] items-center shrink-0 shadow-sm border border-slate-100 dark:border-zinc-800">
+        <div className="flex w-full shrink-0 items-center rounded-2xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-800/50 lg:w-fit">
           {[
             { id: "todos", label: "Todos" },
             { id: "Pagado", label: "Pagado" },
@@ -235,11 +239,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
             </button>
           ))}
         </div>
-      </div>
+          </div>
 
-      {/* Filtros de Fecha */}
-      <div className="flex flex-row gap-3 items-center bg-white/50 dark:bg-zinc-900/40 rounded-2xl p-1.5 w-fit flex-wrap ml-1 shadow-sm border border-slate-100 dark:border-zinc-800">
-        <div className="flex items-center gap-1 flex-wrap">
+          <div className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-center">
+        <div className="flex flex-wrap items-center gap-1">
             {[
               { id: "dia", label: "Día" },
               { id: "mes", label: "Mes" },
@@ -275,14 +278,14 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -10 }}
                 >
-                  <ModalFechaInput
-                    id="historial-fecha-dia"
+                  <CustomDatePicker
                     value={fechaDiaCompras}
                     onChange={(val) => {
                       setFechaDiaCompras(val);
                       setCurrentPageCompras(1);
                     }}
-                    className="h-[34px] max-w-[140px]"
+                    placeholder="Elegir día"
+                    align="left"
                   />
                 </motion.div>
               )}
@@ -462,33 +465,34 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   className="flex items-center gap-2 flex-wrap max-w-full"
                 >
                   <span className="text-[10px] font-bold text-slate-400">Desde:</span>
-                  <ModalFechaInput
-                    id="historial-rango-desde"
+                  <CustomDatePicker
                     value={fechaRangoDesdeCompras}
                     onChange={(val) => {
                       setFechaRangoDesdeCompras(val);
                       setCurrentPageCompras(1);
                     }}
-                    className="h-[34px] max-w-[140px]"
+                    placeholder="Desde"
+                    align="left"
                   />
                   <span className="text-[10px] font-bold text-slate-400">Hasta:</span>
-                  <ModalFechaInput
-                    id="historial-rango-hasta"
+                  <CustomDatePicker
                     value={fechaRangoHastaCompras}
                     onChange={(val) => {
                       setFechaRangoHastaCompras(val);
                       setCurrentPageCompras(1);
                     }}
-                    className="h-[34px] max-w-[140px]"
+                    placeholder="Hasta"
+                    align="right"
                   />
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
+          </div>
         </div>
+      </section>
 
-        {/* Listado de compras */}
-        <div className={cn(moduleTableShellClass, "mt-2")}>
+        <div className={cn(moduleTableShellClass, "mt-0")}>
         <div className={cn(moduleTableScrollClass, "pr-1 min-h-0")}>
           {comprasPaginadas.length === 0 ? (
             <div className={moduleTableEmptyClass}>
@@ -665,10 +669,8 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
       <ModuleTableFooter
         itemCount={totalComprasItems}
         pageSize={pageSizeCompras}
-        setPageSize={(size) => {
-          setPageSizeCompras(size);
-          setMostrarPageSizeDropdownCompras(false);
-        }}
+        pageSizeOptions={[15, 30, 45]}
+        setPageSize={setPageSizeCompras}
         currentPage={activeComprasPage}
         totalPages={totalComprasPages}
         onPageChange={setCurrentPageCompras}

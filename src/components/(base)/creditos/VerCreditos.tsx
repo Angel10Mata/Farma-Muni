@@ -15,21 +15,20 @@ import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
 import { Download as DownloadNode, FileDown } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { modulePageShellClass } from "@/lib/module-layout";
+import { moduleListPageShellClass } from "@/lib/module-layout";
 import {
   moduleTableBodyClass,
-  moduleTableCellClass,
   moduleTableClass,
   moduleTableDesktopScrollClass,
-  moduleTableDesktopWrapClass,
   moduleTableEmptyClass,
+  moduleTableEmptyCellClass,
   ModuleTableFooter,
   moduleTableHeadCellClass,
   moduleTableHeadRowClass,
   moduleTableRowClass,
-  moduleTableScrollClass,
   moduleTableSearchClass,
-  moduleTableShellClass,
+  moduleTableListShellClass,
+  moduleTableDesktopWrapListClass,
 } from "@/components/ui/module-table";
 
 import { cn, fmtQ } from "@/lib/utils";
@@ -45,7 +44,7 @@ export function VerCreditos() {
   const [clienteSeleccionado, setClienteSeleccionado] = useState<CreditoResumen | null>(null);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
 
   const { data: creditos = [], isLoading, refetch } = useResumenCreditos();
   const [hasNotified, setHasNotified] = useState(false);
@@ -120,50 +119,52 @@ export function VerCreditos() {
   };
 
   return (
-    <div className={modulePageShellClass}>
-      <div className="flex items-center justify-between gap-4 w-full">
-        <div className="flex items-center gap-4">
-          <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center">
-             <CreditCard className="size-6 text-[#8DA78E] dark:text-[#A3BEB0]" />
+    <div className={moduleListPageShellClass}>
+      <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
+             <CreditCard className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
           </div>
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Finanzas</p>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-zinc-900 dark:text-zinc-100 leading-none">
+            <h1 className="text-xl font-black uppercase leading-none tracking-tight text-zinc-900 dark:text-zinc-100 md:text-2xl">
               Control de Créditos
             </h1>
           </div>
         </div>
+
+        <div className="flex w-full shrink-0 justify-end sm:w-auto">
+          <div className="flex w-fit bg-[#8DA78E]/5 p-1 rounded-xl border border-[#8DA78E]/10">
+            <button
+              type="button"
+              onClick={() => setTab("cobrar")}
+              className={cn(
+                "px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
+                tab === "cobrar"
+                  ? "bg-white dark:bg-[#525D53] text-[#8DA78E] dark:text-white shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              )}
+            >
+              Por Cobrar
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("pagados")}
+              className={cn(
+                "px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
+                tab === "pagados"
+                  ? "bg-white dark:bg-[#525D53] text-[#8DA78E] dark:text-white shadow-sm"
+                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
+              )}
+            >
+              Pagados
+            </button>
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex w-fit bg-[#8DA78E]/5 p-1 rounded-xl border border-[#8DA78E]/10">
-          <button
-            type="button"
-            onClick={() => setTab("cobrar")}
-            className={cn(
-              "px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
-              tab === "cobrar"
-                ? "bg-white dark:bg-[#525D53] text-[#8DA78E] dark:text-white shadow-sm"
-                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-            )}
-          >
-            Por Cobrar
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("pagados")}
-            className={cn(
-              "px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
-              tab === "pagados"
-                ? "bg-white dark:bg-[#525D53] text-[#8DA78E] dark:text-white shadow-sm"
-                : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-            )}
-          >
-            Pagados
-          </button>
-        </div>
-
-        <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-3xl p-4 md:p-5 flex flex-col md:flex-row items-center justify-between gap-4 shadow-sm">
+      <div className="relative flex flex-col gap-3">
+        <div className="flex flex-col items-center justify-between gap-3 rounded-3xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 md:flex-row md:p-4">
           <div className="relative w-full md:max-w-md">
             <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
               <Search className="size-4 text-zinc-400" />
@@ -177,11 +178,11 @@ export function VerCreditos() {
             />
           </div>
 
-          <div className="flex items-center gap-3 w-full md:w-auto">
+          <div className="flex w-full items-center gap-3 md:w-auto">
             <select
               value={criterioOrden}
               onChange={(e) => setCriterioOrden(e.target.value as any)}
-              className="w-full md:w-auto px-4 py-2.5 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl text-sm font-bold text-zinc-700 dark:text-zinc-300 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 cursor-pointer"
+              className="h-9 w-full min-w-0 flex-1 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 md:w-[230px] md:flex-none"
             >
               <option value="saldo-desc">Mayor Saldo Pendiente</option>
               <option value="saldo-asc">Menor Saldo Pendiente</option>
@@ -193,26 +194,29 @@ export function VerCreditos() {
               morphFrom={DownloadNode}
               morphTo={FileDown}
               onClick={handleExportarGlobal}
-              className="w-auto shrink-0"
+              className="h-9 w-[113px] shrink-0"
             />
           </div>
         </div>
 
-        <div className={moduleTableShellClass}>
-          <div className={moduleTableScrollClass}>
-          {isLoading ? (
-            <div className="flex justify-center p-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div>
+        <div className={moduleTableListShellClass}>
+          {isLoading && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center rounded-3xl bg-background/50 backdrop-blur-xs">
+              <div className="flex flex-col items-center gap-3">
+                <div className="size-8 animate-spin rounded-full border-2 border-[#8DA78E]/30 border-t-[#8DA78E]" />
+                <span className="text-xs font-bold text-slate-500">Cargando créditos...</span>
+              </div>
             </div>
-          ) : paginatedCreditos.length === 0 ? (
-            <div className={moduleTableEmptyClass}>
-              No se encontraron créditos
-            </div>
-          ) : (
-            <>
-              {/* Vista Móvil (Tarjetas) */}
-              <div className="grid grid-cols-1 md:hidden gap-4 p-4">
-                {paginatedCreditos.map((c) => (
+          )}
+
+          <div className="flex w-full flex-col gap-3">
+              <div className="grid grid-cols-1 gap-4 md:hidden">
+                {!isLoading && paginatedCreditos.length === 0 ? (
+                  <div className={cn(moduleTableEmptyClass, "py-10 text-sm")}>
+                    No se encontraron créditos
+                  </div>
+                ) : (
+                paginatedCreditos.map((c) => (
                   <motion.div
                     key={c.cliente_id}
                     initial={{ opacity: 0, y: 10 }}
@@ -272,11 +276,11 @@ export function VerCreditos() {
                       </button>
                     </div>
                   </motion.div>
-                ))}
+                ))
+                )}
               </div>
 
-              {/* Vista Desktop (Tabla) */}
-              <div className={moduleTableDesktopWrapClass}>
+              <div className={moduleTableDesktopWrapListClass}>
                 <div className={moduleTableDesktopScrollClass}>
                 <table className={moduleTableClass}>
                   <thead>
@@ -291,7 +295,14 @@ export function VerCreditos() {
                     </tr>
                   </thead>
                   <tbody className={moduleTableBodyClass}>
-                    {paginatedCreditos.map((c) => (
+                    {!isLoading && paginatedCreditos.length === 0 ? (
+                      <tr>
+                        <td colSpan={7} className={moduleTableEmptyCellClass}>
+                          No se encontraron créditos
+                        </td>
+                      </tr>
+                    ) : (
+                    paginatedCreditos.map((c) => (
                       <tr
                         key={c.cliente_id}
                         className={cn(moduleTableRowClass, "group cursor-pointer")}
@@ -343,23 +354,25 @@ export function VerCreditos() {
                           </button>
                         </td>
                       </tr>
-                    ))}
+                    ))
+                    )}
                   </tbody>
                 </table>
                 </div>
               </div>
-            </>
-          )}
           </div>
 
-          <ModuleTableFooter
-            itemCount={creditosOrdenados.length}
-            pageSize={pageSize}
-            setPageSize={setPageSize}
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={setCurrentPage}
-          />
+          {!isLoading && (
+            <ModuleTableFooter
+              itemCount={creditosOrdenados.length}
+              pageSize={pageSize}
+              pageSizeOptions={[15, 30, 45]}
+              setPageSize={setPageSize}
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          )}
         </div>
       </div>
 

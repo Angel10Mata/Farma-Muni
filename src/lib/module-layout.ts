@@ -44,3 +44,22 @@ export const modulePageScrollClass = [
   "px-3 sm:px-4 md:px-5",
   "pt-32 md:pt-36 pb-10",
 ].join(" ");
+
+export const moduleControlsShellClass =
+  "flex flex-col flex-none min-w-0 bg-white dark:bg-zinc-900 border-y md:border border-zinc-200 dark:border-zinc-800 md:rounded-3xl shadow-sm";
+
+export const moduleListPageShellClass = [
+  "w-full",
+  moduleContentMaxWidth,
+  "mx-auto flex flex-col gap-3",
+  "px-3 sm:px-4 md:px-5",
+  "pt-28 pb-6 md:pt-24 md:pb-8",
+].join(" ");
+
+export const inventarioPageShellClass = [
+  "w-full",
+  moduleContentMaxWidth,
+  "mx-auto flex flex-col gap-3",
+  "px-3 sm:px-4 md:px-5",
+  "pt-28 pb-10 md:pt-24 md:pb-12",
+].join(" ");

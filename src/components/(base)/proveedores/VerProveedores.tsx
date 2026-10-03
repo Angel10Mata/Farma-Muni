@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Truck, Receipt, Calendar, User, Package } from "lucide-react";
+import { Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { modulePageShellFixedClass } from "@/lib/module-layout";
 import { ComprasProvider } from "./ComprasContext";
@@ -13,8 +13,26 @@ import { CatalogoProveedores } from "./CatalogoProveedores";
 import { CrearProveedor } from "./forms/Crear";
 import { useProveedoresYProductos, useHistorialCompras } from "./lib/hooks";
 
+const COMPRAS_TABS = [
+  { id: "ingresar_compra" as const, label: "Registrar" },
+  { id: "proveedores" as const, label: "Proveedores" },
+  { id: "historial" as const, label: "Historial" },
+  { id: "cuentas_por_pagar" as const, label: "Por pagar" },
+];
+
+type ComprasTabId = (typeof COMPRAS_TABS)[number]["id"];
+
+function comprasTabPillClass(active: boolean) {
+  return cn(
+    "shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all sm:px-4 sm:text-xs",
+    active
+      ? "bg-white text-[#8DA78E] shadow-sm dark:bg-[#525D53] dark:text-white"
+      : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
+  );
+}
+
 function VerProveedoresInner() {
-  const [activeTab, setActiveTab] = useState<"ingresar_compra" | "historial" | "proveedores" | "cuentas_por_pagar">("ingresar_compra");
+  const [activeTab, setActiveTab] = useState<ComprasTabId>("ingresar_compra");
   const [isCrearOpen, setIsCrearOpen] = useState(false);
 
   const { data: dataPP, isLoading: isLoadingPP, refetch: refetchPP } = useProveedoresYProductos();
@@ -58,51 +76,47 @@ function VerProveedoresInner() {
 
   return (
     <div className={modulePageShellFixedClass}>
-      {/* Header & Tabs */}
-      <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between px-1">
-        
-        {/* Lado Izquierdo: Título */}
-        <div className="flex items-center gap-3">
-          <div className="bg-[#8DA78E]/10 p-2.5 rounded-xl shrink-0">
-            <Truck className="size-5 text-[#8DA78E]" />
+      <div className="flex shrink-0 flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
+            <Truck className="size-7 text-[#8DA78E] dark:text-[#A3BEB0]" />
           </div>
-          <div>
-            <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">
-              COMPRAS
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
+              Compras
             </p>
-            <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight leading-none">
-              GESTIÓN DE COMPRA
-            </h2>
+            <h1 className="mt-1 truncate text-2xl font-black uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-3xl">
+              Gestión de compra
+            </h1>
           </div>
         </div>
 
-        {/* Lado Derecho: Tabs en formato inline (como en el original) */}
-        <div className="flex flex-wrap items-center gap-1 w-full md:w-auto bg-white/50 dark:bg-zinc-900/40 rounded-2xl p-1.5 shadow-sm border border-slate-100 dark:border-zinc-800">
-          {[
-            { id: "ingresar_compra", label: "Registrar Compra" },
-            { id: "historial", label: "Historial de Compras" },
-            { id: "proveedores", label: "Proveedores" },
-            { id: "cuentas_por_pagar", label: "Cuentas por Pagar" }
-          ].map((tab) => {
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={cn(
-                  "px-4 py-2 rounded-xl text-[13px] font-bold transition-all whitespace-nowrap cursor-pointer",
-                  isActive
-                    ? "bg-[#8DA78E] text-white shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800/50"
-                )}
-              >
-                {tab.label}
-              </button>
-            );
-          })}
+        <div className="flex w-full shrink-0 justify-end sm:w-auto">
+          <div
+            className="relative z-30 flex w-fit max-w-full flex-nowrap rounded-xl border border-[#8DA78E]/10 bg-[#8DA78E]/5 p-1"
+            role="tablist"
+            aria-label="Secciones de compras"
+          >
+            {COMPRAS_TABS.map((tab) => {
+              const isActive = activeTab === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={comprasTabPillClass(isActive)}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
+      <div className="flex min-h-0 flex-1 flex-col pt-1">
       <div className="flex-1 min-h-0 h-full">
         {/* TAB 1: INGRESAR COMPRA */}
         {activeTab === "ingresar_compra" && (
@@ -134,6 +148,7 @@ function VerProveedoresInner() {
         {activeTab === "cuentas_por_pagar" && (
           <CuentasPorPagar compras={compras} cargarDatos={cargarDatos} />
         )}
+      </div>
       </div>
 
       <CrearProveedor

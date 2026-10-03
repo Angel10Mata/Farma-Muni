@@ -1,14 +1,12 @@
-"use client";
+﻿"use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
   Search,
-  AlertTriangle,
   ChevronDown,
   Truck,
-  Calendar,
   CalendarX,
   Box,
   Building2,
@@ -48,6 +46,7 @@ import {
 } from "./lib/hooks";
 import type { LoteInventario } from "./lib/zod";
 import {
+  etiquetaEstadoVencimiento,
   isProductoProximoAVencer,
   isProductoVencido,
 } from "./lib/helpers";
@@ -62,7 +61,7 @@ import {
   toast,
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { modulePageShellClass } from "@/lib/module-layout";
+import { inventarioPageShellClass, moduleControlsShellClass } from "@/lib/module-layout";
 import {
   moduleTableBodyClass,
   moduleTableCellClass,
@@ -75,7 +74,6 @@ import {
   moduleTableHeadCellClass,
   moduleTableHeadRowClass,
   moduleTableRowClass,
-  moduleTableScrollClass,
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
@@ -136,6 +134,32 @@ function mapLoteAFila(lote: LoteInventario): Producto {
   };
 }
 
+function lotesPorProductoId(lotes: LoteInventario[], productoId: string): LoteInventario[] {
+  return lotes
+    .filter((l) => l.producto_id === productoId && l.activo)
+    .sort((a, b) => (a.fecha_vencimiento ?? "").localeCompare(b.fecha_vencimiento ?? ""));
+}
+
+function mapUbicacionesPorProducto(lotes: LoteInventario[]): Map<string, string> {
+  const porProducto = new Map<string, Set<string>>();
+  for (const lote of lotes) {
+    if (!lote.activo) continue;
+    const ubi = lote.ubicacion?.trim();
+    if (!ubi) continue;
+    const set = porProducto.get(lote.producto_id) ?? new Set<string>();
+    set.add(ubi);
+    porProducto.set(lote.producto_id, set);
+  }
+  const out = new Map<string, string>();
+  for (const [productoId, set] of porProducto) {
+    out.set(
+      productoId,
+      Array.from(set).sort((a, b) => a.localeCompare(b, "es")).join(", "),
+    );
+  }
+  return out;
+}
+
 function ProductoAccionesMenu({
   activo,
   showBaja,
@@ -168,7 +192,7 @@ function ProductoAccionesMenu({
       >
         {showBaja ? (
           <DropdownMenuItem
-            className="cursor-pointer rounded-lg text-xs font-bold text-rose-600 focus:bg-rose-50 dark:text-rose-400 dark:focus:bg-rose-950/40"
+            className="cursor-pointer rounded-lg text-xs font-bold text-rose-600 focus:bg-rose-50 focus:text-rose-600 data-[highlighted]:bg-rose-50 data-[highlighted]:text-rose-600 dark:text-rose-400 dark:focus:bg-rose-950/40 dark:focus:text-rose-400 dark:data-[highlighted]:bg-rose-950/40 dark:data-[highlighted]:text-rose-400 [&_svg]:text-current"
             onSelect={() => onBaja()}
           >
             <CalendarX className="size-3.5" />
@@ -176,7 +200,7 @@ function ProductoAccionesMenu({
           </DropdownMenuItem>
         ) : null}
         <DropdownMenuItem
-          className="cursor-pointer rounded-lg text-xs font-bold text-zinc-700 focus:bg-zinc-100 dark:text-zinc-200 dark:focus:bg-zinc-800"
+          className="cursor-pointer rounded-lg text-xs font-bold text-zinc-700 focus:bg-zinc-100 focus:text-zinc-700 data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-700 dark:text-zinc-200 dark:focus:bg-zinc-800 dark:focus:text-zinc-200 dark:data-[highlighted]:bg-zinc-800 dark:data-[highlighted]:text-zinc-200 [&_svg]:text-current"
           onSelect={() => onEdit()}
         >
           <PencilIcon className="size-3.5" />
@@ -184,7 +208,7 @@ function ProductoAccionesMenu({
         </DropdownMenuItem>
         {activo ? (
           <DropdownMenuItem
-            className="cursor-pointer rounded-lg text-xs font-bold text-amber-700 focus:bg-amber-50 dark:text-amber-400 dark:focus:bg-amber-950/40"
+            className="cursor-pointer rounded-lg text-xs font-bold text-amber-700 focus:bg-amber-50 focus:text-amber-700 data-[highlighted]:bg-amber-50 data-[highlighted]:text-amber-700 dark:text-amber-400 dark:focus:bg-amber-950/40 dark:focus:text-amber-400 dark:data-[highlighted]:bg-amber-950/40 dark:data-[highlighted]:text-amber-400 [&_svg]:text-current"
             onSelect={() => onDesactivar()}
           >
             <Ban className="size-3.5" />
@@ -192,7 +216,7 @@ function ProductoAccionesMenu({
           </DropdownMenuItem>
         ) : (
           <DropdownMenuItem
-            className="cursor-pointer rounded-lg text-xs font-bold text-[#2E9E77] focus:bg-emerald-50 dark:text-emerald-400 dark:focus:bg-emerald-950/40"
+            className="cursor-pointer rounded-lg text-xs font-bold text-[#2E9E77] focus:bg-emerald-50 focus:text-[#2E9E77] data-[highlighted]:bg-emerald-50 data-[highlighted]:text-[#2E9E77] dark:text-emerald-400 dark:focus:bg-emerald-950/40 dark:focus:text-emerald-400 dark:data-[highlighted]:bg-emerald-950/40 dark:data-[highlighted]:text-emerald-400 [&_svg]:text-current"
             onSelect={() => onActivar()}
           >
             <CircleCheck className="size-3.5" />
@@ -212,7 +236,9 @@ function ProductoCard({
   onDesactivar,
   onActivar,
   onBaja,
-  destacarRojo,
+  destacarStock,
+  destacarProximo,
+  destacarVencido,
 }: {
   producto: Producto;
   onClick: () => void;
@@ -220,7 +246,9 @@ function ProductoCard({
   onDesactivar: () => void;
   onActivar: () => void;
   onBaja?: () => void;
-  destacarRojo?: boolean;
+  destacarStock?: boolean;
+  destacarProximo?: boolean;
+  destacarVencido?: boolean;
 }) {
   const isLowStock = producto.stock_actual <= producto.stock_minimo;
   const imagenes = [producto.imagen_url, producto.imagen_url_2, producto.imagen_url_3].filter(Boolean);
@@ -236,14 +264,16 @@ function ProductoCard({
       exit={{ opacity: 0, scale: 0.97 }}
       whileHover={{ y: -1 }}
       onClick={onClick}
-      className={cn("group relative border rounded-xl p-2.5 cursor-pointer hover:border-[#8DA78E] dark:hover:border-[#A3BEB0]/60 flex gap-3 items-center min-h-[96px]",
-        destacarRojo
-          ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/30"
-          : isVencido
-            ? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-400 dark:border-rose-800/50"
-          : isExpiringSoon
+      className={cn(
+        "group relative border rounded-xl p-2.5 cursor-pointer hover:border-[#8DA78E] dark:hover:border-[#A3BEB0]/60 flex gap-3 items-center min-h-[96px]",
+        destacarVencido && isVencido
+          ? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-400 dark:border-rose-800/50"
+          : destacarProximo && isExpiringSoon
             ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30"
-            : "bg-[#F5F5F1] dark:bg-[#525D53]/10 border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20")}
+            : destacarStock && isLowStock
+              ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/30"
+              : "bg-[#F5F5F1] dark:bg-[#525D53]/10 border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20",
+      )}
     >
       {/* Thumbnail Left */}
       <div className="shrink-0 size-20 rounded-lg bg-white dark:bg-zinc-900/60 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/20 flex items-center justify-center overflow-hidden">
@@ -275,11 +305,18 @@ function ProductoCard({
             {producto.numero_lote && ` | LOTE: ${producto.numero_lote}`}
           </p>
           {producto.fecha_vencimiento && (
-            <p className={cn(
-              "text-[9px] font-bold mt-0.5",
-              isVencido ? "text-rose-600 animate-pulse" : isExpiringSoon ? "text-amber-500 animate-pulse" : "text-slate-500",
-            )}>
-              {isVencido ? "VENCIDO" : "VENCE"}: {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
+            <p
+              className={cn(
+                "text-[9px] font-bold mt-0.5",
+                destacarVencido && isVencido
+                  ? "text-rose-600 animate-pulse"
+                  : destacarProximo && isExpiringSoon
+                    ? "text-amber-500 animate-pulse"
+                    : "text-slate-500",
+              )}
+            >
+              {destacarVencido && isVencido ? "VENCIDO" : "VENCE"}:{" "}
+              {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
             </p>
           )}
           {(producto.inv_proveedores?.nombre || producto.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre) && (
@@ -299,10 +336,14 @@ function ProductoCard({
           <div className="flex gap-2.5 text-[9px] leading-none">
             <div>
               <span className="text-[#525D53]/60 dark:text-[#A3BEB0]/50 font-bold uppercase">Stock:</span>
-              <span className={cn(
-                "font-black ml-0.5",
-                isLowStock ? "text-red-500 animate-pulse" : "text-slate-700 dark:text-slate-300"
-              )}>
+              <span
+                className={cn(
+                  "font-black ml-0.5",
+                  destacarStock && isLowStock
+                    ? "text-red-500 animate-pulse"
+                    : "text-slate-700 dark:text-slate-300",
+                )}
+              >
                 {fmtNum(producto.stock_actual)}
               </span>
             </div>
@@ -333,154 +374,251 @@ function ProductoCard({
 // ─── Panel de detalle ──────────────────────────────────────────────────────────
 function ProductoDetalle({
   producto,
+  lotesProducto,
   onClose,
-  onEditClick
+  onEditClick,
 }: {
   producto: Producto;
+  lotesProducto: LoteInventario[];
   onClose: () => void;
   onEditClick: () => void;
 }) {
   const isLowStock = producto.stock_actual <= producto.stock_minimo;
+  const detalleLabelClass =
+    "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
+  const detalleFieldClass =
+    "rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2.5 text-sm text-slate-800 dark:border-[#A3BEB0]/15 dark:bg-zinc-900/40 dark:text-slate-100";
+  const detalleMetricClass =
+    "flex min-h-[2.75rem] items-center justify-between gap-2 rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2 dark:border-[#A3BEB0]/15 dark:bg-[#525D53]/10";
 
   return (
     <motion.div
       initial={{ opacity: 0, x: 24 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: 24 }}
-      className="bg-zinc-100 dark:bg-zinc-800 border border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20 rounded-2xl p-3 flex flex-col gap-2.5 h-fit max-h-full overflow-y-auto w-full animate-fade-in shadow-2xl"
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-left animate-fade-in dark:bg-zinc-800"
     >
-      {/* Cabecera */}
-      <div className="flex items-center justify-between pb-2 border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 shrink-0">
-        <div className="flex items-center gap-2">
-          <div className="shrink-0 size-8 rounded-lg bg-gradient-to-br from-[#C1D1C5] to-[#8DA78E] flex items-center justify-center text-white">
-            <Package className="size-4.5" />
-          </div>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Detalle del Producto</span>
-        </div>
-        <button
-          onClick={onClose}
-          className="text-slate-400 transition-colors text-base font-bold px-1.5 cursor-pointer shrink-0"
-        >
-          ✕
-        </button>
-      </div>
-
-      {/* Nombre */}
-      <div className="space-y-1">
-        <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Nombre</h4>
-        <h2 className="font-black text-slate-900 dark:text-white text-base leading-tight break-words">{producto.nombre}</h2>
-      </div>
-
-      {/* Código y Estado */}
-      <div className="grid grid-cols-3 gap-2.5">
-        <div className="col-span-2 space-y-1">
-          <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Código de Barras</h4>
-          <p className="text-xs font-mono text-slate-800 dark:text-slate-200 bg-white dark:bg-zinc-900/40 border border-[#C1D1C5]/20 rounded-lg px-3 py-2 uppercase">{producto.codigo || "Sin Código"}</p>
-        </div>
-
-        <div className="space-y-1">
-          <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Estado</h4>
-          <div className="bg-white dark:bg-zinc-900/40 border border-[#C1D1C5]/20 rounded-lg px-2.5 py-1.5 flex items-center justify-center gap-2 h-[38px] shadow-sm">
-            <span className={`text-[10px] font-bold uppercase ${producto.activo ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-red-500"}`}>
-              {producto.activo ? "Activo" : "Inactivo"}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Descripción */}
-      <div className="space-y-1 mt-1">
-        <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Descripción</h4>
-        <p className="text-xs text-slate-600 dark:text-slate-300 leading-normal bg-white dark:bg-zinc-900/50 p-2.5 rounded-lg border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10">
-          {producto.descripcion || "Sin descripción registrada para este producto."}
-        </p>
-      </div>
-
-      {/* Datos técnicos */}
-      <div>
-        <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70 mb-1.5">Inventario y Costos</h4>
-        <div className="grid grid-cols-3 gap-2">
-          {/* Existencias */}
-          <div className="bg-white dark:bg-[#525D53]/10 rounded-xl px-2 py-1.5 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 flex items-center justify-between gap-1 h-[38px] shadow-sm">
-            <span className="text-[9px] text-[#525D53] dark:text-[#A3BEB0]/70 font-bold uppercase tracking-wider shrink-0">Existencias</span>
-            <span className={`text-xs font-black ${isLowStock ? "text-red-400 animate-pulse" : "text-[#8DA78E] dark:text-[#A3BEB0]"}`}>{fmtNum(producto.stock_actual)}</span>
-          </div>
-
-          {/* Alerta Mínima */}
-          <div className="bg-white dark:bg-[#525D53]/10 rounded-xl px-2 py-1.5 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 flex items-center justify-between gap-1 h-[38px] shadow-sm">
-            <span className="text-[9px] text-[#525D53] dark:text-[#A3BEB0]/70 font-bold uppercase tracking-wider shrink-0">Mínimo</span>
-            <span className="text-xs font-black text-[#8DA78E] dark:text-[#A3BEB0]">{fmtNum(producto.stock_minimo)}</span>
-          </div>
-
-          {/* Precio Unitario */}
-          <div className="bg-white dark:bg-[#525D53]/10 rounded-xl px-2 py-1.5 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 flex items-center justify-between gap-1 h-[38px] shadow-sm">
-            <span className="text-[9px] text-[#525D53] dark:text-[#A3BEB0]/70 font-bold uppercase tracking-wider shrink-0">Precio U.</span>
-            <span className="text-xs font-black text-[#8DA78E] dark:text-[#A3BEB0]">{fmtQ(producto.precio_base)}</span>
-          </div>
-
-          {/* Proveedor */}
-          <div className="col-span-3 bg-white dark:bg-[#525D53]/10 rounded-xl p-2.5 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10">
-            <span className="text-[9px] text-[#525D53] dark:text-[#A3BEB0]/70 font-semibold uppercase tracking-wide block mb-0.5">Proveedor</span>
-            <p className="text-xs font-bold text-[#8DA78E] dark:text-[#A3BEB0] truncate">
-              {producto.inv_proveedores?.nombre || producto.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre || "Sin Proveedor"}
-            </p>
-          </div>
-
-          {/* Ubicación */}
-          <div className="col-span-3 bg-white dark:bg-[#525D53]/10 rounded-xl p-2.5 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10">
-            <span className="text-[9px] text-[#525D53] dark:text-[#A3BEB0]/70 font-semibold uppercase tracking-wide block mb-0.5">Ubicación</span>
-            <p className="text-xs font-bold text-[#8DA78E] dark:text-[#A3BEB0] truncate flex items-center gap-1">
-              <Box className="size-3 shrink-0" /> {producto.ubicacion || "Sin asignar"}
-            </p>
-          </div>
-
-          {/* Vencimiento y Lote */}
-          <div className="col-span-3 grid grid-cols-2 gap-2 mt-1">
-            <div className="bg-white dark:bg-[#525D53]/10 rounded-xl px-2 py-1.5 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 flex items-center justify-between gap-1 h-[38px] shadow-sm">
-              <span className="text-[9px] text-[#525D53] dark:text-[#A3BEB0]/70 font-bold uppercase tracking-wider shrink-0">Vence</span>
-              <span className="text-xs font-black text-[#8DA78E] dark:text-[#A3BEB0]">
-                {producto.fecha_vencimiento ? new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT") : "—"}
-              </span>
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
+              <Package className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
             </div>
-
-            <div className="bg-white dark:bg-[#525D53]/10 rounded-xl px-2 py-1.5 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 flex items-center justify-between gap-1 h-[38px] shadow-sm">
-              <span className="text-[9px] text-[#525D53] dark:text-[#A3BEB0]/70 font-bold uppercase tracking-wider shrink-0">Lote</span>
-              <span className="text-xs font-black text-[#8DA78E] dark:text-[#A3BEB0]">
-                {producto.numero_lote || "—"}
-              </span>
+            <div className="min-w-0 space-y-1">
+              <p className={detalleLabelClass}>Producto</p>
+              <h2 className="text-xl font-black leading-snug text-slate-900 dark:text-white md:text-2xl">
+                {producto.nombre}
+              </h2>
             </div>
           </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="cursor-pointer px-2 text-xl font-bold leading-none text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            ✕
+          </button>
         </div>
-      </div>
 
-      {/* Galería de Imágenes */}
-      <div className="space-y-1.5 mt-1">
-        <h4 className="text-[10px] uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Galería de Imágenes</h4>
-        <div className="grid grid-cols-3 gap-2">
-          {[producto.imagen_url, producto.imagen_url_2, producto.imagen_url_3].map((imgUrl, idx) => {
-            const publicUrl = imgUrl ? createClient().storage.from("Imagenes_Farmacia").getPublicUrl(imgUrl).data.publicUrl : null;
-            return (
-              <div key={idx} className="aspect-[3/4] rounded-xl bg-white dark:bg-zinc-900/60 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/20 flex items-center justify-center overflow-hidden shadow-xs">
-                {publicUrl ? (
-                  <img src={publicUrl} alt={`${producto.nombre} - img ${idx + 1}`} className="w-full h-full object-cover" />
-                ) : (
-                  <Package className="size-5 text-slate-300 dark:text-slate-600" />
-                )}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_220px]">
+          <div className="space-y-6">
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_140px]">
+              <div className="space-y-2">
+                <h4 className={detalleLabelClass}>Código de barras</h4>
+                <p className={cn(detalleFieldClass, "font-mono text-sm uppercase tracking-wide")}>
+                  {producto.codigo || "Sin código"}
+                </p>
               </div>
-            );
-          })}
+              <div className="space-y-2">
+                <h4 className={detalleLabelClass}>Estado</h4>
+                <div className={cn(detalleFieldClass, "flex items-center justify-center font-bold uppercase")}>
+                  <span className={producto.activo ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-red-500"}>
+                    {producto.activo ? "Activo" : "Inactivo"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <h4 className={detalleLabelClass}>Descripción</h4>
+              <p className={cn(detalleFieldClass, "text-sm leading-relaxed text-slate-600 dark:text-slate-300")}>
+                {producto.descripcion || "Sin descripción registrada para este producto."}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className={detalleLabelClass}>Inventario y costos</h4>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className={detalleMetricClass}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                    Existencias
+                  </span>
+                  <span
+                    className={cn(
+                      "text-base font-black tabular-nums",
+                      isLowStock ? "text-red-500 animate-pulse" : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                    )}
+                  >
+                    {fmtNum(producto.stock_actual)}
+                  </span>
+                </div>
+                <div className={detalleMetricClass}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                    Mínimo
+                  </span>
+                  <span className="text-base font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                    {fmtNum(producto.stock_minimo)}
+                  </span>
+                </div>
+                <div className={detalleMetricClass}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                    Precio U.
+                  </span>
+                  <span className="text-base font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                    {fmtQ(producto.precio_base)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <h4 className={detalleLabelClass}>Proveedor</h4>
+                  <p className={cn(detalleFieldClass, "truncate text-sm font-bold text-[#8DA78E] dark:text-[#A3BEB0]")}>
+                    {producto.inv_proveedores?.nombre ||
+                      producto.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre ||
+                      "Sin proveedor"}
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <h4 className={detalleLabelClass}>Ubicación</h4>
+                  <p
+                    className={cn(
+                      detalleFieldClass,
+                      "flex items-center gap-2 truncate text-sm font-bold text-[#8DA78E] dark:text-[#A3BEB0]",
+                    )}
+                  >
+                    <Box className="size-4 shrink-0 opacity-80" />
+                    {producto.ubicacion || "Sin asignar"}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <h4 className={detalleLabelClass}>Lotes y vencimiento</h4>
+                <div
+                  className={cn(
+                    detalleFieldClass,
+                    "min-h-[2.75rem] space-y-0 p-0 overflow-hidden",
+                  )}
+                >
+                  {lotesProducto.length === 0 ? (
+                    <p className="px-3 py-2.5 text-sm text-slate-500 dark:text-slate-400">
+                      Sin lotes registrados para este producto.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-[#C1D1C5]/25 dark:divide-[#A3BEB0]/15">
+                      {lotesProducto.map((lote) => {
+                        const vencido =
+                          isProductoVencido(lote.fecha_vencimiento) &&
+                          (Number(lote.cantidad_actual) || 0) > 0;
+                        const proximo = isProductoProximoAVencer(lote.fecha_vencimiento);
+                        const estadoVenc = etiquetaEstadoVencimiento(lote.fecha_vencimiento);
+                        const fechaTxt = lote.fecha_vencimiento
+                          ? new Date(lote.fecha_vencimiento).toLocaleDateString("es-GT")
+                          : "Sin fecha";
+                        return (
+                          <li
+                            key={lote.id}
+                            className={cn(
+                              "flex flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3",
+                              !lote.activo && "opacity-60",
+                            )}
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-sm font-black text-slate-800 dark:text-slate-100">
+                                Lote {lote.numero_lote || "—"}
+                              </p>
+                              <p className="text-[10px] font-bold uppercase tracking-wide text-[#525D53]/80 dark:text-[#A3BEB0]/70">
+                                {lote.activo ? "Activo" : "Inactivo"}
+                                {lote.ubicacion ? ` · ${lote.ubicacion}` : ""}
+                              </p>
+                            </div>
+                            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
+                              <span
+                                className={cn(
+                                  "text-xs font-bold tabular-nums",
+                                  vencido
+                                    ? "text-red-500"
+                                    : proximo
+                                      ? "text-amber-600 dark:text-amber-400"
+                                      : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                                )}
+                              >
+                                Vence {fechaTxt}
+                              </span>
+                              <span
+                                className={cn(
+                                  "rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide",
+                                  vencido
+                                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
+                                    : proximo
+                                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
+                                      : "bg-[#8DA78E]/10 text-[#525D53] dark:text-[#A3BEB0]",
+                                )}
+                              >
+                                {estadoVenc}
+                              </span>
+                              <span className="text-xs font-black tabular-nums text-slate-600 dark:text-slate-300">
+                                {fmtNum(Number(lote.cantidad_actual) || 0)} u.
+                              </span>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h4 className={detalleLabelClass}>Galería</h4>
+            <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
+              {[producto.imagen_url, producto.imagen_url_2, producto.imagen_url_3].map((imgUrl, idx) => {
+                const publicUrl = imgUrl
+                  ? createClient().storage.from("Imagenes_Farmacia").getPublicUrl(imgUrl).data.publicUrl
+                  : null;
+                return (
+                  <div
+                    key={idx}
+                    className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-xl border border-[#C1D1C5]/35 bg-white dark:border-[#A3BEB0]/20 dark:bg-zinc-900/60 lg:aspect-[5/4]"
+                  >
+                    {publicUrl ? (
+                      <img
+                        src={publicUrl}
+                        alt={`${producto.nombre} - img ${idx + 1}`}
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      <Package className="size-6 text-slate-300 dark:text-slate-600" />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* Acciones */}
-      <div className="flex justify-start items-center mt-4 pt-3 border-t border-[#C1D1C5]/20 dark:border-[#A3BEB0]/10 shrink-0">
+      <div className="flex shrink-0 justify-end gap-3 border-t border-zinc-200 bg-[#F5F5F1] px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900 md:px-8">
         <SigetActionButton
           label="Editar"
           accentColor={sigetAccent.editar}
           morphFrom={PencilNode}
           morphTo={SquarePenNode}
           onClick={onEditClick}
-          className="w-auto shrink-0"
+          className="w-auto shrink-0 flex-1 sm:flex-initial"
         />
       </div>
     </motion.div>
@@ -634,6 +772,13 @@ const LocationFilterDropdown = ({
   );
 };
 
+function inventarioTabUnderlineClass(active: boolean) {
+  return cn(
+    "flex-1 min-w-0 py-2 text-xs font-black uppercase tracking-wider text-center border-b-2 cursor-pointer text-[#8DA78E] dark:text-[#A3BEB0]",
+    active ? "border-[#8DA78E] dark:border-[#A3BEB0]" : "border-transparent opacity-75 hover:opacity-100",
+  );
+}
+
 // ─── Componente Principal ─────────────────────────────────────────────────────
 export function VerInventario() {
   const router = useRouter();
@@ -646,14 +791,39 @@ export function VerInventario() {
   const [vistaInventario, setVistaInventario] = useState<"lotes" | "catalogo">("lotes");
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
 
-
   const { data: productosCatalogo = [], isLoading: isLoadingCatalogo, refetch: refetchProductos } = useProductos();
   const { data: lotes = [], isLoading: isLoadingLotes, refetch: refetchLotes } = useLotes();
+
+  const lotesProductoDetalle = useMemo(() => {
+    if (!productoSeleccionado) return [];
+    return lotesPorProductoId(
+      lotes as LoteInventario[],
+      idProductoCatalogo(productoSeleccionado),
+    );
+  }, [productoSeleccionado, lotes]);
+  const ubicacionesPorProductoId = useMemo(
+    () => mapUbicacionesPorProducto(lotes as LoteInventario[]),
+    [lotes],
+  );
+
+  const productosCatalogoConUbicacion = useMemo(
+    () =>
+      productosCatalogo.map((p) => {
+        const row = p as Producto;
+        const idCat = row.id;
+        return {
+          ...row,
+          ubicacion: ubicacionesPorProductoId.get(idCat) ?? row.ubicacion ?? null,
+        };
+      }),
+    [productosCatalogo, ubicacionesPorProductoId],
+  );
+
   const isLoading = vistaInventario === "lotes" ? isLoadingLotes : isLoadingCatalogo;
   const productos =
     vistaInventario === "lotes"
       ? (lotes as LoteInventario[]).map(mapLoteAFila)
-      : productosCatalogo;
+      : productosCatalogoConUbicacion;
   const { mutateAsync: desactivarProductoAsync, isPending: isDesactivando } =
     useDesactivarProducto();
   const { mutateAsync: activarProductoAsync } = useActivarProducto();
@@ -668,11 +838,9 @@ export function VerInventario() {
 
   // Paginación
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
   const [mostrarPageSizeDropdown, setMostrarPageSizeDropdown] = useState(false);
   const pageSizeDropdownRef = useRef<HTMLDivElement>(null);
-  const [mostrarFiltroEstadoDropdown, setMostrarFiltroEstadoDropdown] = useState(false);
-  const filtroEstadoDropdownRef = useRef<HTMLDivElement>(null);
   const [mostrarReportesDropdown, setMostrarReportesDropdown] = useState(false);
   const reportesDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -682,9 +850,6 @@ export function VerInventario() {
     function handleClickOutside(event: MouseEvent) {
       if (pageSizeDropdownRef.current && !pageSizeDropdownRef.current.contains(event.target as Node)) {
         setMostrarPageSizeDropdown(false);
-      }
-      if (filtroEstadoDropdownRef.current && !filtroEstadoDropdownRef.current.contains(event.target as Node)) {
-        setMostrarFiltroEstadoDropdown(false);
       }
       if (reportesDropdownRef.current && !reportesDropdownRef.current.contains(event.target as Node)) {
         setMostrarReportesDropdown(false);
@@ -792,14 +957,6 @@ export function VerInventario() {
     return a.nombre.localeCompare(b.nombre);
   });
 
-  const hayStockBajoGlobal = productos.some((p) => p.stock_actual <= p.stock_minimo);
-  const hayProximoVencerGlobal = productos.some((p) =>
-    isProductoProximoAVencer(p.fecha_vencimiento),
-  );
-  const hayVencidosGlobal = productos.some(
-    (p) => isProductoVencido(p.fecha_vencimiento) && p.stock_actual > 0,
-  );
-
   const totalItems = productosFiltrados.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
   const activePage = Math.min(currentPage, totalPages);
@@ -809,7 +966,7 @@ export function VerInventario() {
     activePage * pageSize
   );
 
-
+  const inventarioTableColumnCount = vistaInventario === "catalogo" ? 7 : 9;
 
   const handleNuevoProducto = () => {
     router.push("/farmamuni/inventario/nuevo");
@@ -959,216 +1116,227 @@ export function VerInventario() {
   };
 
   return (
-    <div className={modulePageShellClass}>
-      {/* Header */}
-      <div className="flex items-center justify-between gap-4 px-2.5 md:px-0">
-        <div className="flex items-center gap-3">
-          <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center overflow-hidden">
+    <div className={inventarioPageShellClass}>
+      <div className="flex shrink-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-0.5">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center">
             <Package className="size-7 text-[#8DA78E] dark:text-[#A3BEB0]" />
           </div>
-          <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none mt-1">
+          <div className="min-w-0">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
+              Módulo
+            </p>
+            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none mt-1 truncate">
               Inventario
             </h1>
           </div>
         </div>
-
         <SigetActionButton
           label="Crear"
           accentColor={sigetAccent.crear}
           morphFrom={PlusNode}
           morphTo={UserPlus}
           onClick={handleNuevoProducto}
-          className="w-auto shrink-0"
+          className="w-full sm:w-auto shrink-0"
         />
       </div>
 
-      <div className="px-2.5 md:px-0 mt-2 flex flex-col items-center gap-2">
-        <div className="flex bg-[#F5F5F1] dark:bg-zinc-900/60 border border-[#C1D1C5]/40 dark:border-zinc-800 p-1 rounded-2xl w-full max-w-md">
-          <button
-            type="button"
-            onClick={() => {
-              setVistaInventario("lotes");
-              setProductoSeleccionado(null);
-              setCurrentPage(1);
-            }}
-            className={cn(
-              "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors",
-              vistaInventario === "lotes"
-                ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
-                : "text-slate-500",
-            )}
-          >
-            Por lotes
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setVistaInventario("catalogo");
-              setProductoSeleccionado(null);
-              setCurrentPage(1);
-            }}
-            className={cn(
-              "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors",
-              vistaInventario === "catalogo"
-                ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
-                : "text-slate-500",
-            )}
-          >
-            Catálogo
-          </button>
-        </div>
-      </div>
-
-      {/* Tabs Selector: Activos / Inactivos (arriba del Buscador) */}
-      <div className="px-2.5 md:px-0 mt-2 flex justify-center">
-        <div className="flex border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 w-full max-w-xs select-none">
-          <button
-            type="button"
-            onClick={() => {
-              setFiltroEstado("activos");
-              setCurrentPage(1);
-            }}
-            className={cn(
-              "flex-1 py-2 text-xs font-black uppercase tracking-wider text-center border-b-2 cursor-pointer text-[#8DA78E] dark:text-[#A3BEB0]",
-              filtroEstado === "activos" ? "border-[#8DA78E] dark:border-[#A3BEB0]" : "border-transparent"
-            )}
-          >
-            Activos
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setFiltroEstado("inactivos");
-              setCurrentPage(1);
-            }}
-            className={cn(
-              "flex-1 py-2 text-xs font-black uppercase tracking-wider text-center border-b-2 cursor-pointer text-[#8DA78E] dark:text-[#A3BEB0]",
-              filtroEstado === "inactivos" ? "border-[#8DA78E] dark:border-[#A3BEB0]" : "border-transparent"
-            )}
-          >
-            Inactivos
-          </button>
-        </div>
-      </div>
-
-      {/* Buscador, Filtros y Exportar */}
-      <div className="flex flex-col md:flex-row gap-3 px-2.5 md:px-0">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Buscar por nombre o código de barras..."
-            value={busqueda}
-            onChange={(e) => {
-              setBusqueda(e.target.value);
-              setCurrentPage(1);
-            }}
-            className={moduleTableSearchClass}
-          />
-        </div>
-
-        <div className="flex flex-wrap md:flex-nowrap items-center gap-2 w-full md:w-auto pb-1 md:pb-0 select-none justify-end">
-          {/* Filtro por Ubicación */}
-          {ubicacionesUnicas.length > 0 && (
-            <div className="w-full md:w-auto flex justify-center md:block">
-              <LocationFilterDropdown
-                selectedLocation={filtroUbicacion}
-                onSelectLocation={(loc) => {
-                  setFiltroUbicacion(loc);
-                  setCurrentPage(1);
-                }}
-                locations={ubicacionesUnicas}
-                products={productos}
-              />
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2 w-full md:w-auto shrink-0 justify-end">
-            <button
-              type="button"
-              onClick={() => resetFiltrosAlerta(filtroStockBajo ? null : "stock")}
-              className={`w-[calc(50%-4px)] sm:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${filtroStockBajo
-                ? "border-red-400 bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800"
-                : "border-red-200 dark:border-red-900/50 text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20"
-                } ${hayStockBajoGlobal && !filtroStockBajo ? "animate-pulse" : ""}`}
-            >
-              <AlertTriangle className="size-3 md:size-3.5" /> Stock Bajo
-            </button>
-
-            <button
-              type="button"
-              onClick={() => resetFiltrosAlerta(filtroProximoVencer ? null : "proximo")}
-              className={`w-[calc(50%-4px)] sm:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${filtroProximoVencer
-                ? "border-amber-400 bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800"
-                : "border-amber-200 dark:border-amber-900/50 text-amber-500 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/20"
-                } ${hayProximoVencerGlobal && !filtroProximoVencer ? "animate-pulse" : ""}`}
-            >
-              <Calendar className="size-3 md:size-3.5" /> Vencimiento
-            </button>
-
-            <button
-              type="button"
-              onClick={() => resetFiltrosAlerta(filtroVencidos ? null : "vencidos")}
-              className={`w-[calc(50%-4px)] sm:w-auto justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer ${filtroVencidos
-                ? "border-rose-500 bg-rose-100 text-rose-800 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-700"
-                : "border-rose-200 dark:border-rose-900/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/20"
-                } ${hayVencidosGlobal && !filtroVencidos ? "animate-pulse" : ""}`}
-            >
-              <CalendarX className="size-3 md:size-3.5" /> Vencidos
-            </button>
-
-            <div className="relative w-[calc(50%-4px)] sm:w-auto" ref={reportesDropdownRef}>
+      <section
+        className={cn(
+          moduleControlsShellClass,
+          "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
+        )}
+      >
+        <div
+          className="flex flex-col items-end gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-800 lg:flex-row lg:items-center lg:justify-end"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full max-w-md sm:max-w-none sm:ml-auto sm:justify-end">
+            <div className="flex border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 w-full max-w-xs select-none">
               <button
                 type="button"
-                onClick={() => setMostrarReportesDropdown((v) => !v)}
+                onClick={() => {
+                  setFiltroEstado("activos");
+                  setCurrentPage(1);
+                }}
+                className={inventarioTabUnderlineClass(filtroEstado === "activos")}
+              >
+                Activos
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFiltroEstado("inactivos");
+                  setCurrentPage(1);
+                }}
+                className={inventarioTabUnderlineClass(filtroEstado === "inactivos")}
+              >
+                Inactivos
+              </button>
+            </div>
+            <div className="flex w-full max-w-md bg-[#F5F5F1] dark:bg-zinc-900/60 border border-[#C1D1C5]/40 dark:border-zinc-800 p-1 rounded-2xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setVistaInventario("lotes");
+                  setProductoSeleccionado(null);
+                  setCurrentPage(1);
+                }}
                 className={cn(
-                  "w-full justify-center px-1.5 md:px-4 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1 shrink-0 cursor-pointer",
-                  mostrarReportesDropdown
-                    ? "border-[#8DA78E] bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
-                    : "border-[#C1D1C5]/60 dark:border-zinc-700 text-[#525D53] dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800/50",
+                  "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer",
+                  vistaInventario === "lotes"
+                    ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
+                    : "text-slate-500",
                 )}
               >
-                <BarChart3 className="size-3 md:size-3.5" /> Reportes
-                <ChevronDown className={cn("size-3 transition-transform", mostrarReportesDropdown && "rotate-180")} />
+                Por lotes
               </button>
-              {mostrarReportesDropdown ? (
-                <div className="absolute right-0 top-full mt-1 z-[200] min-w-[220px] rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 opacity-100 shadow-md p-1.5 flex flex-col gap-0.5">
-                  <button
-                    type="button"
-                    onClick={handleReporteVencimientos}
-                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
-                  >
-                    <FileText className="size-3.5 text-amber-600 shrink-0" />
-                    PDF vencimientos
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleReporteGestion}
-                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-zinc-800 flex items-center gap-2"
-                  >
-                    <BarChart3 className="size-3.5 text-[#8DA78E] shrink-0" />
-                    PDF gestión
-                  </button>
-                </div>
-              ) : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setVistaInventario("catalogo");
+                  setProductoSeleccionado(null);
+                  setFiltroProximoVencer(false);
+                  setCurrentPage(1);
+                }}
+                className={cn(
+                  "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer",
+                  vistaInventario === "catalogo"
+                    ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
+                    : "text-slate-500",
+                )}
+              >
+                Catálogo
+              </button>
             </div>
-
-            <SigetActionButton
-              label="Exportar"
-              accentColor={sigetAccent.excel}
-              morphFrom={DownloadNode}
-              morphTo={FileDown}
-              onClick={handleExportarPDF}
-              className="w-full sm:w-auto shrink-0"
-            />
           </div>
         </div>
-      </div>
+
+        <div className="flex flex-col gap-2 pt-3">
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre o código de barras..."
+              value={busqueda}
+              onChange={(e) => {
+                setBusqueda(e.target.value);
+                setCurrentPage(1);
+              }}
+              className={cn(moduleTableSearchClass, "py-2")}
+            />
+          </div>
+
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
+              {ubicacionesUnicas.length > 0 ? (
+                <LocationFilterDropdown
+                  selectedLocation={filtroUbicacion}
+                  onSelectLocation={(loc) => {
+                    setFiltroUbicacion(loc);
+                    setCurrentPage(1);
+                  }}
+                  locations={ubicacionesUnicas}
+                  products={productos}
+                />
+              ) : null}
+              <div className="flex w-full min-w-0 max-w-lg border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 select-none">
+                <button
+                  type="button"
+                  onClick={() => resetFiltrosAlerta(filtroStockBajo ? null : "stock")}
+                  className={inventarioTabUnderlineClass(filtroStockBajo)}
+                >
+                  Stock bajo
+                </button>
+                {vistaInventario === "lotes" ? (
+                  <button
+                    type="button"
+                    onClick={() => resetFiltrosAlerta(filtroProximoVencer ? null : "proximo")}
+                    className={inventarioTabUnderlineClass(filtroProximoVencer)}
+                  >
+                    Vencimiento
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => resetFiltrosAlerta(filtroVencidos ? null : "vencidos")}
+                  className={inventarioTabUnderlineClass(filtroVencidos)}
+                >
+                  Vencidos
+                </button>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+              <div
+                className={cn("relative", mostrarReportesDropdown && "z-[250]")}
+                ref={reportesDropdownRef}
+              >
+                <button
+                  type="button"
+                  onClick={() => setMostrarReportesDropdown((v) => !v)}
+                  className={cn(
+                    "justify-center px-3 py-2 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap",
+                    mostrarReportesDropdown
+                      ? "border-[#8DA78E] bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
+                      : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:bg-zinc-800",
+                  )}
+                >
+                  <BarChart3 className="size-3.5 shrink-0" />
+                  Informe
+                  <ChevronDown
+                    className={cn(
+                      "size-3 shrink-0 transition-transform duration-200",
+                      mostrarReportesDropdown && "rotate-180",
+                    )}
+                  />
+                </button>
+                <AnimatePresence>
+                  {mostrarReportesDropdown ? (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
+                      transition={{ duration: 0.15 }}
+                      className="absolute right-0 top-full z-[250] mt-2 flex min-w-[240px] flex-col gap-0.5 rounded-2xl border border-slate-200/80 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800/80 dark:bg-zinc-900"
+                    >
+                      <div className="mb-1 border-b border-slate-100 px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-slate-800/80 dark:text-slate-500">
+                        Reportes PDF
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleReporteVencimientos}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        <FileText className="size-3.5 shrink-0 text-amber-600" />
+                        PDF vencimientos
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleReporteGestion}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        <BarChart3 className="size-3.5 shrink-0 text-[#8DA78E]" />
+                        PDF gestión
+                      </button>
+                    </motion.div>
+                  ) : null}
+                </AnimatePresence>
+              </div>
+              <SigetActionButton
+                label="Exportar"
+                accentColor={sigetAccent.excel}
+                morphFrom={DownloadNode}
+                morphTo={FileDown}
+                onClick={handleExportarPDF}
+                className="w-auto shrink-0"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Grid de productos + detalle */}
-      <div className="flex gap-4 flex-1 relative min-h-0">
+      <div className="relative flex flex-col gap-3">
         {isLoading && (
           <div className="absolute inset-0 bg-background/50 backdrop-blur-xs flex items-center justify-center z-50 rounded-2xl">
             <div className="flex flex-col items-center gap-3">
@@ -1179,8 +1347,8 @@ export function VerInventario() {
         )}
 
         {/* Lista */}
-        <div className={moduleTableShellClass}>
-          <div className={cn(moduleTableScrollClass, "min-h-0")}>
+        <div className={cn(moduleTableShellClass, "relative flex-none overflow-visible p-3 md:p-4")}>
+          <div className="flex w-full flex-col gap-3">
             {/* Mobile: Product Cards */}
             <div className="md:hidden flex flex-col gap-3 pr-2">
               {productosPaginados.length === 0 ? (
@@ -1192,13 +1360,22 @@ export function VerInventario() {
                   <ProductoCard
                     key={p.id}
                     producto={p}
-                    destacarRojo={filtroStockBajo && p.stock_actual <= p.stock_minimo}
+                    destacarStock={filtroStockBajo && p.stock_actual <= p.stock_minimo}
+                    destacarProximo={
+                      filtroProximoVencer && isProductoProximoAVencer(p.fecha_vencimiento)
+                    }
+                    destacarVencido={
+                      filtroVencidos &&
+                      isProductoVencido(p.fecha_vencimiento) &&
+                      p.stock_actual > 0
+                    }
                     onClick={() => {
                       setProductoSeleccionado(p);
                     }}
-                    onEdit={() =>
-                      router.push("/farmamuni/inventario/editar/" + idProductoCatalogo(p))
-                    }
+                    onEdit={() => {
+                      setProductoSeleccionado(null);
+                      router.push("/farmamuni/inventario/editar/" + idProductoCatalogo(p));
+                    }}
                     onDesactivar={() => handleDesactivarProducto({ ...p, id: idProductoCatalogo(p) })}
                     onActivar={() => handleActivarProducto(p)}
                     onBaja={() => handleBajaVencido(p)}
@@ -1213,10 +1390,14 @@ export function VerInventario() {
               <table className={moduleTableClass}>
                 <thead>
                   <tr className={moduleTableHeadRowClass}>
-                    <th className={moduleTableHeadCellClass}>Código</th>
+                    {vistaInventario === "lotes" ? (
+                      <th className={moduleTableHeadCellClass}>Código</th>
+                    ) : null}
                     <th className={moduleTableHeadCellClass}>Producto</th>
                     <th className={moduleTableHeadCellClass}>Ubicación</th>
-                    <th className={moduleTableHeadCellClass}>Venc./Lote</th>
+                    {vistaInventario === "lotes" ? (
+                      <th className={moduleTableHeadCellClass}>Venc./Lote</th>
+                    ) : null}
                     <th className={moduleTableHeadCellClass}>Proveedor</th>
                     <th className={moduleTableHeadCellClass}>Existencias</th>
                     <th className={moduleTableHeadCellClass}>Estado</th>
@@ -1227,7 +1408,10 @@ export function VerInventario() {
                 <tbody className={moduleTableBodyClass}>
                   {productosPaginados.length === 0 ? (
                     <tr>
-                      <td colSpan={9} className={moduleTableEmptyCellClass}>
+                      <td
+                        colSpan={inventarioTableColumnCount}
+                        className={moduleTableEmptyCellClass}
+                      >
                         No se encontraron productos
                       </td>
                     </tr>
@@ -1239,10 +1423,13 @@ export function VerInventario() {
                       const prevProduct = index > 0 ? array[index - 1] : null;
                       const prevWasLowStock = prevProduct ? prevProduct.stock_actual <= prevProduct.stock_minimo : true;
 
-                      if (prevWasLowStock && !isLowStock && index > 0) {
+                      if (filtroStockBajo && prevWasLowStock && !isLowStock && index > 0) {
                         acc.push(
                           <tr key={`separator-${p.id}`} className="bg-[#C1D1C5]/20 dark:bg-zinc-800/40 pointer-events-none">
-                            <td colSpan={9} className="px-5 py-2 text-center text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]">
+                            <td
+                              colSpan={inventarioTableColumnCount}
+                              className="px-5 py-2 text-center text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]"
+                            >
                               — Stock Normal —
                             </td>
                           </tr>
@@ -1252,6 +1439,11 @@ export function VerInventario() {
                       const isExpiringSoon = isProductoProximoAVencer(p.fecha_vencimiento);
                       const isVencido =
                         isProductoVencido(p.fecha_vencimiento) && p.stock_actual > 0;
+                      const resaltarVencido = filtroVencidos && isVencido;
+                      const resaltarProximo =
+                        filtroProximoVencer && isExpiringSoon && !resaltarVencido;
+                      const resaltarStock =
+                        filtroStockBajo && isLowStock && !resaltarVencido && !resaltarProximo;
 
                       acc.push(
                         <tr
@@ -1262,14 +1454,19 @@ export function VerInventario() {
                           className={cn(
                             "hover:bg-[#8DA78E]/10 dark:hover:bg-[#A3BEB0]/15 transition-all cursor-pointer",
                             isSelected && "bg-[#8DA78E]/20 dark:bg-[#8DA78E]/25",
-                            isVencido && "bg-rose-500/10 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300 animate-pulse",
-                            !isVencido && isLowStock && !isExpiringSoon && "text-red-500 dark:text-red-400 animate-pulse bg-red-500/5 dark:bg-red-500/10",
-                            !isVencido && isExpiringSoon && "bg-amber-500/10 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 animate-pulse"
+                            resaltarVencido &&
+                              "bg-rose-500/10 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300 animate-pulse",
+                            resaltarStock &&
+                              "text-red-500 dark:text-red-400 animate-pulse bg-red-500/5 dark:bg-red-500/10",
+                            resaltarProximo &&
+                              "bg-amber-500/10 text-amber-700 dark:bg-amber-500/10 dark:text-amber-400 animate-pulse",
                           )}
                         >
-                          <td className="px-5 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
-                            {p.codigo || "Sin Código"}
-                          </td>
+                          {vistaInventario === "lotes" ? (
+                            <td className="px-5 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
+                              {p.codigo || "Sin Código"}
+                            </td>
+                          ) : null}
                           <td className="px-5 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
                             {p.nombre}
                           </td>
@@ -1279,37 +1476,49 @@ export function VerInventario() {
                               <span className="truncate">{p.ubicacion || "Sin asignar"}</span>
                             </span>
                           </td>
-                          <td className="px-5 py-3.5">
-                            <div className="flex flex-col">
-                              {p.fecha_vencimiento ? (
-                                <span className={cn(
-                                  "font-semibold",
-                                  isVencido ? "text-rose-600 dark:text-rose-400" : isExpiringSoon ? "text-amber-600 dark:text-amber-400" : "text-slate-700 dark:text-slate-300",
-                                )}>
-                                  {new Date(p.fecha_vencimiento).toLocaleDateString("es-GT")}
-                                  {isVencido ? " · Vencido" : ""}
-                                </span>
-                              ) : (
-                                <span className="text-slate-400">—</span>
-                              )}
-                              {p.numero_lote && <span className="text-[10px] text-slate-500">Lote: {p.numero_lote}</span>}
-                            </div>
-                          </td>
+                          {vistaInventario === "lotes" ? (
+                            <td className="px-5 py-3.5">
+                              <div className="flex flex-col">
+                                {p.fecha_vencimiento ? (
+                                  <span
+                                    className={cn(
+                                      "font-semibold",
+                                      resaltarVencido
+                                        ? "text-rose-600 dark:text-rose-400"
+                                        : resaltarProximo
+                                          ? "text-amber-600 dark:text-amber-400"
+                                          : "text-slate-700 dark:text-slate-300",
+                                    )}
+                                  >
+                                    {new Date(p.fecha_vencimiento).toLocaleDateString("es-GT")}
+                                    {resaltarVencido ? " · Vencido" : ""}
+                                  </span>
+                                ) : (
+                                  <span className="text-slate-400">—</span>
+                                )}
+                                {p.numero_lote && (
+                                  <span className="text-[10px] text-slate-500">Lote: {p.numero_lote}</span>
+                                )}
+                              </div>
+                            </td>
+                          ) : null}
                           <td className="px-5 py-3.5 font-semibold text-slate-500 dark:text-slate-400">
                             {p.inv_proveedores?.nombre || p.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre || "—"}
                           </td>
                           <td className="px-5 py-3.5">
-                            <span className={cn(
-                              "font-semibold",
-                              isLowStock ? "font-bold" : "text-slate-700 dark:text-slate-300"
-                            )}>
+                            <span
+                              className={cn(
+                                "font-semibold",
+                                resaltarStock ? "font-bold text-red-500 dark:text-red-400" : "text-slate-700 dark:text-slate-300",
+                              )}
+                            >
                               {fmtNum(p.stock_actual)}
                             </span>
-                            {isLowStock && (
+                            {resaltarStock ? (
                               <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 text-[9px] font-bold uppercase tracking-wide">
                                 Stock Bajo
                               </span>
-                            )}
+                            ) : null}
                           </td>
                           <td className="px-5 py-3.5">
                             <span className={cn(
@@ -1329,7 +1538,7 @@ export function VerInventario() {
                                 showBaja={isVencido}
                                 onBaja={() => handleBajaVencido(p)}
                                 onEdit={() => {
-                                  setProductoSeleccionado(p);
+                                  setProductoSeleccionado(null);
                                   router.push(
                                     "/farmamuni/inventario/editar/" + idProductoCatalogo(p),
                                   );
@@ -1356,6 +1565,7 @@ export function VerInventario() {
           <ModuleTableFooter
             itemCount={totalItems}
             pageSize={pageSize}
+            pageSizeOptions={[15, 30, 45]}
             setPageSize={(size) => {
               setPageSize(size);
               setMostrarPageSizeDropdown(false);
@@ -1365,31 +1575,6 @@ export function VerInventario() {
             onPageChange={setCurrentPage}
           />
         </div>
-
-        {/* Panel de detalle */}
-        <AnimatePresence>
-          {productoSeleccionado && (
-            <motion.div
-              initial={{ x: "100%", opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: "100%", opacity: 0 }}
-              transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="hidden md:block absolute top-[-110px] right-0 h-[calc(100%+110px)] w-[750px] z-20"
-            >
-              <div className="h-fit max-h-full">
-                <ProductoDetalle
-                  producto={productoSeleccionado}
-                  onClose={() => setProductoSeleccionado(null)}
-                  onEditClick={() =>
-                    router.push(
-                      `/farmamuni/inventario/editar/${idProductoCatalogo(productoSeleccionado)}`,
-                    )
-                  }
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
 
         <ModalShell
           isOpen={!!showDesactivarModal}
@@ -1444,6 +1629,44 @@ export function VerInventario() {
           ) : null}
         </ModalShell>
       </div>
+
+      <AnimatePresence>
+        {productoSeleccionado && (
+          <>
+            <motion.div
+              key="inventario-detalle-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setProductoSeleccionado(null)}
+              className="fixed inset-0 z-[100] hidden cursor-pointer bg-black/40 backdrop-blur-sm md:block"
+            />
+            <div className="pointer-events-none fixed inset-0 z-[101] hidden items-center justify-center p-4 sm:p-5 md:flex">
+              <motion.div
+                key="inventario-detalle-panel"
+                initial={{ opacity: 0, scale: 0.96, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 12 }}
+                transition={{ type: "spring", damping: 25, stiffness: 280 }}
+                className="pointer-events-auto flex h-[min(820px,calc(100dvh-var(--banner-height,0px)-2rem))] max-h-[calc(100dvh-var(--banner-height,0px)-2rem)] w-full min-w-[320px] max-w-[min(960px,96vw)] flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl dark:bg-zinc-900"
+              >
+                <div className="h-full min-h-0">
+                  <ProductoDetalle
+                    producto={productoSeleccionado}
+                    lotesProducto={lotesProductoDetalle}
+                    onClose={() => setProductoSeleccionado(null)}
+                    onEditClick={() => {
+                      const id = idProductoCatalogo(productoSeleccionado);
+                      setProductoSeleccionado(null);
+                      router.push(`/farmamuni/inventario/editar/${id}`);
+                    }}
+                  />
+                </div>
+              </motion.div>
+            </div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

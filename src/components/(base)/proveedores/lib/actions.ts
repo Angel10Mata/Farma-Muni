@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { activarProductoCatalogoPorNuevoLote } from "@/components/(base)/inventario/lib/sync-producto-catalogo";
 import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from "./zod";
 
 type ActionFail = { success?: false; code: string; detail?: string };
@@ -193,6 +194,13 @@ export async function crearCompra(input: CompraInput) {
         return mapDbError(loteError);
       }
 
+      try {
+        await activarProductoCatalogoPorNuevoLote(supabase, item.producto_id);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Error al actualizar catálogo.";
+        return { code: "DB_ERROR", detail: message.slice(0, 200) };
+      }
+
       const { error: provError } = await supabase
         .from("inv_productos")
         .update({ proveedor_id })
@@ -254,7 +262,9 @@ export async function obtenerComprasProveedor(proveedorId: string) {
 
     const { data, error } = await supabase
       .from("inv_compras")
-      .select("id, created_at, total, estado_pago, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)")
+      .select(
+        "id, created_at, total, numero_factura, estado_pago, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
+      )
       .eq("proveedor_id", proveedorId)
       .order("created_at", { ascending: false });
 

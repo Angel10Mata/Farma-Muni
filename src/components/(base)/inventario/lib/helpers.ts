@@ -36,3 +36,24 @@ export function etiquetaEstadoVencimiento(fechaVencimiento?: string | null): str
   if (isProductoProximoAVencer(fechaVencimiento)) return "Por vencer";
   return "Vigente";
 }
+
+export function patchInvLoteCantidadActual(nuevaCantidad: number): {
+  cantidad_actual: number;
+  activo?: boolean;
+} {
+  if (nuevaCantidad <= 0) {
+    return { cantidad_actual: 0, activo: false };
+  }
+  return { cantidad_actual: nuevaCantidad };
+}
+
+export function patchInvProductoStockActual(nuevaCantidad: number): {
+  stock_actual: number;
+  activo?: boolean;
+} {
+  const stock_actual = nuevaCantidad <= 0 ? 0 : nuevaCantidad;
+  if (stock_actual <= 0) {
+    return { stock_actual: 0, activo: false };
+  }
+  return { stock_actual };
+}

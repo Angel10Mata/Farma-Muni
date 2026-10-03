@@ -20,6 +20,7 @@ import {
   obtenerUbicaciones,
   obtenerLotes,
   registrarBajaPorVencimiento,
+  crearLoteManual,
 } from "./actions";
 import { type ProductFormValues } from "./zod";
 
@@ -136,6 +137,23 @@ export function useGuardarProducto() {
     },
     onError: (error: Error) => {
       toast.error(error.message);
+    },
+  });
+}
+
+export function useCrearLoteManual() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Parameters<typeof crearLoteManual>[0]) => {
+      assertWritableDemo(isDemoMode);
+      const res = await crearLoteManual(input);
+      if (!res.success) throw new Error(res.code);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["productos"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
     },
   });
 }

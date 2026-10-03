@@ -101,13 +101,15 @@ export const CustomDatePicker = ({
   onChange,
   placeholder,
   align = "left",
-  dropDirection = "down"
+  dropDirection = "down",
+  granularity = "day",
 }: {
   value: string;
   onChange: (val: string) => void;
   placeholder?: string;
   align?: "left" | "right" | "center";
   dropDirection?: "up" | "down";
+  granularity?: "day" | "month";
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"days" | "months" | "years">("days");
@@ -134,9 +136,13 @@ export const CustomDatePicker = ({
 
   useEffect(() => {
     if (!isOpen) {
-      setViewMode("days");
+      setViewMode(granularity === "month" ? "months" : "days");
+      return;
     }
-  }, [isOpen]);
+    if (granularity === "month") {
+      setViewMode("months");
+    }
+  }, [isOpen, granularity]);
 
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -176,8 +182,26 @@ export const CustomDatePicker = ({
   const getDisplayDate = () => {
     if (!value) return placeholder || "Seleccionar...";
     const [y, m, d] = value.split("-");
-    if (!y || !m || !d) return placeholder || "Seleccionar...";
+    if (!y || !m) return placeholder || "Seleccionar...";
+    if (granularity === "month") {
+      const monthIdx = Number(m) - 1;
+      const yearNum = Number(y);
+      if (monthIdx < 0 || monthIdx > 11 || Number.isNaN(yearNum)) {
+        return placeholder || "Seleccionar...";
+      }
+      return new Date(yearNum, monthIdx, 1).toLocaleDateString("es-GT", {
+        month: "short",
+        year: "numeric",
+      });
+    }
+    if (!d) return placeholder || "Seleccionar...";
     return `${d}/${m}/${y}`;
+  };
+
+  const commitMonthSelection = (monthIndex: number, year: number) => {
+    const pad = (n: number) => n.toString().padStart(2, "0");
+    onChange(`${year}-${pad(monthIndex + 1)}-01`);
+    setIsOpen(false);
   };
 
   const cells = obtenerDiasDelMes(navMonth, navYear);
@@ -232,7 +256,7 @@ export const CustomDatePicker = ({
             >
             {/* Header Controls */}
             <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-slate-100 dark:border-slate-800/80">
-              {viewMode === "days" && (
+              {viewMode === "days" && granularity === "day" && (
                 <>
                   <button
                     type="button"
@@ -275,16 +299,28 @@ export const CustomDatePicker = ({
 
               {viewMode === "months" && (
                 <>
-                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0] px-1">
-                    Seleccionar Mes ({navYear})
-                  </span>
                   <button
                     type="button"
-                    onClick={() => setViewMode("days")}
-                    className="text-xs font-bold text-[#8DA78E] hover:underline px-2 py-1 cursor-pointer"
+                    onClick={() => setViewMode("years")}
+                    className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
                   >
-                    Volver
+                    {navYear}
+                    <ChevronDown className="size-3 opacity-60" />
                   </button>
+                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0] px-1">
+                    {granularity === "month" ? "Seleccionar mes" : `Seleccionar mes (${navYear})`}
+                  </span>
+                  {granularity === "day" ? (
+                    <button
+                      type="button"
+                      onClick={() => setViewMode("days")}
+                      className="text-xs font-bold text-[#8DA78E] hover:underline px-2 py-1 cursor-pointer"
+                    >
+                      Volver
+                    </button>
+                  ) : (
+                    <span className="w-12" />
+                  )}
                 </>
               )}
 
@@ -314,7 +350,7 @@ export const CustomDatePicker = ({
             </div>
 
             {/* DAYS VIEW */}
-            {viewMode === "days" && (
+            {viewMode === "days" && granularity === "day" && (
               <>
                 <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
                   {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"].map((dayName) => (
@@ -369,6 +405,10 @@ export const CustomDatePicker = ({
                       key={mName}
                       type="button"
                       onClick={() => {
+                        if (granularity === "month") {
+                          commitMonthSelection(idx, navYear);
+                          return;
+                        }
                         setNavMonth(idx);
                         setViewMode("days");
                       }}
@@ -397,7 +437,7 @@ export const CustomDatePicker = ({
                       type="button"
                       onClick={() => {
                         setNavYear(y);
-                        setViewMode("days");
+                        setViewMode(granularity === "month" ? "months" : "days");
                       }}
                       className={cn(
                         "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
@@ -430,13 +470,19 @@ export const CustomDatePicker = ({
                 onClick={() => {
                   const pad = (n: number) => n.toString().padStart(2, "0");
                   const todayObj = new Date();
-                  const todayStr = `${todayObj.getFullYear()}-${pad(todayObj.getMonth() + 1)}-${pad(todayObj.getDate())}`;
-                  onChange(todayStr);
+                  if (granularity === "month") {
+                    onChange(
+                      `${todayObj.getFullYear()}-${pad(todayObj.getMonth() + 1)}-01`,
+                    );
+                  } else {
+                    const todayStr = `${todayObj.getFullYear()}-${pad(todayObj.getMonth() + 1)}-${pad(todayObj.getDate())}`;
+                    onChange(todayStr);
+                  }
                   setIsOpen(false);
                 }}
                 className="px-2.5 py-1 text-[#8DA78E] dark:text-[#A3BEB0] hover:bg-[#8DA78E]/10 font-bold transition-colors cursor-pointer rounded-md"
               >
-                Hoy
+                {granularity === "month" ? "Mes actual" : "Hoy"}
               </button>
             </div>
           </motion.div>

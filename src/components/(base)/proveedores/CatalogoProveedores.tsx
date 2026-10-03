@@ -38,7 +38,7 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
   const [modoEdicionProveedor, setModoEdicionProveedor] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(15);
 
   const handleEliminarProveedor = async (id: string, nombre: string) => {
     const confirm = await Swal.fire({
@@ -284,6 +284,7 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
           <ModuleTableFooter
             itemCount={proveedoresFiltrados.length}
             pageSize={pageSize}
+            pageSizeOptions={[15, 30, 45]}
             setPageSize={setPageSize}
             currentPage={currentPage}
             totalPages={totalPages}

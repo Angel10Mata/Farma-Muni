@@ -8,6 +8,7 @@ export interface ModuleTableFooterProps {
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
+  pageSizeOptions?: readonly number[];
   className?: string;
 }
 
@@ -18,6 +19,7 @@ export function ModuleTableFooter({
   currentPage,
   totalPages,
   onPageChange,
+  pageSizeOptions,
   className,
 }: ModuleTableFooterProps) {
   if (itemCount <= 0) return null;
@@ -31,6 +33,7 @@ export function ModuleTableFooter({
             setPageSize(size);
             onPageChange(1);
           }}
+          options={pageSizeOptions}
         />
       </div>
       <Pagination
@@ -59,6 +62,16 @@ export const moduleTableEmptyClass =
 
 export const moduleTableDesktopWrapClass =
   "hidden md:block bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm";
+
+export const moduleTableListShellClass = cn(
+  moduleTableShellClass,
+  "relative flex-none overflow-visible p-3 md:p-4",
+);
+
+export const moduleTableDesktopWrapListClass = cn(
+  moduleTableDesktopWrapClass,
+  "md:block overflow-visible pb-4",
+);
 
 export const moduleTableDesktopScrollClass = "overflow-x-auto";
 
