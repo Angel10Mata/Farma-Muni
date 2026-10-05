@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { ClienteSchema, ClienteInput } from "./zod";
 import { revalidatePath } from "next/cache";
 
+// Listado con métricas por cliente
 export async function obtenerClientes() {
   try {
     const supabase = await createClient();
@@ -67,6 +68,7 @@ export async function obtenerClientes() {
   }
 }
 
+// Historial de ventas del cliente
 export async function obtenerVentasCliente(clienteId: string) {
   try {
     const supabase = await createClient();
@@ -87,6 +89,7 @@ export async function obtenerVentasCliente(clienteId: string) {
   }
 }
 
+// Alta de cliente
 export async function crearCliente(input: ClienteInput) {
   try {
     const supabase = await createClient();
@@ -113,6 +116,7 @@ export async function crearCliente(input: ClienteInput) {
   }
 }
 
+// Actualización de cliente
 export async function editarCliente(id: string, input: ClienteInput) {
   try {
     const supabase = await createClient();

@@ -1,3 +1,5 @@
+// GENERADOR DE CONTRASEÑAS
+
 export const generateStrongPassword = (length: number = 8): string => {
   const charset =
     "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";

@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { patchInvProductoStockActual } from "./helpers";
 
+// Sincronizar existencias del catálogo
 export async function syncInvProductoCatalogoDesdeLotes(
   supabase: SupabaseClient,
   productoId: string,
@@ -30,6 +31,7 @@ export async function syncInvProductoCatalogoDesdeLotes(
   }
 }
 
+// Reactivar producto al ingresar lote
 export async function activarProductoCatalogoPorNuevoLote(
   supabase: SupabaseClient,
   productoId: string,

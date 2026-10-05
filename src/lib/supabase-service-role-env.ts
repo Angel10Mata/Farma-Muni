@@ -1,3 +1,5 @@
+// VALIDACIÓN SERVICE ROLE
+
 export function mensajeSiServiceRoleKeyInvalida(): string | null {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   if (!key) {

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Producto del catálogo
 export const productSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido"),
   descripcion: z.string().optional(),
@@ -19,6 +20,7 @@ export const bajaVencidoSchema = z.object({
 
 export type BajaVencidoInput = z.infer<typeof bajaVencidoSchema>;
 
+// Lotes y bajas
 export const crearLoteManualSchema = z.object({
   producto_id: z.string().uuid(),
   codigo_barras: z.string().trim().min(1, "El código de barras es requerido"),
@@ -59,6 +61,7 @@ export const loteInventarioSchema = z.object({
 
 export type LoteInventario = z.infer<typeof loteInventarioSchema>;
 
+// Tipos de lectura
 export interface Producto {
   id: string;
   nombre: string;

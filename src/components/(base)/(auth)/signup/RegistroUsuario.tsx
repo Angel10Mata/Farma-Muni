@@ -3,6 +3,7 @@
 import { useState } from "react";
 import SignUp from "@/components/(base)/(auth)/signup/SignUp";
 
+// Página registro
 export default function RegistroUsuario() {
   const [isOpen, setIsOpen] = useState(true);
 

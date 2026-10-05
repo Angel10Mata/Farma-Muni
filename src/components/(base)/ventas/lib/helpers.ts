@@ -1,6 +1,7 @@
 import type { ItemCarrito, SolicitudRebajaPayload, VentaBitacoraEntry } from "./zod";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 
+// Formato del recibo
 export const obtenerCodigoRecibo = (id: string) => {
   if (!id) return "N/A";
   const cleanId = id.replace(/-/g, "").toUpperCase();
@@ -25,7 +26,7 @@ export const formatMonedaRecibo = (value: number) =>
 
 const PRECIO_EPSILON = 0.001;
 
-/** Precio de venta manual por debajo del precio base (rebaja). */
+// Precios y rebajas
 export function esRebajaDePrecio(precioAplicado: number, precioBase: number): boolean {
   return precioAplicado < precioBase - PRECIO_EPSILON;
 }
@@ -46,7 +47,6 @@ export function mensajePrecioBajoCosto(nombre: string, costo: number): string {
   return `El precio de "${nombre}" no puede ser menor al costo (Q${costo.toFixed(2)}).`;
 }
 
-/** Primer error del carrito respecto al costo, o null si todo es válido. */
 export function validarCarritoPrecioCosto(carrito: ItemCarrito[]): string | null {
   for (const item of carrito) {
     const costo = costoUnitarioProducto(item.precio_costo_lote);
@@ -128,6 +128,7 @@ export function payloadCoincideConVenta(
   return true;
 }
 
+// Historial de ventas
 export function fechaVentaCalendarioGt(createdAt: string | null | undefined): string {
   if (!createdAt) return "";
   const date = new Date(createdAt);
@@ -173,6 +174,7 @@ export function ventaCoincideFiltroPagoHistorial(
   return ventaEsCreditoHistorial(tipoVenta);
 }
 
+// Bitácora de cambios
 export function resumenAccionBitacoraVenta(entry: Pick<VentaBitacoraEntry, "accion" | "detalle">): string {
   const det = entry.detalle ?? {};
   const nombre =

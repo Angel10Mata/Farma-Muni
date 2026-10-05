@@ -2,6 +2,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import { isAdminRole, resolveUserRole } from "@/lib/user-role";
 import { createClient } from "@/utils/supabase/proxy";
 
+// MIDDLEWARE: AUTH, DISPOSITIVOS Y ADMIN
+
 export async function proxy(request: NextRequest) {
   const { supabase, response } = createClient(request);
   let user = null;
@@ -105,7 +107,9 @@ if (user) {
 
   return response;
 }
-// Exclusion de cobros por archivos estáticos
+
+// MATCHER (EXCLUIR ESTÁTICOS)
+
 export const config = {
   matcher: [
     "/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|csv|xlsx|woff|woff2|tff|otf|js|css)$).*)",

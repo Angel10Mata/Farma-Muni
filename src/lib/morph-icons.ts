@@ -38,6 +38,8 @@ import {
   X,
 } from "lucide";
 
+// TIPOS
+
 export type MorphIconPair = {
   from: IconNode;
   to: IconNode;
@@ -47,6 +49,8 @@ export type MorphIconColorSet = {
   color: string;
   boxClass: string;
 };
+
+// COLORES POR MÓDULO
 
 export const moduleIconColors: Record<string, MorphIconColorSet> = {
   ventas: {
@@ -81,6 +85,8 @@ export const moduleIconColors: Record<string, MorphIconColorSet> = {
   },
 };
 
+// COLORES ADMIN
+
 export const adminIconColors: Record<string, MorphIconColorSet> = {
   dispositivos: {
     color: "#F59E0B",
@@ -99,6 +105,8 @@ export const adminIconColors: Record<string, MorphIconColorSet> = {
   },
 };
 
+// COLORES NAVEGACIÓN
+
 export const navIconColors = {
   brand: "#1a6aa5",
   brandBright: "#2E9BD0",
@@ -106,6 +114,8 @@ export const navIconColors = {
   warning: "#C28A38",
   danger: "#CC5C5C",
 } as const;
+
+// ICONOS MORPH MÓDULOS
 
 export const moduleMorphIcons: Record<string, MorphIconPair> = {
   inventario: { from: Package, to: Box },
@@ -116,11 +126,15 @@ export const moduleMorphIcons: Record<string, MorphIconPair> = {
   creditos: { from: CreditCard, to: Wallet },
 };
 
+// ICONOS MORPH ADMIN
+
 export const adminMorphIcons: Record<string, MorphIconPair> = {
   dispositivos: { from: Smartphone, to: TabletSmartphone },
   usuarios: { from: Users, to: UserRoundPlus },
   configuraciones: { from: Settings, to: SlidersHorizontal },
 };
+
+// ICONOS MORPH NAVEGACIÓN
 
 export const navMorphIcons = {
   arrowUpRight: { from: ArrowUpRight, to: ExternalLink },

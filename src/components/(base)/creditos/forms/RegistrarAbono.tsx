@@ -31,11 +31,13 @@ export function RegistrarAbono({
   onClose,
   onSuccess,
 }: ModalAbonoProps) {
+  // Estado del formulario
   const [monto, setMonto] = useState("");
   const [descripcion, setDescripcion] = useState("");
 
   const { mutateAsync: registrarMovimiento, isPending } = useRegistrarMovimiento();
 
+  // Envío del abono
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const val = parseFloat(monto);

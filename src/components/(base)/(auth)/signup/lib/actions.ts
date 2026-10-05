@@ -8,6 +8,7 @@ import { mensajeErrorEs } from "@/lib/supabase-errors-es";
 import { mensajeSiServiceRoleKeyInvalida } from "@/lib/supabase-service-role-env";
 import { canAssignRole, canCreateUsers } from "@/components/(base)/(users)/usuarios/lib/permissions";
 
+// Helpers
 function getAdminClient() {
   return createSupabaseAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,7 @@ function getAdminClient() {
   );
 }
 
+// Tipos
 export type ActionState = {
   success?: boolean;
   message?: string;
@@ -56,6 +58,7 @@ async function obtenerRolCreador(): Promise<
   return { ok: true, rol };
 }
 
+// Registro
 export async function signup(
   prevState: ActionState,
   formData: FormData,

@@ -4,6 +4,7 @@ import { MessageCircle, Phone, MapPin, PhoneCall } from "lucide-react";
 import { motion } from "framer-motion";
 import { AuroraText } from "@/components/ui/aurora-text";
 
+// Sección contacto (landing)
 export function ContactSection() {
   const telDisplay = "+502 0000-0000";
   const whatsappUrl = "https://wa.me/50200000000";

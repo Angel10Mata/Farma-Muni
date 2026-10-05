@@ -14,11 +14,13 @@ import { fmtQ, getSwalThemeOpts } from "@/lib/utils";
 import { useCrearCompra } from "./lib/hooks";
 import type { ItemCompraInput } from "./lib/zod";
 
+// Props
 interface ComprasCartSidebarProps {
   proveedores: Proveedor[];
   cargarDatos: () => void;
 }
 
+// Carrito
 export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSidebarProps) {
   const context = useCompras();
   const provDropdownRef = useRef<HTMLDivElement>(null);
@@ -42,6 +44,7 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [context]);
 
+  // Registrar compra
   const handleFinalizarCompra = async () => {
     if (!context.proveedorSeleccionado) {
       toast.warn("Por favor selecciona un proveedor antes de registrar la compra.");

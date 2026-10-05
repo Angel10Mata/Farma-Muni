@@ -1,5 +1,7 @@
 "use client";
 
+// CABECERA FIJA Y MENÚ LATERAL
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -16,6 +18,8 @@ import Menu from "./Menu";
 import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
 import { createPortal } from "react-dom";
 import AnimacionLogoKore from "@/components/(Kore)/logo/AnimacionLogoKore";
+
+// COMPONENTE PRINCIPAL
 
 export default function EncabezadoApp() {
   const user = useUser();

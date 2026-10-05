@@ -27,6 +27,7 @@ interface CrearClienteProps {
 const AREA_CODES = ["+502", "+503", "+504", "+505", "+506", "+507", "+52", "+1"] as const;
 
 export function CrearCliente({ isOpen, onClose, onSuccess }: CrearClienteProps) {
+  // Estado del formulario
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -37,6 +38,7 @@ export function CrearCliente({ isOpen, onClose, onSuccess }: CrearClienteProps) 
 
   const { mutateAsync: crearCliente, isPending } = useCrearCliente();
 
+  // Handlers
   const handleReset = () => {
     setNombre("");
     setEmail("");

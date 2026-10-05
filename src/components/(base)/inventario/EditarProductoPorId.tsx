@@ -11,6 +11,7 @@ export function EditarProductoPorId({ id }: { id: string }) {
   const router = useRouter();
   const { data: producto, isLoading, isError } = useProducto(id);
 
+  // Si falla la carga, volver al listado
   useEffect(() => {
     if (isError) {
       toast.error("No se pudo cargar la información del producto.");
@@ -18,6 +19,7 @@ export function EditarProductoPorId({ id }: { id: string }) {
     }
   }, [isError, router]);
 
+  // Pantalla de edición
   if (isLoading) {
     return (
       <div className="flex min-h-[50vh] w-full max-w-2xl flex-col items-center justify-center gap-3 mx-auto">

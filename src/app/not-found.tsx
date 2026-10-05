@@ -5,6 +5,7 @@ import { AlertTriangle } from "lucide-react";
 import { ArrowLeft as ArrowLeftNode } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
+// Página 404
 export default function NotFound() {
   return (
     <div className="flex min-h-screen items-center justify-center p-4 text-center text-foreground">

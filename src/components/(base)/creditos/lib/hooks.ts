@@ -9,6 +9,7 @@ import { demoQueryKey, resolveDemoData } from "@/lib/demo/helpers";
 import { obtenerResumenCreditos, obtenerDetalleCredito } from "./actions";
 import type { CreditoResumen, VentaCreditoDetalle } from "./zod";
 
+// Queries
 export function useResumenCreditos() {
   const { isDemoMode } = useDemoMode();
   return useQuery<CreditoResumen[]>({

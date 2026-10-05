@@ -25,6 +25,7 @@ export interface ItemVentaInput {
   subtotal: number;
 }
 
+// Productos y clientes para vender
 export async function obtenerProductosYClientes() {
   try {
     const supabase = await createClient();
@@ -56,6 +57,7 @@ export async function obtenerProductosYClientes() {
   }
 }
 
+// Código de barras y lotes
 export async function buscarLotePorCodigoBarras(codigo: string) {
   try {
     const supabase = await createClient();
@@ -161,6 +163,7 @@ export async function resolverLoteParaProducto(productoId: string, cantidad: num
   }
 }
 
+// Reglas al cobrar (permisos y precios)
 async function obtenerRolUsuario(
   supabase: SupabaseClient,
   userId: string,
@@ -334,6 +337,7 @@ async function assertRebajasAutorizadas(
   );
 }
 
+// Registrar la venta
 export async function crearVenta(params: {
   cliente_id: string | null;
   tipo_venta: string;
@@ -538,6 +542,7 @@ export async function crearVenta(params: {
   }
 }
 
+// Historial y detalle de ventas
 export async function obtenerHistorialVentas() {
   try {
     const supabase = await createClient();
@@ -666,6 +671,7 @@ export async function obtenerDetalleVenta(ventaId: string) {
   }
 }
 
+// Anular venta
 export async function anularVenta(ventaId: string, motivo: string) {
   try {
     const supabase = await createClient();
@@ -758,6 +764,7 @@ export async function anularVenta(ventaId: string, motivo: string) {
   }
 }
 
+// Corregir líneas del historial
 export async function editarDetalleVentaDirecto(params: {
   detalleId: string;
   ventaId: string;
@@ -975,6 +982,7 @@ export async function eliminarDetalleVentaDirecto(params: {
   }
 }
 
+// Rebajas y autorización de admin
 export async function autorizarRebajaConCredencialesAdmin(
   solicitudId: string,
   username: string,

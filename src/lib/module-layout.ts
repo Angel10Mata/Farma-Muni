@@ -1,3 +1,5 @@
+// CLASES DE LAYOUT POR MÓDULO
+
 export const moduleContentMaxWidth = "max-w-screen-2xl";
 
 export const modulePageShellClass = [

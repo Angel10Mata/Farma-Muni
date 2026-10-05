@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Proveedores
 export const ProveedorSchema = z.object({
   id: z.string(),
   nombre: z.string(),
@@ -9,6 +10,7 @@ export const ProveedorSchema = z.object({
   correo: z.string().nullable().optional(),
 });
 
+// Productos y carrito
 export const ProductoSchema = z.object({
   id: z.string(),
   nombre: z.string(),
@@ -47,11 +49,13 @@ export const CompraRecordSchema = z.object({
   inv_compras_detalles: z.array(z.unknown()).optional(),
 });
 
+// Tipos
 export type Proveedor = z.infer<typeof ProveedorSchema>;
 export type Producto = z.infer<typeof ProductoSchema>;
 export type ItemCarritoCompra = z.infer<typeof ItemCarritoCompraSchema>;
 export type Compra = z.infer<typeof CompraRecordSchema>;
 
+// Entrada de formularios
 export const ProveedorInputSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido").trim(),
   descripcion: z.string().nullable().optional().or(z.literal("")),

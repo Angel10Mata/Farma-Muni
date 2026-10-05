@@ -1,6 +1,7 @@
 import { cn, fmtQ } from "@/lib/utils";
 import { formatFechaRecibo, formatMonedaRecibo, obtenerCodigoRecibo } from "./lib/helpers";
 
+// Datos del comprobante
 export interface ReciboVentaItem {
   cantidad: number;
   nombre: string;
@@ -123,6 +124,7 @@ export function ReciboVenta({
   );
 }
 
+// Armar recibo desde una venta
 export function mapDetallesToReciboItems(detalles: any[]): ReciboVentaItem[] {
   return detalles.map((d) => ({
     cantidad: d.cantidad,

@@ -28,6 +28,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
 const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
 
+// Registro passkey
 export async function getRegistrationOptions(): Promise<PublicKeyCredentialCreationOptionsJSON> {
   const supabase = await createClient();
   const {
@@ -140,6 +141,7 @@ export async function verifyRegistration(
   }
 }
 
+// Autenticación passkey
 export async function getPasskeyOptions(): Promise<PublicKeyCredentialRequestOptionsJSON> {
   const options = await generateAuthenticationOptions({
     rpID,
@@ -273,6 +275,7 @@ export async function verifyPasskey(
   }
 }
 
+// Gestión passkeys
 export async function getPasskeysCount(): Promise<number> {
   try {
     const supabase = await createClient();

@@ -19,6 +19,7 @@ import { updateProfile } from "../lib/actions";
 import { useProfile } from "../lib/hooks";
 import { cn } from "@/lib/utils";
 
+// UI
 const Label = ({
   className,
   ...props
@@ -77,12 +78,15 @@ const Select = ({
   </div>
 );
 
+// Props
 interface InfoPerfilProps {
   userId: string;
   canEdit: boolean;
 }
 
+// Perfil
 export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
+  // Estado
   const queryClient = useQueryClient();
   const { profile: perfilData } = useProfile(userId, true);
   const [step, setStep] = useState(1);

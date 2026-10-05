@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Validación de entrada
 export const ClienteSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido").trim(),
   email: z.string().email("Correo inválido").optional().or(z.literal("")),
@@ -10,6 +11,7 @@ export const ClienteSchema = z.object({
 
 export type ClienteInput = z.infer<typeof ClienteSchema>;
 
+// Tipos de dominio
 export interface Cliente {
   id: string;
   nombre: string;

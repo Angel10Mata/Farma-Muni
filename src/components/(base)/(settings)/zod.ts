@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Ajustes
 export const appSettingsSchema = z.object({
   id: z.string().uuid().optional(),
   require_device_authorization: z.boolean().default(false),

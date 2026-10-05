@@ -3,6 +3,7 @@
 import { Globe, ShieldCheck, Truck, Zap } from "lucide-react"
 import { motion } from "framer-motion"
 
+// Sección servicios (landing)
 export function ServicesSection() {
   const services = [
     { title: "Vehicle Sales", desc: "Certified pre-owned units with full transparency.", icon: ShieldCheck, color: "from-blue-500 to-cyan-400" },

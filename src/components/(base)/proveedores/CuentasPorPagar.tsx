@@ -25,18 +25,22 @@ import {
 } from "@/components/ui/module-table";
 import { cn } from "@/lib/utils";
 
+// Props
 interface CuentasPorPagarProps {
   compras: Compra[];
   cargarDatos: () => void;
 }
 
+// Helpers
 const obtenerCodigoCompra = (id: string) => {
   if (!id) return "N/A";
   const cleanId = id.replace(/-/g, "").toUpperCase();
   return `${cleanId.substring(0, 3)}-${cleanId.substring(3, 6)}`;
 };
 
+// Por pagar
 export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) {
+  // Estado
   const [busquedaCuentasPagar, setBusquedaCuentasPagar] = useState("");
   const [compraAAbonar, setCompraAAbonar] = useState<Compra | null>(null);
   const [isAbonoModalOpen, setIsAbonoModalOpen] = useState(false);

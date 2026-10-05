@@ -1,3 +1,4 @@
+// Helpers
 export function extractRolesFromProfiles(
   users: { rol: string | null }[] | undefined,
 ): string[] {

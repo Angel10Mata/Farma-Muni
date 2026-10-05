@@ -4,9 +4,11 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { WifiOff, AlertTriangle, RefreshCw } from "lucide-react";
 
+// Aviso de sin internet o conexión lenta
 export default function OfflineBanner() {
   const [status, setStatus] = useState<"online" | "offline" | "slow">("online");
 
+  // Detectar estado de red
   useEffect(() => {
     const updateStatus = () => {
       let currentStatus: "online" | "offline" | "slow" = "online";

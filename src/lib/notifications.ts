@@ -1,5 +1,7 @@
 import { toast } from "react-toastify";
 
+// TOAST Y ALERTAS LEGACY
+
 export const showToast = (
   icon: "success" | "error" | "warning" | "info",
   title: string,

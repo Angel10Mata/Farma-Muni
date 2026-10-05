@@ -59,6 +59,7 @@ import { formatPhoneDisplay, getWhatsappUrl } from "../proveedores/forms/VerProv
 import { useClientes, useVentasCliente } from "./lib/hooks";
 import type { Cliente, VentaCliente, TransaccionVenta } from "./lib/zod";
 
+// Panel de detalle del cliente
 function ClienteDetalle({
   cliente,
   onClose,
@@ -212,6 +213,7 @@ function ClienteDetalle({
   );
 }
 
+// Historial de compras con filtros y gráfico
 function HistorialComprasPanel({
   cliente,
   ventas,
@@ -223,6 +225,7 @@ function HistorialComprasPanel({
   onClose: () => void;
   className?: string;
 }) {
+  // Estado filtros de fecha
   const [tipoFiltroFecha, setTipoFiltroFecha] = useState<string>("semana");
   const [fechaDia, setFechaDia] = useState<string>(() => {
     const d = new Date();
@@ -257,6 +260,7 @@ function HistorialComprasPanel({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Ventas filtradas y serie del gráfico
   const ventasFiltradas = useMemo(() => {
     return ventas.filter(v => {
       const fechaCal = v.created_at.split("T")[0];
@@ -605,6 +609,7 @@ function HistorialComprasPanel({
 }
 
 export function VerClientes() {
+  // Estado listado y modales
   const [busqueda, setBusqueda] = useState("");
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [historialMovilAbierto, setHistorialMovilAbierto] = useState(false);
@@ -615,6 +620,7 @@ export function VerClientes() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
+  // Queries
   const { data: clientes = [], isLoading, refetch } = useClientes();
   const { data: ventasClienteSeleccionado = [] } = useVentasCliente(clienteSeleccionado?.id ?? null);
 
@@ -623,6 +629,7 @@ export function VerClientes() {
     setHistorialMovilAbierto(false);
   };
 
+  // Filtro, orden y paginación
   const clientesFiltrados = clientes.filter((c) => {
     const q = busqueda.toLowerCase();
     return (
@@ -648,6 +655,7 @@ export function VerClientes() {
     currentPage * pageSize
   );
 
+  // Exportar PDF
   const handleExportarPDF = () => {
     try {
       const doc = new jsPDF();

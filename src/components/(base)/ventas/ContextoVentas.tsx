@@ -17,6 +17,7 @@ import { buildSolicitudRebajaPayload, carritoTieneRebajas, validarCarritoPrecioC
 import { useEstadoSolicitudRebaja } from "./lib/hooks";
 import { getSwalThemeOpts } from "@/lib/utils";
 
+// Estado compartido del punto de venta
 interface VentasContextType {
   // Tabs
   activeTab: "pos" | "historial";
@@ -68,9 +69,7 @@ interface VentasContextType {
   animateCart: boolean;
   setAnimateCart: React.Dispatch<React.SetStateAction<boolean>>;
 
-  // Refs para Dropdowns (opcional si se manejan localmente, pero si se necesitan globales se pueden pasar o aislar)
-  
-  // Impresión y Modales
+  // Recibos e impresión
   ticketParaImprimir: any;
   setTicketParaImprimir: React.Dispatch<React.SetStateAction<any>>;
   reciboCaptura: any;
@@ -78,7 +77,7 @@ interface VentasContextType {
   reciboModalData: any;
   setReciboModalData: React.Dispatch<React.SetStateAction<any>>;
 
-  // Handlers Globales
+  // Acciones del carrito y cobro
   handleAgregarAlCarrito: (
     productoOverride?: Producto,
     cantOverride?: number,
@@ -94,6 +93,8 @@ interface VentasContextType {
   handleFinalizarVenta: () => void;
   ejecutarCobro: () => void;
   totalCarrito: number;
+
+  // Rebajas (espera de admin)
   esperandoAutorizacionRebaja: boolean;
   rebajaAutorizada: boolean;
   showModalAutorizacionRebaja: boolean;
@@ -106,11 +107,15 @@ interface VentasContextType {
 
 const VentasContext = createContext<VentasContextType | undefined>(undefined);
 
+// Proveedor del punto de venta
 export function VentasProvider({ children, productos, clientes, refetchDatos }: { children: ReactNode, productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
   const { isDemoMode } = useDemoMode();
   const { realRole, simulatedRole } = useUserContext();
+
+  // Tabs
   const [activeTab, setActiveTab] = useState<"pos" | "historial">("pos");
 
+  // Estado POS
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
   const [productoBusqueda, setProductoBusqueda] = useState("");
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
@@ -118,26 +123,31 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
   const [mostrarSugerenciasProd, setMostrarSugerenciasProd] = useState(false);
   const [imagenAmpliadaUrl, setImagenAmpliadaUrl] = useState<string | null>(null);
 
+  // Clientes POS
   const [clienteBusqueda, setClienteBusqueda] = useState("Consumidor Final");
   const [clienteSeleccionado, setClienteSeleccionado] = useState<Cliente | null>(null);
   const [mostrarSugerenciasCli, setMostrarSugerenciasCli] = useState(false);
   const [isCrearClienteOpen, setIsCrearClienteOpen] = useState(false);
 
+  // Cobro
   const [tipoVenta, setTipoVenta] = useState<"Contado" | "Crédito">("Contado");
   const [mostrarMetodoPagoDropdown, setMostrarMetodoPagoDropdown] = useState(false);
   const [observaciones, setObservaciones] = useState("");
   const [isProcesandoVenta, setIsProcesandoVenta] = useState(false);
   const [showUbicacionModal, setShowUbicacionModal] = useState(false);
 
+  // Edición de carrito
   const [editingCartItemIndex, setEditingCartItemIndex] = useState<number | null>(null);
   const [editingPrice, setEditingPrice] = useState<string>("");
   const [editingQty, setEditingQty] = useState<string>("");
   const [animateCart, setAnimateCart] = useState(false);
 
+  // Recibos e impresión
   const [ticketParaImprimir, setTicketParaImprimir] = useState<any>(null);
   const [reciboCaptura, setReciboCaptura] = useState<any>(null);
   const [reciboModalData, setReciboModalData] = useState<any>(null);
 
+  // Rebajas (espera de admin)
   const [solicitudRebajaId, setSolicitudRebajaId] = useState<string | null>(null);
   const [esperandoAutorizacionRebaja, setEsperandoAutorizacionRebaja] = useState(false);
   const [rebajaAutorizada, setRebajaAutorizada] = useState(false);
@@ -199,6 +209,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     esperandoAutorizacionRebaja && solicitudRebajaId ? solicitudRebajaId : null,
   );
 
+  // Respuesta del admin a la rebaja
   useEffect(() => {
     if (!solicitudRebajaRemota || !esperandoAutorizacionRebaja) return;
 
@@ -217,6 +228,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     }
   }, [solicitudRebajaRemota, esperandoAutorizacionRebaja, rebajaAutorizada]);
 
+  // Si cambia el carrito, hay que pedir rebaja otra vez
   useEffect(() => {
     if (!esperandoAutorizacionRebaja || rebajaAutorizada) return;
     const snapshot = JSON.stringify(
@@ -236,7 +248,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     }
   }, [carrito, esperandoAutorizacionRebaja, rebajaAutorizada]);
 
-  // Evitar venta al crédito sin cliente
+  // Crédito solo con cliente elegido
   useEffect(() => {
     if (!clienteSeleccionado && tipoVenta === "Crédito") {
       setTipoVenta("Contado");
@@ -245,6 +257,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
 
   const totalCarrito = carrito.reduce((sum, item) => sum + item.subtotal, 0);
 
+  // Acciones del carrito y cobro
   const handleAgregarAlCarrito = async (
     productoOverride?: Producto,
     cantOverride?: number,
@@ -606,6 +619,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
   );
 }
 
+// Acceder al contexto de ventas
 export const useVentas = () => {
   const context = useContext(VentasContext);
   if (!context) throw new Error("useVentas must be used within a VentasProvider");

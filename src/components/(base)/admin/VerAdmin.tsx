@@ -3,6 +3,7 @@ import { Shield, AlertTriangle } from "lucide-react";
 import { AdminCards } from "./AdminCards";
 import { adminPageShellClass } from "@/lib/module-layout";
 
+// Admin
 export async function VerAdmin() {
   const pendingDevices = (await getPendingDevicesCount()) ?? 0;
 

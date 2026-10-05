@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, ShieldAlert } from "lucide-react";
 import { useEffect, useState } from "react";
 
+// Pantalla sin permiso al módulo
 export default function SinAccesoContent() {
   const [mounted, setMounted] = useState(false);
 

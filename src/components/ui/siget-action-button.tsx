@@ -6,6 +6,7 @@ import { MorphHoverIcon } from "@/components/ui/morph-hover-icon";
 import { RippleButton } from "@/components/ui/ripple-button";
 import { cn } from "@/lib/utils";
 
+// Colores por tipo de acción
 export const sigetBtnSurface =
   "h-9 min-w-0 border-2 border-border bg-white px-2.5 py-0 text-xs font-bold shadow-none hover:bg-zinc-50 dark:border-zinc-700 dark:bg-card dark:hover:bg-zinc-800";
 
@@ -22,6 +23,7 @@ export const sigetAccent = {
   excel: "#2E9E77",
 } as const;
 
+// Icono con animación
 export function SigetActionIcon({
   from,
   to,
@@ -50,6 +52,7 @@ export function SigetActionIcon({
   );
 }
 
+// Botón de acción SIGET
 export function SigetActionButton({
   label,
   accentColor,

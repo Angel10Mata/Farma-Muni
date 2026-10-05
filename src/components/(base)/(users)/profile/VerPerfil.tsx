@@ -19,13 +19,16 @@ import { updateProfile } from "./lib/actions";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
+// Props
 interface VerPerfilProps {
   isOpen: boolean;
   onClose: () => void;
   userId: string | null;
 }
 
+// Perfil
 export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
+  // Estado
   const sessionUser = useUser();
   const queryClient = useQueryClient();
   const [view, setView] = useState<"perfil" | "usuario">("perfil");

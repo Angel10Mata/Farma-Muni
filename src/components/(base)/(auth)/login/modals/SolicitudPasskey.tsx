@@ -19,7 +19,9 @@ import {
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
+// Modal passkey
 export function SolicitudPasskey() {
+  // Estado
   const [isVisible, setIsVisible] = useState(false);
   const [isPending, setIsPending] = useState(false);
   const [dontShowAgain, setDontShowAgain] = useState(false);

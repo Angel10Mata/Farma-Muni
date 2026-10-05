@@ -38,6 +38,7 @@ interface HistorialVentasProps {
   onShareWhatsApp: (venta: any) => void;
 }
 
+// Fecha legible en la tabla
 function formatCustomDate(dateString: string) {
   const d = new Date(dateString);
   const weekDayStr = d.toLocaleString("es-GT", { weekday: "short" }).replace(/\./g, '');
@@ -83,7 +84,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
 
   const [ventaDetalleSeleccionada, setVentaDetalleSeleccionada] = useState<any | null>(null);
 
-  // --- Lógica de filtrado ---
+  // Filtrar ventas
   const query = busquedaHistorial.toLowerCase();
   let filtered = historialData.filter(v => {
     // 1. Texto (recibo, notas, cliente)
@@ -123,6 +124,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  // Pantalla del historial
   return (
     <div className={cn(moduleTableShellClass, "overflow-visible")}>
       <div className="flex flex-col xl:flex-row gap-4 mb-4 justify-between items-start">

@@ -13,7 +13,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { toast } from "react-toastify";
 
+// Login
 export default function IniciarSesion() {
+  // Estado
   const [mounted, setMounted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [username, setUsername] = useState("");

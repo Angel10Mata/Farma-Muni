@@ -26,6 +26,7 @@ import {
   obtenerMiSolicitudRebajaPendiente,
 } from "./actions";
 
+// Datos del punto de venta
 export function useDatosVentas() {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -40,6 +41,7 @@ export function useDatosVentas() {
   });
 }
 
+// Historial y detalle de ventas
 export function useHistorialVentas() {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -84,6 +86,7 @@ export function useBitacoraVenta(ventaId: string | null) {
   });
 }
 
+// Cambios en ventas ya registradas
 export function useAnularVenta() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();
@@ -138,6 +141,7 @@ export function useEditarDetalleVenta() {
   });
 }
 
+// Rebajas de precio
 export function useMiSolicitudRebajaPendiente(enabled: boolean) {
   const { isDemoMode } = useDemoMode();
   return useQuery({

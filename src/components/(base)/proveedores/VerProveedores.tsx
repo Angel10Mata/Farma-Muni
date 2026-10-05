@@ -13,6 +13,7 @@ import { CatalogoProveedores } from "./CatalogoProveedores";
 import { CrearProveedor } from "./forms/Crear";
 import { useProveedoresYProductos, useHistorialCompras } from "./lib/hooks";
 
+// Tabs
 const COMPRAS_TABS = [
   { id: "ingresar_compra" as const, label: "Registrar" },
   { id: "proveedores" as const, label: "Proveedores" },
@@ -22,6 +23,7 @@ const COMPRAS_TABS = [
 
 type ComprasTabId = (typeof COMPRAS_TABS)[number]["id"];
 
+// Estilos
 function comprasTabPillClass(active: boolean) {
   return cn(
     "shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all sm:px-4 sm:text-xs",
@@ -32,9 +34,11 @@ function comprasTabPillClass(active: boolean) {
 }
 
 function VerProveedoresInner() {
+  // Estado
   const [activeTab, setActiveTab] = useState<ComprasTabId>("ingresar_compra");
   const [isCrearOpen, setIsCrearOpen] = useState(false);
 
+  // Datos
   const { data: dataPP, isLoading: isLoadingPP, refetch: refetchPP } = useProveedoresYProductos();
   const productos = dataPP?.productos || [];
   const proveedores = dataPP?.proveedores || [];
@@ -160,6 +164,7 @@ function VerProveedoresInner() {
   );
 }
 
+// Export
 export default function VerProveedores() {
   return (
     <ComprasProvider>

@@ -4,6 +4,7 @@ import Image from "next/image";
 import { MapPin, Phone, Info } from "lucide-react";
 import { motion } from "framer-motion";
 
+// Sección nosotros (landing)
 export function AboutSection() {
   return (
     <section

@@ -13,6 +13,8 @@ import { APP_MODULES, type AppModuleConfig } from "@/lib/app-modules";
 import { moduleIconColors, moduleMorphIcons, navMorphIcons } from "@/lib/morph-icons";
 import { dashboardInnerClass, dashboardOuterClass } from "@/lib/module-layout";
 
+// SUBCOMPONENTES
+
 const DashboardHeader = () => (
   <div className="flex items-end justify-between gap-4 mb-8 md:mb-10 w-full px-1">
     <div className="flex-1 min-w-0 flex flex-col">
@@ -221,6 +223,8 @@ function DashboardModuleCard({
     </motion.div>
   );
 }
+
+// PANEL PRINCIPAL
 
 export function VerDashboard() {
   const { effectiveRole } = useUserContext();

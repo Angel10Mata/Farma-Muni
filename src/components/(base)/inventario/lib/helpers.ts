@@ -1,3 +1,4 @@
+// Fechas de vencimiento
 export function inicioDiaLocal(date = new Date()): Date {
   const d = new Date(date);
   d.setHours(0, 0, 0, 0);
@@ -37,6 +38,7 @@ export function etiquetaEstadoVencimiento(fechaVencimiento?: string | null): str
   return "Vigente";
 }
 
+// Actualizar existencias
 export function patchInvLoteCantidadActual(nuevaCantidad: number): {
   cantidad_actual: number;
   activo?: boolean;

@@ -37,6 +37,7 @@ import { VerDetalleCredito } from "./forms/VerDetalleCredito";
 import type { CreditoResumen } from "./lib/zod";
 
 export function VerCreditos() {
+  // Estado listado y pestañas
   const [tab, setTab] = useState<"cobrar" | "pagados">("cobrar");
 
   const [busqueda, setBusqueda] = useState("");
@@ -46,9 +47,11 @@ export function VerCreditos() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(15);
 
+  // Query
   const { data: creditos = [], isLoading, refetch } = useResumenCreditos();
   const [hasNotified, setHasNotified] = useState(false);
 
+  // Aviso de créditos por vencer
   useEffect(() => {
     if (!isLoading && creditos.length > 0 && !hasNotified) {
       const porVencerOCaducados = creditos.filter(c => {
@@ -66,6 +69,7 @@ export function VerCreditos() {
     }
   }, [creditos, isLoading, hasNotified]);
 
+  // Filtro, orden y paginación
   const creditosFiltrados = creditos.filter((c) => {
     const isActivo = tab === "cobrar" 
       ? (c.estado !== "Solventado" && c.saldo_pendiente > 0)
@@ -83,6 +87,7 @@ export function VerCreditos() {
   const totalPages = Math.ceil(creditosOrdenados.length / pageSize) || 1;
   const paginatedCreditos = creditosOrdenados.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  // Exportar PDF
   const handleExportarGlobal = () => {
     try {
       const doc = new jsPDF();

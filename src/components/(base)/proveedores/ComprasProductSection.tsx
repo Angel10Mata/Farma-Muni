@@ -10,11 +10,13 @@ import { useCompras } from "./ComprasContext";
 import { Producto, Proveedor } from "./lib/zod";
 import { fmtQ } from "@/lib/utils";
 
+// Props
 interface ComprasProductSectionProps {
   productos: Producto[];
   proveedores: Proveedor[];
 }
 
+// Productos
 export function ComprasProductSection({ productos, proveedores }: ComprasProductSectionProps) {
   const context = useCompras();
   const prodDropdownRef = useRef<HTMLDivElement>(null);

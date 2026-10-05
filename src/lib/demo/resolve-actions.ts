@@ -1,6 +1,8 @@
 import { DEMO_VENTA_DETALLE } from "@/lib/demo/fixtures";
 import { obtenerDetalleVenta } from "@/components/(base)/ventas/lib/actions";
 
+// DETALLE DE VENTA (DEMO O REAL)
+
 export async function fetchDetalleVenta(ventaId: string, isDemoMode: boolean) {
   if (isDemoMode) {
     await new Promise((resolve) => setTimeout(resolve, 80));

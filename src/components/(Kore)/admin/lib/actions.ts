@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 
+// Dispositivos pendientes de autorizar
 export async function getPendingDevicesCount() {
   try {
     const supabase = await createClient();

@@ -1,5 +1,7 @@
 import { requireAdminPageAccess } from "@/lib/user-role";
 
+// Solo administradores
+
 export default async function AdminSectionLayout({
   children,
 }: {

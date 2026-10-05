@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { AppSettingsUpdate } from "./zod";
 
+// Consultas
 export async function getAppSettings(): Promise<AppSettingsUpdate | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -18,6 +19,7 @@ export async function getAppSettings(): Promise<AppSettingsUpdate | null> {
   return data;
 }
 
+// Mutaciones
 export async function updateAppSettings(settings: AppSettingsUpdate): Promise<void> {
   const supabase = await createClient();
 

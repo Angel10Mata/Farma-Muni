@@ -9,6 +9,7 @@ import {
 } from "./actions";
 import { ProfileFormValues } from "./zod";
 
+// Consultas
 export const useProfile = (userId: string, isEnabled: boolean = true) => {
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["profile", userId],
@@ -46,6 +47,7 @@ export const useUserCredentials = (
   };
 };
 
+// Mutaciones
 export const useProfileMutation = () => {
   const queryClient = useQueryClient();
 

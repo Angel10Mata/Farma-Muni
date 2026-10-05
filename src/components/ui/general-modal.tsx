@@ -47,6 +47,7 @@ export {
   toast,
 } from "@/components/ui/modal-toast";
 
+// Estilos de campos
 export const modalFieldClass =
   "border border-zinc-200/80 dark:border-zinc-700 focus-visible:border-zinc-400 focus-visible:ring-2 focus-visible:ring-zinc-400/25 dark:focus-visible:border-zinc-500 dark:focus-visible:ring-zinc-500/30";
 
@@ -58,6 +59,7 @@ const modalInputBaseClass =
 const modalTextareaBaseClass =
   "flex min-h-20 w-full resize-none rounded-lg bg-transparent px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:outline-none";
 
+// Campos del formulario
 export function ModalForm({
   className,
   children,
@@ -171,6 +173,7 @@ export function ModalFechaInput({
   );
 }
 
+// Botones del pie
 export function ModalCancelButton({
   onClick,
   disabled,
@@ -246,6 +249,7 @@ export interface ItemDetailsPreview {
   categoria?: string | null;
 }
 
+// Confirmar eliminación
 export function ModalConfirmDelete({
   onConfirm,
   onCancel,
@@ -426,6 +430,7 @@ function ModalFrame({
   );
 }
 
+// Ventana modal principal
 export function ModalShell({
   open,
   isOpen,

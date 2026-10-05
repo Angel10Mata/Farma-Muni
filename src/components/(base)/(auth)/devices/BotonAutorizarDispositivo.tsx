@@ -8,6 +8,7 @@ import { useTheme } from "next-themes";
 import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
+// Autorización
 export function BotonAutorizarDispositivo({
   id,
   isAuthorized,

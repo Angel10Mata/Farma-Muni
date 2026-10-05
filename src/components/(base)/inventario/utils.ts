@@ -2,18 +2,16 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fmtNum, fmtQ } from "@/lib/utils";
 
+// Exportar listado a PDF
 export const exportarPDF = (productos: any[]) => {
   const doc = new jsPDF();
-  
-  // Title
+
   doc.setFontSize(16);
   doc.text("Reporte de Inventario - FarmaMuni", 14, 20);
-  
-  // Date
+
   doc.setFontSize(10);
   doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 28);
-  
-  // Data Mapping
+
   const data = productos.map((p) => [
     p.codigo || "Sin Código",
     p.nombre,
@@ -22,8 +20,7 @@ export const exportarPDF = (productos: any[]) => {
     p.stock_actual <= p.stock_minimo ? "STOCK BAJO" : "OK",
     fmtQ(p.precio_base)
   ]);
-  
-  // Table
+
   autoTable(doc, {
     startY: 32,
     head: [["Código", "Producto", "Proveedor", "Stock", "Alerta", "Precio"]],

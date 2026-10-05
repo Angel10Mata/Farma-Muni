@@ -28,6 +28,7 @@ interface DetalleVentaModalProps {
 }
 
 export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModalProps) {
+  // Datos de la venta
   const { data: detalles = [], isLoading } = useDetalleVenta(venta.id);
   const { data: bitacora = [], isLoading: bitacoraLoading } = useBitacoraVenta(venta.id);
   const { mutate: anularVenta, isPending: isAnulando } = useAnularVenta();
@@ -47,6 +48,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
 
   const isSavingDetalle = isEditando || isEliminando;
 
+  // Editar o quitar líneas
   const handleSaveDetalleVentaDirecto = (detalle: any) => {
     setPromptModal({
       isOpen: true,
@@ -96,6 +98,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
     });
   };
 
+  // Detalle de venta
   return (
     <>
       <AnimatePresence>

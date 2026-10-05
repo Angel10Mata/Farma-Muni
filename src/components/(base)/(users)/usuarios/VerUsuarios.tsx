@@ -24,12 +24,15 @@ import {
 } from "@/components/ui/module-table";
 import { cn } from "@/lib/utils";
 
+// Usuarios
 export function VerUsuarios() {
   const { effectiveRole, realRole } = useUserContext();
   const canCreateUser = canCreateUsers(effectiveRole);
 
+  // Datos
   const { data: users, isLoading, isError, refetch } = useUsers(effectiveRole);
 
+  // Estado
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [roleFilter, setRoleFilter] = useState<string>("all");

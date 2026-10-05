@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { patchInvLoteCantidadActual, patchInvProductoStockActual } from "@/components/(base)/inventario/lib/helpers";
 import { syncInvProductoCatalogoDesdeLotes } from "@/components/(base)/inventario/lib/sync-producto-catalogo";
 
+// Costo del producto o lote
 export async function obtenerCostoProductoOLote(
   supabase: SupabaseClient,
   productoId: string,
@@ -27,6 +28,7 @@ export async function obtenerCostoProductoOLote(
   return Math.max(0, Number(loteFallback?.precio_costo) || 0);
 }
 
+// Existencias al vender o devolver
 export async function ajustarStockPorVenta(
   supabase: SupabaseClient,
   params: {

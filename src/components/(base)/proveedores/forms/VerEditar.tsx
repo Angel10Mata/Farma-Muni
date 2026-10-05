@@ -19,8 +19,10 @@ import { cn } from "@/lib/utils";
 import { useGuardarProveedor } from "../lib/hooks";
 import type { Proveedor, ProveedorInput } from "../lib/zod";
 
+// Constantes
 const AREA_CODES = ["+502", "+503", "+504", "+505", "+506", "+507", "+52", "+1"] as const;
 
+// Props
 interface EditarProveedorProps {
   isOpen: boolean;
   onClose: () => void;
@@ -28,7 +30,9 @@ interface EditarProveedorProps {
   proveedor: Proveedor | null;
 }
 
+// Editar
 export function EditarProveedor({ isOpen, onClose, onSuccess, proveedor }: EditarProveedorProps) {
+  // Estado
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [nit, setNit] = useState("");

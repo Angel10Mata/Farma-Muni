@@ -4,11 +4,12 @@ import { createClient } from "@/utils/supabase/server";
 
 import type { CreditoResumen, VentaCreditoDetalle } from "./zod";
 
+// Resumen por cliente
 export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
   try {
     const supabase = await createClient();
 
-    // 1. Get all clients
+    // Clientes
     const { data: clientesData, error: cliError } = await supabase
       .from("ven_clientes")
       .select("*")
@@ -16,7 +17,7 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
 
     if (cliError) throw new Error(cliError.message);
 
-    // 2. Get all credit sales (without nested join to avoid timeout)
+    // Ventas al crédito
     const { data: ventasData, error: ventasError } = await supabase
       .from("ventas")
       .select("id, cliente_id, total, tipo_venta, created_at")
@@ -26,12 +27,12 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
 
     if (ventasError) throw new Error(ventasError.message);
 
-    // 3. Get all transactions related to those sales (abonos and ventas)
+    // Abonos y cargos de esas ventas
     const ventasIds = ventasData ? ventasData.map((v: any) => v.id) : [];
     let transaccionesData: any[] = [];
     
     if (ventasIds.length > 0) {
-      // Chunk the IDs to avoid URL too long / query size limits
+      // Consultar en lotes
       const CHUNK_SIZE = 200;
       for (let i = 0; i < ventasIds.length; i += CHUNK_SIZE) {
         const chunk = ventasIds.slice(i, i + CHUNK_SIZE);
@@ -48,7 +49,7 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
       }
     }
 
-    // Group transactions by venta_id for quick lookup
+    // Agrupar por venta
     const transaccionesPorVenta = new Map<string, any[]>();
     if (transaccionesData) {
       for (const t of transaccionesData) {
@@ -102,7 +103,7 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
 
     const resultado: CreditoResumen[] = [];
     clientCreditosMap.forEach((c) => {
-      // Only include clients who have consumed credit at some point
+      // Solo clientes que alguna vez compraron a crédito
       if (c.total_consumido > 0) {
         if (c.saldo_pendiente <= 0) {
            c.estado = "Solventado";
@@ -122,6 +123,7 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
   }
 }
 
+// Historial de un cliente
 export async function obtenerDetalleCredito(clienteId: string): Promise<VentaCreditoDetalle[]> {
   const supabase = await createClient();
   const { data, error } = await supabase

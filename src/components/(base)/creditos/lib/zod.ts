@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Resumen por cliente
 export const CreditoResumenSchema = z.object({
   cliente_id: z.string().uuid(),
   nombre: z.string(),
@@ -13,6 +14,7 @@ export const CreditoResumenSchema = z.object({
 
 export type CreditoResumen = z.infer<typeof CreditoResumenSchema>;
 
+// Detalle de ventas a crédito
 export const VentaCreditoDetalleSchema = z.object({
   id: z.string().uuid(),
   created_at: z.string(),

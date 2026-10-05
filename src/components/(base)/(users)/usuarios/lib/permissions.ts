@@ -1,3 +1,4 @@
+// Roles
 export const ROLE_LABELS: Record<string, string> = {
   user: "Usuario (Estándar)",
   admin: "Administrador",
@@ -9,6 +10,7 @@ export const ROLE_ORDER = ["super", "admin", "user"] as const;
 const KNOWN_ROLES = [...ROLE_ORDER];
 const KNOWN_ROLE_SET = new Set<string>(KNOWN_ROLES);
 
+// Permisos
 export function getManageableRoles(
   actorRole: string,
   customRoles: string[] = [],

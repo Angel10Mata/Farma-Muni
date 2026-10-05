@@ -36,6 +36,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
   const [paso, setPaso] = useState<PasoCreacion>("producto");
   const [productoId, setProductoId] = useState<string | null>(null);
 
+  // Datos del producto
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [precioBase, setPrecioBase] = useState("");
@@ -47,6 +48,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<{ id: string; nombre: string } | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
+  // Datos del lote
   const [codigoBarras, setCodigoBarras] = useState("");
   const [numeroLote, setNumeroLote] = useState("");
   const [cantidadLote, setCantidadLote] = useState("");
@@ -78,6 +80,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
           (p.nit && p.nit.toLowerCase().includes(proveedorBusqueda.toLowerCase())),
       );
 
+  // Acciones del formulario
   const handleReset = () => {
     setPaso("producto");
     setProductoId(null);
@@ -223,6 +226,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
 
   const isPending = isGuardandoProducto || isGuardandoLote;
 
+  // Formulario de alta
   return (
     <ModalShell
       isOpen={isOpen}

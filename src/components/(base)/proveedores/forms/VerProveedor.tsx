@@ -46,6 +46,7 @@ import {
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
+// Tipos
 interface Proveedor {
   id: string;
   nombre: string;
@@ -79,8 +80,10 @@ interface ProveedorDetalleProps {
   defaultEdit?: boolean;
 }
 
+// Constantes
 const AREA_CODES = ["+502", "+503", "+504"] as const;
 
+// Helpers — contacto
 export const formatPhoneDisplay = (phone: string | null | undefined): string => {
   if (!phone) return "";
   let clean = phone.trim();
@@ -114,6 +117,7 @@ export const getWhatsappUrl = (phone: string | null | undefined): string => {
   return `https://wa.me/${cleaned.replace("+", "")}`;
 };
 
+// Helpers — compras
 function obtenerSemanasDelMes(month: number, year: number) {
   const weeks: Array<{ desde: string; hasta: string; label: string }> = [];
   const firstDay = new Date(year, month, 1);
@@ -149,6 +153,7 @@ function compraEstaPendiente(c: CompraProveedor): boolean {
   return abonos < compraMonto(c) && c.estado_pago !== "Pagado";
 }
 
+// Panel detalle
 function ProveedorDetallePanel({
   formData,
   proveedor,
@@ -452,6 +457,7 @@ function ProveedorDetallePanel({
   );
 }
 
+// Export
 export function VerProveedor({
   proveedor,
   onClose,
@@ -610,6 +616,7 @@ export function VerProveedor({
   );
 }
 
+// Historial proveedor
 function HistorialComprasProveedorPanel({
   proveedor,
   compras,

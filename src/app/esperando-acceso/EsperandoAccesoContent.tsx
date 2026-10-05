@@ -8,15 +8,18 @@ import { Lock as LockNode, Send } from "lucide";
 import { toast } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
+// Espera de autorización de dispositivo
 export default function EsperandoAccesoContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const reason = searchParams.get("reason");
   const isDeviceLimit = reason === "limit";
 
+  // Estado
   const [hasRequest, setHasRequest] = useState<boolean>(true);
   const [loading, setLoading] = useState<boolean>(false);
 
+  // Revisar solicitud y avisar a admins
   useEffect(() => {
     if (isDeviceLimit) return;
 

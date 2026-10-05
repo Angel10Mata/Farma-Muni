@@ -8,6 +8,7 @@ import {
 import { revalidatePath } from "next/cache";
 import { ProfileFormValues } from "./zod";
 
+// Helpers
 function getAdminClient() {
   return createSupabaseAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,6 +22,7 @@ function getAdminClient() {
   );
 }
 
+// Perfil
 export async function getProfileById(userId: string) {
   const supabase = await createClient();
 
@@ -37,6 +39,7 @@ export async function getProfileById(userId: string) {
   return data;
 }
 
+// Credenciales
 export async function getUserUsername(userId: string) {
   const supabaseAdmin = getAdminClient();
 
@@ -143,6 +146,7 @@ export async function updateUserCredentials(
   return { success: true };
 }
 
+// Estado cuenta
 export async function toggleUserStatus(userId: string, isBanned: boolean) {
   const supabaseAdmin = getAdminClient();
 

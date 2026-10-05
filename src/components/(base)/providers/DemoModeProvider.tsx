@@ -1,5 +1,7 @@
 "use client";
 
+// CONTEXTO MODO DEMO
+
 import {
   createContext,
   useCallback,
@@ -26,6 +28,8 @@ const DemoModeContext = createContext<DemoModeContextValue>({
   setDemoMode: () => {},
   toggleDemoMode: () => {},
 });
+
+// PROVIDER
 
 export function DemoModeProvider({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
@@ -68,6 +72,8 @@ export function DemoModeProvider({ children }: { children: ReactNode }) {
     </DemoModeContext.Provider>
   );
 }
+
+// HOOK
 
 export function useDemoMode() {
   return useContext(DemoModeContext);

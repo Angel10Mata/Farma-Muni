@@ -21,6 +21,7 @@ export type ProductoInventarioReporte = {
   ubicacion?: string | null;
 };
 
+// Encabezado común del PDF
 function encabezadoPdf(doc: jsPDF, titulo: string, subtitulo: string) {
   doc.setFont("helvetica", "bold");
   doc.setFontSize(16);
@@ -34,6 +35,7 @@ function encabezadoPdf(doc: jsPDF, titulo: string, subtitulo: string) {
   doc.line(14, 28, 196, 28);
 }
 
+// Reporte de vencimientos
 export function descargarReporteVencimientos(productos: ProductoInventarioReporte[]) {
   const doc = new jsPDF();
   const fechaGen = new Date().toLocaleString("es-GT");
@@ -90,6 +92,7 @@ export function descargarReporteVencimientos(productos: ProductoInventarioReport
   doc.save(`Reporte_Vencimientos_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
+// Resumen de gestión
 export function descargarReporteGestion(productos: ProductoInventarioReporte[]) {
   const doc = new jsPDF();
   const activos = productos.filter((p) => p.activo);

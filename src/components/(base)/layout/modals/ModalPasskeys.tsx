@@ -24,11 +24,15 @@ import {
 } from "@/components/(base)/(auth)/login/passkeys/passkeys-actions";
 import { startRegistration } from "@simplewebauthn/browser";
 
+// TIPOS
+
 interface PassKeysModalProps {
   isOpen: boolean;
   onClose: () => void;
   user: User | null;
 }
+
+// MODAL PASSKEYS
 
 export default function ModalPasskeys({
   isOpen,
@@ -54,6 +58,8 @@ export default function ModalPasskeys({
       setDeviceName("");
     }
   }, [isOpen, fetchPasskeys]);
+
+  // ACCIONES
 
   const handleDeletePasskey = async (id: string, name: string) => {
     const isDark = document.documentElement.classList.contains("dark");

@@ -1,5 +1,7 @@
 "use client";
 
+// SIMULADOR DE ROL (SUPER)
+
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 
 export function RoleSimulator() {

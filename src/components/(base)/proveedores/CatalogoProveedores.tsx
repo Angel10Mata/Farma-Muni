@@ -27,13 +27,16 @@ import {
   moduleTableShellClass,
 } from "@/components/ui/module-table";
 
+// Props
 interface CatalogoProveedoresProps {
   proveedores: Proveedor[];
   cargarDatos: () => void;
   setIsCrearOpen: (open: boolean) => void;
 }
 
+// Proveedores
 export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }: CatalogoProveedoresProps) {
+  // Estado
   const [proveedorBusqueda, setProveedorBusqueda] = useState("");
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
   const [modoEdicionProveedor, setModoEdicionProveedor] = useState(false);

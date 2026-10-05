@@ -1,12 +1,6 @@
 import { z } from "zod";
 
-/**
- * Fuente única de verdad para tipos y categorías del libro mayor.
- * Ajustado a las columnas reales de `fin_transacciones`:
- * tipo_movimiento, categoria, venta_id, compra_id, gasto_fijo_id,
- * saldo_anterior, saldo_nuevo, fecha_movimiento.
- */
-
+// Tipos y categorías del libro mayor
 export const TIPOS_MOVIMIENTO = ["ingreso", "egreso"] as const;
 export type TipoMovimiento = (typeof TIPOS_MOVIMIENTO)[number];
 
@@ -36,6 +30,7 @@ export const CATEGORIAS_POR_TIPO: Record<TipoMovimiento, readonly string[]> = {
   egreso: CATEGORIAS_EGRESO,
 };
 
+// Schemas de registro
 const camposComunes = {
   monto: z
     .number({ message: "El monto debe ser un número." })
@@ -90,6 +85,7 @@ export const registrarMovimientoSchema = z
 
 export type RegistrarMovimientoInput = z.infer<typeof registrarMovimientoSchema>;
 
+// Tipos de respuesta y listados
 export interface TransaccionFinanciera {
   id: string;
   created_at: string;

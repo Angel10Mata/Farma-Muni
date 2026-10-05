@@ -7,6 +7,7 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
 const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
 
+// Dispositivos
 export async function authorizeDevice(deviceId: string, friendlyName?: string) {
   const { error } = await supabaseAdmin
     .from("authorized_devices")

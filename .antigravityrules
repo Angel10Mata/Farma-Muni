@@ -1,7 +1,0 @@
-# Reglas del proyecto — FarmaMuni (KoreAPP)
-
-**Design system:** SIGET (compartido Kore) — botones, modales, tema zinc, toastify, fechas GT.
-
-**Cursor:** `.cursor/rules/estructura-de-proyecto.mdc` + `diseno-ux-ui.mdc`
-
-**Antigravity:** `.antigravityrules` (mismo contenido)

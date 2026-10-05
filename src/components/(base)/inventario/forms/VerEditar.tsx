@@ -30,6 +30,7 @@ interface EditarProductoProps {
 }
 
 export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: EditarProductoProps) {
+  // Datos del formulario
   const [nombre, setNombre] = useState("");
   const [descripcion, setDescripcion] = useState("");
   const [precioBase, setPrecioBase] = useState("");
@@ -57,6 +58,7 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Cargar producto seleccionado
   useEffect(() => {
     if (!producto) return;
 
@@ -110,6 +112,7 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
     proveedor_id: proveedorSeleccionado?.id || null,
   });
 
+  // Guardar cambios
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!producto) return;
@@ -143,6 +146,7 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
     }
   };
 
+  // Formulario de edición
   return (
     <ModalShell
       isOpen={isOpen}

@@ -27,6 +27,7 @@ type SolicitudRow = {
   created_at: string;
 };
 
+// Resumen de la solicitud
 function resumenPayload(payload: unknown) {
   const parsed = SolicitudRebajaPayloadSchema.safeParse(payload);
   if (!parsed.success) return null;
@@ -45,6 +46,7 @@ export function PanelSolicitudesRebajaVentas({
   const esAdminOSuper = ["admin", "super"].includes(realRole);
   const [open, setOpen] = useState(false);
 
+  // Solicitudes pendientes
   const { data: pendientes = [], isLoading: loadingAdmin, isError: errorAdmin } =
     useSolicitudesRebajaPendientes(esAdminOSuper);
   const { data: miSolicitud, isLoading: loadingMi } = useMiSolicitudRebajaPendiente(
@@ -72,6 +74,7 @@ export function PanelSolicitudesRebajaVentas({
 
   if (!esAdminOSuper && !loadingMi && badgeCount === 0) return null;
 
+  // Campana de rebajas
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>

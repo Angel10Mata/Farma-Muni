@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Catálogo y carrito
 export const ProductoSchema = z.object({
   id: z.string(),
   codigo: z.string().optional(),
@@ -9,6 +10,7 @@ export const ProductoSchema = z.object({
   stock_actual: z.number(),
   stock_minimo: z.number(),
   imagen_url: z.string().nullable().optional(),
+  ubicacion: z.string().nullable().optional(),
   activo: z.boolean(),
 });
 
@@ -61,6 +63,7 @@ export type Cliente = z.infer<typeof ClienteSchema>;
 export type ItemCarrito = z.infer<typeof ItemCarritoSchema>;
 export type Venta = z.infer<typeof VentaSchema>;
 
+// Registrar venta
 export const ItemVentaSchema = z.object({
   producto_id: z.string().uuid(),
   lote_id: z.string().uuid().optional().nullable(),
@@ -80,6 +83,7 @@ export const CrearVentaSchema = z.object({
 export type ItemVentaInput = z.infer<typeof ItemVentaSchema>;
 export type CrearVentaInput = z.infer<typeof CrearVentaSchema>;
 
+// Solicitudes de rebaja
 export const SolicitudRebajaItemPayloadSchema = z.object({
   producto_id: z.string().uuid(),
   cantidad: z.number().positive(),
@@ -132,6 +136,7 @@ export const CrearSolicitudRebajaSchema = z.object({
 
 export type CrearSolicitudRebajaInput = z.infer<typeof CrearSolicitudRebajaSchema>;
 
+// Bitácora de ventas
 export const VentaBitacoraAccionSchema = z.enum([
   "editar_linea",
   "quitar_linea",

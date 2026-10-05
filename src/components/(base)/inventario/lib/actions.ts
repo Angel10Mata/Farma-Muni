@@ -14,6 +14,7 @@ import {
   type ProductFormValues,
 } from "./zod";
 
+// Utilidades internas
 function normalizarFechaLote(fecha: string) {
   const trimmed = fecha.trim();
   if (/^\d{4}-\d{2}-\d{2}/.test(trimmed)) {
@@ -34,6 +35,7 @@ function mapLoteDbError(error: { code?: string; message?: string }) {
   return { code: "INTERNAL" as const };
 }
 
+// Consultas de inventario
 export async function obtenerProductos() {
   try {
     const supabase = await createClient();
@@ -114,6 +116,7 @@ export async function obtenerLotes() {
   }
 }
 
+// Activar o quitar del catálogo
 export async function desactivarProducto(id: string) {
   try {
     const supabase = await createClient();
@@ -156,6 +159,7 @@ export async function activarProducto(id: string) {
   }
 }
 
+// Guardar producto
 export async function guardarProducto(id: string | undefined, input: ProductFormValues) {
   try {
     const supabase = await createClient();
@@ -200,6 +204,7 @@ export async function guardarProducto(id: string | undefined, input: ProductForm
   }
 }
 
+// Lotes y bajas por vencimiento
 export async function crearLoteManual(input: unknown) {
   try {
     const supabase = await createClient();

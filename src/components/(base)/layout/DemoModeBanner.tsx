@@ -1,5 +1,7 @@
 "use client";
 
+// BANNER MODO SIMULACIÓN
+
 import { FlaskConical, X } from "lucide-react";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 

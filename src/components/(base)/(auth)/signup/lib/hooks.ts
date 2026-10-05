@@ -4,7 +4,9 @@ import { useState, useActionState } from "react";
 import { signup } from "./actions";
 import { INITIAL_USER_PASSWORD } from "./zod";
 
+// Hook registro
 export function useSignupLogic() {
+  // Estado
   const [showPassword, setShowPassword] = useState(false);
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");

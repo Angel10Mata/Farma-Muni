@@ -1,7 +1,7 @@
 import webpush from 'web-push';
 import { createClient } from '@supabase/supabase-js';
 
-// Inicializar web-push con las llaves VAPID
+// CONFIG VAPID Y CLIENTE ADMIN
 const publicVapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || '';
 const privateVapidKey = process.env.VAPID_PRIVATE_KEY || '';
 
@@ -20,6 +20,8 @@ const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env
 const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole, {
   auth: { autoRefreshToken: false, persistSession: false }
 });
+
+// ENVÍO PUSH POR ROLES
 
 export async function sendPushNotification(
   payload: { title: string; body: string; icon?: string; url?: string },

@@ -23,9 +23,11 @@ export function VerDetalleCredito({
   onClose,
   onUpdate,
 }: CreditoDetalleProps) {
+  // Query y modal de abono
   const { data: ventas = [], isLoading } = useDetalleCredito(cliente.cliente_id);
   const [abonoModalData, setAbonoModalData] = useState<{ ventaId: string; saldo: number } | null>(null);
 
+  // Exportar estado de cuenta
   const handleExportarPDF = () => {
     try {
       const doc = new jsPDF();

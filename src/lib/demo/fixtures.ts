@@ -9,6 +9,8 @@ import type {
 import type { Producto } from "@/components/(base)/inventario/lib/zod";
 import type { Compra, Proveedor } from "@/components/(base)/proveedores/lib/zod";
 
+// HELPERS Y CATÁLOGOS BASE
+
 const now = new Date();
 const daysAgo = (n: number) =>
   new Date(now.getTime() - n * 86400000).toISOString();
@@ -101,6 +103,8 @@ const PROVEEDORES_DATA = [
   { nombre: "Insumos Médicos Unidos", desc: "Material de curación", nit: "6677889-7", tel: "50255501008", correo: "insumos@medunidos.demo" },
 ];
 
+// PROVEEDORES E INVENTARIO DEMO
+
 export const DEMO_PROVEEDORES: Proveedor[] = PROVEEDORES_DATA.map((p, i) => ({
   id: `demo-prov-${pad(i + 1)}`,
   nombre: p.nombre,
@@ -137,6 +141,8 @@ export const DEMO_UBICACIONES = [
   ...new Set(PRODUCTOS_CATALOGO.map((p) => p.ubicacion)),
 ];
 
+// CLIENTES DEMO
+
 export const DEMO_CLIENTES_DB = NOMBRES.map((nombre, i) => ({
   id: `demo-cli-${pad(i + 1)}`,
   nombre,
@@ -162,6 +168,8 @@ export const DEMO_CLIENTES: Cliente[] = DEMO_CLIENTES_DB.map((c, i) => ({
 }));
 
 const CAJEROS = ["Angel Mata", "Cajero Demo", "María Cajera", "Admin Sistema"];
+
+// VENTAS DEMO
 
 export const DEMO_VENTAS_HISTORIAL = Array.from({ length: 55 }, (_, i) => {
   const cliente = DEMO_CLIENTES_DB[i % DEMO_CLIENTES_DB.length];
@@ -217,6 +225,8 @@ export const DEMO_VENTAS_CLIENTE = DEMO_VENTAS_HISTORIAL.slice(0, 8).map((v) => 
   }[],
 }));
 
+// COMPRAS DEMO
+
 export const DEMO_COMPRAS: Compra[] = Array.from({ length: 28 }, (_, i) => {
   const prov = DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length];
   const pagado = i % 3 !== 0;
@@ -256,6 +266,8 @@ export const DEMO_COMPRA_DETALLE = DEMO_COMPRAS.flatMap((compra, ci) => {
 
 const FIN_CATEGORIAS_INGRESO = ["venta", "abono_cliente"] as const;
 const FIN_CATEGORIAS_EGRESO = ["compra", "pago_proveedor", "gasto_fijo", "gasto_vario"] as const;
+
+// FINANZAS DEMO
 
 export const DEMO_FINANZAS_MOVIMIENTOS: TransaccionFinanciera[] = Array.from(
   { length: 42 },
@@ -321,6 +333,8 @@ export const DEMO_CUENTAS_PAGAR: CuentaPorPagar[] = DEMO_COMPRAS.filter(
   saldo_pendiente: c.total,
 }));
 
+// CRÉDITOS DEMO
+
 export const DEMO_CREDITOS_RESUMEN: CreditoResumen[] = DEMO_CLIENTES.filter(
   (c) => (c.creditosPendientes ?? 0) > 0,
 ).slice(0, 15).map((c, i) => ({
@@ -355,6 +369,8 @@ export const DEMO_CREDITO_DETALLE: VentaCreditoDetalle[] = DEMO_VENTAS_HISTORIAL
         ]
       : [],
 }));
+
+// HELPERS POS Y LISTADOS
 
 export function demoProductosPos() {
   return {

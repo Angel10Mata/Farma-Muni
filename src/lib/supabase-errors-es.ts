@@ -1,6 +1,5 @@
-/**
- * Mensajes de error de Supabase/Auth/Postgres en español para la UI.
- */
+// TRADUCCIÓN ERRORES SUPABASE
+
 export function mensajeErrorEs(mensaje: string | undefined | null): string {
   if (!mensaje?.trim()) {
     return "Ocurrió un error desconocido.";

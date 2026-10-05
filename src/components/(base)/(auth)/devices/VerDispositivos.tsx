@@ -3,6 +3,7 @@ import { AlertCircle } from "lucide-react";
 import { AcordeonDispositivos } from "./AcordeonDispositivos";
 import { adminPageShellClass } from "@/lib/module-layout";
 
+// Tipos
 interface Device {
   id: string;
   user_id: string;
@@ -12,6 +13,7 @@ interface Device {
   created_at: string;
 }
 
+// Vista dispositivos
 export async function VerDispositivos() {
   const supabaseAdmin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL as string,

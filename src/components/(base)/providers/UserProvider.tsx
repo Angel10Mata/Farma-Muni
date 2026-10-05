@@ -1,5 +1,7 @@
 "use client";
 
+// CONTEXTO DE USUARIO Y ROL
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { User } from "@supabase/supabase-js";
 import { createClient } from "@/utils/supabase/client"; // Asegúrate de tener este cliente
@@ -19,6 +21,8 @@ const UserContext = createContext<UserContextValue>({
   effectiveRole: "user",
   realRole: "user",
 });
+
+// PROVIDER
 
 export function UserProvider({
   user: initialUser,
@@ -89,6 +93,8 @@ export function UserProvider({
     </UserContext.Provider>
   );
 }
+
+// HOOKS
 
 export const useUser = () => {
   const ctx = useContext(UserContext);

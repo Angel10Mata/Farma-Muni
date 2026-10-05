@@ -44,6 +44,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
   const searchParams = useSearchParams();
   const router = useRouter();
 
+  // Enlaces y pestañas
   useEffect(() => {
     const id = searchParams.get("autorizarRebaja");
     if (!id || !["admin", "super"].includes(realRole)) return;
@@ -56,18 +57,18 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       ventas.setActiveTab("pos");
     }
   }, [puedeVerHistorial, ventas.activeTab, ventas.setActiveTab]);
-  
+
+  // Estado local
   const reciboCaptureRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingDetalle, setIsSavingDetalle] = useState(false);
-
-  // For Editing Detalle Venta from Historial
   const [ventaDetalleSeleccionada, setVentaDetalleSeleccionada] = useState<any>(null);
   const [detallesDeVenta, setDetallesDeVenta] = useState<any[]>([]);
   const [editingDetalleId, setEditingDetalleId] = useState<string | null>(null);
   const [editingDetalleQty, setEditingDetalleQty] = useState<number>(0);
   const [editingDetallePrice, setEditingDetallePrice] = useState<number>(0);
 
+  // Autorización de administrador
   const promptAdminCredentials = async () => {
     const result = await Swal.fire({
       title: "Autorización Requerida",
@@ -114,6 +115,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
     return true;
   };
 
+  // Anular o reabrir ventas
   const handleAnularVenta = async (ventaId: string) => {
     const resConfirm = await Swal.fire({
       title: "¿Anular esta venta?",
@@ -235,6 +237,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
     }
   };
 
+  // Recibo en PDF y WhatsApp
   const getBase64ImageFromUrl = async (url: string): Promise<string | null> => {
     try {
       const res = await fetch(url);
@@ -394,6 +397,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
     }
   };
 
+  // Impresión del ticket
   useEffect(() => {
     if (ventas.ticketParaImprimir) {
       const timer = setTimeout(() => {
@@ -431,6 +435,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
     }
   };
 
+  // Pantalla principal
   return (
     <div className={modulePageShellClass}>
       <CrearCliente
@@ -654,6 +659,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
   );
 }
 
+// Entrada del módulo con datos
 export function VerVentas() {
   const { data, isLoading, isError, error, refetch: refetchDatos } = useDatosVentas();
 

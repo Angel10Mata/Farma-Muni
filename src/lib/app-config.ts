@@ -1,3 +1,5 @@
+// CONSTANTES DE LA APP
+
 export const APP_NAME = "FarmaMuni";
 export const APP_NAME_UPPER = "FARMAMUNI";
 export const APP_BASE_PATH = "/farmamuni";

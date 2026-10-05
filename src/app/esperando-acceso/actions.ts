@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { headers } from "next/headers";
 import { sendPushToRoles } from "@/utils/push-utils";
 
+// Aviso a administradores
 async function notifySpecialRoles(userName: string, isResend: boolean) {
   const roles = ["super", "admin"];
   const title = isResend ? "Nueva Solicitud de Acceso" : "Usuario Esperando Acceso";
@@ -18,6 +19,7 @@ async function notifySpecialRoles(userName: string, isResend: boolean) {
   });
 }
 
+// Consultar si ya hay solicitud
 export async function checkDeviceRequest() {
   const supabase = await createClient();
   const {
@@ -40,6 +42,7 @@ export async function checkDeviceRequest() {
   return !!data;
 }
 
+// Enviar solicitud de dispositivo
 export async function createDeviceRequest() {
   const supabase = await createClient();
   const {
@@ -60,7 +63,7 @@ export async function createDeviceRequest() {
 
   if (error) return { success: false, error: error.message };
 
-  // Notify of resend/new request
+  // Avisar que llegó o reenvió la solicitud
   const { data: profile } = await supabase.from("profiles").select("nombre").eq("id", user.id).maybeSingle();
   const userName = profile?.nombre || user.email?.split("@")[0] || "Usuario";
   await notifySpecialRoles(userName, true);
@@ -68,6 +71,7 @@ export async function createDeviceRequest() {
   return { success: true };
 }
 
+// Avisar al entrar a la pantalla de espera
 export async function notifyAdminsOfArrival() {
   const supabase = await createClient();
   const {

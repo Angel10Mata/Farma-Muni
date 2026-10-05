@@ -1,8 +1,12 @@
+// CONSTANTES ZONA GUATEMALA
+
 export const TIMEZONE_GT = "America/Guatemala" as const;
 export const LOCALE_GT = "es-GT" as const;
 
 const fechaCalendarioRegex = /^(\d{4})-(\d{2})-(\d{2})$/;
 const mesCalendarioRegex = /^(\d{4})-(\d{2})$/;
+
+// FECHAS CALENDARIO (ISO)
 
 export function fechaCalendarioGt(fecha = new Date()): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -33,6 +37,8 @@ export function normalizarMesCalendario(
   const fecha = normalizarFechaCalendario(value);
   return fecha ? fecha.slice(0, 7) : "";
 }
+
+// FORMATO PARA UI
 
 export function formatFechaCalendarioGt(
   value: string | null | undefined,
@@ -75,6 +81,8 @@ export function formatFechaHoraGt(
     ...options,
   }).format(date);
 }
+
+// HELPERS FORMATO TABLA
 
 function formatAmPmGt(dayPeriod: string): string {
   const letter = dayPeriod.replace(/[^ap]/gi, "").toUpperCase();
@@ -145,6 +153,8 @@ export function formatFechaHoraTablaCompactGt(
   return `${partes.fecha} ${partes.hora}`;
 }
 
+// CONVERSIÓN MES / TIMESTAMPTZ
+
 export function mesCalendarioToTimestamptz(mes: string): string {
   const normalizado = normalizarMesCalendario(mes);
   if (!normalizado) throw new Error("INVALID_MONTH");
@@ -170,6 +180,8 @@ export function timestamptzToMesCalendario(
 
   return y && m ? `${y}-${m}` : mesCalendarioGt();
 }
+
+// ENTRADA MANUAL DD/MM/AAAA
 
 export function formatFechaManualGt(value: string | null | undefined): string {
   const norm = normalizarFechaCalendario(value);
@@ -205,6 +217,8 @@ export interface IntervaloSemana {
   desde: string;
   hasta: string;
 }
+
+// SEMANAS DEL MES
 
 export function obtenerSemanasDelMes(month: number, year: number): IntervaloSemana[] {
   const semanas: IntervaloSemana[] = [];

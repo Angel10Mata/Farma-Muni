@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { MorphIconBox } from "@/components/ui/morph-hover-icon";
 import { adminIconColors, adminMorphIcons } from "@/lib/morph-icons";
 
+// Opciones
 const adminOptions = [
   {
     id: "dispositivos",
@@ -30,6 +31,7 @@ const adminOptions = [
   },
 ] as const;
 
+// Tarjeta
 function AdminCard({
   opt,
   pendingDevices,
@@ -87,6 +89,7 @@ function AdminCard({
   );
 }
 
+// Export
 export function AdminCards({ pendingDevices }: { pendingDevices: number }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

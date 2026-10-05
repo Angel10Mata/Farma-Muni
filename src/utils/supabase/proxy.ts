@@ -1,6 +1,8 @@
 import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
+// CLIENTE SUPABASE (MIDDLEWARE / PROXY)
+
 export function createClient(request: NextRequest) {
   let response = NextResponse.next({
     request: {

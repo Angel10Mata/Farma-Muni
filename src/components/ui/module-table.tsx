@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Pagination, PageSizeSelect } from "@/components/ui/pagination";
 
+// Pie de tabla (paginación)
 export interface ModuleTableFooterProps {
   itemCount: number;
   pageSize: number;
@@ -45,6 +46,7 @@ export function ModuleTableFooter({
   );
 }
 
+// Clases reutilizables de listas
 export const moduleTableShellClass =
   "flex flex-col flex-1 min-w-0 bg-white dark:bg-zinc-900 border-y md:border border-zinc-200 dark:border-zinc-800 md:rounded-3xl p-5 overflow-hidden shadow-sm";
 
@@ -96,6 +98,7 @@ export const moduleTableEmptyCellClass =
 export const moduleTableFooterClass =
   "flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400";
 
+// Contenedores de tabla
 export function ModuleTableShell({
   className,
   children,

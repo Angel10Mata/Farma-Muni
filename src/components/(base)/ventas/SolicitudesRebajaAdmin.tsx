@@ -42,6 +42,7 @@ export function SolicitudesRebajaAdmin() {
   const aprobar = useAprobarSolicitudRebaja();
   const rechazar = useRechazarSolicitudRebaja();
 
+  // Detalle en revisión
   const [detalleId, setDetalleId] = useState<string | null>(null);
   const [motivoRechazo, setMotivoRechazo] = useState("");
 
@@ -51,6 +52,7 @@ export function SolicitudesRebajaAdmin() {
     }
   }, [rebajaQuery, isAdmin]);
 
+  // Datos de la solicitud abierta
   const solicitudActiva = useMemo(() => {
     if (!detalleId) return null;
     return (solicitudes as SolicitudRow[]).find((s) => s.id === detalleId) ?? null;
@@ -74,6 +76,7 @@ export function SolicitudesRebajaAdmin() {
 
   const pendientes = solicitudes as SolicitudRow[];
 
+  // Revisión de rebajas
   return (
     <>
       <ModalShell

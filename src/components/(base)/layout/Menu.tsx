@@ -26,11 +26,15 @@ import {
 import { cn } from "@/lib/utils";
 import { createClient } from "@/utils/supabase/client";
 
+// TIPOS
+
 interface MenuProps {
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
   user: User | null;
 }
+
+// SUBCOMPONENTES UI
 
 function MenuSectionLabel({
   dotClass,
@@ -59,6 +63,8 @@ function MenuAccordionChevron({ open }: { open: boolean }) {
     />
   );
 }
+
+// MENÚ LATERAL
 
 export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
   const pathname = usePathname();

@@ -13,6 +13,7 @@ import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, Save as S
 export function BarraCarritoVentas() {
   const ventas = useVentas();
 
+  // Carrito, total y cobro
   return (
     <div className="w-full lg:w-[65%] flex flex-col gap-4 font-mono">
       <motion.div

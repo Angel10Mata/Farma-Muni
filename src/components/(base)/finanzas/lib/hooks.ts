@@ -25,6 +25,7 @@ import {
 } from "./actions";
 import type { RegistrarMovimientoInput } from "./zod";
 
+// Claves de cache
 export const FINANZAS_KEYS = {
   all: ["finanzas"] as const,
   list: (params: ObtenerMovimientosParams, isDemoMode: boolean) =>
@@ -37,6 +38,7 @@ export const FINANZAS_KEYS = {
     demoQueryKey(["finanzas", "cuentasPagar"], isDemoMode),
 };
 
+// Queries
 export function useMovimientosFinancieros(params: ObtenerMovimientosParams) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -93,6 +95,7 @@ export function useCuentasPorPagar() {
   });
 }
 
+// Mutaciones
 export function useRegistrarMovimiento() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();

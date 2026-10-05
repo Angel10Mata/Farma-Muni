@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 import { fmtQ } from "@/lib/utils";
 import { Compra } from "../lib/zod";
 
+// Tipos
 type TransaccionCompra = {
   categoria?: string;
   monto?: number;
@@ -31,6 +32,7 @@ function sumAbonosProveedor(transacciones: unknown[] | undefined): number {
   );
 }
 
+// Props
 interface AbonoModalProps {
   compra: Compra | null;
   onClose: () => void;
@@ -43,7 +45,9 @@ const obtenerCodigoCompra = (id: string) => {
   return `${cleanId.substring(0, 3)}-${cleanId.substring(3, 6)}`;
 };
 
+// Abono
 export function AbonoModal({ compra, onClose, onAbonar }: AbonoModalProps) {
+  // Estado
   const [montoAbono, setMontoAbono] = useState("");
   const [metodoPagoAbono, setMetodoPagoAbono] = useState("Efectivo");
   const [notasAbono, setNotasAbono] = useState("");

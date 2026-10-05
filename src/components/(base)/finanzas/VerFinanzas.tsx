@@ -57,18 +57,21 @@ import type { TransaccionFinanciera } from "./lib/zod";
 const SEARCH_DEBOUNCE_MS = 350;
 
 export function VerFinanzas() {
+  // Paginación y búsqueda
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [searchInput, setSearchInput] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("todos");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-  
+
+  // Modal nuevo movimiento
   const [showNuevoMovimiento, setShowNuevoMovimiento] = useState(false);
   const [defaultTipo, setDefaultTipo] = useState<"ingreso" | "egreso">("ingreso");
   const [prefillVentaId, setPrefillVentaId] = useState<string | null>(null);
   const [prefillCompraId, setPrefillCompraId] = useState<string | null>(null);
 
+  // Filtros de fecha
   const [tipoFiltroFecha, setTipoFiltroFecha] = useState<string>("dia");
   const [fechaDia, setFechaDia] = useState<string>(() => {
     const pad = (n: number) => n.toString().padStart(2, "0");
@@ -90,6 +93,7 @@ export function VerFinanzas() {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Anulación de movimiento
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteDesc, setDeleteDesc] = useState<string>("");
   const [isDeleting, setIsDeleting] = useState(false);
@@ -167,7 +171,7 @@ export function VerFinanzas() {
     return { desde: d, hasta: h, resumenDesde: rD, resumenHasta: rH };
   }, [tipoFiltroFecha, fechaDia, activeMonth, activeYear, selectedWeekIndex, fechaRangoDesde, fechaRangoHasta]);
 
-  // Consultas a BD con React Query
+  // Queries y mutaciones
   const { data: listado, isLoading } = useMovimientosFinancieros({
     page,
     pageSize,
@@ -183,6 +187,7 @@ export function VerFinanzas() {
   const movimientos = listado?.data || [];
   const totalRegistros = listado?.count || 0;
 
+  // Handlers
   const handleDelete = async (id: string) => {
     setIsDeleting(true);
     try {
@@ -204,6 +209,7 @@ export function VerFinanzas() {
     setShowNuevoMovimiento(true);
   };
 
+  // Formato de presentación
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ" }).format(amount);
 

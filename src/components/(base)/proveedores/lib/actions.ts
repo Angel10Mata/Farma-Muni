@@ -7,6 +7,7 @@ import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from 
 
 type ActionFail = { success?: false; code: string; detail?: string };
 
+// Helpers
 function mapDbError(error: { code?: string; message?: string }): ActionFail {
   const msg = error.message ?? "";
   if (error.code === "23505" || msg.includes("inv_lotes_codigo_barras_unique") || msg.includes("codigo_barras")) {
@@ -36,6 +37,7 @@ function normalizarFechaLote(fecha: string) {
   return trimmed;
 }
 
+// Proveedores
 export async function obtenerProveedores() {
   try {
     const supabase = await createClient();
@@ -102,6 +104,7 @@ export async function eliminarProveedor(id: string) {
   }
 }
 
+// Pantalla de nueva compra
 export async function obtenerProveedoresYProductos() {
   try {
     const supabase = await createClient();
@@ -132,6 +135,7 @@ export async function obtenerProveedoresYProductos() {
   }
 }
 
+// Registrar compra (entra al inventario)
 export async function crearCompra(input: CompraInput) {
   try {
     const supabase = await createClient();
@@ -236,6 +240,7 @@ export async function crearCompra(input: CompraInput) {
   }
 }
 
+// Historial de compras
 export async function obtenerHistorialCompras() {
   try {
     const supabase = await createClient();
@@ -293,6 +298,7 @@ export async function obtenerDetalleCompra(compraId: string) {
   }
 }
 
+// Cuentas por pagar y abonos
 export async function actualizarEstadoPagoCompra(compraId: string, nuevoEstado: "Pagado" | "Pendiente") {
   try {
     const supabase = await createClient();

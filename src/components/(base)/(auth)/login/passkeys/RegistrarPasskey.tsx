@@ -11,7 +11,9 @@ import { Input } from "@/components/ui/input";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { Fingerprint, Check } from "lucide";
 
+// Passkeys
 export function RegisterPasskey() {
+  // Estado
   const [status, setStatus] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [deviceName, setDeviceName] = useState("");

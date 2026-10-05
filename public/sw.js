@@ -1,3 +1,5 @@
+// Notificaciones push en el navegador
+
 self.addEventListener('push', (event) => {
   if (event.data) {
     const data = event.data.json()
@@ -14,6 +16,7 @@ self.addEventListener('push', (event) => {
   }
 })
 
+// Al tocar la notificación, abrir la app
 self.addEventListener('notificationclick', (event) => {
   event.notification.close()
   const targetUrl = event.notification.data.url

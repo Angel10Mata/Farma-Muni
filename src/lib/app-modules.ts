@@ -1,5 +1,7 @@
 import { APP_BASE_PATH } from "@/lib/app-config";
 
+// TIPOS
+
 export interface AppModuleConfig {
   id: string;
   title: string;
@@ -14,6 +16,8 @@ export interface AppModuleConfig {
   cardBg: string;
   cardBorder: string;
 }
+
+// MÓDULOS DE NEGOCIO
 
 export const APP_MODULES: AppModuleConfig[] = [
   {
@@ -95,6 +99,8 @@ export const APP_MODULES: AppModuleConfig[] = [
     cardBorder: "border-zinc-200 dark:border-zinc-800",
   },
 ];
+
+// ENTRADAS MENÚ ADMIN
 
 export const ADMIN_MENU_ITEMS = [
   {

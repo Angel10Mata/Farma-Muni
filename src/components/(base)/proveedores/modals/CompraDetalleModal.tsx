@@ -5,6 +5,7 @@ import { ModalShell } from "@/components/ui/general-modal";
 import { Compra } from "../lib/zod";
 import { fmtQ } from "@/lib/utils";
 
+// Tipos
 type TransaccionCompra = {
   id: string;
   categoria?: string;
@@ -30,6 +31,7 @@ function pagosProveedor(transacciones: unknown[] | undefined): TransaccionCompra
   );
 }
 
+// Props
 interface CompraDetalleModalProps {
   compra: Compra | null;
   onClose: () => void;
@@ -42,6 +44,7 @@ interface CompraDetalleModalProps {
   }>;
 }
 
+// Detalle compra
 export function CompraDetalleModal({
   compra,
   onClose,

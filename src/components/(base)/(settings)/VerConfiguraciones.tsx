@@ -7,10 +7,12 @@ import LogoKore from "@/components/(Kore)/logo/LogoKore";
 import { Card } from "@/components/ui/card";
 import { modulePageCenteredClass } from "@/lib/module-layout";
 
+// Configuración
 export default function VerConfiguraciones() {
   const { data: settings, isLoading, isError } = useAppSettings();
   const { mutate: updateSettings, isPending } = useUpdateAppSettings();
 
+  // Estado
   const [requireAuth, setRequireAuth] = useState<boolean>(false);
   const [enablePasskeys, setEnablePasskeys] = useState<boolean>(false);
 

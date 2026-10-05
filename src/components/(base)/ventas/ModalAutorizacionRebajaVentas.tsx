@@ -21,6 +21,7 @@ export function ModalAutorizacionRebajaVentas() {
   const [usuario, setUsuario] = useState("");
   const [clave, setClave] = useState("");
 
+  // Confirmar o cerrar
   const limpiar = () => {
     setUsuario("");
     setClave("");
@@ -36,6 +37,7 @@ export function ModalAutorizacionRebajaVentas() {
     limpiar();
   };
 
+  // Modal de autorización
   return (
     <ModalShell
       open={ventas.showModalAutorizacionRebaja}

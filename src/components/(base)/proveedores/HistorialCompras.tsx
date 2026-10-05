@@ -23,17 +23,21 @@ import {
   moduleTableShellClass,
 } from "@/components/ui/module-table";
 
+// Props
 interface HistorialComprasProps {
   compras: Compra[];
 }
 
+// Helpers
 const obtenerCodigoCompra = (id: string) => {
   if (!id) return "N/A";
   const cleanId = id.replace(/-/g, "").toUpperCase();
   return `${cleanId.substring(0, 3)}-${cleanId.substring(3, 6)}`;
 };
 
+// Historial
 export function HistorialCompras({ compras }: HistorialComprasProps) {
+  // Estado
   const [busquedaHistorial, setBusquedaHistorial] = useState("");
   const [filtroPago, setFiltroPago] = useState<"todos" | "Pagado" | "Pendiente">("todos");
 
@@ -57,7 +61,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
   const mesDropdownComprasRef = useRef<HTMLDivElement>(null);
   const semanaDropdownComprasRef = useRef<HTMLDivElement>(null);
 
-  // Modals state
+  // Modales
   const [compraDetalleSeleccionada, setCompraDetalleSeleccionada] = useState<Compra | null>(null);
   const [isLoadingDetalles, setIsLoadingDetalles] = useState(false);
   const [detallesDeCompra, setDetallesDeCompra] = useState<any[]>([]);

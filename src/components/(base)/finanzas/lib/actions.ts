@@ -11,6 +11,7 @@ import {
   type CuentaPorPagar,
 } from "./zod";
 
+// Utilidades internas
 const FINANZAS_PATH = "/farmamuni/finanzas";
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
@@ -40,6 +41,7 @@ function ventaAnuladaFinanzas(observaciones: string | null | undefined): boolean
   return (observaciones ?? "").includes("[ANULADA]");
 }
 
+// Fallback sin RPC
 async function listarCuentasPorCobrarFallback(
   supabase: Awaited<ReturnType<typeof createClient>>,
 ): Promise<CuentaPorCobrar[]> {
@@ -168,6 +170,7 @@ async function listarCuentasPorPagarFallback(
   return resultado;
 }
 
+// Parámetros de listado
 export interface ObtenerMovimientosParams {
   page?: number;
   pageSize?: number;
@@ -185,6 +188,7 @@ export interface ObtenerMovimientosResult {
   debug?: any;
 }
 
+// Movimientos y resumen
 export async function obtenerMovimientosFinancieros(
   params: ObtenerMovimientosParams = {}
 ): Promise<ObtenerMovimientosResult> {
@@ -283,8 +287,7 @@ export async function obtenerResumenFinanciero(desde?: string, hasta?: string): 
   }
 }
 
-
-
+// Registrar y anular movimientos
 export async function registrarMovimiento(
   input: unknown
 ): Promise<{ success: true; data: TransaccionFinanciera } | { success: false; error: string }> {
@@ -390,6 +393,7 @@ export async function eliminarMovimiento(id: string): Promise<{ success: true } 
   }
 }
 
+// Cuentas por cobrar y por pagar
 export async function obtenerCuentasPorCobrar(): Promise<CuentaPorCobrar[]> {
   try {
     const supabase = await createClient();

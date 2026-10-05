@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { VerCreditos } from "@/components/(base)/creditos/VerCreditos";
 
+// Módulo créditos
 export default function CreditosPage() {
   return (
     <Suspense fallback={null}>

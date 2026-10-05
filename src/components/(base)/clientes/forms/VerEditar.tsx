@@ -28,6 +28,7 @@ interface EditarClienteProps {
 }
 
 export function EditarCliente({ isOpen, onClose, onSuccess, cliente }: EditarClienteProps) {
+  // Estado del formulario
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
   const [telefono, setTelefono] = useState("");
@@ -38,6 +39,7 @@ export function EditarCliente({ isOpen, onClose, onSuccess, cliente }: EditarCli
 
   const { mutateAsync: editarCliente, isPending } = useEditarCliente();
 
+  // Cargar datos al abrir
   useEffect(() => {
     if (!cliente) return;
 
@@ -64,6 +66,7 @@ export function EditarCliente({ isOpen, onClose, onSuccess, cliente }: EditarCli
     setNit(cliente.nit === "C/F" ? "" : cliente.nit || "");
   }, [cliente, isOpen]);
 
+  // Handlers
   const handleClose = () => {
     setValidationError(null);
     onClose();

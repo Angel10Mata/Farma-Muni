@@ -30,6 +30,7 @@ import { useUsers } from "@/components/(base)/(users)/usuarios/lib/hooks";
 import { SelectorRol } from "@/components/(base)/(users)/usuarios/forms/SelectorRol";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
+// Props
 interface SignUpProps {
   isOpen: boolean;
   onClose: () => void;
@@ -37,6 +38,7 @@ interface SignUpProps {
   presentation?: "modal" | "fullscreen";
 }
 
+// UI
 const Label = ({
   className,
   ...props
@@ -63,6 +65,7 @@ const Input = ({
   />
 );
 
+// Registro
 export default function SignUp({
   isOpen,
   onClose,

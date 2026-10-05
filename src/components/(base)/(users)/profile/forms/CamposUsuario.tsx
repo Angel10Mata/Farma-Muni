@@ -28,7 +28,7 @@ import { generateStrongPassword } from "@/utils/general/password-generator";
 import { AuroraText } from "@/components/ui/aurora-text";
 import { AnimatePresence, motion } from "framer-motion";
 
-// --- SUB-COMPONENT: SWITCH PERSONALIZADO ---
+// Switch
 const StatusSwitch = ({
   checked,
   onCheckedChange,
@@ -58,7 +58,7 @@ const StatusSwitch = ({
   </button>
 );
 
-// --- SUB-COMPONENT: TOGGLE DE ESTADO ---
+// Bloqueo
 const UserStatusToggle = ({
   userId,
   isBanned,
@@ -157,14 +157,16 @@ const UserStatusToggle = ({
   );
 };
 
-// --- COMPONENTE PRINCIPAL ---
+// Props
 interface InfoUserProps {
   userId: string;
   canEdit: boolean;
   isSuper: boolean;
 }
 
+// Usuario
 export function CamposUsuario({ userId, canEdit }: InfoUserProps) {
+  // Estado
   const { credentials, loading, refetch } = useUserCredentials(userId);
   const mutation = useCredentialsMutation();
 
@@ -247,7 +249,7 @@ export function CamposUsuario({ userId, canEdit }: InfoUserProps) {
     }
   };
 
-  // --- LÓGICA DE VALIDACIÓN ---
+  // LÓGICA DE VALIDACIÓN
   const isPasswordValid =
     formData.newPassword.length >= 8 &&
     /[A-Z]/.test(formData.newPassword) &&
@@ -455,7 +457,7 @@ export function CamposUsuario({ userId, canEdit }: InfoUserProps) {
     </div>
   );
 }
-// --- SUB-COMPONENT: VISTA ÉXITO ---
+// Éxito
 const SuccessView = ({
   savedData,
   phone,

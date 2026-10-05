@@ -1,6 +1,7 @@
 import { createClient } from "@/utils/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 
+// Consultas
 export function useUsers(userRole?: string) {
   const supabase = createClient();
 

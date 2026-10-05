@@ -1,6 +1,8 @@
 import webpush from "web-push";
 import { createClient } from "@/utils/supabase/server";
 
+// PUSH A USUARIOS
+
 export async function sendPushToUsers(userIds: string[], payload: { title: string; body: string; url?: string }) {
   const supabase = await createClient();
 
@@ -53,6 +55,8 @@ export async function sendPushToUsers(userIds: string[], payload: { title: strin
 
   await Promise.all(sendPromises);
 }
+
+// PUSH POR ROLES
 
 export async function sendPushToRoles(roles: string[], payload: { title: string; body: string; url?: string }) {
   const supabase = await createClient();

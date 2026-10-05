@@ -19,7 +19,8 @@ interface SeccionProductosVentasProps {
 export function SeccionProductosVentas({ productos, clientes }: SeccionProductosVentasProps) {
   const ventas = useVentas();
   const { isDemoMode } = useDemoMode();
-  
+
+  // Referencias y sugerencias de búsqueda
   const clienteDropdownRef = useRef<HTMLDivElement>(null);
   const prodDropdownRef = useRef<HTMLDivElement>(null);
 
@@ -38,6 +39,7 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
     return (p.nombre || "").toLowerCase().includes(query);
   });
 
+  // Panel de cliente y productos
   return (
     <div className="w-full lg:w-[35%] flex flex-col font-mono animate-in fade-in slide-in-from-left-4 duration-500">
       <div className="bg-[#F9FAF9] dark:bg-[#2A312B] border border-[#E5E9E5] dark:border-[#3D473F] rounded-2xl p-5 shadow-sm flex flex-col gap-5">

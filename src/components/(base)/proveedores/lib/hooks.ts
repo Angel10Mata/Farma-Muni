@@ -26,6 +26,7 @@ import {
 } from "./actions";
 import { ProveedorInput, CompraInput } from "./zod";
 
+// Consultas — proveedores
 export function useProveedores() {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -60,6 +61,7 @@ export function useProveedoresYProductos() {
   });
 }
 
+// Consultas — compras
 export function useHistorialCompras() {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -119,6 +121,7 @@ export function useDetalleCompra(compraId: string | null) {
   });
 }
 
+// Mutaciones — proveedor
 export function useGuardarProveedor() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();
@@ -155,6 +158,7 @@ export function useEliminarProveedor() {
   });
 }
 
+// Mutaciones — compra
 export function useCrearCompra() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();

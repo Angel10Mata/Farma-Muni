@@ -1,5 +1,6 @@
 import { MetadataRoute } from "next";
 
+// App instalable (PWA)
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "FarmaMuni",

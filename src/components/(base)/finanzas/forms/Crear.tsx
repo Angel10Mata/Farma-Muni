@@ -35,6 +35,7 @@ export function NuevoMovimiento({
   onClose,
   onSuccess,
 }: Props) {
+  // Estado del formulario
   const [tipo] = useState<"ingreso" | "egreso">(defaultTipo);
   const [categoria, setCategoria] = useState("");
   const [monto, setMonto] = useState("");
@@ -46,12 +47,14 @@ export function NuevoMovimiento({
   const [isOpen, setIsOpen] = useState(false);
   const catDropdownRef = useRef<HTMLDivElement>(null);
 
+  // Queries y mutación
   const { data: cuentasCobrar = [], isLoading: loadingCobrar } = useCuentasPorCobrar();
   const { data: cuentasPagar = [], isLoading: loadingPagar } = useCuentasPorPagar();
   const { mutateAsync: registrarMovimiento, isPending: isSubmitting } = useRegistrarMovimiento();
 
   const isLoadingCuentas = tipo === "ingreso" ? loadingCobrar : loadingPagar;
 
+  // Categorías por tipo de movimiento
   const categoriasIngreso = [
     { id: "abono_cliente", label: "Abono de Cliente" },
     { id: "venta", label: "Venta Directa" },
@@ -84,6 +87,7 @@ export function NuevoMovimiento({
     };
   }, []);
 
+  // Envío del movimiento
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!categoria || !monto || !descripcion) {

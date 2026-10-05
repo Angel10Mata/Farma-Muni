@@ -13,6 +13,7 @@ import {
 import { obtenerClientes, obtenerVentasCliente, crearCliente, editarCliente } from "./actions";
 import { ClienteInput } from "./zod";
 
+// Queries
 export function useClientes() {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -64,6 +65,7 @@ export function useVentasCliente(clienteId: string | null) {
   });
 }
 
+// Mutaciones
 export function useCrearCliente() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();

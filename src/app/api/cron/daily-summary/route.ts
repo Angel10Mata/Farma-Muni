@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { sendPushNotification } from '@/utils/pushServer';
 
+// Resumen diario (tarea programada)
 export async function GET(request: Request) {
   try {
     // Para seguridad, podrías validar un Header Authorization de tu servicio Cron.

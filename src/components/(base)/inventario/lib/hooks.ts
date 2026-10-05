@@ -24,6 +24,7 @@ import {
 } from "./actions";
 import { type ProductFormValues } from "./zod";
 
+// Modo edición en pantalla
 export function useEditMode(initial = false) {
   const [isEditing, setIsEditing] = useState(initial);
   return {
@@ -35,6 +36,7 @@ export function useEditMode(initial = false) {
   };
 }
 
+// Consultas de inventario
 export function useLotes() {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -122,6 +124,7 @@ export function useUbicaciones() {
   });
 }
 
+// Guardar y cambios de catálogo
 export function useGuardarProducto() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();

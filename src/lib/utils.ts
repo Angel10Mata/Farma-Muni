@@ -1,9 +1,13 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
 
+// CLASES TAILWIND
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }
+
+// FORMATO NUMÉRICO Y MONEDA
 
 /**
  * Formatea un número entero con separador de miles (coma).
@@ -20,6 +24,9 @@ export function fmtNum(value: number): string {
 export function fmtQ(value: number): string {
   return `Q${value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
+
+// TEMA SWEETALERT
+
 export const getSwalThemeOpts = () => {
   const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark");
   return {

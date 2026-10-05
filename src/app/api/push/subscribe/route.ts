@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
 
+// Guardar suscripción push del navegador
 export async function POST(req: Request) {
   if (process.env.APP_ENV !== 'production') {
     return NextResponse.json({ error: 'Push notifications are disabled in non-production environments.' }, { status: 503 })

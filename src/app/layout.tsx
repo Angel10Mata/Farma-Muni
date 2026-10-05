@@ -12,6 +12,7 @@ import DemoModeBanner from "@/components/(base)/layout/DemoModeBanner";
 import OfflineBanner from "@/components/OfflineBanner";
 import ObsToastContainer from "@/components/(base)/layout/ObsToastContainer";
 
+// Fuentes y metadatos de la app
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -47,6 +48,8 @@ export const metadata: Metadata = {
     apple: "/farmamuni/logo.png",
   },
 };
+
+// Layout raíz (providers y cabecera)
 
 export default async function RootLayout({
   children,

@@ -3,8 +3,9 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { ItemCarritoCompra, Proveedor, Producto } from "./lib/zod";
 
+// Contexto
 interface ComprasContextProps {
-  // Tabs y Modal
+  // Tabs
   activeTab: "compras" | "historial" | "proveedores" | "cuentas_por_pagar";
   setActiveTab: (tab: "compras" | "historial" | "proveedores" | "cuentas_por_pagar") => void;
 
@@ -20,7 +21,7 @@ interface ComprasContextProps {
   modoEdicionProveedor: boolean;
   setModoEdicionProveedor: (val: boolean) => void;
 
-  // Carrito de compras
+  // Carrito
   carrito: ItemCarritoCompra[];
   setCarrito: React.Dispatch<React.SetStateAction<ItemCarritoCompra[]>>;
   proveedorSeleccionado: Proveedor | null;
@@ -51,7 +52,7 @@ interface ComprasContextProps {
   ubicacionLote: string;
   setUbicacionLote: (val: string) => void;
 
-  // Datos orden
+  // Orden
   estadoPago: "Pendiente" | "Pagado";
   setEstadoPago: (val: "Pendiente" | "Pagado") => void;
   observaciones: string;
@@ -59,7 +60,7 @@ interface ComprasContextProps {
   isProcesando: boolean;
   setIsProcesando: (val: boolean) => void;
 
-  // Helper functions
+  // Acciones del carrito
   agregarAlCarrito: (item: ItemCarritoCompra) => void;
   removerDelCarrito: (index: number) => void;
   limpiarCarrito: () => void;
@@ -67,21 +68,26 @@ interface ComprasContextProps {
 
 const ComprasContext = createContext<ComprasContextProps | undefined>(undefined);
 
+// Provider
 export function ComprasProvider({ children }: { children: ReactNode }) {
+  // Tabs
   const [activeTab, setActiveTab] = useState<"compras" | "historial" | "proveedores" | "cuentas_por_pagar">("compras");
 
+  // Modales de proveedor
   const [isCrearOpen, setIsCrearOpen] = useState(false);
   const [isEditarOpen, setIsEditarOpen] = useState(false);
   const [proveedorAEditar, setProveedorAEditar] = useState<Proveedor | null>(null);
   const [proveedorSeleccionadoTab3, setProveedorSeleccionadoTab3] = useState<Proveedor | null>(null);
   const [modoEdicionProveedor, setModoEdicionProveedor] = useState(false);
 
+  // Carrito
   const [carrito, setCarrito] = useState<ItemCarritoCompra[]>([]);
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
   const [proveedorBusqueda, setProveedorBusqueda] = useState("");
   const [mostrarSugerenciasProv, setMostrarSugerenciasProv] = useState(false);
   const [proveedorAutoSeleccionado, setProveedorAutoSeleccionado] = useState(false);
 
+  // Producto y lote
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
   const [productoBusqueda, setProductoBusqueda] = useState("");
   const [mostrarSugerenciasProd, setMostrarSugerenciasProd] = useState(false);
@@ -92,10 +98,12 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const [fechaVencimientoLote, setFechaVencimientoLote] = useState("");
   const [ubicacionLote, setUbicacionLote] = useState("");
 
+  // Orden
   const [estadoPago, setEstadoPago] = useState<"Pendiente" | "Pagado">("Pagado");
   const [observaciones, setObservaciones] = useState("");
   const [isProcesando, setIsProcesando] = useState(false);
 
+  // Acciones carrito
   const agregarAlCarrito = (item: ItemCarritoCompra) => {
     setCarrito((prev) => {
       const exists = prev.findIndex(
@@ -165,6 +173,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// Hook
 export function useCompras() {
   const context = useContext(ComprasContext);
   if (context === undefined) {

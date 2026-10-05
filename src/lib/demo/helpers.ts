@@ -1,3 +1,5 @@
+// MODO DEMO: ERRORES Y QUERIES
+
 export class DemoModeError extends Error {
   constructor() {
     super("Modo simulación activo: los cambios no se guardan.");
@@ -12,6 +14,8 @@ export function demoQueryKey<T extends readonly unknown[]>(
   return [...base, { demo: isDemoMode }] as const;
 }
 
+// RESOLUCIÓN DATOS DEMO / REAL
+
 export async function resolveDemoData<T>(
   isDemoMode: boolean,
   fetchReal: () => Promise<T>,
@@ -25,6 +29,8 @@ export async function resolveDemoData<T>(
   }
   return fetchReal();
 }
+
+// BLOQUEO ESCRITURA EN DEMO
 
 export function assertWritableDemo(isDemoMode: boolean): void {
   if (isDemoMode) throw new DemoModeError();

@@ -4,6 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { isAdminRole, resolveUserRole } from "@/lib/user-role";
 import { headers } from "next/headers";
 
+// Tipos
 export type ActionState = {
   success: boolean;
   message: string;
@@ -11,6 +12,7 @@ export type ActionState = {
   fields?: Record<string, string>;
 } | null;
 
+// Inicio de sesión
 export async function login(
   prevState: ActionState,
   formData: FormData,
@@ -88,6 +90,7 @@ export async function login(
   return { success: true, message: "Inicio exitoso" };
 }
 
+// Configuración pública
 export async function getPublicAppSettings() {
   const supabase = await createClient();
   const { data } = await supabase

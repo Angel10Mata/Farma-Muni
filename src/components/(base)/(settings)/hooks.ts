@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { getAppSettings, updateAppSettings } from "./actions";
 import { AppSettingsUpdate } from "./zod";
 
+// Consultas
 export const useAppSettings = () => {
   return useQuery<AppSettingsUpdate | null, Error>({
     queryKey: ["appSettings"],
@@ -12,6 +13,7 @@ export const useAppSettings = () => {
   });
 };
 
+// Mutaciones
 export const useUpdateAppSettings = () => {
   const queryClient = useQueryClient();
 

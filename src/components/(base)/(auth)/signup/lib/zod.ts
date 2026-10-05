@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Registro
 export const INITIAL_USER_PASSWORD = "Acceso" as const;
 
 export const authSchema = z.object({

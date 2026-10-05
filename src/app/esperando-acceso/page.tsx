@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { Loader2 } from "lucide-react";
 import EsperandoAccesoContent from "./EsperandoAccesoContent";
 
+// Pantalla de espera de dispositivo
 export default function EsperandoAccesoPage() {
   return (
     <Suspense

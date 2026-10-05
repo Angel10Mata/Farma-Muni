@@ -17,6 +17,7 @@ import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 
+// Tipos
 interface Device {
   id: string;
   user_id: string;
@@ -32,7 +33,9 @@ interface UserGroup {
   devices: Device[];
 }
 
+// Acordeón
 export function AcordeonDispositivos({ groups }: { groups: UserGroup[] }) {
+  // Estado
   const [search, setSearch] = useState("");
   const [openIds, setOpenIds] = useState<Set<string>>(new Set());
 

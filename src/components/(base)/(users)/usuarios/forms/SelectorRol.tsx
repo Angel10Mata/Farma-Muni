@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { ROLE_LABELS } from "../lib/permissions";
 import { resolveKnownRole } from "../lib/helpers";
 
+// Props
 type SelectorRolProps = {
   value: string;
   onChange: (role: string) => void;
@@ -22,6 +23,7 @@ type SelectorRolProps = {
   toggleClassName?: string;
 };
 
+// Selector rol
 export function SelectorRol({
   value,
   onChange,

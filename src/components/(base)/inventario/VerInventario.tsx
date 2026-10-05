@@ -77,7 +77,7 @@ import {
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
-// ─── Tipos ────────────────────────────────────────────────────────────────────
+// Tipos de la pantalla
 interface Producto {
   id: string;
   codigo: string;
@@ -228,7 +228,7 @@ function ProductoAccionesMenu({
   );
 }
 
-// ─── Tarjeta de producto ─────────────────────────────────────────────────────
+// Tarjeta de producto
 function ProductoCard({
   producto,
   onClick,
@@ -371,7 +371,7 @@ function ProductoCard({
   );
 }
 
-// ─── Panel de detalle ──────────────────────────────────────────────────────────
+// Panel de detalle
 function ProductoDetalle({
   producto,
   lotesProducto,
@@ -625,7 +625,7 @@ function ProductoDetalle({
   );
 }
 
-// ─── Componente Filtro de Ubicación ─────────────────────────────────────────
+// Filtro por ubicación
 const LocationFilterDropdown = ({
   selectedLocation,
   onSelectLocation,
@@ -779,7 +779,7 @@ function inventarioTabUnderlineClass(active: boolean) {
   );
 }
 
-// ─── Componente Principal ─────────────────────────────────────────────────────
+// Pantalla de inventario
 export function VerInventario() {
   const router = useRouter();
   const [busqueda, setBusqueda] = useState("");
