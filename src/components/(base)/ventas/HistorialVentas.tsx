@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
-import { Eye as EyeNode, MessageCircle as MessageCircleNode, Printer as PrinterNode } from "lucide";
+import {
+  Eye as EyeNode,
+  MessageCircle as MessageCircleNode,
+  Printer as PrinterNode,
+  Download as DownloadNode,
+  FileDown,
+} from "lucide";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, fmtQ } from "@/lib/utils";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
@@ -13,9 +19,18 @@ import {
   fechaVentaCalendarioGt,
   ventaEsCreditoHistorial,
   etiquetaTipoVentaHistorial,
+  resolverMesExportacionVentas,
 } from "./lib/helpers";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import { useHistorialVentas } from "./lib/hooks";
+import { obtenerReporteVentasMes } from "./lib/actions";
+import { descargarReporteVentasMesPdf } from "./lib/export-reporte-ventas-mes-pdf";
+import { construirReporteVentasMesDemo } from "./lib/reporte-ventas-mes-demo";
+import { etiquetaPeriodoVentasMes } from "./lib/reporte-ventas-mes";
+import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
+import { toast } from "@/components/ui/general-modal";
 import { DetalleVentaModal } from "./modals/DetalleVentaModal";
 import {
   moduleTableBodyClass,
@@ -23,7 +38,6 @@ import {
   moduleTableClass,
   moduleTableDesktopWrapClass,
   moduleTableDesktopScrollClass,
-  moduleTableEmptyClass,
   ModuleTableFooter,
   moduleTableHeadCellClass,
   moduleTableHeadRowClass,
@@ -55,9 +69,13 @@ function formatCustomDate(dateString: string) {
 
 export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasProps) {
   const { data: historialData = [], isLoading } = useHistorialVentas();
+  const { isDemoMode } = useDemoMode();
+  const { user } = useUserContext();
+  const { profile } = useProfile(user?.id ?? "", !!user);
 
   // Filtros
   const [busquedaHistorial, setBusquedaHistorial] = useState("");
+  const [exportandoInforme, setExportandoInforme] = useState(false);
   const [tipoPagoSwitch, setTipoPagoSwitch] = useState<"todos" | "contado" | "credito">("todos");
   
   // Filtros de Fecha
@@ -124,29 +142,103 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const exportarInformeVentasMes = async () => {
+    const { year, month } = resolverMesExportacionVentas({
+      tipoFiltroFecha,
+      fechaDia,
+      activeYear,
+      activeMonth,
+    });
+    setExportandoInforme(true);
+    try {
+      const generadoPor =
+        profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
+      let data;
+      if (isDemoMode) {
+        data = {
+          ...construirReporteVentasMesDemo(year, month),
+          generadoPor,
+        };
+      } else {
+        const res = await obtenerReporteVentasMes(year, month);
+        if (!res.success) throw new Error(res.error);
+        data = res.data;
+      }
+      if (data.resumen.totalVentas === 0) {
+        toast.warn(
+          `No hay ventas en ${etiquetaPeriodoVentasMes(year, month)} para exportar.`,
+        );
+        return;
+      }
+      descargarReporteVentasMesPdf(data);
+      toast.success("Informe PDF generado correctamente.");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo generar el informe.";
+      toast.error(msg);
+    } finally {
+      setExportandoInforme(false);
+    }
+  };
+
   // Pantalla del historial
   return (
     <div className={cn(moduleTableShellClass, "overflow-visible")}>
-      <div className="flex flex-col xl:flex-row gap-4 mb-4 justify-between items-start">
-        
-        {/* Lado Izquierdo: Buscador y Filtros de Fecha */}
-        <div className="flex flex-col gap-4 flex-1 w-full xl:w-auto">
-          {/* Buscador */}
-          <div className="relative w-full">
+      <div className="flex flex-col gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center w-full min-w-0">
+          <div className="relative flex-1 min-w-0 w-full">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
             <input
               type="text"
-              placeholder="Buscar por recibo, cliente o notas de venta..."
+              placeholder="Buscar recibo o cliente..."
               value={busquedaHistorial}
               onChange={(e) => {
                 setBusquedaHistorial(e.target.value);
                 setCurrentPage(1);
               }}
-              className={moduleTableSearchClass}
+              className={cn(moduleTableSearchClass, "py-2.5 text-xs h-[46px]")}
             />
           </div>
+          <div className="flex flex-row items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end">
+            <SigetActionButton
+              label="Informe"
+              accentColor={sigetAccent.excel}
+              morphFrom={DownloadNode}
+              morphTo={FileDown}
+              onClick={() => void exportarInformeVentasMes()}
+              disabled={exportandoInforme || isLoading}
+              ariaBusy={exportandoInforme}
+              ariaLabel="Descargar informe PDF de ventas del mes"
+              className="w-auto shrink-0 !h-[46px]"
+            />
+            <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit h-[46px] items-center">
+              {[
+                { id: "todos", label: "Todos" },
+                { id: "contado", label: "Contado" },
+                { id: "credito", label: "Crédito" },
+              ].map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => {
+                    setTipoPagoSwitch(opt.id as "todos" | "contado" | "credito");
+                    setCurrentPage(1);
+                  }}
+                  className={cn(
+                    "px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer relative h-[38px]",
+                    tipoPagoSwitch === opt.id
+                      ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
+                      : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
 
-          {/* Filtros de Fecha */}
+        <div className="flex flex-col xl:flex-row gap-4 justify-between items-start w-full">
           <div className="flex flex-row gap-3 items-center bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-left w-fit flex-wrap max-w-full">
             <div className="flex items-center gap-1.5 flex-wrap">
           {[
@@ -277,38 +369,9 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
             )}
           </AnimatePresence>
         </div>
-        </div>
-      </div>
-
-      {/* Lado Derecho: Switch de Pago y Total Vendido */}
-        <div className="flex flex-col gap-4 shrink-0 w-full xl:w-auto mt-4 xl:mt-0 items-end xl:items-start">
-          {/* Switch de pago */}
-          <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit h-[46px] items-center">
-            {[
-              { id: "todos", label: "Todos" },
-              { id: "contado", label: "Contado" },
-              { id: "credito", label: "Crédito" }
-            ].map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => {
-                  setTipoPagoSwitch(opt.id as "todos" | "contado" | "credito");
-                  setCurrentPage(1);
-                }}
-                className={cn(
-                  "px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer relative h-[38px]",
-                  tipoPagoSwitch === opt.id
-                    ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                    : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
           </div>
           {filtered.length > 0 && (
-            <div className="flex items-center justify-center bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 w-full shadow-sm h-[58px]">
+            <div className="flex items-center justify-center bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 w-full xl:w-auto shadow-sm h-[58px] shrink-0">
               <span className="text-xl font-black text-[#3B523D] dark:text-[#A0BCA2]">Total:</span>
               <span className="text-[#8DA78E] ml-2 text-xl font-black tracking-wide">{fmtQ(totalVentas)}</span>
             </div>
@@ -320,10 +383,10 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
         {isLoading ? (
           <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div></div>
         ) : paginatedData.length === 0 ? (
-          <div className={moduleTableEmptyClass}>
-            {historialData.length > 0
-              ? "No hay ventas con estos filtros. Prueba «Mes», otra fecha en «Día», o «Todos» en tipo de pago."
-              : "No se encontraron registros de ventas"}
+          <div className="flex flex-col items-center justify-center min-h-[280px] px-6 py-14 text-center">
+            <p className="text-sm font-bold text-zinc-500 dark:text-zinc-400">
+              Sin registro de ventas
+            </p>
           </div>
         ) : (
           <>

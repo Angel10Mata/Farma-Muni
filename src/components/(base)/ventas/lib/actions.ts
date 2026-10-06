@@ -13,7 +13,18 @@ import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { sendPushNotification } from "@/utils/pushServer";
 import { sendPushToRoles, sendPushToUsers } from "@/utils/push-utils";
-import { esRebajaDePrecio, payloadCoincideConVenta, precioMenorQueCosto } from "./helpers";
+import {
+  esRebajaDePrecio,
+  fechaVentaCalendarioGt,
+  payloadCoincideConVenta,
+  precioMenorQueCosto,
+  ventaEstaAnulada,
+} from "./helpers";
+import {
+  construirReporteVentasMes,
+  type ReporteVentasMes,
+} from "./reporte-ventas-mes";
+import { ultimoDiaMesCalendario } from "@/lib/fechas-gt";
 import { ajustarStockPorVenta, obtenerCostoProductoOLote } from "./lotes-stock";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -650,6 +661,176 @@ export async function obtenerBitacoraVenta(ventaId: string) {
     const message =
       error instanceof Error ? error.message : "No se pudo cargar la bitácora.";
     throw new Error(message);
+  }
+}
+
+export async function obtenerReporteVentasMes(year: number, month: number) {
+  try {
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return { success: false as const, error: "Año inválido." };
+    }
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      return { success: false as const, error: "Mes inválido." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida o expirada." };
+    }
+
+    const rol = await obtenerRolUsuario(supabase, user.id);
+    if (rol !== "admin" && rol !== "super") {
+      return {
+        success: false as const,
+        error: "No tienes permiso para exportar el reporte de ventas.",
+      };
+    }
+
+    const { data: perfilReporte } = await supabase
+      .from("profiles")
+      .select("nombre")
+      .eq("id", user.id)
+      .maybeSingle();
+    const generadoPor =
+      perfilReporte?.nombre?.trim() || "Sin nombre";
+
+    const monthStr = String(month).padStart(2, "0");
+    const lastDay = ultimoDiaMesCalendario(year, month);
+    const mesPrefijo = `${year}-${monthStr}`;
+    const desdeIso = `${mesPrefijo}-01T00:00:00.000-06:00`;
+    const hastaIso = `${mesPrefijo}-${String(lastDay).padStart(2, "0")}T23:59:59.999-06:00`;
+
+    const { data: ventasRaw, error } = await supabase
+      .from("ventas")
+      .select("*, ven_clientes(nombre, nit)")
+      .gte("created_at", desdeIso)
+      .lte("created_at", hastaIso)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      return { success: false as const, error: error.message };
+    }
+
+    const ventas = (ventasRaw || []).filter((v) =>
+      fechaVentaCalendarioGt(v.created_at).startsWith(mesPrefijo),
+    );
+
+    const ventaIds = ventas.map((v) => v.id);
+    const anulacionesPorVentaId: Record<string, { autor: string; motivo: string }> =
+      {};
+
+    if (ventaIds.length > 0) {
+      const { data: bitacoras, error: bitError } = await supabase
+        .from("ven_ventas_bitacora")
+        .select("*")
+        .eq("accion", "anular")
+        .in("venta_id", ventaIds);
+
+      if (bitError) {
+        const msg = bitError.message ?? "";
+        if (
+          !(
+            msg.includes("ven_ventas_bitacora") &&
+            (msg.includes("schema cache") || msg.includes("does not exist"))
+          )
+        ) {
+          return { success: false as const, error: msg };
+        }
+      } else {
+        const filas = bitacoras || [];
+        const usuarioIds = [
+          ...new Set(filas.map((f) => f.usuario_id).filter(Boolean)),
+        ] as string[];
+
+        let perfilesPorId: Record<string, { nombre: string }> = {};
+        if (usuarioIds.length > 0) {
+          const { data: perfiles, error: perfilesError } = await supabase
+            .from("profiles")
+            .select("id, nombre")
+            .in("id", usuarioIds);
+          if (perfilesError) {
+            return { success: false as const, error: perfilesError.message };
+          }
+          perfilesPorId = Object.fromEntries(
+            (perfiles || []).map((p) => [
+              p.id,
+              { nombre: p.nombre?.trim() || "Sin nombre" },
+            ]),
+          );
+        }
+
+        const filasOrdenadas = [...filas].sort((a, b) =>
+          String(b.created_at).localeCompare(String(a.created_at)),
+        );
+        for (const fila of filasOrdenadas) {
+          if (anulacionesPorVentaId[fila.venta_id]) continue;
+          const autor =
+            perfilesPorId[fila.usuario_id]?.nombre?.trim() || "Sin nombre";
+          const motivo =
+            typeof fila.motivo === "string" ? fila.motivo.trim() : "";
+          anulacionesPorVentaId[fila.venta_id] = {
+            autor,
+            motivo: motivo || "—",
+          };
+        }
+      }
+    }
+
+    const activasIds = ventas
+      .filter((v) => !ventaEstaAnulada(v))
+      .map((v) => v.id);
+
+    let detalles: {
+      venta_id: string;
+      cantidad: number;
+      inv_productos: { nombre: string } | null;
+    }[] = [];
+
+    if (activasIds.length > 0) {
+      const { data: detRaw, error: detError } = await supabase
+        .from("ven_detalles")
+        .select("venta_id, cantidad, inv_productos(nombre)")
+        .in("venta_id", activasIds);
+
+      if (detError) {
+        return { success: false as const, error: detError.message };
+      }
+      detalles = (detRaw || []).map((row) => {
+        const prod = row.inv_productos;
+        const nombre =
+          prod && typeof prod === "object" && "nombre" in prod
+            ? String((prod as { nombre: string }).nombre)
+            : "";
+        return {
+          venta_id: row.venta_id,
+          cantidad: Number(row.cantidad) || 0,
+          inv_productos: nombre ? { nombre } : null,
+        };
+      });
+    }
+
+    const reporte: ReporteVentasMes = {
+      ...construirReporteVentasMes(
+        ventas,
+        anulacionesPorVentaId,
+        detalles,
+        year,
+        month,
+      ),
+      generadoPor,
+    };
+
+    return { success: true as const, data: reporte };
+  } catch (error: unknown) {
+    console.error("Error en obtenerReporteVentasMes:", error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo generar el reporte de ventas.";
+    return { success: false as const, error: message };
   }
 }
 

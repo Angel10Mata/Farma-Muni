@@ -38,6 +38,11 @@ export function normalizarMesCalendario(
   return fecha ? fecha.slice(0, 7) : "";
 }
 
+export function ultimoDiaMesCalendario(year: number, month1to12: number): number {
+  if (month1to12 < 1 || month1to12 > 12) return 0;
+  return new Date(year, month1to12, 0).getDate();
+}
+
 // FORMATO PARA UI
 
 export function formatFechaCalendarioGt(

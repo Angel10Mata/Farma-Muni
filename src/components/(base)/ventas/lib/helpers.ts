@@ -174,6 +174,49 @@ export function ventaCoincideFiltroPagoHistorial(
   return ventaEsCreditoHistorial(tipoVenta);
 }
 
+export function ventaEstaAnulada(venta: {
+  observaciones?: string | null;
+  anulada?: boolean | null;
+}): boolean {
+  if (venta.anulada === true) return true;
+  return (venta.observaciones ?? "").includes("[ANULADA]");
+}
+
+export function ventaEsTarjetaHistorial(
+  tipoVenta: string | null | undefined,
+): boolean {
+  return claveTipoVentaHistorial(tipoVenta) === "tarjeta";
+}
+
+export function ventaPerteneceMesCalendarioGt(
+  createdAt: string,
+  year: number,
+  month: number,
+): boolean {
+  const fecha = fechaVentaCalendarioGt(createdAt);
+  if (!fecha) return false;
+  const mes = `${year}-${String(month).padStart(2, "0")}`;
+  return fecha.slice(0, 7) === mes;
+}
+
+export function resolverMesExportacionVentas(params: {
+  tipoFiltroFecha: "dia" | "semana" | "rango";
+  fechaDia: string;
+  activeYear: number;
+  activeMonth: number;
+}): { year: number; month: number } {
+  if (params.tipoFiltroFecha === "semana") {
+    return { year: params.activeYear, month: params.activeMonth + 1 };
+  }
+  const base =
+    params.tipoFiltroFecha === "dia" && params.fechaDia
+      ? params.fechaDia
+      : fechaCalendarioGt();
+  const year = Number(base.slice(0, 4));
+  const month = Number(base.slice(5, 7));
+  return { year, month };
+}
+
 // Bitácora de cambios
 export function resumenAccionBitacoraVenta(entry: Pick<VentaBitacoraEntry, "accion" | "detalle">): string {
   const det = entry.detalle ?? {};

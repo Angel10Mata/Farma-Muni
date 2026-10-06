@@ -30,7 +30,7 @@ import Swal from "sweetalert2";
 import { getSwalThemeOpts } from "@/lib/utils";
 import { ModalFooter, ModalShell, toast } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { modulePageShellClass } from "@/lib/module-layout";
+import { moduleListPageShellClass } from "@/lib/module-layout";
 import { cn } from "@/lib/utils";
 import { ModalAutorizacionRebajaVentas } from "./ModalAutorizacionRebajaVentas";
 import { PanelSolicitudesRebajaVentas } from "./PanelSolicitudesRebajaVentas";
@@ -437,7 +437,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
   // Pantalla principal
   return (
-    <div className={modulePageShellClass}>
+    <div className={moduleListPageShellClass}>
       <CrearCliente
         isOpen={ventas.isCrearClienteOpen}
         onClose={() => ventas.setIsCrearClienteOpen(false)}
@@ -665,7 +665,7 @@ export function VerVentas() {
 
   if (isLoading) {
     return (
-      <div className={cn(modulePageShellClass, "items-center justify-center")}>
+      <div className={cn(moduleListPageShellClass, "items-center justify-center")}>
         <div className="size-8 rounded-full border-4 border-slate-200 border-t-[#8DA78E] animate-spin" />
         <p className="text-slate-500 font-mono animate-pulse">Cargando POS...</p>
       </div>
@@ -674,7 +674,7 @@ export function VerVentas() {
 
   if (isError) {
     return (
-      <div className={cn(modulePageShellClass, "items-center justify-center")}>
+      <div className={cn(moduleListPageShellClass, "items-center justify-center")}>
         <p className="text-red-500 font-mono bg-red-50 px-4 py-2 rounded-lg border border-red-200">
           Error al cargar datos del POS: {error instanceof Error ? error.message : "Desconocido"}
         </p>

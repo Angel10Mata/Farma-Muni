@@ -10,12 +10,13 @@ import {
   AlertCircle,
   CheckCircle2
 } from "lucide-react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
 import { Download as DownloadNode, FileDown } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { moduleListPageShellClass } from "@/lib/module-layout";
+import {
+  moduleControlsShellClass,
+  moduleListPageShellClass,
+} from "@/lib/module-layout";
 import {
   moduleTableBodyClass,
   moduleTableClass,
@@ -33,8 +34,16 @@ import {
 
 import { cn, fmtQ } from "@/lib/utils";
 import { useResumenCreditos } from "./lib/hooks";
+import { descargarReporteCreditosPdf } from "./lib/export-reporte-creditos-pdf";
 import { VerDetalleCredito } from "./forms/VerDetalleCredito";
 import type { CreditoResumen } from "./lib/zod";
+import { useCuentasPorCobrar } from "@/components/(base)/finanzas/lib/hooks";
+import { obtenerCuentasPorCobrar } from "@/components/(base)/finanzas/lib/actions";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
+import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
+import { DEMO_CUENTAS_COBRAR } from "@/lib/demo/fixtures";
+import type { CuentaPorCobrar } from "@/components/(base)/finanzas/lib/zod";
 
 export function VerCreditos() {
   // Estado listado y pestañas
@@ -49,7 +58,12 @@ export function VerCreditos() {
 
   // Query
   const { data: creditos = [], isLoading, refetch } = useResumenCreditos();
+  const { data: cuentasCobrar = [] } = useCuentasPorCobrar();
+  const { isDemoMode } = useDemoMode();
+  const { user } = useUserContext();
+  const { profile } = useProfile(user?.id ?? "", !!user);
   const [hasNotified, setHasNotified] = useState(false);
+  const [exportando, setExportando] = useState(false);
 
   // Aviso de créditos por vencer
   useEffect(() => {
@@ -87,39 +101,28 @@ export function VerCreditos() {
   const totalPages = Math.ceil(creditosOrdenados.length / pageSize) || 1;
   const paginatedCreditos = creditosOrdenados.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  // Exportar PDF
-  const handleExportarGlobal = () => {
+  const handleExportarGlobal = async () => {
+    if (exportando) return;
+    setExportando(true);
     try {
-      const doc = new jsPDF();
-      doc.text("Reporte de Créditos", 14, 15);
-      
-      const tableData = creditosOrdenados.map((c) => {
-        const diasRestantes = 30 - c.dias_atraso;
-        const limiteStr = c.saldo_pendiente > 0 
-          ? (diasRestantes < 0 ? `Vencido (${Math.abs(diasRestantes)} d)` : `${diasRestantes} días`) 
-          : "—";
-
-        return [
-          c.nombre,
-          c.nit,
-          limiteStr,
-          `${fmtQ(c.total_consumido)}`,
-          `${fmtQ(c.saldo_pendiente)}`,
-          c.estado
-        ];
+      const generadoPor =
+        profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
+      let cuentas: CuentaPorCobrar[];
+      if (isDemoMode) {
+        cuentas =
+          cuentasCobrar.length > 0 ? cuentasCobrar : DEMO_CUENTAS_COBRAR;
+      } else {
+        cuentas = await obtenerCuentasPorCobrar();
+      }
+      await descargarReporteCreditosPdf({
+        cuentas,
+        generadoPor,
       });
-      
-      autoTable(doc, {
-        head: [["Cliente", "NIT", "Días Restantes", "Total Consumido", "Saldo Pendiente", "Estado"]],
-        body: tableData,
-        startY: 22,
-        theme: "striped",
-        headStyles: { fillColor: [141, 167, 142], textColor: [245, 245, 241], fontStyle: "bold", fontSize: 10 },
-      });
-      doc.save(`Creditos_${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success("PDF exportado correctamente.");
+      toast.success("Reporte PDF generado correctamente.");
     } catch {
       toast.error("No se pudo generar el archivo PDF.");
+    } finally {
+      setExportando(false);
     }
   };
 
@@ -169,40 +172,46 @@ export function VerCreditos() {
       </div>
 
       <div className="relative flex flex-col gap-3">
-        <div className="flex flex-col items-center justify-between gap-3 rounded-3xl border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 md:flex-row md:p-4">
-          <div className="relative w-full md:max-w-md">
-            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-              <Search className="size-4 text-zinc-400" />
+        <section
+          className={cn(
+            moduleControlsShellClass,
+            "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
+          )}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="text"
+                placeholder="Buscar cliente por nombre o NIT..."
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className={cn(moduleTableSearchClass, "pl-10 font-medium")}
+              />
             </div>
-            <input
-              type="text"
-              placeholder="Buscar cliente por nombre o NIT..."
-              value={busqueda}
-              onChange={(e) => setBusqueda(e.target.value)}
-              className={cn(moduleTableSearchClass, "pl-10 font-medium")}
-            />
+            <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+              <select
+                value={criterioOrden}
+                onChange={(e) => setCriterioOrden(e.target.value as typeof criterioOrden)}
+                className="h-9 min-w-0 flex-1 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 sm:w-[230px] sm:flex-none"
+              >
+                <option value="saldo-desc">Mayor Saldo Pendiente</option>
+                <option value="saldo-asc">Menor Saldo Pendiente</option>
+                <option value="nombre-asc">Nombre (A-Z)</option>
+              </select>
+              <SigetActionButton
+                label="Exportar"
+                accentColor={sigetAccent.excel}
+                morphFrom={DownloadNode}
+                morphTo={FileDown}
+                onClick={() => void handleExportarGlobal()}
+                disabled={exportando}
+                ariaBusy={exportando}
+                className="h-9 w-[113px] shrink-0"
+              />
+            </div>
           </div>
-
-          <div className="flex w-full items-center gap-3 md:w-auto">
-            <select
-              value={criterioOrden}
-              onChange={(e) => setCriterioOrden(e.target.value as any)}
-              className="h-9 w-full min-w-0 flex-1 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 md:w-[230px] md:flex-none"
-            >
-              <option value="saldo-desc">Mayor Saldo Pendiente</option>
-              <option value="saldo-asc">Menor Saldo Pendiente</option>
-              <option value="nombre-asc">Nombre (A-Z)</option>
-            </select>
-            <SigetActionButton
-              label="Exportar"
-              accentColor={sigetAccent.excel}
-              morphFrom={DownloadNode}
-              morphTo={FileDown}
-              onClick={handleExportarGlobal}
-              className="h-9 w-[113px] shrink-0"
-            />
-          </div>
-        </div>
+        </section>
 
         <div className={moduleTableListShellClass}>
           {isLoading && (
