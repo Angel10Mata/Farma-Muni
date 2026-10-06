@@ -360,8 +360,8 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
                 <div className="grid grid-cols-3 gap-2">
                   {[
                     ventas.productoSeleccionado.imagen_url,
-                    ventas.productoSeleccionado.imagen_url_2,
-                    ventas.productoSeleccionado.imagen_url_3
+                    null,
+                    null,
                   ].map((imgUrl, imgIdx) => {
                     if (imgUrl) {
                       const fullUrl = createClient().storage.from("Imagenes_Farmacia").getPublicUrl(imgUrl).data.publicUrl;

@@ -66,8 +66,8 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
     context.agregarAlCarrito({
       producto: product,
       codigo_barras: codigo,
-      numero_lote: context.numeroLote.trim() || null,
-      fecha_vencimiento: context.fechaVencimientoLote.trim() || null,
+      numero_lote: context.numeroLote.trim(),
+      fecha_vencimiento: context.fechaVencimientoLote.trim(),
       ubicacion: context.ubicacionLote.trim() || null,
       cantidad: cant,
       precio_costo: costo,
@@ -116,8 +116,8 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
     context.agregarAlCarrito({
       producto: context.productoSeleccionado,
       codigo_barras: codigo,
-      numero_lote: context.numeroLote.trim() || null,
-      fecha_vencimiento: context.fechaVencimientoLote.trim() || null,
+      numero_lote: context.numeroLote.trim(),
+      fecha_vencimiento: context.fechaVencimientoLote.trim(),
       ubicacion: context.ubicacionLote.trim() || null,
       cantidad: cant,
       precio_costo: costo,

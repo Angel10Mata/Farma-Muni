@@ -30,9 +30,9 @@ function mapLoteDbError(error: { code?: string; message?: string }) {
     msg.includes("inv_lotes_codigo_barras_unique") ||
     msg.includes("codigo_barras")
   ) {
-    return { code: "DUPLICATE" as const };
+    return { success: false as const, code: "DUPLICATE" as const };
   }
-  return { code: "INTERNAL" as const };
+  return { success: false as const, code: "INTERNAL" as const };
 }
 
 // Consultas de inventario

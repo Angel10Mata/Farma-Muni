@@ -83,7 +83,7 @@ export function buildSolicitudRebajaPayload(params: {
       precio_costo: costoUnitarioProducto(i.precio_costo_lote),
       subtotal: i.subtotal,
       producto_nombre: i.producto.nombre,
-      producto_codigo: i.producto.codigo,
+      producto_codigo: i.producto.codigo ?? "",
     })),
   };
 }
