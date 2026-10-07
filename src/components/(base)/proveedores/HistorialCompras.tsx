@@ -7,6 +7,8 @@ import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import { cn, fmtQ } from "@/lib/utils";
 import { moduleControlsShellClass } from "@/lib/module-layout";
+import { ModuleDateFilterLayout } from "@/components/ui/module-date-period-filter";
+import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
 import { Compra } from "./lib/zod";
 import { CompraDetalleModal } from "./modals/CompraDetalleModal";
 import {
@@ -205,75 +207,38 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
         )}
       >
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="relative w-full min-w-0 flex-1 text-left lg:max-w-xl">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
-          <input
-            type="text"
-            value={busquedaHistorial}
-            onChange={(e) => {
-              setBusquedaHistorial(e.target.value);
-              setCurrentPageCompras(1);
-            }}
-            placeholder="Buscar por código, proveedor..."
-            className={cn(moduleTableSearchClass, "py-2 pl-9")}
-          />
-        </div>
-
-        <div className="flex w-full shrink-0 items-center rounded-2xl border border-zinc-200 bg-zinc-50 p-1 dark:border-zinc-700 dark:bg-zinc-800/50 lg:w-fit">
-          {[
-            { id: "todos", label: "Todos" },
-            { id: "Pagado", label: "Pagado" },
-            { id: "Pendiente", label: "Pendiente" }
-          ].map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => {
-                setFiltroPago(opt.id as any);
+          <div className="relative w-full min-w-0 text-left lg:max-w-xl">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+            <input
+              type="text"
+              value={busquedaHistorial}
+              onChange={(e) => {
+                setBusquedaHistorial(e.target.value);
                 setCurrentPageCompras(1);
               }}
-              className={`px-5 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer relative h-[38px] ${
-                filtroPago === opt.id
-                  ? "bg-[#8DA78E] text-white shadow-sm"
-                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
-              }`}
+              placeholder="Buscar por código, proveedor..."
+              className={cn(moduleTableSearchClass, "py-2 pl-9")}
+            />
+          </div>
+
+          <div
+            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+          >
+            <ModuleDateFilterLayout
+              periodValue={tipoFiltroFechaCompras}
+              periodOptions={[
+                { id: "dia", label: "Día" },
+                { id: "mes", label: "Mes" },
+                { id: "rango", label: "Rango" },
+              ]}
+              onPeriodChange={(id) => {
+                setTipoFiltroFechaCompras(id as "dia" | "mes" | "rango");
+                setCurrentPageCompras(1);
+                if (id === "mes") {
+                  setSelectedWeekIndexCompras(-1);
+                }
+              }}
             >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-center">
-        <div className="flex flex-wrap items-center gap-1">
-            {[
-              { id: "dia", label: "Día" },
-              { id: "mes", label: "Mes" },
-              { id: "rango", label: "Rango" }
-            ].map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => {
-                  setTipoFiltroFechaCompras(opt.id as any);
-                  setCurrentPageCompras(1);
-                  if (opt.id === "mes") {
-                    setSelectedWeekIndexCompras(-1);
-                  }
-                }}
-                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
-                  tipoFiltroFechaCompras === opt.id
-                    ? "bg-[#8DA78E]/10 dark:bg-[#8DA78E]/20 text-[#8DA78E] border border-[#8DA78E]/30"
-                    : "border border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white hover:bg-slate-100/50 dark:hover:bg-zinc-800/40"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-3">
             <AnimatePresence mode="wait">
               {tipoFiltroFechaCompras === "dia" && (
                 <motion.div
@@ -303,7 +268,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   className="flex flex-row items-center gap-1.5 w-auto flex-nowrap max-w-full"
                 >
                   {/* Navegador de Mes/Año */}
-                  <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-xl px-1.5 py-0.5 h-[34px] shrink-0">
+                  <div className="flex h-[42px] shrink-0 items-center gap-1 rounded-xl border border-slate-200 bg-white px-1.5 py-0.5 dark:border-slate-800 dark:bg-zinc-900">
                     <button
                       type="button"
                       onClick={() => {
@@ -397,7 +362,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                           <button
                             type="button"
                             onClick={() => setMostrarSemanaDropdownCompras(!mostrarSemanaDropdownCompras)}
-                            className="px-2 py-1 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-zinc-900 text-[11px] font-bold text-[#525D53] dark:text-[#A3BEB0] transition-all cursor-pointer flex items-center gap-1.5 justify-between min-w-[130px] h-[34px]"
+                            className="flex h-[42px] min-w-[8.75rem] shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-[#525D53] transition-all dark:border-slate-800 dark:bg-zinc-900 dark:text-[#A3BEB0]"
                           >
                             <span>{selectedWeekIndexCompras === -1 ? "Todas las semanas" : (semSeleccionada ? semSeleccionada.label : "Seleccionar semana")}</span>
                             <ChevronDown className="size-3.5 text-slate-400" />
@@ -491,7 +456,22 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+            </ModuleDateFilterLayout>
+
+            <ModuleFilterUnderlineTabs
+              ariaLabel="Estado de pago"
+              value={filtroPago}
+              options={[
+                { id: "todos", label: "Todos" },
+                { id: "Pagado", label: "Pagado" },
+                { id: "Pendiente", label: "Pendiente" },
+              ]}
+              onChange={(id) => {
+                setFiltroPago(id);
+                setCurrentPageCompras(1);
+              }}
+              className="sm:justify-end"
+            />
           </div>
         </div>
       </section>

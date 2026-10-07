@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { ShoppingCart, Receipt, Package, AlertTriangle } from "lucide-react";
+import { Receipt, Package, AlertTriangle } from "lucide-react";
 import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, FileDown as FileDownNode, MessageCircle as MessageCircleNode, Printer as PrinterNode, X as XNode } from "lucide";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -31,7 +31,12 @@ import { getSwalThemeOpts } from "@/lib/utils";
 import { ModalFooter, ModalShell, toast } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { moduleListPageShellClass } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 import { cn } from "@/lib/utils";
+import {
+  modulePillSwitchBtnClass,
+  modulePillSwitchShellClass,
+} from "@/components/ui/module-pill-switch";
 import { ModalAutorizacionRebajaVentas } from "./ModalAutorizacionRebajaVentas";
 import { PanelSolicitudesRebajaVentas } from "./PanelSolicitudesRebajaVentas";
 import { SolicitudesRebajaAdmin } from "./SolicitudesRebajaAdmin";
@@ -573,9 +578,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
-          <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center">
-            <ShoppingCart className="size-6 text-[#8DA78E] dark:text-[#A3BEB0]" />
-          </div>
+          <ModuleHeaderBackButton />
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
             <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">
@@ -590,25 +593,33 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
               onRevisarAdmin={(id) => router.replace(`/farmamuni/ventas?rebaja=${id}`)}
             />
           ) : null}
-          <div className="flex bg-[#F5F5F1] dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 p-1.5 rounded-2xl w-fit">
-          <button
-            onClick={() => ventas.setActiveTab("pos")}
-            className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-              ventas.activeTab === "pos" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
-            }`}
+          <div
+            className={cn(modulePillSwitchShellClass, "w-fit max-w-full flex-nowrap")}
+            role="tablist"
+            aria-label="Sección de ventas"
           >
-            Punto de Venta
-          </button>
-          {puedeVerHistorial ? (
             <button
-              onClick={() => ventas.setActiveTab("historial")}
-              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all cursor-pointer ${
-                ventas.activeTab === "historial" ? "bg-[#8DA78E] text-[#1D2E20] shadow-xs" : "text-[#4F6852] dark:text-[#A0BCA2]"
-              }`}
+              type="button"
+              role="tab"
+              aria-selected={ventas.activeTab === "pos"}
+              onClick={() => ventas.setActiveTab("pos")}
+              className={modulePillSwitchBtnClass(ventas.activeTab === "pos", { grow: false })}
             >
-              Historial de Ventas
+              Punto de venta
             </button>
-          ) : null}
+            {puedeVerHistorial ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={ventas.activeTab === "historial"}
+                onClick={() => ventas.setActiveTab("historial")}
+                className={modulePillSwitchBtnClass(ventas.activeTab === "historial", {
+                  grow: false,
+                })}
+              >
+                Historial
+              </button>
+            ) : null}
           </div>
         </div>
       </div>

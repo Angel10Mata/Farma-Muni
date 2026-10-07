@@ -19,6 +19,10 @@ import {
 } from "lucide-react";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import {
+  ModuleDateFilterLayout,
+  moduleDateFilterControlButtonClass,
+} from "@/components/ui/module-date-period-filter";
+import {
   Ban,
   Check as CheckNode,
   History,
@@ -811,30 +815,16 @@ function HistorialComprasProveedorPanel({
         </div>
 
         <div className="flex w-full flex-1 justify-center md:w-auto">
-          <div className="mx-auto flex w-full flex-col items-center justify-center gap-3 sm:mx-0 sm:flex-row md:w-fit">
-            <div className="flex w-full items-center justify-center gap-1 rounded-xl border border-slate-100 bg-slate-50 p-1 dark:border-zinc-800 dark:bg-zinc-900/50 sm:w-auto">
-              {[
-                { id: "dia", label: "Mes/Año" },
-                { id: "semana", label: "Mes" },
-                { id: "rango", label: "Rango" },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => setTipoFiltroFecha(opt.id)}
-                  className={cn(
-                    "flex-1 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-bold transition-all sm:flex-none",
-                    tipoFiltroFecha === opt.id
-                      ? "bg-white text-[#8DA78E] shadow-sm dark:bg-zinc-800"
-                      : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="flex w-full items-center justify-center gap-2 sm:w-auto">
+          <ModuleDateFilterLayout
+            className="mx-auto w-full md:w-fit"
+            periodValue={tipoFiltroFecha}
+            periodOptions={[
+              { id: "dia", label: "Mes/Año" },
+              { id: "semana", label: "Mes" },
+              { id: "rango", label: "Rango" },
+            ]}
+            onPeriodChange={setTipoFiltroFecha}
+          >
               {tipoFiltroFecha === "dia" && (
                 <CustomDatePicker
                   value={fechaDia}
@@ -847,12 +837,12 @@ function HistorialComprasProveedorPanel({
               )}
 
               {tipoFiltroFecha === "semana" && (
-                <div className="flex w-full items-center gap-2">
-                  <div className="relative w-1/2 sm:w-auto" ref={mesDropdownRef}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="relative shrink-0" ref={mesDropdownRef}>
                     <button
                       type="button"
                       onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)}
-                      className="flex h-[34px] w-full cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-left transition-all hover:border-[#8DA78E] focus:outline-none focus:ring-1 focus:ring-[#8DA78E] dark:border-slate-800 dark:bg-zinc-900 sm:w-[140px]"
+                      className={cn(moduleDateFilterControlButtonClass, "sm:w-[8.75rem]")}
                     >
                       <div className="flex items-center gap-1.5">
                         <Calendar className="size-3.5 text-[#8DA78E]" />
@@ -914,11 +904,11 @@ function HistorialComprasProveedorPanel({
                     </AnimatePresence>
                   </div>
 
-                  <div className="relative w-1/2 sm:w-auto" ref={semanaDropdownRef}>
+                  <div className="relative shrink-0" ref={semanaDropdownRef}>
                     <button
                       type="button"
                       onClick={() => setMostrarSemanaDropdown(!mostrarSemanaDropdown)}
-                      className="flex h-[34px] w-full cursor-pointer items-center justify-between rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-left transition-all hover:border-[#8DA78E] focus:outline-none focus:ring-1 focus:ring-[#8DA78E] dark:border-slate-800 dark:bg-zinc-900 sm:w-[150px]"
+                      className={cn(moduleDateFilterControlButtonClass, "sm:w-[9.375rem]")}
                     >
                       <span className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
                         {selectedWeekIndex === -1 ? "Todo el mes" : obtenerSemanasDelMes(activeMonth, activeYear)[selectedWeekIndex]?.label || "Semana"}
@@ -996,8 +986,7 @@ function HistorialComprasProveedorPanel({
                   />
                 </div>
               )}
-            </div>
-          </div>
+          </ModuleDateFilterLayout>
         </div>
 
         <button type="button" onClick={onClose} className="ml-auto cursor-pointer text-zinc-400 md:ml-0">

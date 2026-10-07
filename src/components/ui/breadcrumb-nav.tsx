@@ -2,7 +2,9 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { ChevronRight, Home, ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronRight, Home } from "lucide-react";
+import { APP_BASE_PATH } from "@/lib/app-config";
+import { getModuleBackHref } from "@/lib/module-back-href";
 import { motion, AnimatePresence, LayoutGroup } from "framer-motion";
 
 const SEGMENT_LABELS: Record<string, string> = {
@@ -25,7 +27,9 @@ const SEGMENT_LABELS: Record<string, string> = {
 export function BreadcrumbNav() {
   const pathname = usePathname();
 
-  if (pathname === "/farmamuni") return null;
+  if (pathname === APP_BASE_PATH || pathname === `${APP_BASE_PATH}/`) {
+    return null;
+  }
 
   const rawSegments = pathname.split("/").filter((item) => item !== "");
 
@@ -46,18 +50,7 @@ export function BreadcrumbNav() {
     })
     .filter((item): item is { segment: string; label: string; href: string } => item !== null);
 
-  let backHref = "/farmamuni";
-  const moduleName = rawSegments.length > 1 ? rawSegments[1] : "";
-
-  if (rawSegments.includes("editar")) {
-    const detalleIdx = rawSegments.indexOf("ver");
-    const id = detalleIdx >= 0 && detalleIdx + 1 < rawSegments.length ? rawSegments[detalleIdx + 1] : "";
-    backHref = id ? `/farmamuni/${moduleName}/ver/${id}` : `/farmamuni/${moduleName}`;
-  } else if (rawSegments.includes("ver")) {
-    backHref = `/farmamuni/${moduleName}`;
-  } else if (rawSegments.length > 1) {
-    backHref = `/${rawSegments.slice(0, -1).join("/")}`;
-  }
+  const backHref = getModuleBackHref(pathname) ?? APP_BASE_PATH;
 
   return (
     <LayoutGroup id="breadcrumb">
@@ -77,7 +70,7 @@ export function BreadcrumbNav() {
 
         <motion.div layout="position" className="flex items-center">
           <Link
-            href="/farmamuni"
+            href={APP_BASE_PATH}
             className="hover:text-foreground transition-colors p-1 shrink-0 flex items-center"
           >
             <Home className="size-5 md:size-6" />

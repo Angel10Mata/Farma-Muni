@@ -219,7 +219,7 @@ export const CustomDatePicker = ({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center justify-between bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 hover:border-[#8DA78E] rounded-xl px-2.5 py-1.5 cursor-pointer select-none transition-all shadow-xs h-[34px] min-w-[130px] text-left focus:outline-none focus:ring-1 focus:ring-[#8DA78E]"
+        className="flex h-[42px] min-w-[8.75rem] shrink-0 items-center justify-between rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-left shadow-xs transition-all select-none hover:border-[#8DA78E] focus:outline-none focus:ring-1 focus:ring-[#8DA78E] dark:border-slate-800 dark:bg-zinc-900"
       >
         <div className="flex items-center">
           <Calendar className="size-3.5 text-[#8DA78E] mr-1.5 shrink-0" />

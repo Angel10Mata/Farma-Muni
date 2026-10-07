@@ -1,7 +1,8 @@
 import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
-import { Shield, AlertTriangle } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { AdminCards } from "./AdminCards";
 import { adminPageShellClass } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 
 // Admin
 export async function VerAdmin() {
@@ -11,9 +12,7 @@ export async function VerAdmin() {
     <div className={adminPageShellClass}>
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
-            <Shield className="size-7 text-amber-600 dark:text-amber-400" />
-          </div>
+          <ModuleHeaderBackButton />
           <h1 className="text-3xl font-bold tracking-tighter text-foreground">
             Administración
           </h1>

@@ -19,7 +19,6 @@ import {
   CircleCheck,
 } from "lucide-react";
 import {
-  Download as DownloadNode,
   FileDown,
   Pencil as PencilNode,
   Plus as PlusNode,
@@ -36,6 +35,10 @@ import { createClient } from "@/utils/supabase/client";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { cn, fmtNum, fmtQ } from "@/lib/utils";
+import {
+  modulePillSwitchBtnClass,
+  modulePillSwitchShellClass,
+} from "@/components/ui/module-pill-switch";
 import { useRouter } from "next/navigation";
 import {
   useProductos,
@@ -62,6 +65,7 @@ import {
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { inventarioPageShellClass, moduleControlsShellClass } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 import {
   moduleTableBodyClass,
   moduleTableCellClass,
@@ -788,7 +792,7 @@ export function VerInventario() {
   const [filtroVencidos, setFiltroVencidos] = useState(false);
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("activos");
   const [filtroUbicacion, setFiltroUbicacion] = useState("");
-  const [vistaInventario, setVistaInventario] = useState<"lotes" | "catalogo">("lotes");
+  const [vistaInventario, setVistaInventario] = useState<"lotes" | "catalogo">("catalogo");
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
 
   const { data: productosCatalogo = [], isLoading: isLoadingCatalogo, refetch: refetchProductos } = useProductos();
@@ -1109,6 +1113,7 @@ export function VerInventario() {
 
       doc.save(`Reporte_Inventario_${new Date().toISOString().slice(0, 10)}.pdf`);
       toast.success("Reporte de inventario descargado correctamente.");
+      setMostrarReportesDropdown(false);
     } catch (error) {
       console.error("Error al exportar PDF:", error);
       toast.error("No se pudo generar el archivo PDF.");
@@ -1119,9 +1124,7 @@ export function VerInventario() {
     <div className={inventarioPageShellClass}>
       <div className="flex shrink-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-0.5">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="shrink-0 size-12 rounded-2xl bg-[#8DA78E]/10 border border-[#8DA78E]/20 flex items-center justify-center">
-            <Package className="size-7 text-[#8DA78E] dark:text-[#A3BEB0]" />
-          </div>
+          <ModuleHeaderBackButton />
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
               Módulo
@@ -1131,14 +1134,49 @@ export function VerInventario() {
             </h1>
           </div>
         </div>
-        <SigetActionButton
-          label="Crear"
-          accentColor={sigetAccent.crear}
-          morphFrom={PlusNode}
-          morphTo={UserPlus}
-          onClick={handleNuevoProducto}
-          className="w-full sm:w-auto shrink-0"
-        />
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <div
+            className={cn(modulePillSwitchShellClass, "w-full max-w-md sm:max-w-[14rem]")}
+            role="tablist"
+            aria-label="Vista de inventario"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={vistaInventario === "lotes"}
+              onClick={() => {
+                setVistaInventario("lotes");
+                setProductoSeleccionado(null);
+                setCurrentPage(1);
+              }}
+              className={modulePillSwitchBtnClass(vistaInventario === "lotes")}
+            >
+              Egresos
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={vistaInventario === "catalogo"}
+              onClick={() => {
+                setVistaInventario("catalogo");
+                setProductoSeleccionado(null);
+                setFiltroProximoVencer(false);
+                setCurrentPage(1);
+              }}
+              className={modulePillSwitchBtnClass(vistaInventario === "catalogo")}
+            >
+              Catálogo
+            </button>
+          </div>
+          <SigetActionButton
+            label="Crear"
+            accentColor={sigetAccent.crear}
+            morphFrom={PlusNode}
+            morphTo={UserPlus}
+            onClick={handleNuevoProducto}
+            className="w-full sm:w-auto shrink-0"
+          />
+        </div>
       </div>
 
       <section
@@ -1147,71 +1185,7 @@ export function VerInventario() {
           "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
         )}
       >
-        <div
-          className="flex flex-col items-end gap-2 border-b border-zinc-200 pb-3 dark:border-zinc-800 lg:flex-row lg:items-center lg:justify-end"
-        >
-          <div className="flex flex-col sm:flex-row sm:items-end gap-3 w-full max-w-md sm:max-w-none sm:ml-auto sm:justify-end">
-            <div className="flex border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 w-full max-w-xs select-none">
-              <button
-                type="button"
-                onClick={() => {
-                  setFiltroEstado("activos");
-                  setCurrentPage(1);
-                }}
-                className={inventarioTabUnderlineClass(filtroEstado === "activos")}
-              >
-                Activos
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setFiltroEstado("inactivos");
-                  setCurrentPage(1);
-                }}
-                className={inventarioTabUnderlineClass(filtroEstado === "inactivos")}
-              >
-                Inactivos
-              </button>
-            </div>
-            <div className="flex w-full max-w-md bg-[#F5F5F1] dark:bg-zinc-900/60 border border-[#C1D1C5]/40 dark:border-zinc-800 p-1 rounded-2xl">
-              <button
-                type="button"
-                onClick={() => {
-                  setVistaInventario("lotes");
-                  setProductoSeleccionado(null);
-                  setCurrentPage(1);
-                }}
-                className={cn(
-                  "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer",
-                  vistaInventario === "lotes"
-                    ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
-                    : "text-slate-500",
-                )}
-              >
-                Por lotes
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setVistaInventario("catalogo");
-                  setProductoSeleccionado(null);
-                  setFiltroProximoVencer(false);
-                  setCurrentPage(1);
-                }}
-                className={cn(
-                  "flex-1 py-2 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer",
-                  vistaInventario === "catalogo"
-                    ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
-                    : "text-slate-500",
-                )}
-              >
-                Catálogo
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-2 pt-3">
+        <div className="flex flex-col gap-2">
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
             <input
@@ -1268,6 +1242,36 @@ export function VerInventario() {
 
             <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
               <div
+                className={cn(modulePillSwitchShellClass, "w-full max-w-[14rem] sm:w-auto")}
+                role="tablist"
+                aria-label="Estado del producto"
+              >
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={filtroEstado === "activos"}
+                  onClick={() => {
+                    setFiltroEstado("activos");
+                    setCurrentPage(1);
+                  }}
+                  className={modulePillSwitchBtnClass(filtroEstado === "activos")}
+                >
+                  Activos
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={filtroEstado === "inactivos"}
+                  onClick={() => {
+                    setFiltroEstado("inactivos");
+                    setCurrentPage(1);
+                  }}
+                  className={modulePillSwitchBtnClass(filtroEstado === "inactivos")}
+                >
+                  Inactivos
+                </button>
+              </div>
+              <div
                 className={cn("relative", mostrarReportesDropdown && "z-[250]")}
                 ref={reportesDropdownRef}
               >
@@ -1318,18 +1322,18 @@ export function VerInventario() {
                         <BarChart3 className="size-3.5 shrink-0 text-[#8DA78E]" />
                         PDF gestión
                       </button>
+                      <button
+                        type="button"
+                        onClick={handleExportarPDF}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        <FileDown className="size-3.5 shrink-0 text-emerald-600" />
+                        Exportar
+                      </button>
                     </motion.div>
                   ) : null}
                 </AnimatePresence>
               </div>
-              <SigetActionButton
-                label="Exportar"
-                accentColor={sigetAccent.excel}
-                morphFrom={DownloadNode}
-                morphTo={FileDown}
-                onClick={handleExportarPDF}
-                className="w-auto shrink-0"
-              />
             </div>
           </div>
         </div>

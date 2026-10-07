@@ -4,8 +4,6 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Wallet,
-  TrendingUp,
-  TrendingDown,
   Search,
   Trash2,
   Calendar,
@@ -18,13 +16,12 @@ import {
   Check,
   MoreVertical,
 } from "lucide-react";
-import { Plus as PlusNode, CirclePlus as CirclePlusNode, TrendingDown as TrendingDownNode, TrendingUp as TrendingUpNode } from "lucide";
 import Swal from "sweetalert2";
 import { getSwalThemeOpts } from "@/lib/utils";
 import { toast } from "react-toastify";
-import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { cn } from "@/lib/utils";
-import { moduleListPageShellClass } from "@/lib/module-layout";
+import { moduleControlsShellClass, moduleListPageShellClass } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 import {
   moduleTableBodyClass,
   moduleTableClass,
@@ -39,6 +36,11 @@ import {
   moduleTableShellClass,
 } from "@/components/ui/module-table";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
+import {
+  ModuleDateFilterLayout,
+  moduleDateFilterControlButtonClass,
+} from "@/components/ui/module-date-period-filter";
+import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
 import { fechaCalendarioGt, obtenerSemanasDelMes } from "@/lib/fechas-gt";
 
 import {
@@ -46,7 +48,6 @@ import {
   FILTROS_TIPO,
   type FiltroTipo,
 } from "./lib/zod";
-import { NuevoMovimiento } from "./forms/Crear";
 import {
   useMovimientosFinancieros,
   useResumenFinanciero,
@@ -64,12 +65,6 @@ export function VerFinanzas() {
   const [searchTerm, setSearchTerm] = useState("");
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("todos");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
-
-  // Modal nuevo movimiento
-  const [showNuevoMovimiento, setShowNuevoMovimiento] = useState(false);
-  const [defaultTipo, setDefaultTipo] = useState<"ingreso" | "egreso">("ingreso");
-  const [prefillVentaId, setPrefillVentaId] = useState<string | null>(null);
-  const [prefillCompraId, setPrefillCompraId] = useState<string | null>(null);
 
   // Filtros de fecha
   const [tipoFiltroFecha, setTipoFiltroFecha] = useState<string>("dia");
@@ -202,13 +197,6 @@ export function VerFinanzas() {
     }
   };
 
-  const handleOpenNuevo = (tipo: "ingreso" | "egreso") => {
-    setPrefillVentaId(null);
-    setPrefillCompraId(null);
-    setDefaultTipo(tipo);
-    setShowNuevoMovimiento(true);
-  };
-
   // Formato de presentación
   const formatMoney = (amount: number) =>
     new Intl.NumberFormat("es-GT", { style: "currency", currency: "GTQ" }).format(amount);
@@ -235,36 +223,15 @@ export function VerFinanzas() {
   return (
     <div className={moduleListPageShellClass}>
       <div className="flex flex-col gap-3">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 px-1">
+        <div className="flex items-center gap-3 px-1">
+          <ModuleHeaderBackButton size="sm" />
           <div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-zinc-900 dark:text-white flex items-center gap-3">
-              <div className="p-2.5 bg-[#8DA78E]/10 dark:bg-[#8DA78E]/20 text-[#8DA78E] rounded-xl">
-                <Wallet className="size-8" />
-              </div>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-zinc-900 dark:text-white leading-none">
               Control Financiero
             </h1>
-            <p className="text-sm text-muted-foreground mt-1 font-medium ml-1">
+            <p className="text-sm text-muted-foreground mt-1 font-medium">
               Ingresos, egresos, balance y cuentas pendientes
             </p>
-          </div>
-
-          <div className="flex items-center gap-2 w-full md:w-auto">
-            <SigetActionButton
-              label="Ingreso"
-              accentColor={sigetAccent.guardar}
-              morphFrom={PlusNode}
-              morphTo={TrendingUpNode}
-              onClick={() => handleOpenNuevo("ingreso")}
-              className="w-auto shrink-0 flex-1 md:flex-none"
-            />
-            <SigetActionButton
-              label="Egreso"
-              accentColor={sigetAccent.quitar}
-              morphFrom={CirclePlusNode}
-              morphTo={TrendingDownNode}
-              onClick={() => handleOpenNuevo("egreso")}
-              className="w-auto shrink-0 flex-1 md:flex-none"
-            />
           </div>
         </div>
 
@@ -316,33 +283,38 @@ export function VerFinanzas() {
           </div>
         </div>
 
-        {/* Filtros de Fecha */}
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 px-1">
-          <div className="flex-1 w-full sm:w-auto">
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 rounded-2xl p-2 shadow-sm w-full md:w-fit z-20 mx-auto sm:mx-0">
-                <div className="flex items-center justify-center gap-1 bg-slate-50 dark:bg-zinc-900/50 p-1 rounded-xl border border-slate-100 dark:border-zinc-800 w-full sm:w-auto">
-                  {[
-                    { id: "dia", label: "Día" },
-                    { id: "semana", label: "Mes" },
-                    { id: "rango", label: "Rango" },
-                  ].map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      onClick={() => setTipoFiltroFecha(opt.id)}
-                      className={cn(
-                        "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
-                        tipoFiltroFecha === opt.id
-                          ? "bg-white dark:bg-zinc-800 text-[#8DA78E] shadow-sm"
-                          : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                      )}
-                    >
-                      {opt.label}
-                    </button>
-                  ))}
-                </div>
+      </div>
 
-                <div className="flex items-center justify-center gap-2 w-full sm:w-auto">
+      <section
+        className={cn(
+          moduleControlsShellClass,
+          "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
+        )}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="relative w-full min-w-0 text-left lg:max-w-xl">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+            <input
+              type="text"
+              placeholder="Buscar por concepto o categoría..."
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              className={cn(moduleTableSearchClass, "py-2 pl-9")}
+            />
+          </div>
+
+          <div
+            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+          >
+            <ModuleDateFilterLayout
+              periodValue={tipoFiltroFecha}
+              periodOptions={[
+                { id: "dia", label: "Día" },
+                { id: "semana", label: "Mes" },
+                { id: "rango", label: "Rango" },
+              ]}
+              onPeriodChange={setTipoFiltroFecha}
+            >
                   {tipoFiltroFecha === "dia" && (
                     <CustomDatePicker
                       value={fechaDia}
@@ -354,12 +326,12 @@ export function VerFinanzas() {
                   )}
 
                   {tipoFiltroFecha === "semana" && (
-                    <div className="flex items-center gap-2 w-full">
-                      <div className="relative w-1/2 sm:w-auto" ref={mesDropdownRef}>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="relative shrink-0" ref={mesDropdownRef}>
                         <button
                           type="button"
                           onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)}
-                          className="flex items-center justify-between w-full sm:w-[140px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 hover:border-[#8DA78E] rounded-xl px-2.5 py-1.5 cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-[#8DA78E] transition-all h-[34px]"
+                          className={cn(moduleDateFilterControlButtonClass, "sm:w-[8.75rem]")}
                         >
                           <div className="flex items-center gap-1.5">
                             <Calendar className="size-3.5 text-[#8DA78E]" />
@@ -421,11 +393,11 @@ export function VerFinanzas() {
                         </AnimatePresence>
                       </div>
 
-                      <div className="relative w-1/2 sm:w-auto" ref={semanaDropdownRef}>
+                      <div className="relative shrink-0" ref={semanaDropdownRef}>
                         <button
                           type="button"
                           onClick={() => setMostrarSemanaDropdown(!mostrarSemanaDropdown)}
-                          className="flex items-center justify-between w-full sm:w-[150px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 hover:border-[#8DA78E] rounded-xl px-2.5 py-1.5 cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-[#8DA78E] transition-all h-[34px]"
+                          className={cn(moduleDateFilterControlButtonClass, "sm:w-[9.375rem]")}
                         >
                           <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                             {selectedWeekIndex === -1 ? "Todo el mes" : obtenerSemanasDelMes(activeMonth, activeYear)[selectedWeekIndex]?.label || "Semana"}
@@ -503,49 +475,23 @@ export function VerFinanzas() {
                       />
                     </div>
                   )}
-                </div>
-              </div>
-            </div>
-        </div>
-      </div>
+            </ModuleDateFilterLayout>
 
-        <div className={cn(moduleTableShellClass, "p-0 relative")}>
-          <div className="p-4 md:p-5 border-b border-[#C1D1C5]/20 dark:border-[#525D53]/20 flex flex-col sm:flex-row items-center justify-between gap-4">
-            <div className="relative w-full sm:max-w-md">
-              <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                <Search className="size-4 text-[#8DA78E]/60" />
-              </div>
-              <input
-                type="text"
-                placeholder="Buscar por concepto o categoría..."
-                value={searchInput}
-                onChange={(e) => setSearchInput(e.target.value)}
-                className={cn(moduleTableSearchClass, "pl-10 font-medium")}
-              />
-            </div>
-
-            <div className="flex items-center gap-2 w-full sm:w-auto bg-[#8DA78E]/5 p-1 rounded-xl border border-[#8DA78E]/10">
-              {FILTROS_TIPO.map((tipo) => (
-                <button
-                  key={tipo}
-                  type="button"
-                  onClick={() => {
-                    setPage(1);
-                    setFiltroTipo(tipo);
-                  }}
-                  className={cn(
-                    "flex-1 sm:flex-none px-4 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
-                    filtroTipo === tipo
-                      ? "bg-white dark:bg-[#525D53] text-[#8DA78E] dark:text-white shadow-sm"
-                      : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-                  )}
-                >
-                  {tipo}
-                </button>
-              ))}
-            </div>
+            <ModuleFilterUnderlineTabs
+              ariaLabel="Tipo de movimiento"
+              value={filtroTipo}
+              options={FILTROS_TIPO.map((tipo) => ({ id: tipo, label: tipo }))}
+              onChange={(tipo) => {
+                setPage(1);
+                setFiltroTipo(tipo);
+              }}
+              className="sm:justify-end"
+            />
           </div>
+        </div>
+      </section>
 
+        <div className={cn(moduleTableShellClass, "relative p-0")}>
           <div className={cn(moduleTableScrollClass, "p-1 sm:p-2 md:p-4 min-h-0")}>
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-64 opacity-50">
@@ -752,19 +698,6 @@ export function VerFinanzas() {
             />
           )}
         </div>
-
-      {showNuevoMovimiento && (
-        <NuevoMovimiento
-          defaultTipo={defaultTipo}
-          defaultVentaId={prefillVentaId}
-          defaultCompraId={prefillCompraId}
-          onClose={() => setShowNuevoMovimiento(false)}
-          onSuccess={() => {
-            setShowNuevoMovimiento(false);
-          }}
-        />
-      )}
-
 
     </div>
   );

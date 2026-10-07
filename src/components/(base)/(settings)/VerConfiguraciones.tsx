@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useAppSettings, useUpdateAppSettings } from "./hooks";
-import { Settings, Shield, Key, Loader2 } from "lucide-react";
+import { Shield, Key, Loader2 } from "lucide-react";
 import LogoKore from "@/components/(Kore)/logo/LogoKore";
 import { Card } from "@/components/ui/card";
 import { modulePageCenteredClass } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 
 // Configuración
 export default function VerConfiguraciones() {
@@ -69,9 +70,7 @@ const handleAuthChange = (checked: boolean) => {
 
       <div className="flex flex-col gap-1 w-full text-center items-center">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-xl bg-blue-500/10">
-            <Settings className="size-5 text-blue-500" />
-          </div>
+          <ModuleHeaderBackButton size="sm" />
           <h1 className="text-3xl font-bold tracking-tighter text-foreground">
             Configuraciones
           </h1>

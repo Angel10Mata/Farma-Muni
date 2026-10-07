@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  CreditCard,
   Search,
   ChevronRight,
   User,
@@ -14,9 +13,14 @@ import { toast } from "react-toastify";
 import { Download as DownloadNode, FileDown } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import {
+  modulePillSwitchBtnClass,
+  modulePillSwitchShellClass,
+} from "@/components/ui/module-pill-switch";
+import {
   moduleControlsShellClass,
   moduleListPageShellClass,
 } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 import {
   moduleTableBodyClass,
   moduleTableClass,
@@ -130,9 +134,7 @@ export function VerCreditos() {
     <div className={moduleListPageShellClass}>
       <div className="flex w-full flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-2xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
-             <CreditCard className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
-          </div>
+          <ModuleHeaderBackButton size="sm" />
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Finanzas</p>
             <h1 className="text-xl font-black uppercase leading-none tracking-tight text-zinc-900 dark:text-zinc-100 md:text-2xl">
@@ -142,28 +144,29 @@ export function VerCreditos() {
         </div>
 
         <div className="flex w-full shrink-0 justify-end sm:w-auto">
-          <div className="flex w-fit bg-[#8DA78E]/5 p-1 rounded-xl border border-[#8DA78E]/10">
+          <div
+            className={cn(
+              modulePillSwitchShellClass,
+              "w-full max-w-sm sm:w-auto sm:min-w-[15.5rem]",
+            )}
+            role="tablist"
+            aria-label="Sección de créditos"
+          >
             <button
               type="button"
+              role="tab"
+              aria-selected={tab === "cobrar"}
               onClick={() => setTab("cobrar")}
-              className={cn(
-                "px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
-                tab === "cobrar"
-                  ? "bg-white dark:bg-[#525D53] text-[#8DA78E] dark:text-white shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-              )}
+              className={modulePillSwitchBtnClass(tab === "cobrar", { grow: false })}
             >
-              Por Cobrar
+              Por cobrar
             </button>
             <button
               type="button"
+              role="tab"
+              aria-selected={tab === "pagados"}
               onClick={() => setTab("pagados")}
-              className={cn(
-                "px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer",
-                tab === "pagados"
-                  ? "bg-white dark:bg-[#525D53] text-[#8DA78E] dark:text-white shadow-sm"
-                  : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
-              )}
+              className={modulePillSwitchBtnClass(tab === "pagados", { grow: false })}
             >
               Pagados
             </button>

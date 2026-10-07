@@ -24,6 +24,7 @@ import {
   moduleTableShellClass,
 } from "@/components/ui/module-table";
 import { cn } from "@/lib/utils";
+import { moduleControlsShellClass } from "@/lib/module-layout";
 
 // Props
 interface CuentasPorPagarProps {
@@ -85,11 +86,15 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
   );
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col sm:flex-row gap-4 items-center justify-between px-1">
-        {/* Buscador */}
-        <div className="relative w-full sm:max-w-xl text-left">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+    <div className="flex h-full min-h-[550px] flex-1 flex-col gap-4">
+      <section
+        className={cn(
+          moduleControlsShellClass,
+          "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
+        )}
+      >
+        <div className="relative w-full min-w-0 text-left lg:max-w-xl">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
           <input
             type="text"
             value={busquedaCuentasPagar}
@@ -98,10 +103,10 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
               setCurrentPage(1);
             }}
             placeholder="Buscar por referencia o proveedor..."
-            className={cn(moduleTableSearchClass, "pl-11 py-3 shadow-sm")}
+            className={cn(moduleTableSearchClass, "py-2 pl-9")}
           />
         </div>
-      </div>
+      </section>
 
         <div className={moduleTableShellClass}>
         <div className={cn(moduleTableScrollClass, "min-h-0 pr-1")}>

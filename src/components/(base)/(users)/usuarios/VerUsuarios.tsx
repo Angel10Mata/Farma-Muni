@@ -10,6 +10,7 @@ import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-but
 import VerPerfil from "@/components/(base)/(users)/profile/VerPerfil";
 import SignUp from "@/components/(base)/(auth)/signup/SignUp";
 import { modulePageScrollClass } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 import {
   moduleTableBodyClass,
   moduleTableCellClass,
@@ -131,7 +132,9 @@ export function VerUsuarios() {
       <div className={modulePageScrollClass}>
         <div className="flex flex-col gap-6 mb-6">
           <div className="flex items-center justify-between">
-            <div>
+            <div className="flex items-center gap-3 min-w-0">
+              <ModuleHeaderBackButton size="sm" />
+              <div>
               <h2 className="text-sm xl:text-xl font-bold tracking-tight text-foreground">
                 Gestión de Usuarios
               </h2>
@@ -146,6 +149,7 @@ export function VerUsuarios() {
                   </span>
                 )}
               </p>
+              </div>
             </div>
             {canCreateUser && !isSignUpOpen && (
               <SigetActionButton

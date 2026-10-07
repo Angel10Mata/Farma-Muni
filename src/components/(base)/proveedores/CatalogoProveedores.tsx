@@ -8,6 +8,7 @@ import Swal from "sweetalert2";
 import { Proveedor } from "./lib/zod";
 import { VerProveedor, formatPhoneDisplay, getWhatsappUrl } from "./forms/VerProveedor";
 import { cn, getSwalThemeOpts } from "@/lib/utils";
+import { moduleControlsShellClass } from "@/lib/module-layout";
 import { modalActionMessage } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { eliminarProveedor } from "./lib/actions";
@@ -82,33 +83,39 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
 
   return (
     <div className="flex gap-4 flex-1 relative min-h-[550px] overflow-x-hidden p-1">
-      <div className="flex-1 flex flex-col gap-4 min-w-0">
-        <div className="flex flex-col sm:flex-row gap-4 items-center justify-between px-1">
-          {/* Buscador */}
-          <div className="relative w-full sm:max-w-xl text-left">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-            <input
-              type="text"
-              value={proveedorBusqueda}
-              onChange={(e) => {
-                setProveedorBusqueda(e.target.value);
-                setCurrentPage(1);
-              }}
-              placeholder="Buscar proveedor por nombre o NIT..."
-              className={cn(moduleTableSearchClass, "pl-11 py-3 shadow-sm")}
+      <div className="flex min-h-0 flex-1 flex-col gap-4 min-w-0">
+        <section
+          className={cn(
+            moduleControlsShellClass,
+            "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
+          )}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full min-w-0 text-left sm:max-w-xl">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+              <input
+                type="text"
+                value={proveedorBusqueda}
+                onChange={(e) => {
+                  setProveedorBusqueda(e.target.value);
+                  setCurrentPage(1);
+                }}
+                placeholder="Buscar proveedor por nombre o NIT..."
+                className={cn(moduleTableSearchClass, "py-2 pl-9")}
+              />
+            </div>
+
+            <SigetActionButton
+              label="Nuevo"
+              accentColor={sigetAccent.crear}
+              morphFrom={UserPlusNode}
+              morphTo={CheckNode}
+              onClick={() => setIsCrearOpen(true)}
+              ariaLabel="Nuevo proveedor"
+              className="w-full shrink-0 sm:w-auto"
             />
           </div>
-
-          <SigetActionButton
-            label="Nuevo"
-            accentColor={sigetAccent.crear}
-            morphFrom={UserPlusNode}
-            morphTo={CheckNode}
-            onClick={() => setIsCrearOpen(true)}
-            ariaLabel="Nuevo proveedor"
-            className="w-auto shrink-0"
-          />
-        </div>
+        </section>
 
           <div className={moduleTableShellClass}>
           <div className={cn(moduleTableScrollClass, "min-h-0 pr-1")}>

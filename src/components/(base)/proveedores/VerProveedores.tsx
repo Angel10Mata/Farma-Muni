@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  modulePillSwitchBtnClass,
+  modulePillSwitchShellClass,
+} from "@/components/ui/module-pill-switch";
 import { modulePageShellFixedClass } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 import { ComprasProvider } from "./ComprasContext";
 import { ComprasProductSection } from "./ComprasProductSection";
 import { ComprasCartSidebar } from "./ComprasCartSidebar";
@@ -16,22 +21,12 @@ import { useProveedoresYProductos, useHistorialCompras } from "./lib/hooks";
 // Tabs
 const COMPRAS_TABS = [
   { id: "ingresar_compra" as const, label: "Registrar" },
-  { id: "proveedores" as const, label: "Proveedores" },
   { id: "historial" as const, label: "Historial" },
+  { id: "proveedores" as const, label: "Proveedores" },
   { id: "cuentas_por_pagar" as const, label: "Por pagar" },
 ];
 
 type ComprasTabId = (typeof COMPRAS_TABS)[number]["id"];
-
-// Estilos
-function comprasTabPillClass(active: boolean) {
-  return cn(
-    "shrink-0 cursor-pointer whitespace-nowrap rounded-lg px-3 py-2.5 text-[10px] font-bold uppercase tracking-wider transition-all sm:px-4 sm:text-xs",
-    active
-      ? "bg-white text-[#8DA78E] shadow-sm dark:bg-[#525D53] dark:text-white"
-      : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
-  );
-}
 
 function VerProveedoresInner() {
   // Estado
@@ -82,9 +77,7 @@ function VerProveedoresInner() {
     <div className={modulePageShellFixedClass}>
       <div className="flex shrink-0 flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="flex size-12 shrink-0 items-center justify-center rounded-2xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
-            <Truck className="size-7 text-[#8DA78E] dark:text-[#A3BEB0]" />
-          </div>
+          <ModuleHeaderBackButton />
           <div className="min-w-0">
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
               Compras
@@ -97,7 +90,10 @@ function VerProveedoresInner() {
 
         <div className="flex w-full shrink-0 justify-end sm:w-auto">
           <div
-            className="relative z-30 flex w-fit max-w-full flex-nowrap rounded-xl border border-[#8DA78E]/10 bg-[#8DA78E]/5 p-1"
+            className={cn(
+              modulePillSwitchShellClass,
+              "relative z-30 w-fit max-w-full flex-nowrap",
+            )}
             role="tablist"
             aria-label="Secciones de compras"
           >
@@ -110,7 +106,7 @@ function VerProveedoresInner() {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setActiveTab(tab.id)}
-                  className={comprasTabPillClass(isActive)}
+                  className={modulePillSwitchBtnClass(isActive, { grow: false })}
                 >
                   {tab.label}
                 </button>
@@ -139,12 +135,12 @@ function VerProveedoresInner() {
           <HistorialCompras compras={compras} />
         )}
 
-        {/* TAB 3: CATALOGO DE PROVEEDORES */}
+        {/* TAB 3: CATÁLOGO DE PROVEEDORES */}
         {activeTab === "proveedores" && (
-          <CatalogoProveedores 
-            proveedores={proveedores} 
-            cargarDatos={cargarDatos} 
-            setIsCrearOpen={setIsCrearOpen} 
+          <CatalogoProveedores
+            proveedores={proveedores}
+            cargarDatos={cargarDatos}
+            setIsCrearOpen={setIsCrearOpen}
           />
         )}
 

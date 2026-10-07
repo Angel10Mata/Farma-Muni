@@ -32,7 +32,12 @@ import {
 import { toast } from "react-toastify";
 import { Clock as ClockNode, Download as DownloadNode, FileDown, History, Pencil, Plus as PlusNode, SquarePen, UserPlus } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import {
+  ModuleDateFilterLayout,
+  moduleDateFilterControlButtonClass,
+} from "@/components/ui/module-date-period-filter";
 import { moduleControlsShellClass, moduleListPageShellClass } from "@/lib/module-layout";
+import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 import {
   moduleTableBodyClass,
   moduleTableCellClass,
@@ -374,30 +379,16 @@ function HistorialComprasPanel({
           </div>
 
           <div className="flex-1 flex justify-center w-full md:w-auto">
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full md:w-fit mx-auto sm:mx-0">
-              <div className="flex items-center justify-center gap-1 bg-slate-50 dark:bg-zinc-900/50 p-1 rounded-xl border border-slate-100 dark:border-zinc-800 w-full sm:w-auto">
-                {[
-                  { id: "dia", label: "Mes/Año" },
-                  { id: "semana", label: "Mes" },
-                  { id: "rango", label: "Rango" },
-                ].map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setTipoFiltroFecha(opt.id)}
-                    className={cn(
-                      "flex-1 sm:flex-none px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer",
-                      tipoFiltroFecha === opt.id
-                        ? "bg-white dark:bg-zinc-800 text-[#8DA78E] shadow-sm"
-                        : "text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                    )}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-center gap-2 w-full sm:w-auto">
+            <ModuleDateFilterLayout
+              className="mx-auto w-full md:w-fit"
+              periodValue={tipoFiltroFecha}
+              periodOptions={[
+                { id: "dia", label: "Mes/Año" },
+                { id: "semana", label: "Mes" },
+                { id: "rango", label: "Rango" },
+              ]}
+              onPeriodChange={setTipoFiltroFecha}
+            >
                 {tipoFiltroFecha === "dia" && (
                   <CustomDatePicker
                     value={fechaDia}
@@ -410,12 +401,12 @@ function HistorialComprasPanel({
                 )}
 
                 {tipoFiltroFecha === "semana" && (
-                  <div className="flex items-center gap-2 w-full">
-                    <div className="relative w-1/2 sm:w-auto" ref={mesDropdownRef}>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative shrink-0" ref={mesDropdownRef}>
                       <button
                         type="button"
                         onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)}
-                        className="flex items-center justify-between w-full sm:w-[140px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 hover:border-[#8DA78E] rounded-xl px-2.5 py-1.5 cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-[#8DA78E] transition-all h-[34px]"
+                        className={cn(moduleDateFilterControlButtonClass, "sm:w-[8.75rem]")}
                       >
                         <div className="flex items-center gap-1.5">
                           <Calendar className="size-3.5 text-[#8DA78E]" />
@@ -477,11 +468,11 @@ function HistorialComprasPanel({
                       </AnimatePresence>
                     </div>
 
-                    <div className="relative w-1/2 sm:w-auto" ref={semanaDropdownRef}>
+                    <div className="relative shrink-0" ref={semanaDropdownRef}>
                       <button
                         type="button"
                         onClick={() => setMostrarSemanaDropdown(!mostrarSemanaDropdown)}
-                        className="flex items-center justify-between w-full sm:w-[150px] bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 hover:border-[#8DA78E] rounded-xl px-2.5 py-1.5 cursor-pointer text-left focus:outline-none focus:ring-1 focus:ring-[#8DA78E] transition-all h-[34px]"
+                        className={cn(moduleDateFilterControlButtonClass, "sm:w-[9.375rem]")}
                       >
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                           {selectedWeekIndex === -1 ? "Todo el mes" : obtenerSemanasDelMes(activeMonth, activeYear)[selectedWeekIndex]?.label || "Semana"}
@@ -559,8 +550,7 @@ function HistorialComprasPanel({
                     />
                   </div>
                 )}
-              </div>
-            </div>
+            </ModuleDateFilterLayout>
           </div>
 
           <button onClick={onClose} className="text-zinc-400 ml-auto md:ml-0 cursor-pointer">
@@ -702,9 +692,7 @@ export function VerClientes() {
     <div className={moduleListPageShellClass}>
       <div className="flex shrink-0 items-center justify-between gap-3 w-full">
         <div className="flex items-center gap-3">
-          <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
-            <Users className="size-6 text-[#8DA78E] dark:text-[#A3BEB0]" />
-          </div>
+          <ModuleHeaderBackButton size="sm" />
           <div>
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
             <h1 className="text-xl font-black uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-2xl">

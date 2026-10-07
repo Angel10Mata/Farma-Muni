@@ -11,6 +11,10 @@ import {
 } from "lucide";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn, fmtQ } from "@/lib/utils";
+import { moduleControlsShellClass } from "@/lib/module-layout";
+import { moduleDateFilterShellClass } from "@/components/ui/module-pill-switch";
+import { ModuleDateFilterLayout } from "@/components/ui/module-date-period-filter";
+import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import {
@@ -183,92 +187,74 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
 
   // Pantalla del historial
   return (
-    <div className={cn(moduleTableShellClass, "overflow-visible")}>
-      <div className="flex flex-col gap-4 mb-4">
-        <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 items-stretch sm:items-center w-full min-w-0">
-          <div className="relative flex-1 min-w-0 w-full">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-zinc-400" />
-            <input
-              type="text"
-              placeholder="Buscar recibo o cliente..."
-              value={busquedaHistorial}
-              onChange={(e) => {
-                setBusquedaHistorial(e.target.value);
-                setCurrentPage(1);
-              }}
-              className={cn(moduleTableSearchClass, "py-2.5 text-xs h-[46px]")}
-            />
-          </div>
-          <div className="flex flex-row items-center gap-1.5 shrink-0 w-full sm:w-auto justify-end">
-            <SigetActionButton
-              label="Informe"
-              accentColor={sigetAccent.excel}
-              morphFrom={DownloadNode}
-              morphTo={FileDown}
-              onClick={() => void exportarInformeVentasMes()}
-              disabled={exportandoInforme || isLoading}
-              ariaBusy={exportandoInforme}
-              ariaLabel="Descargar informe PDF de ventas del mes"
-              className="w-auto shrink-0 !h-[46px]"
-            />
-            <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl w-fit h-[46px] items-center">
-              {[
-                { id: "todos", label: "Todos" },
-                { id: "contado", label: "Contado" },
-                { id: "credito", label: "Crédito" },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  type="button"
-                  onClick={() => {
-                    setTipoPagoSwitch(opt.id as "todos" | "contado" | "credito");
-                    setCurrentPage(1);
-                  }}
-                  className={cn(
-                    "px-4 py-2 text-xs font-bold rounded-lg transition-all cursor-pointer relative h-[38px]",
-                    tipoPagoSwitch === opt.id
-                      ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm"
-                      : "text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300",
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
+    <div className="flex min-w-0 flex-1 flex-col gap-3">
+      <section
+        className={cn(
+          moduleControlsShellClass,
+          "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
+        )}
+      >
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="relative w-full min-w-0 flex-1 lg:max-w-xl">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+              <input
+                type="text"
+                placeholder="Buscar recibo o cliente..."
+                value={busquedaHistorial}
+                onChange={(e) => {
+                  setBusquedaHistorial(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className={cn(moduleTableSearchClass, "py-2 pl-9")}
+              />
+            </div>
+            <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
+              <SigetActionButton
+                label="Informe"
+                accentColor={sigetAccent.excel}
+                morphFrom={DownloadNode}
+                morphTo={FileDown}
+                onClick={() => void exportarInformeVentasMes()}
+                disabled={exportandoInforme || isLoading}
+                ariaBusy={exportandoInforme}
+                ariaLabel="Descargar informe PDF de ventas del mes"
+                className="w-auto shrink-0"
+              />
+              <ModuleFilterUnderlineTabs
+                ariaLabel="Tipo de pago"
+                value={tipoPagoSwitch}
+                options={[
+                  { id: "todos", label: "Todos" },
+                  { id: "contado", label: "Contado" },
+                  { id: "credito", label: "Crédito" },
+                ]}
+                onChange={(id) => {
+                  setTipoPagoSwitch(id);
+                  setCurrentPage(1);
+                }}
+              />
             </div>
           </div>
-        </div>
 
-        <div className="flex flex-col xl:flex-row gap-4 justify-between items-start w-full">
-          <div className="flex flex-row gap-3 items-center bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 text-left w-fit flex-wrap max-w-full">
-            <div className="flex items-center gap-1.5 flex-wrap">
-          {[
-            { id: "dia", label: "Día" },
-            { id: "semana", label: "Mes" },
-            { id: "rango", label: "Rango" }
-          ].map((opt) => (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => {
-                setTipoFiltroFecha(opt.id as "dia" | "semana" | "rango");
-                if (opt.id === "rango" && !fechaRangoDesde && !fechaRangoHasta) {
+          <div
+            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 xl:flex-row xl:items-center xl:justify-between"
+          >
+            <ModuleDateFilterLayout
+              periodValue={tipoFiltroFecha}
+              periodOptions={[
+                { id: "dia", label: "Día" },
+                { id: "semana", label: "Mes" },
+                { id: "rango", label: "Rango" },
+              ]}
+              onPeriodChange={(id) => {
+                setTipoFiltroFecha(id as "dia" | "semana" | "rango");
+                if (id === "rango" && !fechaRangoDesde && !fechaRangoHasta) {
                   aplicarRangoMesActual();
                 }
                 setCurrentPage(1);
               }}
-              className={cn(
-                "px-3 py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer",
-                tipoFiltroFecha === opt.id
-                  ? "bg-[#8DA78E]/10 text-[#8DA78E] border border-[#8DA78E]/20"
-                  : "border border-transparent text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
-              )}
             >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="flex items-center gap-3">
           <AnimatePresence mode="wait">
             {tipoFiltroFecha === "dia" && (
               <motion.div key="dia" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex items-center gap-2">
@@ -287,7 +273,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
             {tipoFiltroFecha === "semana" && (
               <motion.div key="semana" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-row items-center gap-2">
                 {/* Mes selector */}
-                <div className="flex items-center gap-1 bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 rounded-xl px-1.5 py-0.5 h-[34px] shrink-0">
+                <div className="flex h-[42px] shrink-0 items-center gap-1 rounded-xl border border-zinc-200 bg-white px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900">
                   <button onClick={() => { activeMonth === 0 ? (setActiveMonth(11), setActiveYear(activeYear - 1)) : setActiveMonth(activeMonth - 1); setCurrentPage(1); }} className="size-4.5 rounded flex items-center justify-center text-zinc-500 cursor-pointer">
                     <ChevronLeft className="size-3" />
                   </button>
@@ -368,17 +354,25 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
+            </ModuleDateFilterLayout>
+            {filtered.length > 0 ? (
+              <div
+                className={cn(
+                  moduleDateFilterShellClass,
+                  "h-[58px] w-full shrink-0 items-center justify-center xl:w-auto",
+                )}
+              >
+                <span className="text-xl font-black text-[#3B523D] dark:text-[#A0BCA2]">Total:</span>
+                <span className="ml-2 text-xl font-black tracking-wide text-[#8DA78E]">
+                  {fmtQ(totalVentas)}
+                </span>
+              </div>
+            ) : null}
           </div>
-          {filtered.length > 0 && (
-            <div className="flex items-center justify-center bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-200 dark:border-zinc-700 rounded-2xl px-4 py-3 w-full xl:w-auto shadow-sm h-[58px] shrink-0">
-              <span className="text-xl font-black text-[#3B523D] dark:text-[#A0BCA2]">Total:</span>
-              <span className="text-[#8DA78E] ml-2 text-xl font-black tracking-wide">{fmtQ(totalVentas)}</span>
-            </div>
-          )}
         </div>
-      </div>
+      </section>
 
+      <div className={cn(moduleTableShellClass, "overflow-visible")}>
       <div className={moduleTableScrollClass}>
         {isLoading ? (
           <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div></div>
@@ -578,6 +572,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
         totalPages={totalPages}
         onPageChange={setCurrentPage}
       />
+      </div>
 
       {ventaDetalleSeleccionada && (
         <DetalleVentaModal

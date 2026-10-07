@@ -10,10 +10,10 @@ import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUser, useUserContext } from "@/components/(base)/providers/UserProvider";
 import { cn } from "@/lib/utils";
 import { FlaskConical } from "lucide-react";
-import { BreadcrumbNav } from "@/components/ui/breadcrumb-nav";
 import { MorphIconBox } from "@/components/ui/morph-hover-icon";
 import { navIconColors, navMorphIcons } from "@/lib/morph-icons";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
+import { BreadcrumbNav } from "@/components/ui/breadcrumb-nav";
 import Menu from "./Menu";
 import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
 import { createPortal } from "react-dom";
@@ -31,7 +31,6 @@ export default function EncabezadoApp() {
   const [mounted, setMounted] = useState(false);
   const pathname = usePathname();
   const isRoot = pathname === "/farmamuni";
-
   const canSimulate = ["super", "admin"].includes(effectiveRole);
   const canManage = canSimulate;
 
