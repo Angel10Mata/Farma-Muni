@@ -42,7 +42,6 @@ import { descargarReporteCreditosPdf } from "./lib/export-reporte-creditos-pdf";
 import { VerDetalleCredito } from "./forms/VerDetalleCredito";
 import type { CreditoResumen } from "./lib/zod";
 import { useCuentasPorCobrar } from "@/components/(base)/finanzas/lib/hooks";
-import { obtenerCuentasPorCobrar } from "@/components/(base)/finanzas/lib/actions";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
@@ -116,7 +115,7 @@ export function VerCreditos() {
         cuentas =
           cuentasCobrar.length > 0 ? cuentasCobrar : DEMO_CUENTAS_COBRAR;
       } else {
-        cuentas = await obtenerCuentasPorCobrar();
+        cuentas = cuentasCobrar;
       }
       await descargarReporteCreditosPdf({
         cuentas,

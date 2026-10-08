@@ -51,6 +51,10 @@ interface ComprasContextProps {
   setFechaVencimientoLote: (val: string) => void;
   ubicacionLote: string;
   setUbicacionLote: (val: string) => void;
+  laboratorioLote: string;
+  setLaboratorioLote: (val: string) => void;
+  precioVentaSeleccionado: number | "";
+  setPrecioVentaSeleccionado: (val: number | "") => void;
 
   // Orden
   estadoPago: "Pendiente" | "Pagado";
@@ -97,6 +101,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const [numeroLote, setNumeroLote] = useState("");
   const [fechaVencimientoLote, setFechaVencimientoLote] = useState("");
   const [ubicacionLote, setUbicacionLote] = useState("");
+  const [laboratorioLote, setLaboratorioLote] = useState("");
+  const [precioVentaSeleccionado, setPrecioVentaSeleccionado] = useState<number | "">("");
 
   // Orden
   const [estadoPago, setEstadoPago] = useState<"Pendiente" | "Pagado">("Pagado");
@@ -137,6 +143,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     setNumeroLote("");
     setFechaVencimientoLote("");
     setUbicacionLote("");
+    setLaboratorioLote("");
+    setPrecioVentaSeleccionado("");
   };
 
   return (
@@ -162,6 +170,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         numeroLote, setNumeroLote,
         fechaVencimientoLote, setFechaVencimientoLote,
         ubicacionLote, setUbicacionLote,
+        laboratorioLote, setLaboratorioLote,
+        precioVentaSeleccionado, setPrecioVentaSeleccionado,
         estadoPago, setEstadoPago,
         observaciones, setObservaciones,
         isProcesando, setIsProcesando,

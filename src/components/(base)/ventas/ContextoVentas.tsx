@@ -11,9 +11,15 @@ import {
   autorizarRebajaConCredencialesAdmin,
   crearSolicitudRebaja,
   crearVenta,
-  resolverLoteParaProducto,
+  asignarLotes,
 } from "./lib/actions";
-import { buildSolicitudRebajaPayload, carritoTieneRebajas, validarCarritoPrecioCosto } from "./lib/helpers";
+import {
+  buildSolicitudRebajaPayload,
+  carritoTieneRebajas,
+  demoAsignarLotes,
+  validarCarritoPrecioCosto,
+} from "./lib/helpers";
+import type { LoteAsignadoVenta } from "./lib/lotes-venta";
 import { useEstadoSolicitudRebaja } from "./lib/hooks";
 import { getSwalThemeOpts } from "@/lib/utils";
 
@@ -86,6 +92,9 @@ interface VentasContextType {
       codigo_barras_lote: string;
       stock_lote: number;
       precio_costo_lote: number;
+      precio_venta_lote: number;
+      laboratorio?: string | null;
+      cantidad?: number;
     },
   ) => Promise<void>;
   handleAjustarCantidad: (index: number, delta: number) => void;
@@ -108,7 +117,11 @@ interface VentasContextType {
 const VentasContext = createContext<VentasContextType | undefined>(undefined);
 
 // Proveedor del punto de venta
-export function VentasProvider({ children, productos, clientes, refetchDatos }: { children: ReactNode, productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
+type RefetchVentasDatos = ReturnType<
+  typeof import("./lib/hooks").useDatosVentas
+>["refetch"];
+
+export function VentasProvider({ children, productos, clientes, refetchDatos }: { children: ReactNode, productos: Producto[], clientes: Cliente[], refetchDatos: RefetchVentasDatos }) {
   const { isDemoMode } = useDemoMode();
   const { realRole, simulatedRole } = useUserContext();
 
@@ -234,6 +247,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     const snapshot = JSON.stringify(
       carrito.map((i) => ({
         id: i.producto.id,
+        l: i.lote_id ?? null,
         c: i.cantidad,
         p: i.precio_aplicado,
       })),
@@ -266,6 +280,9 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       codigo_barras_lote: string;
       stock_lote: number;
       precio_costo_lote: number;
+      precio_venta_lote: number;
+      laboratorio?: string | null;
+      cantidad?: number;
     },
   ) => {
     const prod = productoOverride || productoSeleccionado;
@@ -274,54 +291,82 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     const cant = cantOverride !== undefined ? cantOverride : Number(cantSeleccionada) || 0;
     if (cant <= 0) return;
 
-    let lote = loteMeta;
-    if (!lote && !isDemoMode) {
-      const res = await resolverLoteParaProducto(prod.id, cant);
-      if (res.success) {
-        lote = {
-          lote_id: res.lote_id,
-          codigo_barras_lote: res.codigo_barras,
-          stock_lote: res.stock_lote,
-          precio_costo_lote: res.precio_costo,
-        };
-      }
-    }
+    let asignaciones: LoteAsignadoVenta[] = [];
 
-    const stockMax = lote?.stock_lote ?? prod.stock_actual;
-    const loteId = lote?.lote_id;
-
-    setCarrito((prev) => {
-      const itemExistente = prev.find(
-        (i) => i.producto.id === prod.id && (i.lote_id ?? null) === (loteId ?? null),
-      );
-      const cantidadFinal = (itemExistente?.cantidad || 0) + cant;
-
-      if (cantidadFinal > stockMax) {
-        toast.warn(`Stock insuficiente. Disponibles: ${stockMax}.`);
-        return prev;
-      }
-
-      if (itemExistente) {
-        return prev.map((i) =>
-          i.producto.id === prod.id && (i.lote_id ?? null) === (loteId ?? null)
-            ? { ...i, cantidad: cantidadFinal, subtotal: cantidadFinal * i.precio_aplicado }
-            : i,
-        );
-      }
-      return [
-        ...prev,
+    if (loteMeta) {
+      const cantLote = loteMeta.cantidad ?? cant;
+      asignaciones = [
         {
-          producto: prod,
-          lote_id: loteId,
-          codigo_barras_lote: lote?.codigo_barras_lote,
-          stock_lote: lote?.stock_lote,
-          precio_costo_lote: lote?.precio_costo_lote,
-          cantidad: cant,
-          precio_aplicado: prod.precio_base,
-          subtotal: cant * prod.precio_base,
+          lote_id: loteMeta.lote_id,
+          cantidad: cantLote,
+          stock_lote: loteMeta.stock_lote,
+          precio_venta: loteMeta.precio_venta_lote,
+          precio_costo: loteMeta.precio_costo_lote,
+          codigo_barras: loteMeta.codigo_barras_lote,
+          laboratorio: loteMeta.laboratorio ?? null,
         },
       ];
+    } else if (isDemoMode) {
+      const demo = demoAsignarLotes(prod, cant);
+      if (!demo) {
+        toast.warn(`Stock insuficiente. Disponibles: ${prod.stock_actual}.`);
+        return;
+      }
+      asignaciones = demo;
+    } else {
+      const res = await asignarLotes(prod.id, cant);
+      if (!res.success) {
+        toast.warn(res.error);
+        return;
+      }
+      asignaciones = res.lotes;
+    }
+
+    let agregados = 0;
+    setCarrito((prev) => {
+      let next = [...prev];
+      for (const a of asignaciones) {
+        const itemExistente = next.find(
+          (i) => i.producto.id === prod.id && i.lote_id === a.lote_id,
+        );
+        const cantidadFinal = (itemExistente?.cantidad || 0) + a.cantidad;
+        const stockMax = itemExistente?.stock_lote ?? a.stock_lote;
+
+        if (cantidadFinal > stockMax) {
+          toast.warn(`Stock insuficiente en el lote. Disponibles: ${stockMax}.`);
+          continue;
+        }
+
+        if (itemExistente) {
+          next = next.map((i) =>
+            i.lote_id === a.lote_id && i.producto.id === prod.id
+              ? {
+                  ...i,
+                  cantidad: cantidadFinal,
+                  subtotal: cantidadFinal * i.precio_aplicado,
+                }
+              : i,
+          );
+        } else {
+          next.push({
+            producto: prod,
+            lote_id: a.lote_id,
+            codigo_barras_lote: a.codigo_barras,
+            stock_lote: a.stock_lote,
+            precio_costo_lote: a.precio_costo,
+            precio_venta_lote: a.precio_venta,
+            laboratorio: a.laboratorio,
+            cantidad: a.cantidad,
+            precio_aplicado: a.precio_venta,
+            subtotal: a.cantidad * a.precio_venta,
+          });
+        }
+        agregados += a.cantidad;
+      }
+      return next;
     });
+
+    if (agregados <= 0) return;
 
     setAnimateCart(true);
     setTimeout(() => setAnimateCart(false), 500);

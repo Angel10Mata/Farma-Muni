@@ -16,18 +16,10 @@ import { dashboardInnerClass, dashboardOuterClass } from "@/lib/module-layout";
 // SUBCOMPONENTES
 
 const DashboardHeader = () => (
-  <div className="flex items-end justify-between gap-4 mb-8 md:mb-10 w-full px-1">
-    <div className="flex-1 min-w-0 flex flex-col">
-      <span className="inline-flex w-fit items-center rounded-md border border-zinc-200 dark:border-zinc-700 bg-zinc-100 dark:bg-zinc-800/80 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.15em] text-zinc-500 dark:text-zinc-400 mb-3">
-        FarmaMuni
-      </span>
-      <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-zinc-900 dark:text-zinc-50 leading-[0.95]">
-        Administración
-      </h1>
-      <p className="text-sm md:text-base text-zinc-600 dark:text-zinc-400 font-medium mt-3 max-w-xl leading-relaxed">
-        Gestione ventas, clientes, inventario y finanzas desde un panel centralizado.
-      </p>
-    </div>
+  <div className="mb-4 md:mb-6 w-full px-1 text-left">
+    <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-zinc-900 dark:text-zinc-50 leading-[0.95]">
+      Administración
+    </h1>
   </div>
 );
 
@@ -272,11 +264,12 @@ export function VerDashboard() {
     .filter(Boolean) as AppModuleConfig[];
 
   const AreaLabel = ({ children }: { children: React.ReactNode }) => (
-    <div className="flex items-center gap-3 w-full px-1 mb-4 md:mb-5">
-      <span className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-500">
+    <div className="flex items-center justify-center gap-3 w-full px-1 mb-4 md:mb-5">
+      <div className="h-px flex-1 max-w-24 bg-zinc-200 dark:bg-zinc-800" />
+      <span className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-500 shrink-0">
         {children}
       </span>
-      <div className="flex-1 h-px bg-zinc-200 dark:bg-zinc-800" />
+      <div className="h-px flex-1 max-w-24 bg-zinc-200 dark:bg-zinc-800" />
     </div>
   );
 

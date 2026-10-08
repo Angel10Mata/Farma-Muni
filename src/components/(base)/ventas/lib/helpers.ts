@@ -1,5 +1,6 @@
-import type { ItemCarrito, SolicitudRebajaPayload, VentaBitacoraEntry } from "./zod";
+import type { ItemCarrito, Producto, SolicitudRebajaPayload, VentaBitacoraEntry } from "./zod";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
+import type { LoteAsignadoVenta } from "./lotes-venta";
 
 // Formato del recibo
 export const obtenerCodigoRecibo = (id: string) => {
@@ -57,9 +58,54 @@ export function validarCarritoPrecioCosto(carrito: ItemCarrito[]): string | null
   return null;
 }
 
+export function precioReferenciaRebajaItem(item: ItemCarrito): number {
+  return item.precio_venta_lote;
+}
+
+export function precioReferenciaRebajaPayload(item: {
+  precio_venta_referencia?: number;
+  precio_base?: number;
+}): number {
+  return item.precio_venta_referencia ?? item.precio_base ?? 0;
+}
+
+export function etiquetaPrecioPos(producto: Producto): string {
+  if (producto.precio_venta_varios && producto.precio_venta_desde != null) {
+    return `desde ${formatMonedaRecibo(producto.precio_venta_desde)}`;
+  }
+  const precio = producto.precio_venta_fefo ?? producto.precio_base;
+  return formatMonedaRecibo(precio);
+}
+
+export function productoCoincideBusquedaPos(producto: Producto, query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    (producto.nombre || "").toLowerCase().includes(q) ||
+    (producto.nombre_generico || "").toLowerCase().includes(q) ||
+    (producto.codigo || "").toLowerCase().includes(q)
+  );
+}
+
+export function demoAsignarLotes(producto: Producto, cantidad: number): LoteAsignadoVenta[] | null {
+  if (cantidad <= 0) return null;
+  if (cantidad > producto.stock_actual) return null;
+  const precio = producto.precio_venta_fefo ?? producto.precio_base;
+  return [
+    {
+      lote_id: `demo-lote-${producto.id}`,
+      cantidad,
+      stock_lote: producto.stock_actual,
+      precio_venta: precio,
+      precio_costo: Math.round(precio * 0.65 * 100) / 100,
+      codigo_barras: producto.codigo ?? `DEMO-${producto.id}`,
+      laboratorio: null,
+    },
+  ];
+}
+
 export function carritoTieneRebajas(carrito: ItemCarrito[]): boolean {
   return carrito.some((item) =>
-    esRebajaDePrecio(item.precio_aplicado, item.producto.precio_base),
+    esRebajaDePrecio(item.precio_aplicado, precioReferenciaRebajaItem(item)),
   );
 }
 
@@ -77,13 +123,15 @@ export function buildSolicitudRebajaPayload(params: {
     observaciones: params.observaciones,
     items: params.carrito.map((i) => ({
       producto_id: i.producto.id,
+      lote_id: i.lote_id,
       cantidad: i.cantidad,
       precio_aplicado: i.precio_aplicado,
-      precio_base: i.producto.precio_base,
+      precio_venta_referencia: i.precio_venta_lote,
+      precio_base: i.precio_venta_lote,
       precio_costo: costoUnitarioProducto(i.precio_costo_lote),
       subtotal: i.subtotal,
       producto_nombre: i.producto.nombre,
-      producto_codigo: i.producto.codigo ?? "",
+      producto_codigo: i.codigo_barras_lote ?? i.producto.codigo ?? "",
     })),
   };
 }
@@ -95,7 +143,13 @@ export function payloadCoincideConVenta(
     tipo_venta: string;
     total: number;
     observaciones: string | null;
-    items: { producto_id: string; cantidad: number; precio_aplicado: number; subtotal: number }[];
+    items: {
+      producto_id: string;
+      lote_id?: string | null;
+      cantidad: number;
+      precio_aplicado: number;
+      subtotal: number;
+    }[];
   },
 ): boolean {
   if (payload.cliente_id !== params.cliente_id) return false;
@@ -106,18 +160,34 @@ export function payloadCoincideConVenta(
   if (obsA !== obsB) return false;
   if (payload.items.length !== params.items.length) return false;
 
+  const claveLinea = (x: {
+    producto_id: string;
+    lote_id?: string | null;
+    cantidad: number;
+    precio_aplicado: number;
+    subtotal: number;
+  }) =>
+    `${x.producto_id}\0${x.lote_id ?? ""}\0${x.cantidad}\0${x.precio_aplicado}\0${x.subtotal}`;
+
   const sortedPayload = [...payload.items].sort((a, b) =>
-    a.producto_id.localeCompare(b.producto_id),
+    claveLinea({ ...a, lote_id: a.lote_id }).localeCompare(
+      claveLinea({ ...b, lote_id: b.lote_id }),
+    ),
   );
   const sortedVenta = [...params.items].sort((a, b) =>
-    a.producto_id.localeCompare(b.producto_id),
+    claveLinea({ ...a, lote_id: a.lote_id }).localeCompare(
+      claveLinea({ ...b, lote_id: b.lote_id }),
+    ),
   );
+
+  if (sortedPayload.length !== sortedVenta.length) return false;
 
   for (let i = 0; i < sortedPayload.length; i++) {
     const p = sortedPayload[i];
     const v = sortedVenta[i];
     if (
       p.producto_id !== v.producto_id ||
+      (p.lote_id ?? null) !== (v.lote_id ?? null) ||
       p.cantidad !== v.cantidad ||
       Math.abs(p.precio_aplicado - v.precio_aplicado) > 0.01 ||
       Math.abs(p.subtotal - v.subtotal) > 0.01

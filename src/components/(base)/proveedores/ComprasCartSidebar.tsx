@@ -77,6 +77,8 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
         ubicacion: i.ubicacion ?? null,
         cantidad: i.cantidad,
         precio_costo: i.precio_costo,
+        precio_venta: i.precio_venta,
+        laboratorio: i.laboratorio ?? null,
         subtotal: i.subtotal,
       }));
 

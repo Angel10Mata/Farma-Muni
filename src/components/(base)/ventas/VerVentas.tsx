@@ -9,11 +9,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fmtQ } from "@/lib/utils";
 import { CrearCliente } from "@/components/(base)/clientes/forms/Crear";
-import {
-  obtenerProductosYClientes,
-  anularVenta,
-  validarCredencialesAdmin
-} from "./lib/actions";
+import { anularVenta, validarCredencialesAdmin } from "./lib/actions";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { fetchDetalleVenta } from "@/lib/demo/resolve-actions";
@@ -21,6 +17,8 @@ import { ReciboVenta, buildReciboProps } from "./ReciboVenta";
 import { obtenerCodigoRecibo } from "./lib/helpers";
 import { HistorialVentas } from "./HistorialVentas";
 import { useDatosVentas } from "./lib/hooks";
+
+type RefetchVentasDatos = ReturnType<typeof useDatosVentas>["refetch"];
 
 import { Producto, Cliente, Venta, ItemCarrito } from "./lib/zod";
 import { useVentas, VentasProvider } from "./ContextoVentas";
@@ -41,7 +39,7 @@ import { ModalAutorizacionRebajaVentas } from "./ModalAutorizacionRebajaVentas";
 import { PanelSolicitudesRebajaVentas } from "./PanelSolicitudesRebajaVentas";
 import { SolicitudesRebajaAdmin } from "./SolicitudesRebajaAdmin";
 
-function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: () => void }) {
+function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: RefetchVentasDatos }) {
   const { effectiveRole, realRole } = useUserContext();
   const puedeVerHistorial = ["admin", "super"].includes(effectiveRole);
   const { isDemoMode } = useDemoMode();
@@ -193,25 +191,44 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       );
       if (!resAnulacion.success) throw new Error(resAnulacion.error);
 
-      const dataMaster = await obtenerProductosYClientes();
+      const { data: dataMaster } = await refetchDatos();
+      if (!dataMaster) throw new Error("No se pudieron actualizar productos y clientes.");
       const nuevosProductos: Producto[] = dataMaster.productos as Producto[];
       
-      const nuevosItemsCarrito: ItemCarrito[] = detalles.map((d: any) => {
-        const prodEncontrado = nuevosProductos.find(p => p.id === d.producto_id);
+      const nuevosItemsCarrito: ItemCarrito[] = detalles.map((d: {
+        producto_id: string;
+        lote_id?: string | null;
+        cantidad: number;
+        precio_aplicado: number;
+        subtotal: number;
+        inv_lotes?: { codigo_barras?: string; laboratorio?: string | null; precio_venta?: number | null; precio_costo?: number } | null;
+        inv_productos?: { nombre?: string } | null;
+      }) => {
+        const prodEncontrado = nuevosProductos.find((p) => p.id === d.producto_id);
+        const precioVentaLote =
+          d.inv_lotes?.precio_venta != null
+            ? Number(d.inv_lotes.precio_venta)
+            : d.precio_aplicado;
         return {
           producto: prodEncontrado || {
             id: d.producto_id,
             codigo: d.inv_lotes?.codigo_barras || "",
             nombre: d.inv_productos?.nombre || "Producto",
             descripcion: "",
-            precio_base: d.precio_aplicado,
+            precio_base: precioVentaLote,
             stock_actual: d.cantidad,
             stock_minimo: 0,
-            activo: true
+            activo: true,
           },
+          lote_id: d.lote_id ?? undefined,
+          codigo_barras_lote: d.inv_lotes?.codigo_barras,
+          stock_lote: d.cantidad,
+          precio_costo_lote: Number(d.inv_lotes?.precio_costo) || 0,
+          precio_venta_lote: precioVentaLote,
+          laboratorio: d.inv_lotes?.laboratorio ?? null,
           cantidad: d.cantidad,
           precio_aplicado: d.precio_aplicado,
-          subtotal: d.subtotal
+          subtotal: d.subtotal,
         };
       });
 

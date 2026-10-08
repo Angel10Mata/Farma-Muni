@@ -1,33 +1,89 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fmtNum, fmtQ } from "@/lib/utils";
+import {
+  nombreComercialSiDistinto,
+  tituloProductoFarmacia,
+} from "./lib/helpers";
+import type { ProductoInventarioReporte } from "./lib/reportes-pdf";
 
-// Exportar listado a PDF
-export const exportarPDF = (productos: any[]) => {
+export const exportarPDF = (productos: ProductoInventarioReporte[], vistaLotes = false) => {
   const doc = new jsPDF();
 
   doc.setFontSize(16);
   doc.text("Reporte de Inventario - FarmaMuni", 14, 20);
 
   doc.setFontSize(10);
-  doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 28);
+  doc.text(`Fecha: ${new Date().toLocaleDateString("es-GT")}`, 14, 28);
+  doc.text(`Registros: ${productos.length}`, 14, 34);
 
-  const data = productos.map((p) => [
-    p.codigo || "Sin Código",
-    p.nombre,
-    p.inv_proveedores?.nombre || p.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre || "Sin Proveedor",
-    fmtNum(p.stock_actual),
-    p.stock_actual <= p.stock_minimo ? "STOCK BAJO" : "OK",
-    fmtQ(p.precio_base)
-  ]);
+  const head = vistaLotes
+    ? [
+        "Código",
+        "Producto",
+        "Genérico",
+        "Presentación",
+        "Laboratorio",
+        "Proveedor",
+        "P. venta",
+        "Costo",
+        "Vencimiento",
+        "Ubicación",
+        "Existencias",
+      ]
+    : [
+        "Producto",
+        "Genérico",
+        "Concentración",
+        "Presentación",
+        "Ubicación",
+        "Existencias",
+        "Mínimo",
+        "P. sugerido",
+        "Estado",
+      ];
+
+  const body = productos.map((p) => {
+    const titulo = tituloProductoFarmacia(p);
+    const comercial = nombreComercialSiDistinto(p);
+    if (vistaLotes) {
+      return [
+        p.codigo || "—",
+        titulo,
+        p.nombre_generico || "—",
+        p.presentacion || "—",
+        p.laboratorio || "—",
+        p.proveedor_nombre || "—",
+        fmtQ(p.precio_venta ?? p.precio_base),
+        fmtQ(Number(p.precio_costo) || 0),
+        p.fecha_vencimiento
+          ? new Date(p.fecha_vencimiento).toLocaleDateString("es-GT")
+          : "—",
+        p.ubicacion || "Sin asignar",
+        fmtNum(p.stock_actual),
+      ];
+    }
+    return [
+      comercial ? `${titulo}\n(${comercial})` : titulo,
+      p.nombre_generico || "—",
+      p.concentracion || "—",
+      p.presentacion || "—",
+      p.ubicacion || "Sin asignar",
+      fmtNum(p.stock_actual),
+      fmtNum(p.stock_minimo),
+      fmtQ(p.precio_base),
+      p.activo ? "Activo" : "Inactivo",
+    ];
+  });
 
   autoTable(doc, {
-    startY: 32,
-    head: [["Código", "Producto", "Proveedor", "Stock", "Alerta", "Precio"]],
-    body: data,
+    startY: 40,
+    head: [head],
+    body,
     theme: "striped",
-    headStyles: { fillColor: [82, 93, 83] }, // LOOK_1_OLIVO_OSCURO
+    headStyles: { fillColor: [82, 93, 83] },
+    styles: { fontSize: vistaLotes ? 7 : 8, cellPadding: 2 },
   });
-  
+
   doc.save("Reporte_Inventario.pdf");
 };

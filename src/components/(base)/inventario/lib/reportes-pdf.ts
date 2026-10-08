@@ -6,15 +6,25 @@ import {
   etiquetaEstadoVencimiento,
   isProductoProximoAVencer,
   isProductoVencido,
+  precioVentaEfectivoLote,
+  tituloProductoFarmacia,
 } from "./helpers";
 
 export type ProductoInventarioReporte = {
   codigo: string;
   nombre: string;
+  nombre_generico?: string | null;
+  concentracion?: string | null;
+  forma_farmaceutica?: string | null;
+  presentacion?: string | null;
+  requiere_receta?: boolean;
   stock_actual: number;
   stock_minimo: number;
   precio_base: number;
+  precio_venta?: number | null;
   precio_costo?: number | null;
+  laboratorio?: string | null;
+  proveedor_nombre?: string | null;
   activo: boolean;
   fecha_vencimiento?: string | null;
   numero_lote?: string | null;
@@ -59,6 +69,11 @@ export function descargarReporteVencimientos(productos: ProductoInventarioReport
       [
         "Código",
         "Producto",
+        "Genérico",
+        "Presentación",
+        "Laboratorio",
+        "Proveedor",
+        "P. venta",
         "Lote",
         "Vencimiento",
         "Días",
@@ -70,9 +85,15 @@ export function descargarReporteVencimientos(productos: ProductoInventarioReport
       const dias = diasRestantesVencimiento(p.fecha_vencimiento);
       const diasStr =
         dias === null ? "—" : dias < 0 ? `${Math.abs(dias)} vencido` : `${dias}`;
+      const precioVenta = precioVentaEfectivoLote(p.precio_venta, p.precio_base);
       return [
         p.codigo || "—",
-        p.nombre,
+        tituloProductoFarmacia(p),
+        p.nombre_generico || "—",
+        p.presentacion || "—",
+        p.laboratorio || "—",
+        p.proveedor_nombre || "—",
+        fmtQ(precioVenta),
         p.numero_lote || "—",
         new Date(p.fecha_vencimiento!).toLocaleDateString("es-GT"),
         diasStr,
@@ -106,7 +127,9 @@ export function descargarReporteGestion(productos: ProductoInventarioReporte[]) 
 
   const totalUnidades = activos.reduce((s, p) => s + p.stock_actual, 0);
   const valorVentaEst = activos.reduce(
-    (s, p) => s + p.stock_actual * p.precio_base,
+    (s, p) =>
+      s +
+      p.stock_actual * precioVentaEfectivoLote(p.precio_venta, p.precio_base),
     0,
   );
   const valorCostoEst = activos.reduce(

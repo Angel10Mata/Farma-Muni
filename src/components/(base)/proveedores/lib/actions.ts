@@ -8,12 +8,18 @@ import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from 
 type ActionFail = { success?: false; code: string; detail?: string };
 
 // Helpers
+const LOTE_DUPLICATE_MSG = "Ya existe un lote con ese código de barras y número de lote";
+
 function mapDbError(error: { code?: string; message?: string }): ActionFail {
   const msg = error.message ?? "";
-  if (error.code === "23505" || msg.includes("inv_lotes_codigo_barras_unique") || msg.includes("codigo_barras")) {
+  if (
+    error.code === "23505" ||
+    msg.includes("inv_lotes_codigo_lote_unique") ||
+    msg.includes("inv_lotes_codigo_barras_unique")
+  ) {
     return {
       code: "DUPLICATE",
-      detail: "Ese código de barras ya existe en otro lote. Usa un código distinto.",
+      detail: LOTE_DUPLICATE_MSG,
     };
   }
   if (error.code === "42501" || msg.toLowerCase().includes("row-level security")) {
@@ -120,15 +126,36 @@ export async function obtenerProveedoresYProductos() {
 
     const { data: productos, error: prodError } = await supabase
       .from("inv_productos")
-      .select("id, nombre, precio_base, stock_actual, activo, proveedor_id")
+      .select("id, nombre, precio_base, stock_actual, activo")
       .eq("activo", true)
       .order("nombre", { ascending: true });
 
     if (prodError) return { code: "INTERNAL" as const };
 
+    const { data: lotesProv, error: lotesError } = await supabase
+      .from("inv_lotes")
+      .select("producto_id, proveedor_id, created_at")
+      .not("proveedor_id", "is", null)
+      .order("created_at", { ascending: false });
+
+    if (lotesError) return { code: "INTERNAL" as const };
+
+    const ultimoProveedorPorProducto = new Map<string, string>();
+    for (const row of lotesProv ?? []) {
+      const productoId = String(row.producto_id);
+      if (!ultimoProveedorPorProducto.has(productoId) && row.proveedor_id) {
+        ultimoProveedorPorProducto.set(productoId, String(row.proveedor_id));
+      }
+    }
+
+    const productosConProveedor = (productos ?? []).map((p) => ({
+      ...p,
+      ultimo_proveedor_id: ultimoProveedorPorProducto.get(p.id) ?? null,
+    }));
+
     return {
       success: true as const,
-      data: { proveedores: proveedores ?? [], productos: productos ?? [] },
+      data: { proveedores: proveedores ?? [], productos: productosConProveedor },
     };
   } catch {
     return { code: "INTERNAL" as const };
@@ -183,12 +210,15 @@ export async function crearCompra(input: CompraInput) {
 
       const { error: loteError } = await supabase.from("inv_lotes").insert({
         producto_id: item.producto_id,
+        proveedor_id,
+        laboratorio: item.laboratorio?.trim() || null,
         compra_detalle_id: detalleRow.id,
         codigo_barras: item.codigo_barras.trim(),
         numero_lote: item.numero_lote.trim(),
         cantidad_inicial: item.cantidad,
         cantidad_actual: item.cantidad,
         precio_costo: item.precio_costo,
+        precio_venta: item.precio_venta,
         fecha_vencimiento: normalizarFechaLote(item.fecha_vencimiento),
         ubicacion: item.ubicacion?.trim() || null,
         activo: true,
@@ -203,15 +233,6 @@ export async function crearCompra(input: CompraInput) {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Error al actualizar catálogo.";
         return { code: "DB_ERROR", detail: message.slice(0, 200) };
-      }
-
-      const { error: provError } = await supabase
-        .from("inv_productos")
-        .update({ proveedor_id })
-        .eq("id", item.producto_id);
-
-      if (provError) {
-        return mapDbError(provError);
       }
     }
 
