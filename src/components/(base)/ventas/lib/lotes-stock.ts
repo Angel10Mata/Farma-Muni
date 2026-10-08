@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { patchInvLoteCantidadActual, patchInvProductoStockActual } from "@/components/(base)/inventario/lib/helpers";
-import { syncInvProductoCatalogoDesdeLotes } from "@/components/(base)/inventario/lib/sync-producto-catalogo";
+import {
+  activarProductoCatalogoPorNuevoLote,
+  syncInvProductoCatalogoDesdeLotes,
+} from "@/components/(base)/inventario/lib/sync-producto-catalogo";
 
 // Costo del producto o lote
 export async function obtenerCostoProductoOLote(
@@ -66,7 +69,11 @@ export async function ajustarStockPorVenta(
       throw new Error(`Error al actualizar stock del lote: ${updateError.message}`);
     }
 
-    await syncInvProductoCatalogoDesdeLotes(supabase, params.producto_id);
+    if (nuevo > 0) {
+      await activarProductoCatalogoPorNuevoLote(supabase, params.producto_id);
+    } else {
+      await syncInvProductoCatalogoDesdeLotes(supabase, params.producto_id);
+    }
     return;
   }
 

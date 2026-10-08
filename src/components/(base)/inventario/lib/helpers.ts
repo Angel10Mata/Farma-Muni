@@ -108,7 +108,7 @@ export function patchInvLoteCantidadActual(nuevaCantidad: number): {
   if (nuevaCantidad <= 0) {
     return { cantidad_actual: 0, activo: false };
   }
-  return { cantidad_actual: nuevaCantidad };
+  return { cantidad_actual: nuevaCantidad, activo: true };
 }
 
 export function patchInvProductoStockActual(nuevaCantidad: number): {
