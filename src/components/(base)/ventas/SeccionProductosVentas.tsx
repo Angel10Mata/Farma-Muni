@@ -9,6 +9,7 @@ import { Producto, Cliente } from "./lib/zod";
 import { useVentas } from "./ContextoVentas";
 import { toast } from "@/components/ui/general-modal";
 import { buscarLotePorCodigoBarras } from "./lib/actions";
+import { etiquetaPrecioPos, productoCoincideBusquedaPos } from "./lib/helpers";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 
 interface SeccionProductosVentasProps {
@@ -35,8 +36,7 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
 
   const sugerenciasProductos = productos.filter((p) => {
     if (!ventas.productoBusqueda) return false;
-    const query = ventas.productoBusqueda.toLowerCase();
-    return (p.nombre || "").toLowerCase().includes(query);
+    return productoCoincideBusquedaPos(p, ventas.productoBusqueda.trim());
   });
 
   // Panel de cliente y productos
@@ -208,6 +208,9 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
                         codigo_barras_lote: res.lote.codigo_barras,
                         stock_lote: res.lote.cantidad_actual,
                         precio_costo_lote: res.lote.precio_costo,
+                        precio_venta_lote: res.lote.precio_venta,
+                        laboratorio: res.lote.laboratorio,
+                        cantidad: 1,
                       });
                       ventas.setProductoBusqueda("");
                       return;
@@ -285,7 +288,7 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-black text-[#8DA78E]">{fmtQ(p.precio_base)}</p>
+                        <p className="font-black text-[#8DA78E]">{etiquetaPrecioPos(p)}</p>
                         <p className={`text-[9px] font-bold ${isOut ? "text-red-500" : isLow ? "text-amber-500" : "text-slate-400"}`}>
                           Stock: {p.stock_actual}
                         </p>

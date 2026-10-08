@@ -41,6 +41,7 @@ export function useProveedores() {
         },
         DEMO_PROVEEDORES,
       ),
+    staleTime: 1000 * 60 * 3,
   });
 }
 
@@ -58,6 +59,7 @@ export function useProveedoresYProductos() {
         },
         demoProveedoresYProductos,
       ),
+    staleTime: 1000 * 60 * 3,
   });
 }
 
@@ -76,6 +78,7 @@ export function useHistorialCompras() {
         },
         DEMO_COMPRAS,
       ),
+    staleTime: 1000 * 60 * 3,
   });
 }
 
@@ -99,6 +102,7 @@ export function useComprasProveedor(proveedorId: string | null) {
           : never,
       ),
     enabled: !!proveedorId,
+    staleTime: 1000 * 60 * 3,
   });
 }
 
@@ -118,6 +122,7 @@ export function useDetalleCompra(compraId: string | null) {
         DEMO_COMPRA_DETALLE.filter((d) => d.compra_id === compraId),
       ),
     enabled: !!compraId,
+    staleTime: 1000 * 60 * 2,
   });
 }
 

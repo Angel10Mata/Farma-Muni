@@ -16,7 +16,8 @@ export const ProductoSchema = z.object({
   nombre: z.string(),
   precio_base: z.number(),
   stock_actual: z.number(),
-  proveedor_id: z.string().nullable().optional(),
+  activo: z.boolean().optional(),
+  ultimo_proveedor_id: z.string().nullable().optional(),
 });
 
 export const ItemCarritoCompraSchema = z.object({
@@ -27,6 +28,8 @@ export const ItemCarritoCompraSchema = z.object({
   ubicacion: z.string().nullable().optional(),
   cantidad: z.number(),
   precio_costo: z.number(),
+  precio_venta: z.number().nonnegative(),
+  laboratorio: z.string().nullable().optional(),
   subtotal: z.number(),
 });
 
@@ -74,6 +77,8 @@ export const ItemCompraSchema = z.object({
   ubicacion: z.string().nullable().optional(),
   cantidad: z.number().positive(),
   precio_costo: z.number().nonnegative(),
+  precio_venta: z.number().nonnegative(),
+  laboratorio: z.string().nullable().optional(),
   subtotal: z.number().nonnegative(),
 });
 

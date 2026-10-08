@@ -21,6 +21,16 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
   const context = useCompras();
   const prodDropdownRef = useRef<HTMLDivElement>(null);
 
+  const autoSeleccionarProveedor = (producto: Producto) => {
+    const provId = producto.ultimo_proveedor_id;
+    if (!provId) return;
+    const prov = proveedores.find((p) => p.id === provId);
+    if (!prov) return;
+    context.setProveedorSeleccionado(prov);
+    context.setProveedorBusqueda(prov.nombre);
+    context.setProveedorAutoSeleccionado(true);
+  };
+
   const sugerenciasProductos = productos.filter((p) => {
     if (!context.productoBusqueda) return false;
     const q = context.productoBusqueda.toLowerCase();
@@ -36,57 +46,6 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [context]);
-
-  const autoSeleccionarProveedor = (producto: Producto) => {
-    if (producto.proveedor_id) {
-      const prov = proveedores.find((p) => p.id === producto.proveedor_id);
-      if (prov) {
-        context.setProveedorSeleccionado(prov);
-        context.setProveedorBusqueda(prov.nombre);
-        context.setProveedorAutoSeleccionado(true);
-      }
-    }
-  };
-
-  const handleScanBarcode = (product: Producto) => {
-    const codigo = context.codigoBarrasLote.trim();
-    const numeroLote = context.numeroLote.trim();
-    const fechaVenc = context.fechaVencimientoLote.trim();
-    if (!codigo) {
-      toast.warn("Escanea o escribe el código de barras del lote antes de agregar.");
-      return;
-    }
-    if (!numeroLote || !fechaVenc) {
-      toast.warn("Número de lote y fecha de vencimiento son obligatorios.");
-      return;
-    }
-    const cant = 1;
-    const costo = Number(context.costoSeleccionado) || Math.round(product.precio_base * 0.65 * 100) / 100;
-
-    context.agregarAlCarrito({
-      producto: product,
-      codigo_barras: codigo,
-      numero_lote: context.numeroLote.trim(),
-      fecha_vencimiento: context.fechaVencimientoLote.trim(),
-      ubicacion: context.ubicacionLote.trim() || null,
-      cantidad: cant,
-      precio_costo: costo,
-      subtotal: cant * costo,
-    });
-
-    autoSeleccionarProveedor(product);
-
-    context.setProductoSeleccionado(null);
-    context.setProductoBusqueda("");
-    context.setCantSeleccionada(1);
-    context.setCostoSeleccionado("");
-    context.setCodigoBarrasLote("");
-    context.setNumeroLote("");
-    context.setFechaVencimientoLote("");
-    context.setUbicacionLote("");
-
-    toast.success(`${product.nombre} agregado al pedido.`);
-  };
 
   const handleAgregarAlCarrito = () => {
     if (!context.productoSeleccionado) return;
@@ -113,6 +72,15 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
       return;
     }
 
+    const precioVenta =
+      context.precioVentaSeleccionado === ""
+        ? context.productoSeleccionado.precio_base
+        : Number(context.precioVentaSeleccionado);
+    if (precioVenta < 0 || Number.isNaN(precioVenta)) {
+      toast.warn("Ingresa un precio de venta válido.");
+      return;
+    }
+
     context.agregarAlCarrito({
       producto: context.productoSeleccionado,
       codigo_barras: codigo,
@@ -121,6 +89,8 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
       ubicacion: context.ubicacionLote.trim() || null,
       cantidad: cant,
       precio_costo: costo,
+      precio_venta: precioVenta,
+      laboratorio: context.laboratorioLote.trim() || null,
       subtotal: cant * costo,
     });
 
@@ -130,6 +100,8 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
     context.setProductoBusqueda("");
     context.setCantSeleccionada(1);
     context.setCostoSeleccionado("");
+    context.setPrecioVentaSeleccionado("");
+    context.setLaboratorioLote("");
     context.setCodigoBarrasLote("");
     context.setNumeroLote("");
     context.setFechaVencimientoLote("");
@@ -213,6 +185,7 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
                       context.setCostoSeleccionado(
                         Math.round(p.precio_base * 0.65 * 100) / 100,
                       );
+                      context.setPrecioVentaSeleccionado(p.precio_base);
                       context.setMostrarSugerenciasProd(false);
                       autoSeleccionarProveedor(p);
                     }}
@@ -278,6 +251,45 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
               onChange={(e) => context.setUbicacionLote(e.target.value)}
               className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors"
             />
+          </div>
+        </div>
+
+        <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-12 gap-4">
+          <div className="md:col-span-6">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+              Laboratorio
+            </label>
+            <input
+              type="text"
+              value={context.laboratorioLote}
+              onChange={(e) => context.setLaboratorioLote(e.target.value)}
+              placeholder="Opcional"
+              className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors"
+            />
+          </div>
+          <div className="md:col-span-6">
+            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+              Precio de venta
+            </label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">Q</span>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={context.precioVentaSeleccionado}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  context.setPrecioVentaSeleccionado(val === "" ? "" : Number(val));
+                }}
+                placeholder={
+                  context.productoSeleccionado
+                    ? String(context.productoSeleccionado.precio_base)
+                    : "0.00"
+                }
+                className="w-full pl-7 pr-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              />
+            </div>
           </div>
         </div>
 
@@ -359,7 +371,8 @@ export function ComprasProductSection({ productos, proveedores }: ComprasProduct
                 </h4>
                 <p className="text-[10px] text-slate-400 mt-0.5">
                   Barras: {item.codigo_barras} | Lote: {item.numero_lote || "—"} | Costo:{" "}
-                  {fmtQ(item.precio_costo)}
+                  {fmtQ(item.precio_costo)} | Venta: {fmtQ(item.precio_venta)}
+                  {item.laboratorio ? ` | Lab: ${item.laboratorio}` : ""}
                 </p>
               </div>
 

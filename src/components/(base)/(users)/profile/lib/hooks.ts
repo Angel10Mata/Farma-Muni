@@ -35,7 +35,7 @@ export const useUserCredentials = (
     queryKey: ["credentials", userId],
     queryFn: () => getUserAuthData(userId),
     enabled: !!userId && isEnabled,
-    staleTime: 0,
+    staleTime: 1000 * 60,
     refetchOnWindowFocus: false,
   });
 

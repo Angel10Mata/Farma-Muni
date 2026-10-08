@@ -6,6 +6,7 @@ import type {
   ResumenFinanciero,
   TransaccionFinanciera,
 } from "@/components/(base)/finanzas/lib/zod";
+import { productoFarmaciaDesdeLegacy } from "@/components/(base)/inventario/lib/helpers";
 import type { Producto } from "@/components/(base)/inventario/lib/zod";
 import type { Compra, Proveedor } from "@/components/(base)/proveedores/lib/zod";
 
@@ -114,20 +115,24 @@ export const DEMO_PROVEEDORES: Proveedor[] = PROVEEDORES_DATA.map((p, i) => ({
   correo: p.correo,
 }));
 
+const RECETA_CODIGOS = new Set(["AMOX-500", "AZI-500", "CIP-500", "FLU-150", "INS-NPH", "LEV-500", "PRED-5"]);
+
 export const DEMO_PRODUCTOS: Producto[] = PRODUCTOS_CATALOGO.map((p, i) => {
-  const prov = DEMO_PROVEEDORES[p.provIdx] ?? DEMO_PROVEEDORES[0];
-  const venceYear = 2026 + (i % 3);
-  const venceMonth = String((i % 12) + 1).padStart(2, "0");
+  const farmacia = productoFarmaciaDesdeLegacy(p.nombre, p.desc);
   return {
     id: `demo-prod-${pad(i + 1)}`,
     nombre: p.nombre,
+    nombre_generico: farmacia.nombre_generico,
+    concentracion: farmacia.concentracion,
+    forma_farmaceutica: farmacia.forma_farmaceutica,
+    presentacion: farmacia.presentacion,
+    unidad_venta: "unidad",
+    requiere_receta: RECETA_CODIGOS.has(p.codigo),
     descripcion: p.desc,
     precio_base: p.precio,
     stock_actual: p.stock,
     stock_minimo: p.minimo,
     activo: true,
-    proveedor_id: prov.id,
-    inv_proveedores: { nombre: prov.nombre },
     created_at: daysAgo(30 - (i % 25)),
     imagen_url: null,
   };
@@ -195,16 +200,26 @@ export const DEMO_VENTA_DETALLE = DEMO_VENTAS_HISTORIAL.flatMap((venta, vi) => {
     const prod = DEMO_PRODUCTOS[(vi + j) % DEMO_PRODUCTOS.length];
     const cantidad = 1 + ((vi + j) % 5);
     const precio = prod.precio_base;
+    const loteId = `demo-lote-${prod.id}`;
+    const codigo = `DEMO-${String(((vi + j) % DEMO_PRODUCTOS.length) + 1).padStart(4, "0")}`;
     return {
       id: `demo-det-${pad(vi * 4 + j + 1, 4)}`,
       venta_id: venta.id,
       producto_id: prod.id,
+      lote_id: loteId,
       cantidad,
       precio_aplicado: precio,
       subtotal: Math.round(cantidad * precio * 100) / 100,
       inv_productos: {
         nombre: prod.nombre,
         codigo: PRODUCTOS_CATALOGO[(vi + j) % PRODUCTOS_CATALOGO.length].codigo,
+      },
+      inv_lotes: {
+        codigo_barras: codigo,
+        numero_lote: `L-${2400 + vi + j}`,
+        precio_venta: precio,
+        precio_costo: Math.round(precio * 0.65 * 100) / 100,
+        laboratorio: null,
       },
     };
   });
@@ -374,7 +389,22 @@ export const DEMO_CREDITO_DETALLE: VentaCreditoDetalle[] = DEMO_VENTAS_HISTORIAL
 
 export function demoProductosPos() {
   return {
-    productos: DEMO_PRODUCTOS.filter((p) => p.activo),
+    productos: DEMO_PRODUCTOS.filter((p) => p.activo).map((p, i) => ({
+      id: p.id,
+      codigo: `DEMO-${String(i + 1).padStart(4, "0")}`,
+      nombre: p.nombre,
+      nombre_generico: p.nombre_generico,
+      descripcion: p.descripcion,
+      precio_base: p.precio_base,
+      precio_venta_fefo: p.precio_base,
+      precio_venta_desde: i % 7 === 0 ? Math.round(p.precio_base * 0.95 * 100) / 100 : undefined,
+      precio_venta_varios: i % 7 === 0,
+      stock_actual: p.stock_actual,
+      stock_minimo: p.stock_minimo,
+      imagen_url: p.imagen_url ?? null,
+      ubicacion: "Demo",
+      activo: p.activo,
+    })),
     clientes: DEMO_CLIENTES_DB,
   };
 }
@@ -382,14 +412,18 @@ export function demoProductosPos() {
 export function demoProveedoresYProductos() {
   return {
     proveedores: DEMO_PROVEEDORES,
-    productos: DEMO_PRODUCTOS.map((p) => ({
-      id: p.id,
-      nombre: p.nombre,
-      precio_base: p.precio_base,
-      stock_actual: p.stock_actual,
-      activo: p.activo,
-      proveedor_id: p.proveedor_id ?? null,
-    })),
+    productos: DEMO_PRODUCTOS.map((p, i) => {
+      const cat = PRODUCTOS_CATALOGO[i];
+      const prov = DEMO_PROVEEDORES[cat?.provIdx ?? i % DEMO_PROVEEDORES.length];
+      return {
+        id: p.id,
+        nombre: p.nombre,
+        precio_base: p.precio_base,
+        stock_actual: p.stock_actual,
+        activo: p.activo,
+        ultimo_proveedor_id: prov.id,
+      };
+    }),
   };
 }
 

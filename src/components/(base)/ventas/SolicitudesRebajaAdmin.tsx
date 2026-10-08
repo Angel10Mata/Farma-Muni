@@ -21,6 +21,7 @@ import {
   useRechazarSolicitudRebaja,
   useSolicitudesRebajaPendientes,
 } from "./lib/hooks";
+import { esRebajaDePrecio, precioReferenciaRebajaPayload } from "./lib/helpers";
 import { SolicitudRebajaPayloadSchema } from "./lib/zod";
 
 type SolicitudRow = {
@@ -117,21 +118,22 @@ export function SolicitudesRebajaAdmin() {
                     <tr>
                       <th className="px-3 py-2 font-bold">Producto</th>
                       <th className="px-3 py-2 font-bold text-right">Cant.</th>
-                      <th className="px-3 py-2 font-bold text-right">Base</th>
+                      <th className="px-3 py-2 font-bold text-right">P. venta</th>
                       <th className="px-3 py-2 font-bold text-right">Aplicado</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {payloadParsed.items.map((item) => {
-                      const rebaja = item.precio_aplicado < item.precio_base;
+                    {payloadParsed.items.map((item, itemIdx) => {
+                      const ref = precioReferenciaRebajaPayload(item);
+                      const rebaja = esRebajaDePrecio(item.precio_aplicado, ref);
                       return (
                         <tr
-                          key={item.producto_id}
+                          key={`${item.producto_id}-${item.lote_id ?? itemIdx}`}
                           className="border-t border-slate-200 dark:border-slate-800"
                         >
                           <td className="px-3 py-2">{item.producto_nombre}</td>
                           <td className="px-3 py-2 text-right">{item.cantidad}</td>
-                          <td className="px-3 py-2 text-right">{fmtQ(item.precio_base)}</td>
+                          <td className="px-3 py-2 text-right">{fmtQ(ref)}</td>
                           <td
                             className={`px-3 py-2 text-right font-bold ${rebaja ? "text-amber-600 dark:text-amber-400" : ""}`}
                           >

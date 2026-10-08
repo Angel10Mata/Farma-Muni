@@ -48,7 +48,7 @@ export function BarraCarritoVentas() {
             ) : (
               ventas.carrito.map((item, idx) => (
                 <motion.div
-                  key={item.producto.id}
+                  key={`${item.lote_id ?? "sin-lote"}-${item.producto.id}-${idx}`}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, x: 20 }}
@@ -103,8 +103,9 @@ export function BarraCarritoVentas() {
                               toast.warn("Ingresa un precio y una cantidad válidos.");
                               return;
                             }
-                            if (newQty > item.producto.stock_actual) {
-                              toast.warn(`Solo hay ${item.producto.stock_actual} unidades en inventario.`);
+                            const stockMax = item.stock_lote ?? item.producto.stock_actual;
+                            if (newQty > stockMax) {
+                              toast.warn(`Solo hay ${stockMax} unidades en este lote.`);
                               return;
                             }
                             ventas.setCarrito(prev => prev.map((it, i) => i === idx ? {
@@ -141,6 +142,16 @@ export function BarraCarritoVentas() {
                           <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate" title={item.producto.nombre}>
                             {item.producto.nombre}
                           </h4>
+                          {item.laboratorio ? (
+                            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                              Lab: {item.laboratorio}
+                            </p>
+                          ) : null}
+                          {item.codigo_barras_lote ? (
+                            <p className="text-[10px] text-slate-400 truncate">
+                              Lote: {item.codigo_barras_lote}
+                            </p>
+                          ) : null}
                           {(!item.producto.ubicacion || item.producto.ubicacion === 'Sin asignar') ? (
                             <p className="text-[10px] font-bold text-amber-500 flex items-center gap-1 mt-0.5">
                               <AlertTriangle className="size-3" /> Sin ubicación

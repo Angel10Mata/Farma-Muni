@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { isProductoVencido, patchInvLoteCantidadActual } from "./helpers";
+import { claveProductoUnico, isProductoVencido, patchInvLoteCantidadActual } from "./helpers";
 import {
   activarProductoCatalogoPorNuevoLote,
   syncInvProductoCatalogoDesdeLotes,
@@ -23,16 +23,55 @@ function normalizarFechaLote(fecha: string) {
   return trimmed;
 }
 
+const LOTE_DUPLICATE_MSG = "Ya existe un lote con ese código de barras y número de lote";
+
 function mapLoteDbError(error: { code?: string; message?: string }) {
   const msg = error.message ?? "";
   if (
     error.code === "23505" ||
-    msg.includes("inv_lotes_codigo_barras_unique") ||
-    msg.includes("codigo_barras")
+    msg.includes("inv_lotes_codigo_lote_unique") ||
+    msg.includes("inv_lotes_codigo_barras_unique")
   ) {
-    return { success: false as const, code: "DUPLICATE" as const };
+    return {
+      success: false as const,
+      code: "DUPLICATE" as const,
+      detail: LOTE_DUPLICATE_MSG,
+    };
   }
   return { success: false as const, code: "INTERNAL" as const };
+}
+
+async function existeProductoDuplicado(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  campos: {
+    nombre_generico: string;
+    concentracion: string;
+    forma_farmaceutica: string;
+    presentacion: string;
+  },
+  excludeId?: string,
+) {
+  const clave = claveProductoUnico(campos);
+  let query = supabase
+    .from("inv_productos")
+    .select("id, nombre_generico, concentracion, forma_farmaceutica, presentacion");
+  if (excludeId) query = query.neq("id", excludeId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []).some(
+    (row) =>
+      claveProductoUnico({
+        nombre_generico: String(row.nombre_generico ?? ""),
+        concentracion: String(row.concentracion ?? ""),
+        forma_farmaceutica: String(row.forma_farmaceutica ?? ""),
+        presentacion: String(row.presentacion ?? ""),
+      }) === clave,
+  );
+}
+
+function esErrorProductoUnico(error: { code?: string; message?: string }) {
+  const msg = error.message ?? "";
+  return error.code === "23505" && msg.includes("inv_productos_unico");
 }
 
 // Consultas de inventario
@@ -44,7 +83,7 @@ export async function obtenerProductos() {
 
     const { data, error } = await supabase
       .from("inv_productos")
-      .select("*, inv_proveedores(nombre), inv_compras_detalles(inv_compras(inv_proveedores(nombre)))")
+      .select("*")
       .order("nombre", { ascending: true });
 
     if (error) return { code: "INTERNAL" as const };
@@ -62,7 +101,7 @@ export async function obtenerProducto(id: string) {
 
     const { data, error } = await supabase
       .from("inv_productos")
-      .select("*, inv_proveedores(nombre)")
+      .select("*")
       .eq("id", id)
       .single();
 
@@ -105,7 +144,7 @@ export async function obtenerLotes() {
     const { data, error } = await supabase
       .from("inv_lotes")
       .select(
-        "id, producto_id, compra_detalle_id, codigo_barras, numero_lote, cantidad_inicial, cantidad_actual, precio_costo, fecha_vencimiento, ubicacion, activo, inv_productos(id, nombre, precio_base, stock_minimo, stock_actual, activo, inv_proveedores(nombre))",
+        "id, producto_id, compra_detalle_id, codigo_barras, numero_lote, cantidad_inicial, cantidad_actual, precio_costo, precio_venta, proveedor_id, laboratorio, fecha_vencimiento, ubicacion, activo, inv_proveedores(nombre), inv_productos(id, nombre, nombre_generico, concentracion, forma_farmaceutica, presentacion, unidad_venta, requiere_receta, precio_base, stock_minimo, stock_actual, activo)",
       )
       .order("fecha_vencimiento", { ascending: true });
 
@@ -169,19 +208,41 @@ export async function guardarProducto(id: string | undefined, input: ProductForm
     const parsed = productSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
 
+    const farmacia = {
+      nombre_generico: parsed.data.nombre_generico,
+      concentracion: parsed.data.concentracion,
+      forma_farmaceutica: parsed.data.forma_farmaceutica,
+      presentacion: parsed.data.presentacion,
+    };
+
+    try {
+      const duplicado = await existeProductoDuplicado(supabase, farmacia, id);
+      if (duplicado) return { code: "DUPLICATE" as const };
+    } catch {
+      return { code: "INTERNAL" as const };
+    }
+
     const payload = {
       nombre: parsed.data.nombre,
+      nombre_generico: parsed.data.nombre_generico,
+      concentracion: parsed.data.concentracion,
+      forma_farmaceutica: parsed.data.forma_farmaceutica,
+      presentacion: parsed.data.presentacion,
+      unidad_venta: parsed.data.unidad_venta || "unidad",
+      requiere_receta: parsed.data.requiere_receta ?? false,
       descripcion: parsed.data.descripcion || null,
       precio_base: parsed.data.precio_base,
       stock_minimo: parsed.data.stock_minimo,
       activo: parsed.data.activo,
       imagen_url: parsed.data.imagen_url || null,
-      proveedor_id: parsed.data.proveedor_id || null,
     };
 
     if (id) {
       const { error } = await supabase.from("inv_productos").update(payload).eq("id", id);
-      if (error) return { code: "INTERNAL" as const };
+      if (error) {
+        if (esErrorProductoUnico(error)) return { code: "DUPLICATE" as const };
+        return { code: "INTERNAL" as const };
+      }
       revalidatePath("/farmamuni/inventario");
       return { success: true as const, id };
     }
@@ -195,7 +256,11 @@ export async function guardarProducto(id: string | undefined, input: ProductForm
       .select("id")
       .single();
 
-    if (error || !inserted) return { code: "INTERNAL" as const };
+    if (error) {
+      if (esErrorProductoUnico(error)) return { code: "DUPLICATE" as const };
+      return { code: "INTERNAL" as const };
+    }
+    if (!inserted) return { code: "INTERNAL" as const };
 
     revalidatePath("/farmamuni/inventario");
     return { success: true as const, id: inserted.id as string };
@@ -218,12 +283,15 @@ export async function crearLoteManual(input: unknown) {
 
     const { error } = await supabase.from("inv_lotes").insert({
       producto_id: parsed.data.producto_id,
+      proveedor_id: parsed.data.proveedor_id,
+      laboratorio: parsed.data.laboratorio?.trim() || null,
       compra_detalle_id: null,
       codigo_barras: parsed.data.codigo_barras.trim(),
       numero_lote: parsed.data.numero_lote.trim(),
       cantidad_inicial: parsed.data.cantidad,
       cantidad_actual: parsed.data.cantidad,
       precio_costo: parsed.data.precio_costo,
+      precio_venta: parsed.data.precio_venta,
       fecha_vencimiento: normalizarFechaLote(parsed.data.fecha_vencimiento),
       ubicacion: parsed.data.ubicacion?.trim() || null,
       activo: true,

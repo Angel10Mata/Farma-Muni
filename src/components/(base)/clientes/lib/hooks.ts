@@ -28,6 +28,7 @@ export function useClientes() {
         },
         DEMO_CLIENTES,
       ),
+    staleTime: 1000 * 60 * 5,
   });
 }
 
@@ -62,6 +63,7 @@ export function useVentasCliente(clienteId: string | null) {
         ),
       ),
     enabled: !!clienteId,
+    staleTime: 1000 * 60 * 3,
   });
 }
 

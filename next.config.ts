@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
+const isProd = process.env.NODE_ENV === "production";
+
 const nextConfig: NextConfig = {
-  reactCompiler: true,
+  // React Compiler en dev compila mucho y suele dejar el overlay en "Compiling" minutos u horas.
+  reactCompiler: isProd,
   async redirects() {
     return [
       {

@@ -6,7 +6,6 @@ import {
   Package,
   Search,
   ChevronDown,
-  Truck,
   CalendarX,
   Box,
   Building2,
@@ -17,9 +16,9 @@ import {
   Pencil as PencilIcon,
   Ban,
   CircleCheck,
+  FileDown,
 } from "lucide-react";
 import {
-  FileDown,
   Pencil as PencilNode,
   Plus as PlusNode,
   SquarePen as SquarePenNode,
@@ -32,8 +31,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/utils/supabase/client";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { cn, fmtNum, fmtQ } from "@/lib/utils";
 import {
   modulePillSwitchBtnClass,
@@ -52,11 +49,17 @@ import {
   etiquetaEstadoVencimiento,
   isProductoProximoAVencer,
   isProductoVencido,
+  nombreComercialSiDistinto,
+  precioVentaEfectivoLote,
+  productoCoincideBusquedaInventario,
+  tituloProductoFarmacia,
 } from "./lib/helpers";
 import {
   descargarReporteGestion,
   descargarReporteVencimientos,
+  type ProductoInventarioReporte,
 } from "./lib/reportes-pdf";
+import { exportarPDF } from "./utils";
 import {
   ModalConfirmDelete,
   ModalShell,
@@ -86,9 +89,17 @@ interface Producto {
   id: string;
   codigo: string;
   nombre: string;
+  nombre_generico?: string;
+  concentracion?: string;
+  forma_farmaceutica?: string;
+  presentacion?: string;
+  unidad_venta?: string;
+  requiere_receta?: boolean;
   descripcion: string;
   precio_base: number;
+  precio_venta?: number;
   precio_costo?: number | null;
+  laboratorio?: string | null;
   stock_actual: number;
   stock_minimo: number;
   activo: boolean;
@@ -99,18 +110,64 @@ interface Producto {
   numero_lote?: string | null;
   ubicacion?: string | null;
   created_at?: string;
-  proveedor_id?: string | null;
   inv_proveedores?: {
     nombre: string;
   } | null;
-  inv_compras_detalles?: {
-    inv_compras?: {
-      inv_proveedores?: {
-        nombre: string;
-      } | null;
-    } | null;
-  }[];
   producto_maestro_id?: string;
+}
+
+function productoParaReporte(p: Producto): ProductoInventarioReporte {
+  return {
+    codigo: p.codigo,
+    nombre: p.nombre,
+    nombre_generico: p.nombre_generico,
+    concentracion: p.concentracion,
+    forma_farmaceutica: p.forma_farmaceutica,
+    presentacion: p.presentacion,
+    requiere_receta: p.requiere_receta,
+    stock_actual: p.stock_actual,
+    stock_minimo: p.stock_minimo,
+    precio_base: p.precio_base,
+    precio_venta: p.precio_venta,
+    precio_costo: p.precio_costo,
+    laboratorio: p.laboratorio,
+    proveedor_nombre: p.inv_proveedores?.nombre ?? null,
+    activo: p.activo,
+    fecha_vencimiento: p.fecha_vencimiento,
+    numero_lote: p.numero_lote,
+    ubicacion: p.ubicacion,
+  };
+}
+
+function ProductoFarmaciaTitulo({
+  producto,
+  className,
+  tituloClassName,
+}: {
+  producto: Producto;
+  className?: string;
+  tituloClassName?: string;
+}) {
+  const comercial = nombreComercialSiDistinto(producto);
+  return (
+    <div className={className}>
+      <p className={cn("font-semibold leading-snug", tituloClassName)}>
+        {tituloProductoFarmacia(producto)}
+      </p>
+      {comercial ? (
+        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+          {comercial}
+        </p>
+      ) : null}
+      {producto.requiere_receta ? (
+        <span
+          className="mt-1 inline-flex rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-800 dark:text-amber-300"
+        >
+          Requiere receta
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 function idProductoCatalogo(producto: Producto) {
@@ -120,21 +177,31 @@ function idProductoCatalogo(producto: Producto) {
 function mapLoteAFila(lote: LoteInventario): Producto {
   const raw = lote.inv_productos;
   const p = Array.isArray(raw) ? raw[0] : raw;
+  const precioBase = p?.precio_base ?? 0;
+  const precioVenta = precioVentaEfectivoLote(lote.precio_venta, precioBase);
   return {
     id: lote.id,
     producto_maestro_id: lote.producto_id,
     codigo: lote.codigo_barras,
     nombre: p?.nombre ?? "—",
+    nombre_generico: p?.nombre_generico ?? "",
+    concentracion: p?.concentracion ?? "",
+    forma_farmaceutica: p?.forma_farmaceutica ?? "otro",
+    presentacion: p?.presentacion ?? "",
+    unidad_venta: p?.unidad_venta ?? "unidad",
+    requiere_receta: p?.requiere_receta ?? false,
     descripcion: "",
-    precio_base: p?.precio_base ?? 0,
+    precio_base: precioBase,
+    precio_venta: precioVenta,
     precio_costo: lote.precio_costo,
+    laboratorio: lote.laboratorio ?? null,
     stock_actual: Number(lote.cantidad_actual) || 0,
     stock_minimo: p?.stock_minimo ?? 0,
     activo: lote.activo && (p?.activo ?? true),
     fecha_vencimiento: lote.fecha_vencimiento ?? null,
     numero_lote: lote.numero_lote ?? null,
     ubicacion: lote.ubicacion ?? null,
-    inv_proveedores: p?.inv_proveedores ?? null,
+    inv_proveedores: lote.inv_proveedores ?? null,
   };
 }
 
@@ -296,9 +363,12 @@ function ProductoCard({
       <div className="flex-1 min-w-0 flex flex-col justify-between self-stretch py-0.5">
         <div>
           <div className="flex items-start justify-between gap-1.5">
-            <h3 className="font-black text-xs text-slate-900 dark:text-white truncate uppercase leading-tight">
-              {producto.nombre}
-            </h3>
+            <div className="min-w-0 flex-1">
+              <ProductoFarmaciaTitulo
+                producto={producto}
+                tituloClassName="font-black text-xs text-slate-900 dark:text-white truncate uppercase"
+              />
+            </div>
             <span className={cn(
               "size-2 rounded-full mt-0.5 shrink-0",
               producto.activo ? "bg-[#8DA78E]" : "bg-red-400"
@@ -323,11 +393,16 @@ function ProductoCard({
               {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
             </p>
           )}
-          {(producto.inv_proveedores?.nombre || producto.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre) && (
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase flex items-center gap-1">
-              <Truck className="size-3 text-[#8DA78E] dark:text-[#A3BEB0]" /> {producto.inv_proveedores?.nombre || producto.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre}
+          {producto.laboratorio ? (
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase truncate">
+              Lab: {producto.laboratorio}
             </p>
-          )}
+          ) : null}
+          {producto.inv_proveedores?.nombre ? (
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase truncate">
+              Prov: {producto.inv_proveedores.nombre}
+            </p>
+          ) : null}
           {producto.ubicacion && producto.ubicacion !== "Sin asignar" && (
             <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase flex items-center gap-1">
               <Box className="size-3 text-[#8DA78E] dark:text-[#A3BEB0]" /> {producto.ubicacion}
@@ -354,7 +429,7 @@ function ProductoCard({
             <div>
               <span className="text-[#525D53]/60 dark:text-[#A3BEB0]/50 font-bold uppercase">Precio:</span>
               <span className="font-black ml-0.5 text-[#8DA78E] dark:text-[#A3BEB0]">
-                {fmtQ(producto.precio_base)}
+                {fmtQ(producto.precio_venta ?? producto.precio_base)}
               </span>
             </div>
           </div>
@@ -410,9 +485,10 @@ function ProductoDetalle({
             </div>
             <div className="min-w-0 space-y-1">
               <p className={detalleLabelClass}>Producto</p>
-              <h2 className="text-xl font-black leading-snug text-slate-900 dark:text-white md:text-2xl">
-                {producto.nombre}
-              </h2>
+              <ProductoFarmaciaTitulo
+                producto={producto}
+                tituloClassName="text-xl font-black text-slate-900 dark:text-white md:text-2xl"
+              />
             </div>
           </div>
           <button
@@ -476,7 +552,7 @@ function ProductoDetalle({
                 </div>
                 <div className={detalleMetricClass}>
                   <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
-                    Precio U.
+                    P. sugerido
                   </span>
                   <span className="text-base font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
                     {fmtQ(producto.precio_base)}
@@ -485,14 +561,6 @@ function ProductoDetalle({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <h4 className={detalleLabelClass}>Proveedor</h4>
-                  <p className={cn(detalleFieldClass, "truncate text-sm font-bold text-[#8DA78E] dark:text-[#A3BEB0]")}>
-                    {producto.inv_proveedores?.nombre ||
-                      producto.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre ||
-                      "Sin proveedor"}
-                  </p>
-                </div>
                 <div className="space-y-2">
                   <h4 className={detalleLabelClass}>Ubicación</h4>
                   <p
@@ -538,9 +606,20 @@ function ProductoDetalle({
                               !lote.activo && "opacity-60",
                             )}
                           >
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0 flex-1 space-y-0.5">
                               <p className="truncate text-sm font-black text-slate-800 dark:text-slate-100">
                                 Lote {lote.numero_lote || "—"}
+                              </p>
+                              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                                {lote.laboratorio ? `Lab: ${lote.laboratorio}` : "Sin laboratorio"}
+                                {lote.inv_proveedores?.nombre
+                                  ? ` · Prov: ${lote.inv_proveedores.nombre}`
+                                  : ""}
+                              </p>
+                              <p className="text-[10px] font-bold text-[#8DA78E] dark:text-[#A3BEB0]">
+                                Venta {fmtQ(precioVentaEfectivoLote(lote.precio_venta, producto.precio_base))}
+                                {" · "}
+                                Costo {fmtQ(Number(lote.precio_costo) || 0)}
                               </p>
                               <p className="text-[10px] font-bold uppercase tracking-wide text-[#525D53]/80 dark:text-[#A3BEB0]/70">
                                 {lote.activo ? "Activo" : "Inactivo"}
@@ -922,9 +1001,7 @@ export function VerInventario() {
   ).sort((a, b) => a.localeCompare(b));
 
   const productosFiltrados = productos.filter((p) => {
-    const matchesSearch =
-      (p.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) ||
-      (p.codigo || "").toLowerCase().includes(busqueda.toLowerCase());
+    const matchesSearch = productoCoincideBusquedaInventario(p, busqueda);
 
     const matchesStock = !filtroStockBajo || p.stock_actual <= p.stock_minimo;
 
@@ -958,7 +1035,7 @@ export function VerInventario() {
     const aLow = a.stock_actual <= a.stock_minimo ? 0 : 1;
     const bLow = b.stock_actual <= b.stock_minimo ? 0 : 1;
     if (aLow !== bLow) return aLow - bLow;
-    return a.nombre.localeCompare(b.nombre);
+    return tituloProductoFarmacia(a).localeCompare(tituloProductoFarmacia(b), "es");
   });
 
   const totalItems = productosFiltrados.length;
@@ -970,7 +1047,7 @@ export function VerInventario() {
     activePage * pageSize
   );
 
-  const inventarioTableColumnCount = vistaInventario === "catalogo" ? 7 : 9;
+  const inventarioTableColumnCount = vistaInventario === "catalogo" ? 6 : 10;
 
   const handleNuevoProducto = () => {
     router.push("/farmamuni/inventario/nuevo");
@@ -1033,7 +1110,7 @@ export function VerInventario() {
 
   const handleReporteVencimientos = () => {
     try {
-      descargarReporteVencimientos(productos);
+      descargarReporteVencimientos(productosFiltrados.map(productoParaReporte));
       toast.success("Reporte de vencimientos descargado.");
       setMostrarReportesDropdown(false);
     } catch {
@@ -1043,7 +1120,7 @@ export function VerInventario() {
 
   const handleReporteGestion = () => {
     try {
-      descargarReporteGestion(productos);
+      descargarReporteGestion(productosFiltrados.map(productoParaReporte));
       toast.success("Resumen de gestión descargado.");
       setMostrarReportesDropdown(false);
     } catch {
@@ -1056,66 +1133,13 @@ export function VerInventario() {
   // Exportar lista a PDF
   const handleExportarPDF = () => {
     try {
-      const doc = new jsPDF();
-
-      // Encabezado
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(18);
-      doc.setTextColor(82, 93, 83); // #525D53 (Olivo Oscuro)
-      doc.text("FarmaMuni - REPORTE DE INVENTARIO", 14, 20);
-
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(10);
-      doc.setTextColor(100, 116, 139);
-      const fecha = new Date().toLocaleDateString("es-GT", {
-        day: "2-digit",
-        month: "long",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-      });
-      doc.text(`Fecha de generación: ${fecha}`, 14, 27);
-      doc.text(`Total de productos listados: ${productosFiltrados.length}`, 14, 33);
-
-      // Línea divisoria
-      doc.setDrawColor(193, 209, 197); // #C1D1C5
-      doc.line(14, 38, 196, 38);
-
-      // Generar tabla
-      autoTable(doc, {
-        startY: 42,
-        head: [["Código", "Nombre del Producto", "Ubicación", "Proveedor", "Stock Actual", "Mínimo", "Precio Venta", "Estado"]],
-        body: productosFiltrados.map((p) => [
-          p.codigo || "Sin Código",
-          p.nombre,
-          p.ubicacion || "Sin asignar",
-          p.inv_proveedores?.nombre || p.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre || "—",
-          fmtNum(p.stock_actual),
-          fmtNum(p.stock_minimo),
-          fmtQ(p.precio_base),
-          p.activo ? "Activo" : "Inactivo"
-        ]),
-        headStyles: {
-          fillColor: [141, 167, 142], // #8DA78E
-          textColor: [245, 245, 241],
-          fontStyle: "bold",
-          fontSize: 10
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 241]
-        },
-        margin: { top: 40 },
-        styles: {
-          fontSize: 9,
-          cellPadding: 3
-        }
-      });
-
-      doc.save(`Reporte_Inventario_${new Date().toISOString().slice(0, 10)}.pdf`);
+      exportarPDF(
+        productosFiltrados.map(productoParaReporte),
+        vistaInventario === "lotes",
+      );
       toast.success("Reporte de inventario descargado correctamente.");
       setMostrarReportesDropdown(false);
-    } catch (error) {
-      console.error("Error al exportar PDF:", error);
+    } catch {
       toast.error("No se pudo generar el archivo PDF.");
     }
   };
@@ -1190,7 +1214,7 @@ export function VerInventario() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
             <input
               type="text"
-              placeholder="Buscar por nombre o código de barras..."
+              placeholder="Buscar por nombre, genérico o código de barras..."
               value={busqueda}
               onChange={(e) => {
                 setBusqueda(e.target.value);
@@ -1398,14 +1422,21 @@ export function VerInventario() {
                       <th className={moduleTableHeadCellClass}>Código</th>
                     ) : null}
                     <th className={moduleTableHeadCellClass}>Producto</th>
-                    <th className={moduleTableHeadCellClass}>Ubicación</th>
                     {vistaInventario === "lotes" ? (
-                      <th className={moduleTableHeadCellClass}>Venc./Lote</th>
+                      <>
+                        <th className={moduleTableHeadCellClass}>Laboratorio</th>
+                        <th className={moduleTableHeadCellClass}>Proveedor</th>
+                        <th className={cn(moduleTableHeadCellClass, "text-right")}>P. venta</th>
+                        <th className={cn(moduleTableHeadCellClass, "text-right")}>Costo</th>
+                        <th className={moduleTableHeadCellClass}>Venc./Lote</th>
+                      </>
                     ) : null}
-                    <th className={moduleTableHeadCellClass}>Proveedor</th>
+                    <th className={moduleTableHeadCellClass}>Ubicación</th>
                     <th className={moduleTableHeadCellClass}>Existencias</th>
                     <th className={moduleTableHeadCellClass}>Estado</th>
-                    <th className={cn(moduleTableHeadCellClass, "text-right")}>Precio Venta</th>
+                    {vistaInventario === "catalogo" ? (
+                      <th className={cn(moduleTableHeadCellClass, "text-right")}>P. sugerido</th>
+                    ) : null}
                     <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                   </tr>
                 </thead>
@@ -1471,43 +1502,54 @@ export function VerInventario() {
                               {p.codigo || "Sin Código"}
                             </td>
                           ) : null}
-                          <td className="px-5 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
-                            {p.nombre}
+                          <td className="px-5 py-3.5 min-w-[200px]">
+                            <ProductoFarmaciaTitulo producto={p} />
                           </td>
+                          {vistaInventario === "lotes" ? (
+                            <>
+                              <td className="px-5 py-3.5 text-sm text-slate-600 dark:text-slate-300 max-w-[120px] truncate">
+                                {p.laboratorio || "—"}
+                              </td>
+                              <td className="px-5 py-3.5 text-sm font-semibold text-slate-500 dark:text-slate-400 max-w-[130px] truncate">
+                                {p.inv_proveedores?.nombre || "—"}
+                              </td>
+                              <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0]">
+                                {fmtQ(p.precio_venta ?? p.precio_base)}
+                              </td>
+                              <td className="px-5 py-3.5 text-right font-semibold text-slate-600 dark:text-slate-300">
+                                {fmtQ(Number(p.precio_costo) || 0)}
+                              </td>
+                              <td className="px-5 py-3.5">
+                                <div className="flex flex-col">
+                                  {p.fecha_vencimiento ? (
+                                    <span
+                                      className={cn(
+                                        "font-semibold",
+                                        resaltarVencido
+                                          ? "text-rose-600 dark:text-rose-400"
+                                          : resaltarProximo
+                                            ? "text-amber-600 dark:text-amber-400"
+                                            : "text-slate-700 dark:text-slate-300",
+                                      )}
+                                    >
+                                      {new Date(p.fecha_vencimiento).toLocaleDateString("es-GT")}
+                                      {resaltarVencido ? " · Vencido" : ""}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400">—</span>
+                                  )}
+                                  {p.numero_lote ? (
+                                    <span className="text-[10px] text-slate-500">Lote: {p.numero_lote}</span>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </>
+                          ) : null}
                           <td className="px-5 py-3.5">
                             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100/80 dark:bg-zinc-900/80 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800/80 shadow-2xs max-w-[150px]">
                               <Box className="size-3 text-[#8DA78E] shrink-0" />
                               <span className="truncate">{p.ubicacion || "Sin asignar"}</span>
                             </span>
-                          </td>
-                          {vistaInventario === "lotes" ? (
-                            <td className="px-5 py-3.5">
-                              <div className="flex flex-col">
-                                {p.fecha_vencimiento ? (
-                                  <span
-                                    className={cn(
-                                      "font-semibold",
-                                      resaltarVencido
-                                        ? "text-rose-600 dark:text-rose-400"
-                                        : resaltarProximo
-                                          ? "text-amber-600 dark:text-amber-400"
-                                          : "text-slate-700 dark:text-slate-300",
-                                    )}
-                                  >
-                                    {new Date(p.fecha_vencimiento).toLocaleDateString("es-GT")}
-                                    {resaltarVencido ? " · Vencido" : ""}
-                                  </span>
-                                ) : (
-                                  <span className="text-slate-400">—</span>
-                                )}
-                                {p.numero_lote && (
-                                  <span className="text-[10px] text-slate-500">Lote: {p.numero_lote}</span>
-                                )}
-                              </div>
-                            </td>
-                          ) : null}
-                          <td className="px-5 py-3.5 font-semibold text-slate-500 dark:text-slate-400">
-                            {p.inv_proveedores?.nombre || p.inv_compras_detalles?.[0]?.inv_compras?.inv_proveedores?.nombre || "—"}
                           </td>
                           <td className="px-5 py-3.5">
                             <span
@@ -1532,9 +1574,11 @@ export function VerInventario() {
                               {p.activo ? "Activo" : "Inactivo"}
                             </span>
                           </td>
-                          <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0]">
-                            {fmtQ(p.precio_base)}
-                          </td>
+                          {vistaInventario === "catalogo" ? (
+                            <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0]">
+                              {fmtQ(p.precio_base)}
+                            </td>
+                          ) : null}
                           <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center">
                               <ProductoAccionesMenu

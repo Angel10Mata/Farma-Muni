@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { toast } from "react-toastify";
-import { AnimatePresence, motion } from "framer-motion";
-import { Truck } from "lucide-react";
 import ImageUploader from "@/components/imgs/ImageUploader";
 import {
   ModalCancelButton,
@@ -16,11 +14,17 @@ import {
   ModalSubmit,
   ModalTextarea,
   modalActionMessage,
+  modalFieldClass,
 } from "@/components/ui/general-modal";
-import { useProveedores } from "@/components/(base)/proveedores/lib/hooks";
-import type { Proveedor } from "@/components/(base)/proveedores/lib/zod";
+import { cn } from "@/lib/utils";
 import { useGuardarProducto } from "../lib/hooks";
-import type { ProductFormValues, Producto } from "../lib/zod";
+import {
+  DUPLICATE_PRODUCTO_MSG,
+  FORMAS_FARMACEUTICAS,
+  type FormaFarmaceutica,
+  type ProductFormValues,
+  type Producto,
+} from "../lib/zod";
 
 interface EditarProductoProps {
   isOpen?: boolean;
@@ -30,72 +34,43 @@ interface EditarProductoProps {
 }
 
 export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: EditarProductoProps) {
-  // Datos del formulario
-  const [nombre, setNombre] = useState("");
-  const [descripcion, setDescripcion] = useState("");
-  const [precioBase, setPrecioBase] = useState("");
-  const [stockMinimo, setStockMinimo] = useState("");
-  const [activo, setActivo] = useState(true);
-  const [imagenUrl, setImagenUrl] = useState<string | null>(null);
+  if (!producto) return null;
+
+  return (
+    <EditarProductoForm
+      key={producto.id}
+      isOpen={isOpen}
+      onClose={onClose}
+      onSuccess={onSuccess}
+      producto={producto}
+    />
+  );
+}
+
+function EditarProductoForm({
+  isOpen = true,
+  onClose,
+  onSuccess,
+  producto,
+}: EditarProductoProps & { producto: Producto }) {
+  const [nombre, setNombre] = useState(producto.nombre || "");
+  const [nombreGenerico, setNombreGenerico] = useState(producto.nombre_generico || "");
+  const [concentracion, setConcentracion] = useState(producto.concentracion || "");
+  const [formaFarmaceutica, setFormaFarmaceutica] = useState<FormaFarmaceutica>(
+    (producto.forma_farmaceutica as FormaFarmaceutica) || "tableta",
+  );
+  const [presentacion, setPresentacion] = useState(producto.presentacion || "");
+  const [unidadVenta, setUnidadVenta] = useState(producto.unidad_venta || "unidad");
+  const [requiereReceta, setRequiereReceta] = useState(Boolean(producto.requiere_receta));
+  const [descripcion, setDescripcion] = useState(producto.descripcion || "");
+  const [precioBase, setPrecioBase] = useState(producto.precio_base?.toString() || "0");
+  const [stockMinimo, setStockMinimo] = useState(producto.stock_minimo?.toString() || "0");
+  const [activo, setActivo] = useState(producto.activo !== false);
+  const [imagenUrl, setImagenUrl] = useState<string | null>(producto.imagen_url || null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
-  const [proveedorBusqueda, setProveedorBusqueda] = useState("");
-  const [mostrarSugerenciasProv, setMostrarSugerenciasProv] = useState(false);
-  const [proveedorSeleccionado, setProveedorSeleccionado] = useState<{ id: string; nombre: string } | null>(null);
   const [validationError, setValidationError] = useState<string | null>(null);
 
-  const provDropdownRef = useRef<HTMLDivElement>(null);
-
-  const { data: proveedores = [] } = useProveedores();
   const { mutateAsync: guardarProducto, isPending } = useGuardarProducto();
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (provDropdownRef.current && !provDropdownRef.current.contains(event.target as Node)) {
-        setMostrarSugerenciasProv(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Cargar producto seleccionado
-  useEffect(() => {
-    if (!producto) return;
-
-    setNombre(producto.nombre || "");
-    setDescripcion(producto.descripcion || "");
-    setPrecioBase(producto.precio_base?.toString() || "0");
-    setStockMinimo(producto.stock_minimo?.toString() || "0");
-    setActivo(producto.activo !== false);
-    setImagenUrl(producto.imagen_url || null);
-
-    if (producto.proveedor_id) {
-      const pNombre = producto.inv_proveedores?.nombre || "";
-      setProveedorSeleccionado({ id: producto.proveedor_id, nombre: pNombre });
-      setProveedorBusqueda(pNombre);
-    } else {
-      setProveedorSeleccionado(null);
-      setProveedorBusqueda("");
-    }
-  }, [producto, isOpen]);
-
-  useEffect(() => {
-    if (producto?.proveedor_id && proveedores.length > 0) {
-      const match = proveedores.find((p) => p.id === producto.proveedor_id);
-      if (match) {
-        setProveedorSeleccionado({ id: match.id, nombre: match.nombre });
-        setProveedorBusqueda(match.nombre);
-      }
-    }
-  }, [producto, proveedores]);
-
-  const sugerenciasProveedores = proveedorBusqueda.trim() === ""
-    ? proveedores
-    : proveedores.filter(
-        (p: Proveedor) =>
-          p.nombre.toLowerCase().includes(proveedorBusqueda.toLowerCase()) ||
-          (p.nit && p.nit.toLowerCase().includes(proveedorBusqueda.toLowerCase())),
-      );
 
   const handleClose = () => {
     setValidationError(null);
@@ -104,34 +79,49 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
 
   const buildInput = (): ProductFormValues => ({
     nombre: nombre.trim(),
+    nombre_generico: nombreGenerico.trim(),
+    concentracion: concentracion.trim(),
+    forma_farmaceutica: formaFarmaceutica,
+    presentacion: presentacion.trim(),
+    unidad_venta: unidadVenta.trim() || "unidad",
+    requiere_receta: requiereReceta,
     descripcion: descripcion.trim(),
     precio_base: parseFloat(precioBase) || 0,
     stock_minimo: parseFloat(stockMinimo) || 0,
     activo,
     imagen_url: imagenUrl,
-    proveedor_id: proveedorSeleccionado?.id || null,
   });
 
-  // Guardar cambios
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!producto) return;
     setValidationError(null);
 
     if (!nombre.trim()) {
-      setValidationError("El nombre del producto es requerido");
+      setValidationError("El nombre comercial es requerido");
+      return;
+    }
+    if (nombreGenerico.trim().length < 2) {
+      setValidationError("El nombre genérico debe tener al menos 2 caracteres");
+      return;
+    }
+    if (!concentracion.trim()) {
+      setValidationError("La concentración es requerida");
+      return;
+    }
+    if (!presentacion.trim()) {
+      setValidationError("La presentación es requerida");
       return;
     }
 
     const priceNum = parseFloat(precioBase);
     if (isNaN(priceNum) || priceNum < 0) {
-      setValidationError("El precio base debe ser un número válido mayor o igual a 0");
+      setValidationError("El precio sugerido debe ser un número válido mayor o igual a 0");
       return;
     }
 
     const stockMinimoNum = parseFloat(stockMinimo);
     if (isNaN(stockMinimoNum) || stockMinimoNum < 0) {
-      setValidationError("El stock mínimo debe ser un número válido mayor o igual a 0");
+      setValidationError("La existencia mínima debe ser un número válido mayor o igual a 0");
       return;
     }
 
@@ -142,11 +132,19 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
       handleClose();
     } catch (err: unknown) {
       const code = err instanceof Error ? err.message : undefined;
-      toast.error(modalActionMessage(code, "No se pudo actualizar el producto."));
+      toast.error(
+        modalActionMessage(code, "No se pudo actualizar el producto.", {
+          DUPLICATE: DUPLICATE_PRODUCTO_MSG,
+        }),
+      );
     }
   };
 
-  // Formulario de edición
+  const selectClass = cn(
+    modalFieldClass,
+    "h-10 w-full rounded-lg bg-transparent px-3 text-sm text-foreground outline-none transition-colors focus-visible:outline-none",
+  );
+
   return (
     <ModalShell
       isOpen={isOpen}
@@ -158,13 +156,98 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
     >
       <ModalForm onSubmit={handleSubmit}>
         <ModalField>
-          <ModalLabel htmlFor="editar-producto-nombre">Nombre Comercial *</ModalLabel>
+          <ModalLabel htmlFor="editar-producto-nombre">Nombre comercial *</ModalLabel>
           <ModalInput
             id="editar-producto-nombre"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             required
           />
+        </ModalField>
+
+        <ModalField>
+          <ModalLabel htmlFor="editar-producto-nombre-generico">Nombre genérico *</ModalLabel>
+          <ModalInput
+            id="editar-producto-nombre-generico"
+            value={nombreGenerico}
+            onChange={(e) => setNombreGenerico(e.target.value)}
+            required
+          />
+        </ModalField>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <ModalField>
+            <ModalLabel htmlFor="editar-producto-concentracion">Concentración *</ModalLabel>
+            <ModalInput
+              id="editar-producto-concentracion"
+              value={concentracion}
+              onChange={(e) => setConcentracion(e.target.value)}
+              placeholder="500 mg"
+              required
+            />
+          </ModalField>
+
+          <ModalField>
+            <ModalLabel htmlFor="editar-producto-forma">Forma farmacéutica *</ModalLabel>
+            <select
+              id="editar-producto-forma"
+              value={formaFarmaceutica}
+              onChange={(e) => setFormaFarmaceutica(e.target.value as FormaFarmaceutica)}
+              className={selectClass}
+            >
+              {FORMAS_FARMACEUTICAS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          </ModalField>
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <ModalField>
+            <ModalLabel htmlFor="editar-producto-presentacion">Presentación *</ModalLabel>
+            <ModalInput
+              id="editar-producto-presentacion"
+              value={presentacion}
+              onChange={(e) => setPresentacion(e.target.value)}
+              placeholder="Caja x 100 tabletas"
+              required
+            />
+          </ModalField>
+
+          <ModalField>
+            <ModalLabel htmlFor="editar-producto-unidad-venta">Unidad de venta</ModalLabel>
+            <ModalInput
+              id="editar-producto-unidad-venta"
+              value={unidadVenta}
+              onChange={(e) => setUnidadVenta(e.target.value)}
+              placeholder="tableta"
+            />
+          </ModalField>
+        </div>
+
+        <ModalField>
+          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
+            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">Requiere receta</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={requiereReceta}
+              onClick={() => setRequiereReceta((v) => !v)}
+              className={cn(
+                "relative h-6 w-11 shrink-0 rounded-full transition-colors",
+                requiereReceta ? "bg-[#2c5f9b] dark:bg-[#6f9fd4]" : "bg-zinc-300 dark:bg-zinc-600",
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
+                  requiereReceta ? "translate-x-5" : "translate-x-0.5",
+                )}
+              />
+            </button>
+          </label>
         </ModalField>
 
         <ModalField>
@@ -176,11 +259,9 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
           />
         </ModalField>
 
-        {producto ? (
-          <p className="text-xs text-zinc-500">
-            Stock actual (suma de lotes): <strong>{producto.stock_actual}</strong> unidades
-          </p>
-        ) : null}
+        <p className="text-xs text-zinc-500">
+          Stock actual (suma de lotes): <strong>{producto.stock_actual}</strong> unidades
+        </p>
 
         <ModalField>
           <ModalLabel>Imagen del Producto</ModalLabel>
@@ -197,55 +278,9 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
           />
         </ModalField>
 
-        <ModalField>
-          <div className="relative" ref={provDropdownRef}>
-            <ModalLabel htmlFor="editar-producto-proveedor">Proveedor</ModalLabel>
-            <div className="relative">
-              <Truck className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
-              <ModalInput
-                id="editar-producto-proveedor"
-                value={proveedorBusqueda}
-                onChange={(e) => {
-                  setProveedorBusqueda(e.target.value);
-                  setMostrarSugerenciasProv(true);
-                  if (!e.target.value) setProveedorSeleccionado(null);
-                }}
-                onFocus={() => setMostrarSugerenciasProv(true)}
-                placeholder="Buscar proveedor..."
-                className="pl-9"
-              />
-            </div>
-            <AnimatePresence>
-              {mostrarSugerenciasProv && sugerenciasProveedores.length > 0 ? (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  className="absolute z-[200] mt-1 max-h-48 w-full overflow-y-auto rounded-xl border border-zinc-200 bg-white opacity-100 dark:border-zinc-700 dark:bg-zinc-900"
-                >
-                  {sugerenciasProveedores.map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => {
-                        setProveedorSeleccionado({ id: p.id, nombre: p.nombre });
-                        setProveedorBusqueda(p.nombre);
-                        setMostrarSugerenciasProv(false);
-                      }}
-                      className="w-full border-b border-zinc-100 px-4 py-2 text-left transition-colors last:border-0 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800"
-                    >
-                      <p className="text-xs font-bold text-zinc-950 dark:text-white">{p.nombre}</p>
-                    </button>
-                  ))}
-                </motion.div>
-              ) : null}
-            </AnimatePresence>
-          </div>
-        </ModalField>
-
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <ModalField>
-            <ModalLabel htmlFor="editar-producto-precio-base">Precio de Venta *</ModalLabel>
+            <ModalLabel htmlFor="editar-producto-precio-base">Precio sugerido *</ModalLabel>
             <ModalInput
               id="editar-producto-precio-base"
               type="number"
@@ -257,7 +292,7 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
           </ModalField>
 
           <ModalField>
-            <ModalLabel htmlFor="editar-producto-stock-minimo">Stock Mínimo *</ModalLabel>
+            <ModalLabel htmlFor="editar-producto-stock-minimo">Existencia mínima *</ModalLabel>
             <ModalInput
               id="editar-producto-stock-minimo"
               type="number"
@@ -280,9 +315,7 @@ export function EditarProducto({ isOpen = true, onClose, onSuccess, producto }: 
           </label>
         </ModalField>
 
-        {validationError ? (
-          <p className="text-xs font-bold text-red-500">{validationError}</p>
-        ) : null}
+        {validationError ? <p className="text-xs font-bold text-red-500">{validationError}</p> : null}
 
         <ModalFooter>
           <ModalCancelButton onClick={handleClose} disabled={isPending || isUploadingImage} />

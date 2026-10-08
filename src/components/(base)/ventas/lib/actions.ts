@@ -18,6 +18,7 @@ import {
   fechaVentaCalendarioGt,
   payloadCoincideConVenta,
   precioMenorQueCosto,
+  precioReferenciaRebajaPayload,
   ventaEstaAnulada,
 } from "./helpers";
 import {
@@ -26,6 +27,14 @@ import {
 } from "./reporte-ventas-mes";
 import { ultimoDiaMesCalendario } from "@/lib/fechas-gt";
 import { ajustarStockPorVenta, obtenerCostoProductoOLote } from "./lotes-stock";
+import {
+  asignarCantidadFefo,
+  filtrarLotesVendiblesFefo,
+  loteVendiblePorFecha,
+  precioVentaDeLote,
+  type LoteAsignadoVenta,
+  type LoteVendibleRow,
+} from "./lotes-venta";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export interface ItemVentaInput {
@@ -50,6 +59,63 @@ export async function obtenerProductosYClientes() {
 
     if (prodError) throw new Error(prodError.message);
 
+    const { data: lotesRaw, error: lotesError } = await supabase
+      .from("inv_lotes")
+      .select(
+        "producto_id, id, codigo_barras, cantidad_actual, precio_venta, precio_costo, laboratorio, fecha_vencimiento, created_at, ubicacion",
+      )
+      .eq("activo", true)
+      .gt("cantidad_actual", 0)
+      .order("fecha_vencimiento", { ascending: true, nullsFirst: false })
+      .order("created_at", { ascending: true });
+
+    if (lotesError) throw new Error(lotesError.message);
+
+    const lotesPorProducto = new Map<string, LoteVendibleRow[]>();
+    for (const row of lotesRaw ?? []) {
+      const lote: LoteVendibleRow = {
+        id: row.id as string,
+        codigo_barras: row.codigo_barras as string,
+        cantidad_actual: Number(row.cantidad_actual) || 0,
+        precio_costo: Number(row.precio_costo) || 0,
+        precio_venta: row.precio_venta != null ? Number(row.precio_venta) : null,
+        laboratorio: (row.laboratorio as string | null) ?? null,
+        fecha_vencimiento: (row.fecha_vencimiento as string | null) ?? null,
+        created_at: (row.created_at as string | null) ?? null,
+        ubicacion: (row.ubicacion as string | null) ?? null,
+      };
+      if (!loteVendiblePorFecha(lote.fecha_vencimiento)) continue;
+      const pid = row.producto_id as string;
+      const list = lotesPorProducto.get(pid) ?? [];
+      list.push(lote);
+      lotesPorProducto.set(pid, list);
+    }
+
+    const productosPos = (productos ?? []).map((prod) => {
+      const lotes = lotesPorProducto.get(prod.id as string) ?? [];
+      const precios = lotes.map((l) =>
+        precioVentaDeLote(l.precio_venta, Number(prod.precio_base) || 0),
+      );
+      const fefo = lotes[0];
+      const precioFefo = fefo
+        ? precioVentaDeLote(fefo.precio_venta, Number(prod.precio_base) || 0)
+        : Number(prod.precio_base) || 0;
+      const minPrecio = precios.length > 0 ? Math.min(...precios) : precioFefo;
+      const maxPrecio = precios.length > 0 ? Math.max(...precios) : precioFefo;
+      const varios = precios.length > 1 && maxPrecio - minPrecio > 0.001;
+      const stockLotes = lotes.reduce((s, l) => s + (Number(l.cantidad_actual) || 0), 0);
+
+      return {
+        ...prod,
+        codigo: fefo?.codigo_barras ?? "",
+        ubicacion: fefo?.ubicacion ?? prod.ubicacion ?? null,
+        stock_actual: stockLotes > 0 ? stockLotes : Number(prod.stock_actual) || 0,
+        precio_venta_fefo: precioFefo,
+        precio_venta_desde: varios ? minPrecio : undefined,
+        precio_venta_varios: varios,
+      };
+    });
+
     // Obtener todos los clientes
     const { data: clientes, error: cliError } = await supabase
       .from("ven_clientes")
@@ -59,7 +125,7 @@ export async function obtenerProductosYClientes() {
     if (cliError) throw new Error(cliError.message);
 
     return {
-      productos: productos || [],
+      productos: productosPos,
       clientes: clientes || [],
     };
   } catch (error: any) {
@@ -87,7 +153,7 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
     const { data: lote, error } = await supabase
       .from("inv_lotes")
       .select(
-        "id, producto_id, codigo_barras, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, ubicacion, activo, inv_productos(*)",
+        "id, producto_id, codigo_barras, numero_lote, cantidad_actual, precio_costo, precio_venta, laboratorio, fecha_vencimiento, ubicacion, activo, inv_productos(*)",
       )
       .eq("codigo_barras", codigoNorm)
       .eq("activo", true)
@@ -103,10 +169,19 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
       return { success: false as const, error: "No hay lote activo con stock para ese código." };
     }
 
+    if (!loteVendiblePorFecha(lote.fecha_vencimiento as string | null)) {
+      return { success: false as const, error: "El lote está vencido y no se puede vender." };
+    }
+
     const producto = productoRow as Producto;
     if (!producto.activo) {
       return { success: false as const, error: "El producto del lote está inactivo." };
     }
+
+    const precioVenta = precioVentaDeLote(
+      lote.precio_venta != null ? Number(lote.precio_venta) : null,
+      producto.precio_base,
+    );
 
     return {
       success: true as const,
@@ -117,6 +192,8 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
         numero_lote: (lote.numero_lote as string | null) ?? null,
         cantidad_actual: Number(lote.cantidad_actual) || 0,
         precio_costo: Number(lote.precio_costo) || 0,
+        precio_venta: precioVenta,
+        laboratorio: (lote.laboratorio as string | null) ?? null,
         fecha_vencimiento: (lote.fecha_vencimiento as string | null) ?? null,
         ubicacion: (lote.ubicacion as string | null) ?? null,
       },
@@ -128,7 +205,7 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
   }
 }
 
-export async function resolverLoteParaProducto(productoId: string, cantidad: number) {
+export async function asignarLotes(productoId: string, cantidad: number) {
   try {
     const supabase = await createClient();
     const {
@@ -138,9 +215,28 @@ export async function resolverLoteParaProducto(productoId: string, cantidad: num
       return { success: false as const, error: "Sesión no válida o expirada." };
     }
 
+    if (!cantidad || cantidad <= 0) {
+      return { success: false as const, error: "La cantidad debe ser mayor a 0." };
+    }
+
+    const { data: producto, error: prodError } = await supabase
+      .from("inv_productos")
+      .select("id, nombre, precio_base, activo")
+      .eq("id", productoId)
+      .maybeSingle();
+
+    if (prodError || !producto) {
+      return { success: false as const, error: "Producto no encontrado." };
+    }
+    if (!producto.activo) {
+      return { success: false as const, error: "El producto está inactivo." };
+    }
+
     const { data: lotes, error } = await supabase
       .from("inv_lotes")
-      .select("id, codigo_barras, cantidad_actual, precio_costo, fecha_vencimiento")
+      .select(
+        "id, codigo_barras, cantidad_actual, precio_costo, precio_venta, laboratorio, fecha_vencimiento, created_at",
+      )
       .eq("producto_id", productoId)
       .eq("activo", true)
       .gt("cantidad_actual", 0)
@@ -151,25 +247,39 @@ export async function resolverLoteParaProducto(productoId: string, cantidad: num
       return { success: false as const, error: error.message };
     }
 
-    const elegido = (lotes ?? []).find(
-      (l) => Number(l.cantidad_actual) >= cantidad,
+    const vendibles = filtrarLotesVendiblesFefo(
+      (lotes ?? []).map((l) => ({
+        id: l.id as string,
+        codigo_barras: l.codigo_barras as string,
+        cantidad_actual: Number(l.cantidad_actual) || 0,
+        precio_costo: Number(l.precio_costo) || 0,
+        precio_venta: l.precio_venta != null ? Number(l.precio_venta) : null,
+        laboratorio: (l.laboratorio as string | null) ?? null,
+        fecha_vencimiento: (l.fecha_vencimiento as string | null) ?? null,
+        created_at: (l.created_at as string | null) ?? null,
+      })),
     );
-    if (!elegido) {
+
+    const resultado = asignarCantidadFefo(
+      vendibles,
+      cantidad,
+      Number(producto.precio_base) || 0,
+    );
+
+    if (!resultado.ok) {
       return {
         success: false as const,
-        error: "No hay un lote con stock suficiente para esta cantidad.",
+        error: `Stock insuficiente para ${producto.nombre}. Disponibles: ${resultado.cantidad_disponible}.`,
+        cantidad_disponible: resultado.cantidad_disponible,
       };
     }
 
     return {
       success: true as const,
-      lote_id: elegido.id as string,
-      codigo_barras: elegido.codigo_barras as string,
-      stock_lote: Number(elegido.cantidad_actual) || 0,
-      precio_costo: Number(elegido.precio_costo) || 0,
+      lotes: resultado.asignaciones as LoteAsignadoVenta[],
     };
   } catch (e: unknown) {
-    const message = e instanceof Error ? e.message : "No se pudo asignar lote.";
+    const message = e instanceof Error ? e.message : "No se pudo asignar lotes.";
     return { success: false as const, error: message };
   }
 }
@@ -268,17 +378,42 @@ async function assertPreciosNoMenoresAlCosto(
   }
 }
 
-async function itemTieneRebajaEnServidor(
+async function precioVentaReferenciaItem(
   supabase: SupabaseClient,
   item: ItemVentaInput,
-): Promise<boolean> {
+): Promise<number> {
+  if (item.lote_id) {
+    const { data: lote } = await supabase
+      .from("inv_lotes")
+      .select("precio_venta, producto_id")
+      .eq("id", item.lote_id)
+      .maybeSingle();
+    if (lote) {
+      const { data: prod } = await supabase
+        .from("inv_productos")
+        .select("precio_base")
+        .eq("id", lote.producto_id)
+        .maybeSingle();
+      return precioVentaDeLote(
+        lote.precio_venta != null ? Number(lote.precio_venta) : null,
+        Number(prod?.precio_base) || 0,
+      );
+    }
+  }
   const { data: prod } = await supabase
     .from("inv_productos")
     .select("precio_base")
     .eq("id", item.producto_id)
     .maybeSingle();
-  if (!prod) return false;
-  return esRebajaDePrecio(item.precio_aplicado, prod.precio_base);
+  return Number(prod?.precio_base) || 0;
+}
+
+async function itemTieneRebajaEnServidor(
+  supabase: SupabaseClient,
+  item: ItemVentaInput,
+): Promise<boolean> {
+  const referencia = await precioVentaReferenciaItem(supabase, item);
+  return esRebajaDePrecio(item.precio_aplicado, referencia);
 }
 
 async function assertRebajasAutorizadas(
@@ -381,102 +516,46 @@ export async function crearVenta(params: {
 
     await assertPreciosNoMenoresAlCosto(supabase, items);
 
-    const itemsConLote: ItemVentaInput[] = [];
     for (const item of items) {
-      let loteId = item.lote_id ?? null;
-      if (!loteId) {
-        const resLote = await resolverLoteParaProducto(item.producto_id, item.cantidad);
-        if (!resLote.success) {
-          const { data: prod } = await supabase
-            .from("inv_productos")
-            .select("nombre, stock_actual")
-            .eq("id", item.producto_id)
-            .maybeSingle();
-          if (!prod) {
-            throw new Error(`Producto con ID ${item.producto_id} no encontrado.`);
-          }
-          if (Number(prod.stock_actual) < item.cantidad) {
-            throw new Error(
-              `Stock insuficiente para ${prod.nombre} (Disponibles: ${prod.stock_actual}, Solicitados: ${item.cantidad}).`,
-            );
-          }
-        } else {
-          loteId = resLote.lote_id;
-        }
+      if (!item.lote_id) {
+        throw new Error("Cada línea de venta debe tener un lote asignado.");
       }
-
-      if (loteId) {
-        const { data: lote, error: loteErr } = await supabase
-          .from("inv_lotes")
-          .select("cantidad_actual, activo, inv_productos(nombre)")
-          .eq("id", loteId)
-          .single();
-
-        if (loteErr || !lote || !lote.activo) {
-          throw new Error("Lote no válido o inactivo para la venta.");
-        }
-        const disp = Number(lote.cantidad_actual) || 0;
-        const nombre =
-          (lote.inv_productos as { nombre?: string } | null)?.nombre ?? "Producto";
-        if (disp < item.cantidad) {
-          throw new Error(
-            `Stock insuficiente en lote para ${nombre} (Disponibles: ${disp}, Solicitados: ${item.cantidad}).`,
-          );
-        }
-      }
-
-      itemsConLote.push({ ...item, lote_id: loteId });
     }
 
-    // 2. Insertar la venta
-    const { data: venta, error: ventaError } = await supabase
-      .from("ventas")
-      .insert({
+    const { data: ventaRpc, error: ventaError } = await supabase.rpc("registrar_venta", {
+      p_venta: {
         cliente_id: cliente_id || null,
         usuario_id: user.id,
         tipo_venta,
         total,
         observaciones: observaciones || null,
-      })
-      .select("id, numero_recibo")
-      .single();
-
-    if (ventaError || !venta) {
-      throw new Error(`Error al registrar la cabecera de venta: ${ventaError?.message}`);
-    }
-
-    // 3. Insertar los detalles de venta
-    const detalles = itemsConLote.map((item) => ({
-      venta_id: venta.id,
-      producto_id: item.producto_id,
-      lote_id: item.lote_id ?? null,
-      cantidad: item.cantidad,
-      precio_aplicado: item.precio_aplicado,
-      subtotal: item.subtotal,
-    }));
-
-    const { error: detallesError } = await supabase
-      .from("ven_detalles")
-      .insert(detalles);
-
-    if (detallesError) {
-      // Nota: Si esto falla, idealmente querríamos deshacer la inserción anterior, 
-      // pero en REST API procedemos a lanzar la excepción para notificar al cliente.
-      throw new Error(`Error al registrar los detalles de venta: ${detallesError.message}`);
-    }
-
-    // 4. Descontar las existencias del inventario (lote o legacy)
-    for (const item of itemsConLote) {
-      await ajustarStockPorVenta(supabase, {
+      },
+      p_items: items.map((item) => ({
         producto_id: item.producto_id,
         lote_id: item.lote_id,
-        delta: -item.cantidad,
-      });
+        cantidad: item.cantidad,
+        precio_aplicado: item.precio_aplicado,
+        subtotal: item.subtotal,
+      })),
+    });
 
+    if (ventaError) {
+      throw new Error(ventaError.message);
+    }
+
+    const ventaRow = ventaRpc as { id?: string; numero_recibo?: number | null } | null;
+    if (!ventaRow?.id) {
+      throw new Error("No se pudo registrar la venta.");
+    }
+
+    const venta = { id: ventaRow.id, numero_recibo: ventaRow.numero_recibo ?? null };
+
+    const productoIdsVendidos = [...new Set(items.map((i) => i.producto_id))];
+    for (const productoId of productoIdsVendidos) {
       const { data: prod } = await supabase
         .from("inv_productos")
         .select("nombre, stock_actual, stock_minimo")
-        .eq("id", item.producto_id)
+        .eq("id", productoId)
         .single();
 
       const nuevoStock = Number(prod?.stock_actual) || 0;
@@ -484,41 +563,12 @@ export async function crearVenta(params: {
       if (prod && nuevoStock <= prod.stock_minimo) {
         await sendPushNotification(
           {
-            title: '⚠️ Alerta de Inventario',
+            title: "⚠️ Alerta de Inventario",
             body: `El producto "${prod.nombre}" ha llegado a su stock mínimo (${nuevoStock} unidades restantes).`,
-            url: '/farmamuni/inventario'
+            url: "/farmamuni/inventario",
           },
-          ['all']
+          ["all"],
         );
-      }
-    }
-
-    // 5. Registrar el ingreso en Finanzas (solo si no es crédito)
-    const normalizedTipo = tipo_venta.toLowerCase();
-    if (normalizedTipo !== "crédito" && normalizedTipo !== "credito") {
-      // Intentar obtener el numero_recibo actualizado si vino nulo
-      let numRecibo = venta.numero_recibo;
-      if (!numRecibo) {
-        const { data: vInfo } = await supabase.from("ventas").select("numero_recibo").eq("id", venta.id).single();
-        if (vInfo && vInfo.numero_recibo) numRecibo = vInfo.numero_recibo;
-      }
-
-      const desc = numRecibo ? `Venta #${numRecibo} - ${tipo_venta}` : `Venta Directa - ${tipo_venta}`;
-
-      const { error: finError } = await supabase
-        .from("fin_transacciones")
-        .insert({
-          tipo_movimiento: "ingreso",
-          categoria: "venta",
-          monto: total,
-          descripcion: desc,
-          usuario_id: user.id,
-          venta_id: venta.id
-        });
-        
-      if (finError) {
-        console.error("Error al registrar en finanzas:", finError);
-        // No lanzamos error para no revertir la venta, pero queda logueado
       }
     }
 
@@ -840,7 +890,9 @@ export async function obtenerDetalleVenta(ventaId: string) {
 
     const { data, error } = await supabase
       .from("ven_detalles")
-      .select("*, inv_lotes(codigo_barras, numero_lote), inv_productos(nombre)")
+      .select(
+        "*, inv_lotes(codigo_barras, numero_lote, precio_venta, precio_costo, laboratorio), inv_productos(nombre)",
+      )
       .eq("venta_id", ventaId);
 
     if (error) throw new Error(error.message);
@@ -1271,7 +1323,7 @@ export async function crearSolicitudRebaja(payload: unknown) {
     }
 
     const tieneRebaja = parsed.data.payload.items.some((i) =>
-      esRebajaDePrecio(i.precio_aplicado, i.precio_base),
+      esRebajaDePrecio(i.precio_aplicado, precioReferenciaRebajaPayload(i)),
     );
     if (!tieneRebaja) {
       return {
@@ -1287,7 +1339,11 @@ export async function crearSolicitudRebaja(payload: unknown) {
         .select("nombre")
         .eq("id", item.producto_id)
         .maybeSingle();
-      const costo = await obtenerCostoProductoOLote(supabaseRead, item.producto_id);
+      const costo = await obtenerCostoProductoOLote(
+        supabaseRead,
+        item.producto_id,
+        item.lote_id,
+      );
       if (precioMenorQueCosto(item.precio_aplicado, costo)) {
         return {
           success: false as const,

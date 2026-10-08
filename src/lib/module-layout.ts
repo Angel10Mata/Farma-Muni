@@ -21,9 +21,14 @@ export const modulePageShellFixedClass = [
 ].join(" ");
 
 export const dashboardOuterClass =
-  "relative z-10 w-full flex-1 px-3 sm:px-4 md:px-5 lg:px-6 pt-20 md:pt-24 pb-16 md:pb-20";
+  "relative z-10 w-full flex-1 flex flex-col items-center justify-center px-3 sm:px-4 md:px-5 lg:px-6 py-10 md:py-12";
 
-export const dashboardInnerClass = ["w-full", moduleContentMaxWidth, "mx-auto"].join(" ");
+export const dashboardInnerClass = [
+  "w-full",
+  moduleContentMaxWidth,
+  "mx-auto",
+  "flex flex-col items-stretch",
+].join(" ");
 
 export const adminPageShellClass = [
   "space-y-8 w-full",

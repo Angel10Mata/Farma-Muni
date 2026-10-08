@@ -10,6 +10,7 @@ export const useAppSettings = () => {
       const data = await getAppSettings();
       return data;
     },
+    staleTime: 1000 * 60 * 5,
   });
 };
 
