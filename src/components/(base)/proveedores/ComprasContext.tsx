@@ -59,6 +59,10 @@ interface ComprasContextProps {
   // Orden
   estadoPago: "Pendiente" | "Pagado";
   setEstadoPago: (val: "Pendiente" | "Pagado") => void;
+  numeroFactura: string;
+  setNumeroFactura: (val: string) => void;
+  fechaVencimientoPago: string;
+  setFechaVencimientoPago: (val: string) => void;
   observaciones: string;
   setObservaciones: (val: string) => void;
   isProcesando: boolean;
@@ -106,6 +110,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
 
   // Orden
   const [estadoPago, setEstadoPago] = useState<"Pendiente" | "Pagado">("Pagado");
+  const [numeroFactura, setNumeroFactura] = useState("");
+  const [fechaVencimientoPago, setFechaVencimientoPago] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [isProcesando, setIsProcesando] = useState(false);
 
@@ -138,6 +144,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     setProveedorBusqueda("");
     setProveedorAutoSeleccionado(false);
     setObservaciones("");
+    setNumeroFactura("");
+    setFechaVencimientoPago("");
     setEstadoPago("Pagado");
     setCodigoBarrasLote("");
     setNumeroLote("");
@@ -173,6 +181,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         laboratorioLote, setLaboratorioLote,
         precioVentaSeleccionado, setPrecioVentaSeleccionado,
         estadoPago, setEstadoPago,
+        numeroFactura, setNumeroFactura,
+        fechaVencimientoPago, setFechaVencimientoPago,
         observaciones, setObservaciones,
         isProcesando, setIsProcesando,
         agregarAlCarrito, removerDelCarrito, limpiarCarrito

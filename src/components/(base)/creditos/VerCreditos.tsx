@@ -67,6 +67,7 @@ export function VerCreditos() {
   const { profile } = useProfile(user?.id ?? "", !!user);
   const [hasNotified, setHasNotified] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [soloVencidos, setSoloVencidos] = useState(false);
 
   // Aviso de créditos por vencer
   useEffect(() => {
@@ -91,6 +92,7 @@ export function VerCreditos() {
     const isActivo = tab === "cobrar" 
       ? (c.estado !== "Solventado" && c.saldo_pendiente > 0)
       : (c.estado === "Solventado" || c.saldo_pendiente <= 0);
+    if (soloVencidos && !c.credito_vencido) return false;
     return isActivo && ((c.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) || (c.nit || "").includes(busqueda));
   });
 
@@ -191,7 +193,19 @@ export function VerCreditos() {
                 className={cn(moduleTableSearchClass, "pl-10 font-medium")}
               />
             </div>
-            <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+            <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded"
+                  checked={soloVencidos}
+                  onChange={(e) => {
+                    setSoloVencidos(e.target.checked);
+                    setCurrentPage(1);
+                  }}
+                />
+                Solo vencidos
+              </label>
               <select
                 value={criterioOrden}
                 onChange={(e) => setCriterioOrden(e.target.value as typeof criterioOrden)}
@@ -321,7 +335,12 @@ export function VerCreditos() {
                     paginatedCreditos.map((c) => (
                       <tr
                         key={c.cliente_id}
-                        className={cn(moduleTableRowClass, "group cursor-pointer")}
+                        className={cn(
+                          moduleTableRowClass,
+                          "group cursor-pointer",
+                          c.credito_vencido &&
+                            "bg-red-50 dark:bg-red-950/25 hover:bg-red-100/80 dark:hover:bg-red-950/40",
+                        )}
                         onClick={() => setClienteSeleccionado(c)}
                       >
                         <td className="px-5 py-4 font-bold text-zinc-900 dark:text-white">

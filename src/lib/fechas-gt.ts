@@ -29,6 +29,20 @@ export function normalizarFechaCalendario(
   return fechaCalendarioRegex.test(solo) ? solo : "";
 }
 
+export function inicioTimestamptzDiaGt(fechaCalendario: string): string | null {
+  const fecha = normalizarFechaCalendario(fechaCalendario);
+  if (!fecha) return null;
+  return `${fecha}T06:00:00.000Z`;
+}
+
+export function finTimestamptzDiaGt(fechaCalendario: string): string | null {
+  const fecha = normalizarFechaCalendario(fechaCalendario);
+  if (!fecha) return null;
+  const [y, m, d] = fecha.split("-").map(Number);
+  const endUtc = new Date(Date.UTC(y, m - 1, d + 1, 5, 59, 59, 999));
+  return endUtc.toISOString();
+}
+
 export function normalizarMesCalendario(
   value: string | null | undefined,
 ): string {

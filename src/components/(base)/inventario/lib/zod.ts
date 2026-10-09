@@ -48,12 +48,100 @@ export const productSchema = z.object({
 
 export type ProductFormValues = z.infer<typeof productSchema>;
 
-export const bajaVencidoSchema = z.object({
+export const motivoInventarioSchema = z
+  .string()
+  .trim()
+  .min(5, "El motivo debe tener al menos 5 caracteres")
+  .max(500);
+
+export const tipoMovimientoKardexEnum = z.enum([
+  "entrada_compra",
+  "entrada_manual",
+  "salida_venta",
+  "anulacion_venta",
+  "ajuste_conteo",
+  "baja_vencimiento",
+  "devolucion_proveedor",
+  "correccion",
+]);
+
+export type TipoMovimientoKardex = z.infer<typeof tipoMovimientoKardexEnum>;
+
+export const TIPOS_MOVIMIENTO_KARDEX: {
+  value: TipoMovimientoKardex;
+  label: string;
+}[] = [
+  { value: "entrada_compra", label: "Entrada por compra" },
+  { value: "entrada_manual", label: "Entrada manual" },
+  { value: "salida_venta", label: "Salida por venta" },
+  { value: "anulacion_venta", label: "Anulación de venta" },
+  { value: "ajuste_conteo", label: "Ajuste por conteo" },
+  { value: "baja_vencimiento", label: "Baja por vencimiento" },
+  { value: "devolucion_proveedor", label: "Devolución a proveedor" },
+  { value: "correccion", label: "Corrección" },
+];
+
+export const bajaLoteSchema = z.object({
   lote_id: z.string().uuid(),
-  notas: z.string().trim().max(300).optional(),
+  motivo: motivoInventarioSchema,
 });
 
-export type BajaVencidoInput = z.infer<typeof bajaVencidoSchema>;
+export type BajaLoteInput = z.infer<typeof bajaLoteSchema>;
+
+export const ajustarConteoSchema = z.object({
+  lote_id: z.string().uuid(),
+  cantidad_contada: z.number().nonnegative("La cantidad contada no puede ser negativa"),
+  motivo: motivoInventarioSchema,
+});
+
+export type AjustarConteoInput = z.infer<typeof ajustarConteoSchema>;
+
+export const devolverProveedorSchema = z.object({
+  lote_id: z.string().uuid(),
+  cantidad: z.number().positive("La cantidad debe ser mayor que cero"),
+  motivo: motivoInventarioSchema,
+});
+
+export type DevolverProveedorInput = z.infer<typeof devolverProveedorSchema>;
+
+export const obtenerKardexSchema = z.object({
+  productoId: z.string().uuid().optional(),
+  loteId: z.string().uuid().optional(),
+  tipo: tipoMovimientoKardexEnum.optional(),
+  desde: z.string().optional(),
+  hasta: z.string().optional(),
+  pagina: z.number().int().positive().optional(),
+});
+
+export type ObtenerKardexInput = z.infer<typeof obtenerKardexSchema>;
+
+export const kardexFilaSchema = z.object({
+  id: z.string().uuid(),
+  created_at: z.string(),
+  tipo: tipoMovimientoKardexEnum,
+  cantidad: z.number(),
+  saldo_lote: z.number().nullable(),
+  saldo_producto: z.number().nullable(),
+  referencia_tipo: z.string().nullable(),
+  referencia_id: z.string().uuid().nullable(),
+  motivo: z.string().nullable(),
+  producto_id: z.string().uuid(),
+  producto_nombre: z.string().nullable(),
+  producto_nombre_generico: z.string().nullable(),
+  producto_concentracion: z.string().nullable(),
+  lote_id: z.string().uuid().nullable(),
+  lote_numero: z.string().nullable(),
+  lote_laboratorio: z.string().nullable(),
+  lote_codigo_barras: z.string().nullable(),
+  usuario_id: z.string().uuid().nullable(),
+  usuario_nombre: z.string().nullable(),
+});
+
+export type KardexFila = z.infer<typeof kardexFilaSchema>;
+
+export const bajaVencidoSchema = bajaLoteSchema;
+
+export type BajaVencidoInput = BajaLoteInput;
 
 // Lotes y bajas
 export const crearLoteManualSchema = z.object({

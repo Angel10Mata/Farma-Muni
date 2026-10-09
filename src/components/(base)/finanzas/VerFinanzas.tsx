@@ -52,7 +52,10 @@ import {
   useMovimientosFinancieros,
   useResumenFinanciero,
   useEliminarMovimiento,
+  useCuentasPorPagar,
 } from "./lib/hooks";
+import { TarjetaCuentasPorPagar } from "@/components/(base)/proveedores/TarjetaCuentasPorPagar";
+import { resumenCuentasPorPagarDesdeRpc } from "@/components/(base)/proveedores/lib/compras-helpers";
 import type { TransaccionFinanciera } from "./lib/zod";
 
 const SEARCH_DEBOUNCE_MS = 350;
@@ -177,6 +180,8 @@ export function VerFinanzas() {
   });
   
   const { data: resumen = { total_ingresos: 0, total_egresos: 0, balance: 0 } } = useResumenFinanciero(resumenDesde, resumenHasta);
+  const { data: cuentasPagar = [] } = useCuentasPorPagar();
+  const resumenPagar = resumenCuentasPorPagarDesdeRpc(cuentasPagar);
   const { mutateAsync: anularMovimiento } = useEliminarMovimiento();
 
   const movimientos = listado?.data || [];
@@ -236,7 +241,7 @@ export function VerFinanzas() {
         </div>
 
         {/* Totales — siempre el balance real de TODO el libro mayor, calculado en Postgres */}
-        <div className="grid grid-cols-3 gap-2 md:gap-4 px-1">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 px-1">
           <div className="bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 rounded-2xl p-3 md:p-5 shadow-sm">
             <div className="flex flex-col lg:flex-row items-start lg:items-center gap-2 mb-2">
               <div className="p-1.5 md:p-2 bg-[#8DA78E]/10 rounded-lg text-[#8DA78E] shrink-0">
@@ -281,6 +286,12 @@ export function VerFinanzas() {
               {formatMoney(resumen.balance)}
             </p>
           </div>
+
+          <TarjetaCuentasPorPagar
+            totalPendiente={resumenPagar.totalPendiente}
+            totalVencido={resumenPagar.totalVencido}
+            className="col-span-2 md:col-span-1"
+          />
         </div>
 
       </div>

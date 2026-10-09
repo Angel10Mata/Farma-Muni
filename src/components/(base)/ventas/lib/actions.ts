@@ -16,11 +16,14 @@ import { sendPushToRoles, sendPushToUsers } from "@/utils/push-utils";
 import {
   esRebajaDePrecio,
   fechaVentaCalendarioGt,
+  formatNumeroRecibo,
   payloadCoincideConVenta,
   precioMenorQueCosto,
   precioReferenciaRebajaPayload,
   ventaEstaAnulada,
 } from "./helpers";
+import { formatFechaHoraGt } from "@/lib/fechas-gt";
+import { fmtQ } from "@/lib/utils";
 import {
   construirReporteVentasMes,
   type ReporteVentasMes,
@@ -55,7 +58,106 @@ function mensajeErrorRegistrarVenta(message: string): string {
   if (message.includes("PRECIO_MENOR_COSTO")) {
     return "Hay un precio por debajo del costo del lote. Solo un administrador puede autorizar esta venta.";
   }
+  if (message.includes("CREDITO_VENCIDO:")) {
+    const raw = message.split("CREDITO_VENCIDO:")[1]?.trim() ?? "";
+    try {
+      const resumen = JSON.parse(raw) as {
+        total?: number;
+        desde?: string | null;
+      };
+      const total = Number(resumen.total) || 0;
+      const desde = resumen.desde ?? "";
+      const fecha = desde
+        ? new Date(`${desde}T12:00:00`).toLocaleDateString("es-GT", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : "—";
+      return `Cliente con crédito vencido por Q${total.toFixed(2)} desde ${fecha}`;
+    } catch {
+      return "Cliente con crédito vencido. No se puede vender a crédito.";
+    }
+  }
+  if (message.includes("RECETA_REQUERIDA")) {
+    return "Debes registrar el médico y número de colegiado para medicamentos con receta.";
+  }
   return message;
+}
+
+export type RecetaVentaInput = {
+  medico_nombre: string;
+  colegiado: string;
+  numero_receta?: string | null;
+  fecha_receta?: string | null;
+  observaciones?: string | null;
+};
+
+export type CreditoVencidoResumen = {
+  vencido: boolean;
+  total: number;
+  desde: string | null;
+};
+
+export async function consultarCreditoVencidoCliente(
+  clienteId: string,
+): Promise<CreditoVencidoResumen> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { vencido: false, total: 0, desde: null };
+  }
+
+  const { data, error } = await supabase.rpc("cliente_credito_vencido_resumen", {
+    p_cliente_id: clienteId,
+  });
+
+  if (error) {
+    console.error("cliente_credito_vencido_resumen:", error.message);
+    return { vencido: false, total: 0, desde: null };
+  }
+
+  const row = data as {
+    vencido?: boolean;
+    total?: number;
+    desde?: string | null;
+  } | null;
+
+  return {
+    vencido: Boolean(row?.vencido),
+    total: Number(row?.total) || 0,
+    desde: row?.desde ?? null,
+  };
+}
+
+export async function obtenerFarmaciaReciboSettings(): Promise<{
+  nombre: string;
+  direccion: string;
+  telefono: string;
+} | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("farmacia_nombre, farmacia_direccion, farmacia_telefono")
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    nombre: (data.farmacia_nombre as string | null)?.trim() || "FarmaMuni",
+    direccion:
+      (data.farmacia_direccion as string | null)?.trim() ||
+      "3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA",
+    telefono: (data.farmacia_telefono as string | null)?.trim() || "",
+  };
 }
 
 // Productos y clientes para vender
@@ -503,6 +605,8 @@ export async function crearVenta(params: {
   observaciones: string | null;
   items: ItemVentaInput[];
   solicitud_rebaja_id?: string;
+  credito_autorizado_por?: string | null;
+  receta?: RecetaVentaInput | null;
 }) {
   try {
     const guard = await requireVentas();
@@ -517,7 +621,15 @@ export async function crearVenta(params: {
     }
     const { supabase, user } = guard;
 
-    const { cliente_id, tipo_venta, observaciones, items, solicitud_rebaja_id } = params;
+    const {
+      cliente_id,
+      tipo_venta,
+      observaciones,
+      items,
+      solicitud_rebaja_id,
+      credito_autorizado_por,
+      receta,
+    } = params;
 
     if (!items || items.length === 0) {
       throw new Error("La venta debe contener al menos un producto.");
@@ -529,14 +641,80 @@ export async function crearVenta(params: {
       }
     }
 
+    const tipoCredito = ["crédito", "credito"].includes(
+      tipo_venta.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+    );
+
+    if (tipoCredito && cliente_id) {
+      const resumen = await consultarCreditoVencidoCliente(cliente_id);
+      if (resumen.vencido && !credito_autorizado_por) {
+        const fecha = resumen.desde
+          ? new Date(`${resumen.desde}T12:00:00`).toLocaleDateString("es-GT", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })
+          : "—";
+        throw new Error(
+          `Cliente con crédito vencido por Q${resumen.total.toFixed(2)} desde ${fecha}`,
+        );
+      }
+    }
+
+    if (tipoCredito && credito_autorizado_por) {
+      const rol = await obtenerRolUsuario(supabase, user.id);
+      if (rol !== "admin" && rol !== "super") {
+        throw new Error("Solo un administrador puede autorizar crédito con saldo vencido.");
+      }
+      if (credito_autorizado_por !== user.id) {
+        throw new Error("La autorización de crédito debe corresponder al administrador en sesión.");
+      }
+    }
+
+    const productoIds = [...new Set(items.map((i) => i.producto_id))];
+    const { data: productosReceta } = await supabase
+      .from("inv_productos")
+      .select("id, requiere_receta")
+      .in("id", productoIds);
+
+    const requiereReceta = (productosReceta ?? []).some((p) =>
+      Boolean(p.requiere_receta),
+    );
+
+    if (requiereReceta) {
+      const medico = receta?.medico_nombre?.trim() ?? "";
+      const colegiado = receta?.colegiado?.trim() ?? "";
+      if (!medico || !colegiado) {
+        throw new Error(
+          "Debes registrar el médico y número de colegiado para medicamentos con receta.",
+        );
+      }
+    }
+
+    const pVenta: Record<string, unknown> = {
+      cliente_id: cliente_id || null,
+      usuario_id: user.id,
+      tipo_venta,
+      observaciones: observaciones || null,
+      solicitud_rebaja_id: solicitud_rebaja_id ?? null,
+    };
+
+    if (tipoCredito && credito_autorizado_por) {
+      pVenta.credito_autorizado_por = credito_autorizado_por;
+    }
+
+    if (requiereReceta && receta) {
+      pVenta.receta = {
+        medico_nombre: receta.medico_nombre.trim(),
+        colegiado: receta.colegiado.trim(),
+        numero_receta: receta.numero_receta?.trim() || null,
+        fecha_receta: receta.fecha_receta || null,
+        observaciones: receta.observaciones?.trim() || null,
+      };
+    }
+
     const { data: ventaRpc, error: ventaError } = await supabase.rpc("registrar_venta", {
-      p_venta: {
-        cliente_id: cliente_id || null,
-        usuario_id: user.id,
-        tipo_venta,
-        observaciones: observaciones || null,
-        solicitud_rebaja_id: solicitud_rebaja_id ?? null,
-      },
+      p_venta: pVenta,
       p_items: items.map((item) => ({
         producto_id: item.producto_id,
         lote_id: item.lote_id,
@@ -874,6 +1052,106 @@ export async function obtenerReporteVentasMes(year: number, month: number) {
       error instanceof Error
         ? error.message
         : "No se pudo generar el reporte de ventas.";
+    return { success: false as const, error: message };
+  }
+}
+
+export type VentaRecetaReporteRow = {
+  recibo: string;
+  fecha: string;
+  cliente: string;
+  medico: string;
+  colegiado: string;
+  numero_receta: string;
+  total: string;
+};
+
+export async function obtenerReporteVentasReceta(
+  fechaDesde: string,
+  fechaHasta: string,
+) {
+  try {
+    if (!fechaDesde || !fechaHasta) {
+      return { success: false as const, error: "Indica el rango de fechas." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida o expirada." };
+    }
+
+    const rol = await obtenerRolUsuario(supabase, user.id);
+    if (rol !== "admin" && rol !== "super") {
+      return {
+        success: false as const,
+        error: "No tienes permiso para exportar este reporte.",
+      };
+    }
+
+    const { data: perfilReporte } = await supabase
+      .from("profiles")
+      .select("nombre")
+      .eq("id", user.id)
+      .maybeSingle();
+    const generadoPor = perfilReporte?.nombre?.trim() || "Sin nombre";
+
+    const desdeIso = `${fechaDesde}T00:00:00.000-06:00`;
+    const hastaIso = `${fechaHasta}T23:59:59.999-06:00`;
+
+    const { data: recetas, error } = await supabase
+      .from("ventas")
+      .select(
+        "id, created_at, numero_recibo, total, ven_clientes(nombre), ven_recetas!inner(medico_nombre, colegiado, numero_receta)",
+      )
+      .gte("created_at", desdeIso)
+      .lte("created_at", hastaIso)
+      .order("created_at", { ascending: true });
+
+    if (error) {
+      return { success: false as const, error: error.message };
+    }
+
+    const filas: VentaRecetaReporteRow[] = (recetas ?? []).map((v) => {
+      const recetaRow = Array.isArray(v.ven_recetas)
+        ? v.ven_recetas[0]
+        : v.ven_recetas;
+      const recibo =
+        formatNumeroRecibo(v.numero_recibo as number | null) ||
+        `#${v.numero_recibo ?? v.id.slice(0, 8)}`;
+      const clientes = v.ven_clientes as { nombre: string } | { nombre: string }[] | null;
+      const clienteNombre = Array.isArray(clientes)
+        ? clientes[0]?.nombre
+        : clientes?.nombre;
+      return {
+        recibo,
+        fecha: formatFechaHoraGt(v.created_at as string),
+        cliente: clienteNombre?.trim() || "Consumidor final",
+        medico: (recetaRow as { medico_nombre: string }).medico_nombre,
+        colegiado: (recetaRow as { colegiado: string }).colegiado,
+        numero_receta:
+          (recetaRow as { numero_receta?: string | null }).numero_receta?.trim() ||
+          "—",
+        total: fmtQ(Number(v.total) || 0),
+      };
+    });
+
+    return {
+      success: true as const,
+      data: {
+        fechaDesde,
+        fechaHasta,
+        generadoPor,
+        filas,
+      },
+    };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo generar el reporte de ventas con receta.";
     return { success: false as const, error: message };
   }
 }

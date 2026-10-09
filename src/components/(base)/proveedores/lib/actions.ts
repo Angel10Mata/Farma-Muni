@@ -4,6 +4,13 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { activarProductoCatalogoPorNuevoLote } from "@/components/(base)/inventario/lib/sync-producto-catalogo";
 import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from "./zod";
+import { FACTURA_DUPLICATE_MSG } from "./compras-helpers";
+import { formatFechaHoraGt } from "@/lib/fechas-gt";
+import { fmtQ } from "@/lib/utils";
+import {
+  formatearFechaCompraGt,
+  totalPagadoCompra,
+} from "./compras-helpers";
 import { requireAdmin, requireRole } from "@/lib/auth-guards";
 
 const PROVEEDORES_WRITE_ROLES = [
@@ -30,6 +37,13 @@ function mapDbError(error: { code?: string; message?: string }): ActionFail {
       code: "DUPLICATE",
       detail: LOTE_DUPLICATE_MSG,
     };
+  }
+  if (
+    error.code === "23505" &&
+    (msg.includes("inv_compras_proveedor_numero_factura_unique") ||
+      msg.toLowerCase().includes("numero_factura"))
+  ) {
+    return { code: "DUPLICATE", detail: FACTURA_DUPLICATE_MSG };
   }
   if (error.code === "42501" || msg.toLowerCase().includes("row-level security")) {
     return {
@@ -181,8 +195,17 @@ export async function crearCompra(input: CompraInput) {
     const parsed = CompraSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
 
-    const { proveedor_id, total, estado_pago, observaciones, items } = parsed.data;
+    const {
+      proveedor_id,
+      total,
+      estado_pago,
+      observaciones,
+      items,
+      numero_factura,
+      fecha_vencimiento_pago,
+    } = parsed.data;
     const pagado = esEstadoPagado(estado_pago);
+    const facturaNorm = numero_factura.trim();
 
     const { data: compra, error: compraError } = await supabase
       .from("inv_compras")
@@ -191,6 +214,9 @@ export async function crearCompra(input: CompraInput) {
         total,
         estado_pago: pagado ? "Pagado" : estado_pago,
         fecha_pago: pagado ? new Date().toISOString() : null,
+        numero_factura: facturaNorm,
+        fecha_vencimiento_pago:
+          pagado ? null : fecha_vencimiento_pago?.trim().slice(0, 10) || null,
         observaciones: observaciones?.trim() || null,
       })
       .select("id")
@@ -298,7 +324,7 @@ export async function obtenerComprasProveedor(proveedorId: string) {
     const { data, error } = await supabase
       .from("inv_compras")
       .select(
-        "id, created_at, total, numero_factura, estado_pago, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
+        "id, created_at, total, numero_factura, fecha_vencimiento_pago, estado_pago, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
       )
       .eq("proveedor_id", proveedorId)
       .order("created_at", { ascending: false });
@@ -458,5 +484,101 @@ export async function registrarAbonoCompra(
     return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };
+  }
+}
+
+export type CompraProveedorReporteRow = {
+  proveedor: string;
+  factura: string;
+  fecha: string;
+  vence: string;
+  total: string;
+  pagado: string;
+  saldo: string;
+  vencida: string;
+};
+
+export async function obtenerReporteComprasProveedor(
+  fechaDesde: string,
+  fechaHasta: string,
+  proveedorId?: string | null,
+) {
+  try {
+    if (!fechaDesde || !fechaHasta) {
+      return { success: false as const, error: "Indica el rango de fechas." };
+    }
+
+    const guard = await requireRole([...PROVEEDORES_WRITE_ROLES]);
+    if (!guard.ok) {
+      return { success: false as const, error: "No tienes permiso para exportar este reporte." };
+    }
+    const { supabase, user } = guard;
+
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("nombre")
+      .eq("id", user.id)
+      .maybeSingle();
+    const generadoPor = perfil?.nombre?.trim() || "Sin nombre";
+
+    const desdeIso = `${fechaDesde}T00:00:00.000-06:00`;
+    const hastaIso = `${fechaHasta}T23:59:59.999-06:00`;
+
+    let query = supabase
+      .from("inv_compras")
+      .select(
+        "id, created_at, total, numero_factura, fecha_vencimiento_pago, inv_proveedores(nombre), fin_transacciones(monto, categoria)",
+      )
+      .gte("created_at", desdeIso)
+      .lte("created_at", hastaIso)
+      .order("created_at", { ascending: true });
+
+    if (proveedorId) {
+      query = query.eq("proveedor_id", proveedorId);
+    }
+
+    const { data: compras, error } = await query;
+    if (error) {
+      return { success: false as const, error: error.message };
+    }
+
+    const hoy = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "America/Guatemala" }),
+    );
+    const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+
+    const filas: CompraProveedorReporteRow[] = (compras ?? []).map((c) => {
+      const prov = c.inv_proveedores as { nombre?: string } | null;
+      const pagado = totalPagadoCompra(c.fin_transacciones as unknown[]);
+      const saldo = Math.max(0, Number(c.total) - pagado);
+      const vence = (c.fecha_vencimiento_pago as string | null)?.trim() || "";
+      const vencida = saldo > 0.009 && vence && vence < hoyStr ? "Sí" : "No";
+      return {
+        proveedor: prov?.nombre?.trim() || "Proveedor",
+        factura: (c.numero_factura as string | null)?.trim() || "—",
+        fecha: formatFechaHoraGt(c.created_at as string),
+        vence: vence ? formatearFechaCompraGt(vence) : "—",
+        total: fmtQ(Number(c.total) || 0),
+        pagado: fmtQ(pagado),
+        saldo: fmtQ(saldo),
+        vencida,
+      };
+    });
+
+    return {
+      success: true as const,
+      data: {
+        fechaDesde,
+        fechaHasta,
+        generadoPor,
+        filas,
+      },
+    };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo generar el reporte de compras.";
+    return { success: false as const, error: message };
   }
 }

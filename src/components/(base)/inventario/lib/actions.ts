@@ -2,18 +2,59 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { claveProductoUnico, isProductoVencido, patchInvLoteCantidadActual } from "./helpers";
+import { claveProductoUnico } from "./helpers";
+import { activarProductoCatalogoPorNuevoLote } from "./sync-producto-catalogo";
 import {
-  activarProductoCatalogoPorNuevoLote,
-  syncInvProductoCatalogoDesdeLotes,
-} from "./sync-producto-catalogo";
-import {
-  bajaVencidoSchema,
+  ajustarConteoSchema,
+  bajaLoteSchema,
   crearLoteManualSchema,
+  devolverProveedorSchema,
+  kardexFilaSchema,
+  obtenerKardexSchema,
   productSchema,
+  type KardexFila,
   type ProductFormValues,
 } from "./zod";
-import { requireInventario } from "@/lib/auth-guards";
+import { requireInventario, requireRole } from "@/lib/auth-guards";
+import {
+  finTimestamptzDiaGt,
+  inicioTimestamptzDiaGt,
+  normalizarFechaCalendario,
+} from "@/lib/fechas-gt";
+
+const KARDEX_PAGE_SIZE = 50;
+
+function mapRpcInventarioError(error: { message?: string; code?: string }) {
+  const msg = (error.message ?? "").toLowerCase();
+  if (msg.includes("sesión no válida") || msg.includes("sesion no valida")) {
+    return "UNAUTHORIZED" as const;
+  }
+  if (msg.includes("no autorizado")) {
+    return "FORBIDDEN" as const;
+  }
+  if (msg.includes("no encontrado")) {
+    return "LOTE_NO_ENCONTRADO" as const;
+  }
+  if (
+    msg.includes("motivo") ||
+    msg.includes("cantidad") ||
+    msg.includes("negativ") ||
+    msg.includes("vencido")
+  ) {
+    return "VALIDATION" as const;
+  }
+  if (msg.includes("aún no está vencido") || msg.includes("aun no esta vencido")) {
+    return "NOT_EXPIRED" as const;
+  }
+  if (msg.includes("no hay existencias") || msg.includes("stock")) {
+    return "NO_STOCK" as const;
+  }
+  return "RPC_ERROR" as const;
+}
+
+async function requireKardexLectura() {
+  return requireRole(["super", "admin", "inventario", "finanzas"]);
+}
 
 // Utilidades internas
 function normalizarFechaLote(fecha: string) {
@@ -307,82 +348,228 @@ export async function crearLoteManual(input: unknown) {
   }
 }
 
-export async function registrarBajaPorVencimiento(input: unknown) {
+export async function ajustarLotePorConteo(input: unknown) {
   try {
     const guard = await requireInventario();
     if (!guard.ok) return { code: guard.code };
-    const { supabase, user } = guard;
+    const { supabase } = guard;
 
-    const parsed = bajaVencidoSchema.safeParse(input);
+    const parsed = ajustarConteoSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
 
-    const { data: lote, error: findError } = await supabase
-      .from("inv_lotes")
-      .select(
-        "id, producto_id, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, activo, inv_productos(nombre)",
-      )
-      .eq("id", parsed.data.lote_id)
-      .single();
+    const { data, error } = await supabase.rpc("ajustar_lote_por_conteo", {
+      p_lote_id: parsed.data.lote_id,
+      p_cantidad_contada: parsed.data.cantidad_contada,
+      p_motivo: parsed.data.motivo,
+    });
 
-    if (findError || !lote) return { code: "NOT_FOUND" as const };
+    if (error) return { code: mapRpcInventarioError(error) };
 
-    if (!lote.activo) return { code: "VALIDATION" as const };
+    revalidatePath("/farmamuni/inventario");
+    revalidatePath("/farmamuni/inventario/kardex");
+    return { success: true as const, data };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
 
-    if (!isProductoVencido(lote.fecha_vencimiento)) {
-      return { code: "NOT_EXPIRED" as const };
+export async function darBajaLote(input: unknown) {
+  try {
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
+
+    const parsed = bajaLoteSchema.safeParse(input);
+    if (!parsed.success) return { code: "VALIDATION" as const };
+
+    const { data, error } = await supabase.rpc("dar_baja_lote_vencido", {
+      p_lote_id: parsed.data.lote_id,
+      p_motivo: parsed.data.motivo,
+    });
+
+    if (error) return { code: mapRpcInventarioError(error) };
+
+    const unidades = typeof data === "number" ? data : Number(data) || 0;
+
+    revalidatePath("/farmamuni/inventario");
+    revalidatePath("/farmamuni/inventario/kardex");
+    return { success: true as const, unidades };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function devolverLoteAProveedor(input: unknown) {
+  try {
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
+
+    const parsed = devolverProveedorSchema.safeParse(input);
+    if (!parsed.success) return { code: "VALIDATION" as const };
+
+    const { data, error } = await supabase.rpc("devolver_lote_a_proveedor", {
+      p_lote_id: parsed.data.lote_id,
+      p_cantidad: parsed.data.cantidad,
+      p_motivo: parsed.data.motivo,
+    });
+
+    if (error) return { code: mapRpcInventarioError(error) };
+
+    revalidatePath("/farmamuni/inventario");
+    revalidatePath("/farmamuni/inventario/kardex");
+    return { success: true as const, data };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function registrarBajaPorVencimiento(input: unknown) {
+  const parsed = bajaLoteSchema.safeParse({
+    lote_id: typeof input === "object" && input && "lote_id" in input
+      ? (input as { lote_id: string }).lote_id
+      : undefined,
+    motivo:
+      typeof input === "object" && input && "motivo" in input
+        ? (input as { motivo?: string }).motivo
+        : typeof input === "object" && input && "notas" in input
+          ? (input as { notas?: string }).notas
+          : "Baja por vencimiento del lote",
+  });
+  if (!parsed.success) return { code: "VALIDATION" as const };
+  const res = await darBajaLote(parsed.data);
+  if (!res.success) return res;
+  return { success: true as const, unidades: res.unidades };
+}
+
+export type ObtenerKardexResult = {
+  filas: KardexFila[];
+  total: number;
+  pagina: number;
+  pageSize: number;
+  stockProductoActual: number | null;
+  ultimoSaldoProductoKardex: number | null;
+  saldoCoincide: boolean | null;
+};
+
+export async function obtenerKardex(input: unknown): Promise<
+  | { code: "UNAUTHORIZED" | "FORBIDDEN" | "VALIDATION" | "INTERNAL" }
+  | { success: true; data: ObtenerKardexResult }
+> {
+  try {
+    const guard = await requireKardexLectura();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
+
+    const parsed = obtenerKardexSchema.safeParse(input);
+    if (!parsed.success) return { code: "VALIDATION" as const };
+
+    const pagina = parsed.data.pagina ?? 1;
+    const from = (pagina - 1) * KARDEX_PAGE_SIZE;
+    const to = from + KARDEX_PAGE_SIZE - 1;
+
+    let query = supabase
+      .from("v_kardex")
+      .select("*", { count: "exact" })
+      .order("created_at", { ascending: false });
+
+    if (parsed.data.productoId) {
+      query = query.eq("producto_id", parsed.data.productoId);
+    }
+    if (parsed.data.loteId) {
+      query = query.eq("lote_id", parsed.data.loteId);
+    }
+    if (parsed.data.tipo) {
+      query = query.eq("tipo", parsed.data.tipo);
     }
 
-    const unidades = Number(lote.cantidad_actual) || 0;
-    if (unidades <= 0) return { code: "NO_STOCK" as const };
+    const desdeIso = parsed.data.desde
+      ? inicioTimestamptzDiaGt(normalizarFechaCalendario(parsed.data.desde))
+      : null;
+    const hastaIso = parsed.data.hasta
+      ? finTimestamptzDiaGt(normalizarFechaCalendario(parsed.data.hasta))
+      : null;
 
-    const { error: updateError } = await supabase
-      .from("inv_lotes")
-      .update(patchInvLoteCantidadActual(0))
-      .eq("id", lote.id);
+    if (desdeIso) query = query.gte("created_at", desdeIso);
+    if (hastaIso) query = query.lte("created_at", hastaIso);
 
-    if (updateError) return { code: "INTERNAL" as const };
+    const { data, error, count } = await query.range(from, to);
 
-    try {
-      await syncInvProductoCatalogoDesdeLotes(supabase, lote.producto_id);
-    } catch {
+    if (error) {
+      if (
+        error.code === "PGRST103" ||
+        error.message.includes("Requested range not satisfiable")
+      ) {
+        return {
+          success: true,
+          data: {
+            filas: [],
+            total: count ?? 0,
+            pagina,
+            pageSize: KARDEX_PAGE_SIZE,
+            stockProductoActual: null,
+            ultimoSaldoProductoKardex: null,
+            saldoCoincide: null,
+          },
+        };
+      }
       return { code: "INTERNAL" as const };
     }
 
-    const costoUnit = Number(lote.precio_costo) || 0;
-    const montoPerdida = costoUnit > 0 ? costoUnit * unidades : 0;
-    const productoJoin = lote.inv_productos as
-      | { nombre?: string }
-      | { nombre?: string }[]
-      | null;
-    const nombreProd = Array.isArray(productoJoin)
-      ? productoJoin[0]?.nombre
-      : productoJoin?.nombre;
-
-    if (montoPerdida > 0) {
-      const loteTxt = lote.numero_lote ? ` lote ${lote.numero_lote}` : "";
-      const notas = parsed.data.notas?.trim();
-      const descripcion = notas
-        ? `Baja por vencimiento: ${nombreProd ?? "Producto"}${loteTxt}. ${notas}`
-        : `Baja por vencimiento: ${nombreProd ?? "Producto"}${loteTxt} (${unidades} u.)`;
-
-      const { error: finError } = await supabase.from("fin_transacciones").insert({
-        tipo_movimiento: "egreso",
-        categoria: "gasto_vario",
-        monto: montoPerdida,
-        descripcion: descripcion.slice(0, 200),
-        fecha_movimiento: new Date().toISOString(),
-        usuario_id: user.id,
-        venta_id: null,
-        compra_id: null,
-        gasto_fijo_id: null,
+    const filas: KardexFila[] = [];
+    for (const row of data ?? []) {
+      const safe = kardexFilaSchema.safeParse({
+        ...row,
+        cantidad: Number(row.cantidad),
+        saldo_lote: row.saldo_lote != null ? Number(row.saldo_lote) : null,
+        saldo_producto:
+          row.saldo_producto != null ? Number(row.saldo_producto) : null,
       });
-
-      if (finError) return { code: "INTERNAL" as const };
+      if (safe.success) filas.push(safe.data);
     }
 
-    revalidatePath("/farmamuni/inventario");
-    revalidatePath("/farmamuni/finanzas");
-    return { success: true as const, unidades };
+    let stockProductoActual: number | null = null;
+    let ultimoSaldoProductoKardex: number | null = null;
+    let saldoCoincide: boolean | null = null;
+
+    if (parsed.data.productoId) {
+      const { data: prod } = await supabase
+        .from("inv_productos")
+        .select("stock_actual")
+        .eq("id", parsed.data.productoId)
+        .maybeSingle();
+
+      stockProductoActual = prod ? Number(prod.stock_actual) : 0;
+
+      const { data: ultimo } = await supabase
+        .from("v_kardex")
+        .select("saldo_producto")
+        .eq("producto_id", parsed.data.productoId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      ultimoSaldoProductoKardex =
+        ultimo?.saldo_producto != null ? Number(ultimo.saldo_producto) : null;
+
+      if (ultimoSaldoProductoKardex != null) {
+        saldoCoincide =
+          Math.abs(stockProductoActual - ultimoSaldoProductoKardex) < 0.0001;
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        filas,
+        total: count ?? filas.length,
+        pagina,
+        pageSize: KARDEX_PAGE_SIZE,
+        stockProductoActual,
+        ultimoSaldoProductoKardex,
+        saldoCoincide,
+      },
+    };
   } catch {
     return { code: "INTERNAL" as const };
   }

@@ -11,6 +11,8 @@ import { toast } from "@/components/ui/general-modal";
 import { buscarLotePorCodigoBarras } from "./lib/actions";
 import { etiquetaPrecioPos, productoCoincideBusquedaPos } from "./lib/helpers";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { mensajeCreditoVencidoCliente } from "./lib/helpers";
 
 interface SeccionProductosVentasProps {
   productos: Producto[];
@@ -20,6 +22,9 @@ interface SeccionProductosVentasProps {
 export function SeccionProductosVentas({ productos, clientes }: SeccionProductosVentasProps) {
   const ventas = useVentas();
   const { isDemoMode } = useDemoMode();
+  const { realRole, simulatedRole } = useUserContext();
+  const esAdminSesion =
+    ["admin", "super"].includes(realRole) && simulatedRole === null;
 
   // Referencias y sugerencias de búsqueda
   const clienteDropdownRef = useRef<HTMLDivElement>(null);
@@ -50,6 +55,16 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
             Punto de Venta
           </h2>
         </div>
+
+        {ventas.advertenciaVencimientoPos ? (
+          <div
+            className="flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-xs font-medium text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+            role="status"
+          >
+            <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+            <span>{ventas.advertenciaVencimientoPos}</span>
+          </div>
+        ) : null}
 
         {/* 1. Selección de Cliente */}
         <div className="flex flex-col gap-1.5 w-full relative text-left" ref={clienteDropdownRef}>
@@ -157,7 +172,17 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
                         toast.warn("Para pago al crédito debes seleccionar un cliente.");
                         return;
                       }
-                      ventas.setTipoVenta(opt.id as any);
+                      if (
+                        opt.id === "Crédito" &&
+                        ventas.creditoVencido?.vencido &&
+                        !ventas.autorizarCreditoMoroso
+                      ) {
+                        toast.warn(
+                          `Cliente con crédito vencido por Q${ventas.creditoVencido.total.toFixed(2)}. Solo contado o autorización admin.`,
+                        );
+                        return;
+                      }
+                      ventas.setTipoVenta(opt.id as "Contado" | "Crédito");
                       ventas.setMostrarMetodoPagoDropdown(false);
                     }}
                     className={`w-full px-3 py-2 rounded-lg text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
@@ -174,6 +199,28 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
             )}
           </AnimatePresence>
         </div>
+
+        {ventas.clienteSeleccionado && ventas.creditoVencido?.vencido && (
+          <div className="rounded-xl border border-red-300 bg-red-50 dark:border-red-800 dark:bg-red-950/30 p-3 text-left text-xs text-red-800 dark:text-red-200">
+            <p className="font-bold">
+              {mensajeCreditoVencidoCliente(
+                ventas.creditoVencido.total,
+                ventas.creditoVencido.desde ?? "",
+              )}
+            </p>
+            {esAdminSesion && (
+              <label className="mt-2 flex cursor-pointer items-center gap-2 font-semibold">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded border-red-400"
+                  checked={ventas.autorizarCreditoMoroso}
+                  onChange={(e) => ventas.setAutorizarCreditoMoroso(e.target.checked)}
+                />
+                Autorizar crédito de todos modos
+              </label>
+            )}
+          </div>
+        )}
 
         {/* 3. Búsqueda manual de producto */}
         <div className="flex flex-col gap-1.5 w-full relative text-left" ref={prodDropdownRef}>
@@ -210,6 +257,7 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
                         precio_costo_lote: res.lote.precio_costo,
                         precio_venta_lote: res.lote.precio_venta,
                         laboratorio: res.lote.laboratorio,
+                        fecha_vencimiento: res.lote.fecha_vencimiento,
                         cantidad: 1,
                       });
                       ventas.setProductoBusqueda("");

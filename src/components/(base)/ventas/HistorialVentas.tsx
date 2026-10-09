@@ -18,17 +18,19 @@ import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import {
-  obtenerCodigoRecibo,
+  codigoReciboVenta,
+  formatNumeroRecibo,
   ventaCoincideFiltroPagoHistorial,
   fechaVentaCalendarioGt,
   ventaEsCreditoHistorial,
   etiquetaTipoVentaHistorial,
   resolverMesExportacionVentas,
 } from "./lib/helpers";
-import { fechaCalendarioGt } from "@/lib/fechas-gt";
+import { fechaCalendarioGt, ultimoDiaMesCalendario } from "@/lib/fechas-gt";
 import { useHistorialVentas } from "./lib/hooks";
-import { obtenerReporteVentasMes } from "./lib/actions";
+import { obtenerReporteVentasMes, obtenerReporteVentasReceta } from "./lib/actions";
 import { descargarReporteVentasMesPdf } from "./lib/export-reporte-ventas-mes-pdf";
+import { descargarReporteVentasRecetaPdf } from "./lib/export-reporte-ventas-receta-pdf";
 import { construirReporteVentasMesDemo } from "./lib/reporte-ventas-mes-demo";
 import { etiquetaPeriodoVentasMes } from "./lib/reporte-ventas-mes";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
@@ -80,6 +82,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
   // Filtros
   const [busquedaHistorial, setBusquedaHistorial] = useState("");
   const [exportandoInforme, setExportandoInforme] = useState(false);
+  const [exportandoReceta, setExportandoReceta] = useState(false);
   const [tipoPagoSwitch, setTipoPagoSwitch] = useState<"todos" | "contado" | "credito">("todos");
   
   // Filtros de Fecha
@@ -114,7 +117,9 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
       (v.numero_recibo && v.numero_recibo.toString().includes(query)) ||
       (v.observaciones && v.observaciones.toLowerCase().includes(query)) ||
       (v.ven_clientes?.nombre && v.ven_clientes.nombre.toLowerCase().includes(query)) ||
-      obtenerCodigoRecibo(v.id).toLowerCase().includes(query);
+      codigoReciboVenta(v).toLowerCase().includes(query) ||
+      (v.numero_recibo != null &&
+        formatNumeroRecibo(v.numero_recibo).toLowerCase().includes(query));
     
     // 2. Tipo Pago
     const matchesTipoPago = ventaCoincideFiltroPagoHistorial(
@@ -145,6 +150,48 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const resolverRangoInforme = (): { desde: string; hasta: string } => {
+    if (tipoFiltroFecha === "rango" && fechaRangoDesde && fechaRangoHasta) {
+      return { desde: fechaRangoDesde, hasta: fechaRangoHasta };
+    }
+    if (tipoFiltroFecha === "dia" && fechaDia) {
+      return { desde: fechaDia, hasta: fechaDia };
+    }
+    const { year, month } = resolverMesExportacionVentas({
+      tipoFiltroFecha,
+      fechaDia,
+      activeYear,
+      activeMonth,
+    });
+    const monthStr = String(month).padStart(2, "0");
+    const lastDay = ultimoDiaMesCalendario(year, month);
+    return {
+      desde: `${year}-${monthStr}-01`,
+      hasta: `${year}-${monthStr}-${String(lastDay).padStart(2, "0")}`,
+    };
+  };
+
+  const exportarVentasReceta = async () => {
+    const { desde, hasta } = resolverRangoInforme();
+    setExportandoReceta(true);
+    try {
+      const res = await obtenerReporteVentasReceta(desde, hasta);
+      if (!res.success) throw new Error(res.error);
+      if (res.data.filas.length === 0) {
+        toast.warn("No hay ventas con receta en el rango seleccionado.");
+        return;
+      }
+      descargarReporteVentasRecetaPdf(res.data);
+      toast.success("Reporte de ventas con receta generado.");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo generar el reporte.";
+      toast.error(msg);
+    } finally {
+      setExportandoReceta(false);
+    }
+  };
 
   const exportarInformeVentasMes = async () => {
     const { year, month } = resolverMesExportacionVentas({
@@ -210,6 +257,16 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
               />
             </div>
             <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
+              <SigetActionButton
+                label="Recetas"
+                accentColor={sigetAccent.editar}
+                morphFrom={FileDown}
+                morphTo={FileDown}
+                morphOnHover={false}
+                onClick={() => void exportarVentasReceta()}
+                disabled={exportandoReceta || isLoading || isDemoMode}
+                className="w-auto shrink-0"
+              />
               <SigetActionButton
                 label="Informe"
                 accentColor={sigetAccent.excel}
@@ -392,7 +449,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                   <div key={v.id} className={cn("bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-sm relative overflow-hidden", v.observaciones?.includes("[ANULADA]") && "border-rose-200 bg-rose-50/30 dark:bg-rose-900/10")}>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-black text-slate-900 dark:text-white">
-                        Venta #{obtenerCodigoRecibo(v.id)}
+                        Venta {codigoReciboVenta(v)}
                       </span>
                       <span
                         className={cn(
@@ -494,7 +551,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                         )}
                       >
                         <td className={cn(moduleTableCellClass, "font-bold text-zinc-900 dark:text-white whitespace-nowrap")}>
-                          {obtenerCodigoRecibo(v.id)}
+                          {codigoReciboVenta(v)}
                         </td>
                         <td className={cn(moduleTableCellClass, "text-zinc-500 whitespace-nowrap")}>{date}</td>
                         <td className={cn(moduleTableCellClass, "font-bold")}>

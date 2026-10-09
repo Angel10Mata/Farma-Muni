@@ -17,10 +17,22 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
 
     if (cliError) throw new Error(cliError.message);
 
+    const { data: settingsRow } = await supabase
+      .from("app_settings")
+      .select("dias_credito")
+      .limit(1)
+      .maybeSingle();
+    const diasCreditoPlazo = Number(settingsRow?.dias_credito) || 30;
+
+    const hoyGt = new Date(
+      new Date().toLocaleString("en-US", { timeZone: "America/Guatemala" }),
+    );
+    hoyGt.setHours(0, 0, 0, 0);
+
     // Ventas al crédito
     const { data: ventasData, error: ventasError } = await supabase
       .from("ventas")
-      .select("id, cliente_id, total, tipo_venta, created_at")
+      .select("id, cliente_id, total, tipo_venta, created_at, fecha_credito_vencimiento")
       .eq("tipo_venta", "Crédito")
       .order("created_at", { ascending: false })
       .limit(2000);
@@ -73,6 +85,8 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
           saldo_pendiente: 0,
           estado: "Solventado",
           dias_atraso: 0,
+          credito_vencido: false,
+          monto_credito_vencido: 0,
         });
       });
     }
@@ -97,6 +111,19 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
           if (dias > c.dias_atraso) {
              c.dias_atraso = dias;
           }
+
+          const fechaVence = v.fecha_credito_vencimiento
+            ? new Date(`${v.fecha_credito_vencimiento}T12:00:00`)
+            : new Date(new Date(v.created_at).getTime());
+          if (!v.fecha_credito_vencimiento) {
+            fechaVence.setDate(fechaVence.getDate() + diasCreditoPlazo);
+          }
+          fechaVence.setHours(0, 0, 0, 0);
+          if (fechaVence < hoyGt) {
+            c.credito_vencido = true;
+            c.monto_credito_vencido =
+              (c.monto_credito_vencido ?? 0) + saldoVenta;
+          }
         }
       });
     }
@@ -107,7 +134,7 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
       if (c.total_consumido > 0) {
         if (c.saldo_pendiente <= 0) {
            c.estado = "Solventado";
-        } else if (c.dias_atraso > 30) {
+        } else if (c.credito_vencido || c.dias_atraso > diasCreditoPlazo) {
            c.estado = "Atrasado";
         } else {
            c.estado = "Al día";

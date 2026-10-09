@@ -16,6 +16,7 @@ export const ProductoSchema = z.object({
   imagen_url: z.string().nullable().optional(),
   ubicacion: z.string().nullable().optional(),
   activo: z.boolean(),
+  requiere_receta: z.boolean().optional(),
 });
 
 export const ClienteSchema = z.object({

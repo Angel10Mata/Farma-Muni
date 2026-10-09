@@ -8,6 +8,7 @@ export type LoteAsignadoVenta = {
   precio_costo: number;
   codigo_barras: string;
   laboratorio: string | null;
+  fecha_vencimiento: string | null;
 };
 
 export type LoteVendibleRow = {
@@ -71,6 +72,7 @@ export function asignarCantidadFefo(
       precio_costo: Number(lote.precio_costo) || 0,
       codigo_barras: lote.codigo_barras,
       laboratorio: lote.laboratorio,
+      fecha_vencimiento: lote.fecha_vencimiento ?? null,
     });
     restante -= tomar;
   }

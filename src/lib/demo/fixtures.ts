@@ -7,8 +7,13 @@ import type {
   TransaccionFinanciera,
 } from "@/components/(base)/finanzas/lib/zod";
 import { productoFarmaciaDesdeLegacy } from "@/components/(base)/inventario/lib/helpers";
-import type { Producto } from "@/components/(base)/inventario/lib/zod";
+import type { KardexFila, Producto } from "@/components/(base)/inventario/lib/zod";
 import type { Compra, Proveedor } from "@/components/(base)/proveedores/lib/zod";
+import type { ConteoVencimientoLotes, LoteVencimientoCampos } from "@/lib/vencimientos-gt";
+import {
+  contarLotesPorCategoriaVencimiento,
+  valorCostoLotesCategoria,
+} from "@/lib/vencimientos-gt";
 
 // HELPERS Y CATÁLOGOS BASE
 
@@ -138,6 +143,37 @@ export const DEMO_PRODUCTOS: Producto[] = PRODUCTOS_CATALOGO.map((p, i) => {
   };
 });
 
+export function demoLotesCamposVencimiento(): LoteVencimientoCampos[] {
+  const hoy = new Date();
+  return DEMO_PRODUCTOS.map((p, i) => {
+    const offset =
+      i % 5 === 0 ? -5 : i % 5 === 1 ? 12 : i % 5 === 2 ? 45 : i % 5 === 3 ? 75 : 120;
+    const vence = new Date(hoy);
+    vence.setDate(vence.getDate() + offset);
+    const iso = vence.toISOString().slice(0, 10);
+    return {
+      activo: p.activo,
+      cantidad_actual: p.stock_actual,
+      fecha_vencimiento: iso,
+      precio_costo: Math.round(p.precio_base * 0.65 * 100) / 100,
+    };
+  });
+}
+
+export function demoResumenVencimientoLotes(): {
+  conteo: ConteoVencimientoLotes;
+  valorCosto30Dias: number;
+  lotesPorVencer30: number;
+} {
+  const lotes = demoLotesCamposVencimiento();
+  const conteo = contarLotesPorCategoriaVencimiento(lotes);
+  return {
+    conteo,
+    valorCosto30Dias: valorCostoLotesCategoria(lotes, "dias_0_30"),
+    lotesPorVencer30: conteo.dias_0_30,
+  };
+}
+
 export const DEMO_LOW_STOCK_COUNT = DEMO_PRODUCTOS.filter(
   (p) => p.stock_actual <= p.stock_minimo,
 ).length;
@@ -252,6 +288,12 @@ export const DEMO_COMPRAS: Compra[] = Array.from({ length: 28 }, (_, i) => {
     total: Math.round((400 + (i * 127.5) % 3500) * 100) / 100,
     estado_pago: pagado ? "Pagado" : "Pendiente",
     fecha_pago: pagado ? daysAgo(Math.max(0, (i % 40) - 2)) : null,
+    numero_factura: `FAC-${1000 + i}`,
+    fecha_vencimiento_pago: pagado
+      ? null
+      : new Date(Date.now() + (i % 5 === 0 ? -5 : 14) * 86400000)
+          .toISOString()
+          .slice(0, 10),
     observaciones: i % 4 === 0 ? "Pedido mensual" : i % 5 === 0 ? "Urgente" : null,
     fin_transacciones: [],
     inv_proveedores: { nombre: prov.nombre, nit: prov.nit ?? null },
@@ -342,7 +384,9 @@ export const DEMO_CUENTAS_PAGAR: CuentaPorPagar[] = DEMO_COMPRAS.filter(
   compra_id: c.id,
   proveedor_id: c.proveedor_id,
   proveedor_nombre: c.inv_proveedores?.nombre ?? "Proveedor",
+  numero_factura: c.numero_factura ?? null,
   fecha_compra: c.created_at,
+  fecha_vencimiento_pago: c.fecha_vencimiento_pago ?? null,
   total: c.total,
   total_pagado: 0,
   saldo_pendiente: c.total,
@@ -435,5 +479,147 @@ export function demoMovimientosFinancieros(page = 1, pageSize = 50) {
     count: data.length,
     page,
     pageSize,
+  };
+}
+
+export const DEMO_KARDEX_MOVIMIENTOS: KardexFila[] = DEMO_PRODUCTOS.slice(0, 8).flatMap(
+  (p, i) => {
+    const loteId = `demo-lote-${p.id}`;
+    const baseStock = p.stock_actual;
+    const t0 = daysAgo(12 - i);
+    const t1 = daysAgo(8 - i);
+    const t2 = daysAgo(3 - i);
+    return [
+      {
+        id: `demo-kardex-ini-${p.id}`,
+        created_at: t0,
+        tipo: "entrada_manual" as const,
+        cantidad: baseStock + (i % 3) * 2,
+        saldo_lote: baseStock + (i % 3) * 2,
+        saldo_producto: baseStock + (i % 3) * 2,
+        referencia_tipo: null,
+        referencia_id: null,
+        motivo: "Saldo inicial (demo)",
+        producto_id: p.id,
+        producto_nombre: p.nombre,
+        producto_nombre_generico: p.nombre_generico,
+        producto_concentracion: p.concentracion,
+        lote_id: loteId,
+        lote_numero: `L-${2400 + i}`,
+        lote_laboratorio: DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length].nombre,
+        lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
+        usuario_id: null,
+        usuario_nombre: "Usuario demo",
+      },
+      {
+        id: `demo-kardex-venta-${p.id}`,
+        created_at: t1,
+        tipo: "salida_venta" as const,
+        cantidad: -Math.min(2, baseStock),
+        saldo_lote: Math.max(0, baseStock - 2),
+        saldo_producto: Math.max(0, baseStock - 2),
+        referencia_tipo: "venta",
+        referencia_id: `a0000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+        motivo: null,
+        producto_id: p.id,
+        producto_nombre: p.nombre,
+        producto_nombre_generico: p.nombre_generico,
+        producto_concentracion: p.concentracion,
+        lote_id: loteId,
+        lote_numero: `L-${2400 + i}`,
+        lote_laboratorio: DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length].nombre,
+        lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
+        usuario_id: null,
+        usuario_nombre: "Usuario demo",
+      },
+      ...(i % 4 === 0
+        ? [
+            {
+              id: `demo-kardex-ajuste-${p.id}`,
+              created_at: t2,
+              tipo: "ajuste_conteo" as const,
+              cantidad: 1,
+              saldo_lote: Math.max(0, baseStock - 1),
+              saldo_producto: Math.max(0, baseStock - 1),
+              referencia_tipo: null,
+              referencia_id: null,
+              motivo: "Conteo físico mensual (demo)",
+              producto_id: p.id,
+              producto_nombre: p.nombre,
+              producto_nombre_generico: p.nombre_generico,
+              producto_concentracion: p.concentracion,
+              lote_id: loteId,
+              lote_numero: `L-${2400 + i}`,
+              lote_laboratorio: DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length].nombre,
+              lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
+              usuario_id: null,
+              usuario_nombre: "Usuario demo",
+            } satisfies KardexFila,
+          ]
+        : []),
+    ];
+  },
+);
+
+export function demoKardexMovimientos(params: {
+  productoId?: string;
+  loteId?: string;
+  tipo?: KardexFila["tipo"];
+  desde?: string;
+  hasta?: string;
+  pagina?: number;
+  pageSize?: number;
+}) {
+  const pageSize = params.pageSize ?? 50;
+  const pagina = params.pagina ?? 1;
+  let rows = [...DEMO_KARDEX_MOVIMIENTOS].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+
+  if (params.productoId) {
+    rows = rows.filter((r) => r.producto_id === params.productoId);
+  }
+  if (params.loteId) {
+    rows = rows.filter((r) => r.lote_id === params.loteId);
+  }
+  if (params.tipo) {
+    rows = rows.filter((r) => r.tipo === params.tipo);
+  }
+  if (params.desde) {
+    const d = new Date(`${params.desde}T00:00:00`).getTime();
+    rows = rows.filter((r) => new Date(r.created_at).getTime() >= d);
+  }
+  if (params.hasta) {
+    const h = new Date(`${params.hasta}T23:59:59`).getTime();
+    rows = rows.filter((r) => new Date(r.created_at).getTime() <= h);
+  }
+
+  const total = rows.length;
+  const from = (pagina - 1) * pageSize;
+  const filas = rows.slice(from, from + pageSize);
+
+  let stockProductoActual: number | null = null;
+  let ultimoSaldoProductoKardex: number | null = null;
+  let saldoCoincide: boolean | null = null;
+
+  if (params.productoId) {
+    const prod = DEMO_PRODUCTOS.find((p) => p.id === params.productoId);
+    stockProductoActual = prod?.stock_actual ?? 0;
+    const ultimo = rows.find((r) => r.producto_id === params.productoId);
+    ultimoSaldoProductoKardex = ultimo?.saldo_producto ?? null;
+    if (ultimoSaldoProductoKardex != null) {
+      saldoCoincide =
+        Math.abs(stockProductoActual - ultimoSaldoProductoKardex) < 0.0001;
+    }
+  }
+
+  return {
+    filas,
+    total,
+    pagina,
+    pageSize,
+    stockProductoActual,
+    ultimoSaldoProductoKardex,
+    saldoCoincide,
   };
 }

@@ -10,6 +10,8 @@ export const CreditoResumenSchema = z.object({
   saldo_pendiente: z.number().min(0),
   estado: z.enum(["Al día", "Atrasado", "Solventado"]),
   dias_atraso: z.number().min(0),
+  credito_vencido: z.boolean().optional(),
+  monto_credito_vencido: z.number().min(0).optional(),
 });
 
 export type CreditoResumen = z.infer<typeof CreditoResumenSchema>;

@@ -14,7 +14,8 @@ import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { fetchDetalleVenta } from "@/lib/demo/resolve-actions";
 import { ReciboVenta, buildReciboProps } from "./ReciboVenta";
-import { obtenerCodigoRecibo } from "./lib/helpers";
+import { carritoRequiereReceta, codigoReciboVenta, mensajeCreditoVencidoCliente } from "./lib/helpers";
+import { ModalField, ModalInput, ModalLabel } from "@/components/ui/general-modal";
 import { HistorialVentas } from "./HistorialVentas";
 import { useDatosVentas } from "./lib/hooks";
 
@@ -319,7 +320,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       doc.line(5, currentY, 75, currentY);
       currentY += 5;
 
-      const codigoRecibo = obtenerCodigoRecibo(venta.id);
+      const codigoRecibo = codigoReciboVenta(venta);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(9);
       doc.setTextColor(0, 0, 0);
@@ -387,7 +388,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
   const shareWhatsAppAsImage = async (venta: any, detalles: any[], clienteCompleto?: any) => {
     try {
-      const code = obtenerCodigoRecibo(venta.id);
+      const code = codigoReciboVenta(venta);
       const clientName = clienteCompleto?.nombre || venta.ven_clientes?.nombre || "Consumidor final";
 
       let productListText = "";
@@ -475,6 +476,44 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       >
         {ventas.showUbicacionModal && (
           <>
+            {ventas.tipoVenta === "Crédito" && ventas.creditoVencido?.vencido && (
+              <div className="mb-3 rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3 text-sm text-red-800 dark:text-red-200">
+                {mensajeCreditoVencidoCliente(
+                  ventas.creditoVencido.total,
+                  ventas.creditoVencido.desde ?? "",
+                )}
+              </div>
+            )}
+
+            {carritoRequiereReceta(ventas.carrito) && (
+              <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                <ModalField>
+                  <ModalLabel>Médico (receta)</ModalLabel>
+                  <ModalInput
+                    value={ventas.recetaMedicoNombre}
+                    onChange={(e) => ventas.setRecetaMedicoNombre(e.target.value)}
+                    placeholder="Nombre del médico"
+                  />
+                </ModalField>
+                <ModalField>
+                  <ModalLabel>No. colegiado</ModalLabel>
+                  <ModalInput
+                    value={ventas.recetaColegiado}
+                    onChange={(e) => ventas.setRecetaColegiado(e.target.value)}
+                    placeholder="Colegiado"
+                  />
+                </ModalField>
+                <ModalField className="sm:col-span-2">
+                  <ModalLabel>Número de receta (opcional)</ModalLabel>
+                  <ModalInput
+                    value={ventas.recetaNumero}
+                    onChange={(e) => ventas.setRecetaNumero(e.target.value)}
+                    placeholder="Opcional"
+                  />
+                </ModalField>
+              </div>
+            )}
+
             <div className="flex flex-col gap-3">
               {ventas.carrito.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-xl">
@@ -527,7 +566,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         open={!!ventas.reciboModalData}
         onClose={() => ventas.setReciboModalData(null)}
         title="¡Cobro exitoso!"
-        subtitle={ventas.reciboModalData ? `Venta registrada bajo el Recibo #${obtenerCodigoRecibo(ventas.reciboModalData.venta.id)}` : undefined}
+        subtitle={ventas.reciboModalData ? `Venta registrada bajo el Recibo ${codigoReciboVenta(ventas.reciboModalData.venta)}` : undefined}
         maxWidth="max-w-lg"
         fullHeight
         headerActions={
@@ -546,6 +585,10 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                   ventas.reciboModalData.venta,
                   ventas.reciboModalData.detalles,
                   ventas.reciboModalData.clienteCompleto,
+                  {
+                    farmacia: ventas.reciboFarmacia,
+                    incluyeReceta: Boolean(ventas.reciboModalData.incluyeReceta),
+                  },
                 )}
               />
             </div>
@@ -658,7 +701,15 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
       {ventas.ticketParaImprimir && (
         <div id="print-receipt-ticket" className="hidden print:block">
-          <ReciboVenta {...buildReciboProps(ventas.ticketParaImprimir.venta, ventas.ticketParaImprimir.detalles, ventas.ticketParaImprimir.clienteCompleto)} className="max-w-none" />
+          <ReciboVenta
+            {...buildReciboProps(
+              ventas.ticketParaImprimir.venta,
+              ventas.ticketParaImprimir.detalles,
+              ventas.ticketParaImprimir.clienteCompleto,
+              { farmacia: ventas.reciboFarmacia },
+            )}
+            className="max-w-none"
+          />
         </div>
       )}
 

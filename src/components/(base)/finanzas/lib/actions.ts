@@ -119,7 +119,9 @@ async function listarCuentasPorPagarFallback(
 ): Promise<CuentaPorPagar[]> {
   const { data: compras, error } = await supabase
     .from("inv_compras")
-    .select("id, proveedor_id, created_at, total, inv_proveedores(nombre)");
+    .select(
+      "id, proveedor_id, created_at, total, numero_factura, fecha_vencimiento_pago, inv_proveedores(nombre)",
+    );
 
   if (error) throw new Error(error.message);
 
@@ -157,7 +159,9 @@ async function listarCuentasPorPagarFallback(
       compra_id: c.id as string,
       proveedor_id: c.proveedor_id as string,
       proveedor_nombre: prov?.nombre?.trim() || "Proveedor sin nombre",
+      numero_factura: (c.numero_factura as string | null) ?? null,
       fecha_compra: c.created_at as string,
+      fecha_vencimiento_pago: (c.fecha_vencimiento_pago as string | null) ?? null,
       total,
       total_pagado: totalPagado,
       saldo_pendiente: saldo,

@@ -7,6 +7,12 @@ import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { modalActionMessage } from "@/components/ui/general-modal";
 import { Compra } from "./lib/zod";
+import {
+  compraPagoVencido,
+  formatearFechaCompraGt,
+  saldoPendienteCompra,
+} from "./lib/compras-helpers";
+import { InsigniaPagoVencidoCompra } from "./InsigniaPagoVencidoCompra";
 import { AbonoModal } from "./modals/AbonoModal";
 import { fmtQ } from "@/lib/utils";
 import { useRegistrarAbonoCompra } from "./lib/hooks";
@@ -66,15 +72,15 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
   };
 
   const cuentasPendientes = compras.filter((c) => {
-    const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
-    const saldoCompra = Math.max(0, c.total - abonos);
+    const saldoCompra = saldoPendienteCompra(c);
     // Solo compras con saldo > 0
     if (saldoCompra <= 0) return false;
 
     const q = busquedaCuentasPagar.toLowerCase();
     const matchSearch =
       obtenerCodigoCompra(c.id).toLowerCase().includes(q) ||
-      (c.inv_proveedores?.nombre || "").toLowerCase().includes(q);
+      (c.inv_proveedores?.nombre || "").toLowerCase().includes(q) ||
+      (c.numero_factura || "").toLowerCase().includes(q);
     
     return matchSearch;
   });
@@ -116,19 +122,20 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
               <table className={moduleTableClass}>
                 <thead>
                   <tr className={moduleTableHeadRowClass}>
-                    <th className={moduleTableHeadCellClass}>Referencia</th>
+                    <th className={moduleTableHeadCellClass}>Factura</th>
                     <th className={moduleTableHeadCellClass}>Fecha</th>
                     <th className={moduleTableHeadCellClass}>Proveedor</th>
+                    <th className={moduleTableHeadCellClass}>Vence</th>
                     <th className={cn(moduleTableHeadCellClass, "text-right")}>Monto Total</th>
                     <th className={cn(moduleTableHeadCellClass, "text-right")}>Saldo Pendiente</th>
-                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Días Restantes</th>
+                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Estado</th>
                     <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
                   </tr>
                 </thead>
                 <tbody className={moduleTableBodyClass}>
                 {cuentasPaginadas.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className={moduleTableEmptyCellClass}>
+                    <td colSpan={8} className={moduleTableEmptyCellClass}>
                       No hay cuentas por pagar pendientes.
                     </td>
                   </tr>
@@ -137,26 +144,28 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                     const dateStr = new Date(c.created_at).toLocaleDateString("es-GT", {
                       day: "2-digit", month: "short", year: "numeric"
                     });
-                    const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
-                    const saldoCompra = Math.max(0, c.total - abonos);
-                    
-                    const daysElapsed = Math.floor((Date.now() - new Date(c.created_at).getTime()) / (1000 * 60 * 60 * 24));
-                    const isVencido = daysElapsed > 30;
-                    const diasRestantes = 30 - daysElapsed;
+                    const saldoCompra = saldoPendienteCompra(c);
+                    const vencido = compraPagoVencido(c);
 
                     return (
                       <tr
                         key={c.id}
-                        className="hover:bg-[#8DA78E]/10 dark:hover:bg-[#A3BEB0]/15 transition-all"
+                        className={cn(
+                          "hover:bg-[#8DA78E]/10 dark:hover:bg-[#A3BEB0]/15 transition-all",
+                          vencido && "bg-red-50/60 dark:bg-red-950/20",
+                        )}
                       >
-                        <td className="px-5 py-3.5 font-bold text-slate-900 dark:text-white whitespace-nowrap">
-                          #{obtenerCodigoCompra(c.id)}
+                        <td className="px-5 py-3.5 font-mono text-xs font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                          {c.numero_factura?.trim() || `#${obtenerCodigoCompra(c.id)}`}
                         </td>
                         <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
                           {dateStr}
                         </td>
                         <td className="px-5 py-3.5 font-bold">
                           {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
+                        </td>
+                        <td className="px-5 py-3.5 whitespace-nowrap text-xs">
+                          {formatearFechaCompraGt(c.fecha_vencimiento_pago)}
                         </td>
                         <td className="px-5 py-3.5 text-right font-black text-slate-600 dark:text-slate-400 whitespace-nowrap">
                           {fmtQ(c.total)}
@@ -165,13 +174,13 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                           {fmtQ(saldoCompra)}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap text-center">
-                          <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            isVencido
-                              ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400"
-                              : diasRestantes <= 5 ? "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400" : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
-                          }`}>
-                            {isVencido ? "Vencido" : `${diasRestantes} Días`}
-                          </span>
+                          {vencido ? (
+                            <InsigniaPagoVencidoCompra />
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase text-blue-700 dark:text-blue-400">
+                              Al día
+                            </span>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap text-center">
                           <SigetActionButton

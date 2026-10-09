@@ -1,8 +1,8 @@
 import { fmtQ } from "@/lib/utils";
 import { formatFechaHoraGt } from "@/lib/fechas-gt";
 import {
+  codigoReciboVenta,
   etiquetaTipoVentaHistorial,
-  obtenerCodigoRecibo,
   ventaEsContadoHistorial,
   ventaEsCreditoHistorial,
   ventaEsTarjetaHistorial,
@@ -77,8 +77,7 @@ const MESES_ES = [
 ];
 
 function etiquetaRecibo(venta: VentaReporteMesInput): string {
-  if (venta.numero_recibo != null) return `#${venta.numero_recibo}`;
-  return obtenerCodigoRecibo(venta.id);
+  return codigoReciboVenta(venta);
 }
 
 export function etiquetaPeriodoVentasMes(year: number, month: number): string {

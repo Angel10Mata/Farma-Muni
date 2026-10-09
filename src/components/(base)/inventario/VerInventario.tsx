@@ -7,6 +7,8 @@ import {
   Search,
   ChevronDown,
   CalendarX,
+  ClipboardList,
+  Truck,
   Box,
   Building2,
   X,
@@ -36,7 +38,7 @@ import {
   modulePillSwitchBtnClass,
   modulePillSwitchShellClass,
 } from "@/components/ui/module-pill-switch";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useProductos,
   useLotes,
@@ -59,6 +61,21 @@ import {
   descargarReporteVencimientos,
   type ProductoInventarioReporte,
 } from "./lib/reportes-pdf";
+import {
+  descargarReporteLotesVencidosPorVencer,
+  filasReporteDesdeInventario,
+} from "./lib/reportes-vencimientos";
+import { descargarReporteVencimientosLotesExcel } from "./lib/export-reporte-vencimientos-xlsx";
+import { InsigniaVencimientoLote } from "./InsigniaVencimientoLote";
+import {
+  CATEGORIAS_VENCIMIENTO_LOTE,
+  ETIQUETAS_CATEGORIA_VENCIMIENTO,
+  categoriaVencimientoLote,
+  contarLotesPorCategoriaVencimiento,
+  esLoteActivoConExistencia,
+  parseCategoriaVencimientoQuery,
+  type CategoriaVencimientoLote,
+} from "@/lib/vencimientos-gt";
 import { exportarPDF } from "./utils";
 import {
   ModalConfirmDelete,
@@ -69,6 +86,12 @@ import {
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { inventarioPageShellClass, moduleControlsShellClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { InventarioSubnav } from "./InventarioSubnav";
+import {
+  LoteOperacionesModals,
+  type LoteOperacionTarget,
+} from "./LoteOperacionesModals";
 import {
   moduleTableBodyClass,
   moduleTableCellClass,
@@ -229,6 +252,88 @@ function mapUbicacionesPorProducto(lotes: LoteInventario[]): Map<string, string>
     );
   }
   return out;
+}
+
+function LoteInventarioAccionesMenu({
+  activo,
+  onConteo,
+  onBaja,
+  onDevolucion,
+  onEdit,
+  onDesactivar,
+  onActivar,
+}: {
+  activo: boolean;
+  onConteo: () => void;
+  onBaja: () => void;
+  onDevolucion: () => void;
+  onEdit: () => void;
+  onDesactivar: () => void;
+  onActivar: () => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label="Acciones del lote"
+          className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+        >
+          <MoreVertical className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="z-[200] min-w-[180px] rounded-xl border border-zinc-200 bg-white p-1 opacity-100 shadow-md dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        <DropdownMenuItem
+          className="cursor-pointer rounded-lg text-xs font-bold"
+          onSelect={() => onConteo()}
+        >
+          <ClipboardList className="size-3.5" />
+          Ajustar por conteo físico
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="cursor-pointer rounded-lg text-xs font-bold text-rose-600 focus:bg-rose-50 dark:text-rose-400"
+          onSelect={() => onBaja()}
+        >
+          <CalendarX className="size-3.5" />
+          Dar de baja
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="cursor-pointer rounded-lg text-xs font-bold"
+          onSelect={() => onDevolucion()}
+        >
+          <Truck className="size-3.5" />
+          Devolver a proveedor
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          className="cursor-pointer rounded-lg text-xs font-bold"
+          onSelect={() => onEdit()}
+        >
+          <PencilIcon className="size-3.5" />
+          Editar producto
+        </DropdownMenuItem>
+        {activo ? (
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg text-xs font-bold text-amber-700"
+            onSelect={() => onDesactivar()}
+          >
+            <Ban className="size-3.5" />
+            Desactivar
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg text-xs font-bold text-[#2E9E77]"
+            onSelect={() => onActivar()}
+          >
+            <CircleCheck className="size-3.5" />
+            Activar
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
 }
 
 function ProductoAccionesMenu({
@@ -865,10 +970,15 @@ function inventarioTabUnderlineClass(active: boolean) {
 // Pantalla de inventario
 export function VerInventario() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { effectiveRole } = useUserContext();
+  const puedeOperarLotes = ["super", "admin", "inventario"].includes(effectiveRole);
   const [busqueda, setBusqueda] = useState("");
   const [filtroStockBajo, setFiltroStockBajo] = useState(false);
   const [filtroProximoVencer, setFiltroProximoVencer] = useState(false);
   const [filtroVencidos, setFiltroVencidos] = useState(false);
+  const [filtroCategoriaVencimiento, setFiltroCategoriaVencimiento] =
+    useState<CategoriaVencimientoLote | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("activos");
   const [filtroUbicacion, setFiltroUbicacion] = useState("");
   const [vistaInventario, setVistaInventario] = useState<"lotes" | "catalogo">("catalogo");
@@ -913,7 +1023,27 @@ export function VerInventario() {
   const { mutateAsync: registrarBajaAsync, isPending: isBajaPending } = useRegistrarBajaVencido();
   const [showDesactivarModal, setShowDesactivarModal] = useState<Producto | null>(null);
   const [showBajaModal, setShowBajaModal] = useState<Producto | null>(null);
+  const [loteOperacion, setLoteOperacion] = useState<{
+    lote: LoteOperacionTarget;
+    modo: "conteo" | "baja" | "devolucion";
+  } | null>(null);
   const [mostrarBajoStock, setMostrarBajoStock] = useState(false);
+
+  const abrirOperacionLote = (
+    producto: Producto,
+    modo: "conteo" | "baja" | "devolucion",
+  ) => {
+    setLoteOperacion({
+      modo,
+      lote: {
+        id: producto.id,
+        nombre: producto.nombre,
+        numero_lote: producto.numero_lote ?? null,
+        stock_actual: producto.stock_actual,
+        fecha_vencimiento: producto.fecha_vencimiento ?? null,
+      },
+    });
+  };
 
   // Escáner de código de barras
   const [barcodeBuffer, setBarcodeBuffer] = useState("");
@@ -945,8 +1075,52 @@ export function VerInventario() {
     setFiltroStockBajo(activo === "stock");
     setFiltroProximoVencer(activo === "proximo");
     setFiltroVencidos(activo === "vencidos");
+    setFiltroCategoriaVencimiento(null);
     setCurrentPage(1);
   };
+
+  useEffect(() => {
+    const vista = searchParams.get("vista");
+    if (vista === "lotes") {
+      setVistaInventario("lotes");
+    }
+    const cat = parseCategoriaVencimientoQuery(searchParams.get("vencimiento"));
+    if (cat) {
+      setVistaInventario("lotes");
+      setFiltroCategoriaVencimiento(cat);
+      setFiltroProximoVencer(false);
+      setFiltroVencidos(false);
+    }
+  }, [searchParams]);
+
+  const aplicarFiltroCategoriaVencimiento = (cat: CategoriaVencimientoLote | null) => {
+    setFiltroCategoriaVencimiento(cat);
+    setFiltroProximoVencer(false);
+    setFiltroVencidos(false);
+    setCurrentPage(1);
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("vista", "lotes");
+    if (cat) params.set("vencimiento", cat);
+    else params.delete("vencimiento");
+    router.replace(`/farmamuni/inventario?${params.toString()}`);
+  };
+
+  const conteoVencimientoLotes = useMemo(() => {
+    if (vistaInventario !== "lotes") return null;
+    const campos = (lotes as LoteInventario[])
+      .filter((l) =>
+        esLoteActivoConExistencia({
+          activo: l.activo,
+          cantidad_actual: Number(l.cantidad_actual) || 0,
+        }),
+      )
+      .map((l) => ({
+        activo: l.activo,
+        cantidad_actual: Number(l.cantidad_actual) || 0,
+        fecha_vencimiento: l.fecha_vencimiento,
+      }));
+    return contarLotesPorCategoriaVencimiento(campos);
+  }, [lotes, vistaInventario]);
 
   // Lógica de Escáner de Código de Barras
   useEffect(() => {
@@ -1016,6 +1190,13 @@ export function VerInventario() {
         isProductoVencido(p.fecha_vencimiento) && p.stock_actual > 0;
     }
 
+    let matchesCategoriaVenc = true;
+    if (vistaInventario === "lotes" && filtroCategoriaVencimiento) {
+      matchesCategoriaVenc =
+        p.stock_actual > 0 &&
+        categoriaVencimientoLote(p.fecha_vencimiento) === filtroCategoriaVencimiento;
+    }
+
     const matchesEstado =
       filtroEstado === "todos" ? true :
         filtroEstado === "activos" ? p.activo :
@@ -1029,6 +1210,7 @@ export function VerInventario() {
       matchesEstado &&
       matchesExpiring &&
       matchesVencidos &&
+      matchesCategoriaVenc &&
       matchesUbicacion
     );
   }).sort((a, b) => {
@@ -1084,6 +1266,10 @@ export function VerInventario() {
   };
 
   const handleBajaVencido = (producto: Producto) => {
+    if (vistaInventario === "lotes" && puedeOperarLotes) {
+      abrirOperacionLote(producto, "baja");
+      return;
+    }
     setShowBajaModal(producto);
   };
 
@@ -1094,7 +1280,10 @@ export function VerInventario() {
         toast.error("La baja por vencimiento se registra desde la vista Por lotes.");
         return;
       }
-      const res = await registrarBajaAsync({ lote_id: showBajaModal.id });
+      const res = await registrarBajaAsync({
+        lote_id: showBajaModal.id,
+        motivo: "Vencimiento",
+      });
       toast.success(
         `Baja registrada: ${fmtNum(res.unidades)} unidades de ${showBajaModal.nombre}.`,
       );
@@ -1115,6 +1304,41 @@ export function VerInventario() {
       setMostrarReportesDropdown(false);
     } catch {
       toast.error("No se pudo generar el reporte de vencimientos.");
+    }
+  };
+
+  const filasReporteVencimientoLotes = () => {
+    const fuente =
+      vistaInventario === "lotes"
+        ? (lotes as LoteInventario[])
+            .filter((l) =>
+              esLoteActivoConExistencia({
+                activo: l.activo,
+                cantidad_actual: Number(l.cantidad_actual) || 0,
+              }),
+            )
+            .map((l) => productoParaReporte(mapLoteAFila(l)))
+        : productosFiltrados.map(productoParaReporte);
+    return filasReporteDesdeInventario(fuente);
+  };
+
+  const handleReporteLotesVencidosPorVencerPdf = () => {
+    try {
+      descargarReporteLotesVencidosPorVencer(filasReporteVencimientoLotes());
+      toast.success("Reporte de lotes vencidos y por vencer descargado.");
+      setMostrarReportesDropdown(false);
+    } catch {
+      toast.error("No se pudo generar el reporte.");
+    }
+  };
+
+  const handleReporteLotesVencidosPorVencerExcel = async () => {
+    try {
+      await descargarReporteVencimientosLotesExcel(filasReporteVencimientoLotes());
+      toast.success("Excel de vencimientos descargado.");
+      setMostrarReportesDropdown(false);
+    } catch {
+      toast.error("No se pudo generar el Excel.");
     }
   };
 
@@ -1159,6 +1383,7 @@ export function VerInventario() {
           </div>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
+          <InventarioSubnav />
           <div
             className={cn(modulePillSwitchShellClass, "w-full max-w-md sm:max-w-[14rem]")}
             role="tablist"
@@ -1224,6 +1449,40 @@ export function VerInventario() {
             />
           </div>
 
+          {vistaInventario === "lotes" && conteoVencimientoLotes ? (
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIAS_VENCIMIENTO_LOTE.map((cat) => {
+                const activo = filtroCategoriaVencimiento === cat;
+                return (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() =>
+                      aplicarFiltroCategoriaVencimiento(activo ? null : cat)
+                    }
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide transition-colors",
+                      activo
+                        ? "border-[#2c5f9b] bg-[#2c5f9b]/10 text-[#2c5f9b] dark:border-[#6f9fd4] dark:text-[#6f9fd4]"
+                        : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
+                    )}
+                  >
+                    {ETIQUETAS_CATEGORIA_VENCIMIENTO[cat]} ({conteoVencimientoLotes[cat]})
+                  </button>
+                );
+              })}
+              {filtroCategoriaVencimiento ? (
+                <button
+                  type="button"
+                  onClick={() => aplicarFiltroCategoriaVencimiento(null)}
+                  className="text-[10px] font-bold text-zinc-500 underline self-center"
+                >
+                  Quitar filtro
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
               {ubicacionesUnicas.length > 0 ? (
@@ -1245,22 +1504,24 @@ export function VerInventario() {
                 >
                   Stock bajo
                 </button>
-                {vistaInventario === "lotes" ? (
-                  <button
-                    type="button"
-                    onClick={() => resetFiltrosAlerta(filtroProximoVencer ? null : "proximo")}
-                    className={inventarioTabUnderlineClass(filtroProximoVencer)}
-                  >
-                    Vencimiento
-                  </button>
+                {vistaInventario === "catalogo" ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => resetFiltrosAlerta(filtroProximoVencer ? null : "proximo")}
+                      className={inventarioTabUnderlineClass(filtroProximoVencer)}
+                    >
+                      Vencimiento
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => resetFiltrosAlerta(filtroVencidos ? null : "vencidos")}
+                      className={inventarioTabUnderlineClass(filtroVencidos)}
+                    >
+                      Vencidos
+                    </button>
+                  </>
                 ) : null}
-                <button
-                  type="button"
-                  onClick={() => resetFiltrosAlerta(filtroVencidos ? null : "vencidos")}
-                  className={inventarioTabUnderlineClass(filtroVencidos)}
-                >
-                  Vencidos
-                </button>
               </div>
             </div>
 
@@ -1332,11 +1593,27 @@ export function VerInventario() {
                       </div>
                       <button
                         type="button"
-                        onClick={handleReporteVencimientos}
+                        onClick={handleReporteLotesVencidosPorVencerPdf}
                         className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                       >
                         <FileText className="size-3.5 shrink-0 text-amber-600" />
-                        PDF vencimientos
+                        Lotes vencidos y por vencer (PDF)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleReporteLotesVencidosPorVencerExcel()}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        <FileDown className="size-3.5 shrink-0 text-emerald-600" />
+                        Lotes vencidos y por vencer (Excel)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleReporteVencimientos}
+                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      >
+                        <FileText className="size-3.5 shrink-0 text-zinc-500" />
+                        PDF vencimientos (legacy)
                       </button>
                       <button
                         type="button"
@@ -1541,6 +1818,12 @@ export function VerInventario() {
                                   {p.numero_lote ? (
                                     <span className="text-[10px] text-slate-500">Lote: {p.numero_lote}</span>
                                   ) : null}
+                                  {vistaInventario === "lotes" ? (
+                                    <InsigniaVencimientoLote
+                                      fechaVencimiento={p.fecha_vencimiento}
+                                      className="mt-1"
+                                    />
+                                  ) : null}
                                 </div>
                               </td>
                             </>
@@ -1581,21 +1864,48 @@ export function VerInventario() {
                           ) : null}
                           <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-center">
-                              <ProductoAccionesMenu
-                                activo={p.activo}
-                                showBaja={isVencido}
-                                onBaja={() => handleBajaVencido(p)}
-                                onEdit={() => {
-                                  setProductoSeleccionado(null);
-                                  router.push(
-                                    "/farmamuni/inventario/editar/" + idProductoCatalogo(p),
-                                  );
-                                }}
-                                onDesactivar={() =>
-                                  handleDesactivarProducto({ ...p, id: idProductoCatalogo(p) })
-                                }
-                                onActivar={() => handleActivarProducto(p)}
-                              />
+                              {vistaInventario === "lotes" && puedeOperarLotes ? (
+                                <LoteInventarioAccionesMenu
+                                  activo={p.activo}
+                                  onConteo={() => abrirOperacionLote(p, "conteo")}
+                                  onBaja={() => abrirOperacionLote(p, "baja")}
+                                  onDevolucion={() => abrirOperacionLote(p, "devolucion")}
+                                  onEdit={() => {
+                                    setProductoSeleccionado(null);
+                                    router.push(
+                                      "/farmamuni/inventario/editar/" +
+                                        idProductoCatalogo(p),
+                                    );
+                                  }}
+                                  onDesactivar={() =>
+                                    handleDesactivarProducto({
+                                      ...p,
+                                      id: idProductoCatalogo(p),
+                                    })
+                                  }
+                                  onActivar={() => handleActivarProducto(p)}
+                                />
+                              ) : (
+                                <ProductoAccionesMenu
+                                  activo={p.activo}
+                                  showBaja={isVencido}
+                                  onBaja={() => handleBajaVencido(p)}
+                                  onEdit={() => {
+                                    setProductoSeleccionado(null);
+                                    router.push(
+                                      "/farmamuni/inventario/editar/" +
+                                        idProductoCatalogo(p),
+                                    );
+                                  }}
+                                  onDesactivar={() =>
+                                    handleDesactivarProducto({
+                                      ...p,
+                                      id: idProductoCatalogo(p),
+                                    })
+                                  }
+                                  onActivar={() => handleActivarProducto(p)}
+                                />
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -1676,6 +1986,16 @@ export function VerInventario() {
             />
           ) : null}
         </ModalShell>
+
+        <LoteOperacionesModals
+          lote={loteOperacion?.lote ?? null}
+          modo={loteOperacion?.modo ?? null}
+          onClose={() => {
+            setLoteOperacion(null);
+            void refetchLotes();
+            void refetchProductos();
+          }}
+        />
       </div>
 
       <AnimatePresence>

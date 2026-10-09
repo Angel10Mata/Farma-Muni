@@ -12,16 +12,25 @@ import {
   crearSolicitudRebaja,
   crearVenta,
   asignarLotes,
+  consultarCreditoVencidoCliente,
+  obtenerFarmaciaReciboSettings,
+  type CreditoVencidoResumen,
 } from "./lib/actions";
 import {
   buildSolicitudRebajaPayload,
+  carritoRequiereReceta,
   carritoTieneRebajas,
   demoAsignarLotes,
+  mensajeCreditoVencidoCliente,
   validarCarritoPrecioCosto,
 } from "./lib/helpers";
 import type { LoteAsignadoVenta } from "./lib/lotes-venta";
 import { useEstadoSolicitudRebaja } from "./lib/hooks";
 import { getSwalThemeOpts } from "@/lib/utils";
+import {
+  categoriaVencimientoLote,
+  diasRestantesVencimientoGt,
+} from "@/lib/vencimientos-gt";
 
 // Estado compartido del punto de venta
 interface VentasContextType {
@@ -95,6 +104,7 @@ interface VentasContextType {
       precio_venta_lote: number;
       laboratorio?: string | null;
       cantidad?: number;
+      fecha_vencimiento?: string | null;
     },
   ) => Promise<void>;
   handleAjustarCantidad: (index: number, delta: number) => void;
@@ -112,6 +122,21 @@ interface VentasContextType {
   isValidandoAutorizacionRebaja: boolean;
   abrirAutorizacionRebajaDesdeNotificacion: (solicitudId: string) => void;
   restaurarEsperaRebaja: (solicitudId: string) => void;
+
+  advertenciaVencimientoPos: string | null;
+  setAdvertenciaVencimientoPos: React.Dispatch<React.SetStateAction<string | null>>;
+
+  creditoVencido: CreditoVencidoResumen | null;
+  autorizarCreditoMoroso: boolean;
+  setAutorizarCreditoMoroso: React.Dispatch<React.SetStateAction<boolean>>;
+  recetaMedicoNombre: string;
+  setRecetaMedicoNombre: React.Dispatch<React.SetStateAction<string>>;
+  recetaColegiado: string;
+  setRecetaColegiado: React.Dispatch<React.SetStateAction<string>>;
+  recetaNumero: string;
+  setRecetaNumero: React.Dispatch<React.SetStateAction<string>>;
+  reciboFarmacia: { nombre: string; direccion: string; telefono: string } | null;
+  ultimaVentaIncluyeReceta: boolean;
 }
 
 const VentasContext = createContext<VentasContextType | undefined>(undefined);
@@ -123,7 +148,7 @@ type RefetchVentasDatos = ReturnType<
 
 export function VentasProvider({ children, productos, clientes, refetchDatos }: { children: ReactNode, productos: Producto[], clientes: Cliente[], refetchDatos: RefetchVentasDatos }) {
   const { isDemoMode } = useDemoMode();
-  const { realRole, simulatedRole } = useUserContext();
+  const { user, realRole, simulatedRole } = useUserContext();
 
   // Tabs
   const [activeTab, setActiveTab] = useState<"pos" | "historial">("pos");
@@ -154,6 +179,20 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
   const [editingPrice, setEditingPrice] = useState<string>("");
   const [editingQty, setEditingQty] = useState<string>("");
   const [animateCart, setAnimateCart] = useState(false);
+  const [advertenciaVencimientoPos, setAdvertenciaVencimientoPos] = useState<string | null>(
+    null,
+  );
+  const [creditoVencido, setCreditoVencido] = useState<CreditoVencidoResumen | null>(null);
+  const [autorizarCreditoMoroso, setAutorizarCreditoMoroso] = useState(false);
+  const [recetaMedicoNombre, setRecetaMedicoNombre] = useState("");
+  const [recetaColegiado, setRecetaColegiado] = useState("");
+  const [recetaNumero, setRecetaNumero] = useState("");
+  const [reciboFarmacia, setReciboFarmacia] = useState<{
+    nombre: string;
+    direccion: string;
+    telefono: string;
+  } | null>(null);
+  const [ultimaVentaIncluyeReceta, setUltimaVentaIncluyeReceta] = useState(false);
 
   // Recibos e impresión
   const [ticketParaImprimir, setTicketParaImprimir] = useState<any>(null);
@@ -262,12 +301,31 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     }
   }, [carrito, esperandoAutorizacionRebaja, rebajaAutorizada]);
 
+  useEffect(() => {
+    if (isDemoMode) return;
+    void obtenerFarmaciaReciboSettings().then((f) => {
+      if (f) setReciboFarmacia(f);
+    });
+  }, [isDemoMode]);
+
+  useEffect(() => {
+    setAutorizarCreditoMoroso(false);
+    if (!clienteSeleccionado || isDemoMode) {
+      setCreditoVencido(null);
+      return;
+    }
+    void consultarCreditoVencidoCliente(clienteSeleccionado.id).then(setCreditoVencido);
+  }, [clienteSeleccionado, isDemoMode]);
+
   // Crédito solo con cliente elegido
   useEffect(() => {
     if (!clienteSeleccionado && tipoVenta === "Crédito") {
       setTipoVenta("Contado");
     }
   }, [clienteSeleccionado, tipoVenta]);
+
+  const esAdminSesion =
+    ["admin", "super"].includes(realRole) && simulatedRole === null;
 
   const totalCarrito = carrito.reduce((sum, item) => sum + item.subtotal, 0);
 
@@ -283,6 +341,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       precio_venta_lote: number;
       laboratorio?: string | null;
       cantidad?: number;
+      fecha_vencimiento?: string | null;
     },
   ) => {
     const prod = productoOverride || productoSeleccionado;
@@ -304,6 +363,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
           precio_costo: loteMeta.precio_costo_lote,
           codigo_barras: loteMeta.codigo_barras_lote,
           laboratorio: loteMeta.laboratorio ?? null,
+          fecha_vencimiento: loteMeta.fecha_vencimiento ?? null,
         },
       ];
     } else if (isDemoMode) {
@@ -367,6 +427,16 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     });
 
     if (agregados <= 0) return;
+
+    const fefo = asignaciones[0];
+    if (fefo?.fecha_vencimiento && categoriaVencimientoLote(fefo.fecha_vencimiento) === "dias_0_30") {
+      const dias = diasRestantesVencimientoGt(fefo.fecha_vencimiento);
+      setAdvertenciaVencimientoPos(
+        `El lote asignado por FEFO vence en ${dias ?? "menos de 30"} días. La venta puede continuar.`,
+      );
+    } else {
+      setAdvertenciaVencimientoPos(null);
+    }
 
     setAnimateCart(true);
     setTimeout(() => setAnimateCart(false), 500);
@@ -433,6 +503,29 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     if (tipoVenta === "Crédito" && !clienteSeleccionado) {
       toast.warn("Para venta al crédito debes seleccionar un cliente.");
       return;
+    }
+
+    if (
+      tipoVenta === "Crédito" &&
+      creditoVencido?.vencido &&
+      (!esAdminSesion || !autorizarCreditoMoroso)
+    ) {
+      toast.warn(
+        mensajeCreditoVencidoCliente(
+          creditoVencido.total,
+          creditoVencido.desde ?? "",
+        ),
+      );
+      return;
+    }
+
+    if (carritoRequiereReceta(carrito)) {
+      if (!recetaMedicoNombre.trim() || !recetaColegiado.trim()) {
+        toast.warn(
+          "Registra el nombre del médico y el número de colegiado antes de cobrar.",
+        );
+        return;
+      }
     }
 
     const hasModifiedPrices = carritoTieneRebajas(carrito);
@@ -516,6 +609,30 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
         }
       }
 
+      const incluyeReceta = carritoRequiereReceta(carrito);
+      setUltimaVentaIncluyeReceta(incluyeReceta);
+
+      if (tipoVenta === "Crédito" && creditoVencido?.vencido) {
+        if (!esAdminSesion || !autorizarCreditoMoroso) {
+          toast.warn(
+            mensajeCreditoVencidoCliente(
+              creditoVencido.total,
+              creditoVencido.desde ?? "",
+            ),
+          );
+          return;
+        }
+      }
+
+      if (incluyeReceta) {
+        if (!recetaMedicoNombre.trim() || !recetaColegiado.trim()) {
+          toast.warn(
+            "Registra el nombre del médico y el número de colegiado antes de cobrar.",
+          );
+          return;
+        }
+      }
+
       if (isDemoMode) {
         const ventaObj: Venta = {
           id: "demo-venta-preview",
@@ -569,6 +686,21 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
         items: itemsFormatted,
         solicitud_rebaja_id:
           rebajaAutorizada && solicitudRebajaId ? solicitudRebajaId : undefined,
+        credito_autorizado_por:
+          tipoVenta === "Crédito" &&
+          creditoVencido?.vencido &&
+          autorizarCreditoMoroso &&
+          esAdminSesion &&
+          user?.id
+            ? user.id
+            : undefined,
+        receta: incluyeReceta
+          ? {
+              medico_nombre: recetaMedicoNombre.trim(),
+              colegiado: recetaColegiado.trim(),
+              numero_receta: recetaNumero.trim() || null,
+            }
+          : undefined,
       });
 
       if (!res.success) {
@@ -604,11 +736,16 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       setClienteSeleccionado(null);
       setClienteBusqueda("Consumidor Final");
       setObservaciones("");
+      setRecetaMedicoNombre("");
+      setRecetaColegiado("");
+      setRecetaNumero("");
+      setAutorizarCreditoMoroso(false);
 
       setReciboModalData({
         venta: ventaObj,
         detalles: freshDetails,
-        clienteCompleto: clientSave
+        clienteCompleto: clientSave,
+        incluyeReceta,
       });
       limpiarFlujoRebaja();
     } catch (err: unknown) {
@@ -641,6 +778,8 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       editingPrice, setEditingPrice,
       editingQty, setEditingQty,
       animateCart, setAnimateCart,
+      advertenciaVencimientoPos,
+      setAdvertenciaVencimientoPos,
       ticketParaImprimir, setTicketParaImprimir,
       reciboCaptura, setReciboCaptura,
       reciboModalData, setReciboModalData,
@@ -658,6 +797,17 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       isValidandoAutorizacionRebaja,
       abrirAutorizacionRebajaDesdeNotificacion,
       restaurarEsperaRebaja,
+      creditoVencido,
+      autorizarCreditoMoroso,
+      setAutorizarCreditoMoroso,
+      recetaMedicoNombre,
+      setRecetaMedicoNombre,
+      recetaColegiado,
+      setRecetaColegiado,
+      recetaNumero,
+      setRecetaNumero,
+      reciboFarmacia,
+      ultimaVentaIncluyeReceta,
     }}>
       {children}
     </VentasContext.Provider>

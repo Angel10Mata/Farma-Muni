@@ -4,6 +4,12 @@ import { AlertTriangle } from "lucide-react";
 import { ModalShell } from "@/components/ui/general-modal";
 import { Compra } from "../lib/zod";
 import { fmtQ } from "@/lib/utils";
+import {
+  compraPagoVencido,
+  formatearFechaCompraGt,
+  totalPagadoCompra,
+} from "../lib/compras-helpers";
+import { InsigniaPagoVencidoCompra } from "../InsigniaPagoVencidoCompra";
 
 // Tipos
 type TransaccionCompra = {
@@ -53,9 +59,10 @@ export function CompraDetalleModal({
 }: CompraDetalleModalProps) {
   if (!compra) return null;
 
-  const abonos = sumAbonosProveedor(compra.fin_transacciones);
+  const abonos = totalPagadoCompra(compra.fin_transacciones);
   const isPaid = abonos >= compra.total;
   const pagos = pagosProveedor(compra.fin_transacciones);
+  const pagoVencido = compraPagoVencido(compra);
 
   return (
     <ModalShell
@@ -77,19 +84,30 @@ export function CompraDetalleModal({
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zinc-200/80 pt-3 text-[11px] text-zinc-500 dark:border-zinc-700">
             <div>
+              <span className="block font-bold text-zinc-400">Factura</span>
+              {compra.numero_factura?.trim() || "—"}
+            </div>
+            <div>
+              <span className="block font-bold text-zinc-400">Vence pago</span>
+              {formatearFechaCompraGt(compra.fecha_vencimiento_pago)}
+            </div>
+            <div>
               <span className="block font-bold text-zinc-400">Fecha Registro</span>
               {new Date(compra.created_at).toLocaleString("es-GT")}
             </div>
             <div>
               <span className="block font-bold text-zinc-400">Estado Pago</span>
-              <span
-                className={`mt-0.5 inline-block rounded px-2 py-0.5 text-[9px] font-bold uppercase ${
-                  isPaid
-                    ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                }`}
-              >
-                {isPaid ? "Pagado" : "Pendiente"}
+              <span className="mt-0.5 inline-flex flex-wrap items-center gap-1">
+                <span
+                  className={`inline-block rounded px-2 py-0.5 text-[9px] font-bold uppercase ${
+                    isPaid
+                      ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                      : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+                  }`}
+                >
+                  {isPaid ? "Pagado" : "Pendiente"}
+                </span>
+                {pagoVencido && <InsigniaPagoVencidoCompra />}
               </span>
             </div>
           </div>

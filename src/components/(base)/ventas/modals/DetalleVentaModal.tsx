@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { useDetalleVenta, useAnularVenta, useEditarDetalleVenta, useEliminarDetalleVenta, useBitacoraVenta } from "../lib/hooks";
-import { obtenerCodigoRecibo, resumenAccionBitacoraVenta } from "../lib/helpers";
+import { codigoReciboVenta, resumenAccionBitacoraVenta } from "../lib/helpers";
 import { formatFechaHoraTablaCompactGt } from "@/lib/fechas-gt";
 
 interface DetalleVentaModalProps {
@@ -135,7 +135,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
               <div className="flex justify-between items-center text-xs">
                 <span className="text-zinc-500 font-semibold uppercase">Recibo:</span>
                 <span className="text-zinc-900 dark:text-white font-bold">
-                  #{obtenerCodigoRecibo(venta.id)}
+                  {codigoReciboVenta(venta)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs">

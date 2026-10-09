@@ -1,6 +1,14 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { formatFechaHoraGt } from "@/lib/fechas-gt";
 import { fmtNum, fmtQ } from "@/lib/utils";
+import {
+  cantidadEntradaSalidaKardex,
+  etiquetaTipoMovimientoKardex,
+  referenciaKardexTexto,
+  type FiltrosKardexReporte,
+} from "./kardex-helpers";
+import type { KardexFila } from "./zod";
 import {
   diasRestantesVencimiento,
   etiquetaEstadoVencimiento,
@@ -177,4 +185,73 @@ export function descargarReporteGestion(productos: ProductoInventarioReporte[]) 
   });
 
   doc.save(`Resumen_Gestion_Inventario_${new Date().toISOString().slice(0, 10)}.pdf`);
+}
+
+export function descargarReporteKardex(
+  filas: KardexFila[],
+  filtros: FiltrosKardexReporte,
+) {
+  const doc = new jsPDF({ orientation: "landscape" });
+  const partesSub: string[] = [];
+  if (filtros.productoLabel) partesSub.push(`Producto: ${filtros.productoLabel}`);
+  if (filtros.loteNumero) partesSub.push(`Lote: ${filtros.loteNumero}`);
+  if (filtros.tipo) partesSub.push(`Tipo: ${etiquetaTipoMovimientoKardex(filtros.tipo)}`);
+  if (filtros.desde || filtros.hasta) {
+    partesSub.push(`Fechas: ${filtros.desde ?? "…"} — ${filtros.hasta ?? "…"}`);
+  }
+
+  encabezadoPdf(
+    doc,
+    "FarmaMuni — Kardex de inventario",
+    partesSub.length > 0
+      ? partesSub.join(" · ")
+      : `Generado: ${new Date().toLocaleString("es-GT")}`,
+  );
+
+  autoTable(doc, {
+    startY: 34,
+    head: [
+      [
+        "Fecha",
+        "Producto",
+        "Lote",
+        "Tipo",
+        "Entrada",
+        "Salida",
+        "Saldo lote",
+        "Saldo producto",
+        "Usuario",
+        "Motivo / ref.",
+      ],
+    ],
+    body: filas.map((f) => {
+      const { entrada, salida } = cantidadEntradaSalidaKardex(f.cantidad);
+      const productoTitulo = tituloProductoFarmacia({
+        nombre: f.producto_nombre ?? "",
+        nombre_generico: f.producto_nombre_generico,
+        concentracion: f.producto_concentracion,
+      });
+      return [
+        formatFechaHoraGt(f.created_at),
+        productoTitulo,
+        [f.lote_numero, f.lote_laboratorio].filter(Boolean).join(" · ") || "—",
+        etiquetaTipoMovimientoKardex(f.tipo),
+        entrada != null ? fmtNum(entrada) : "—",
+        salida != null ? fmtNum(salida) : "—",
+        f.saldo_lote != null ? fmtNum(f.saldo_lote) : "—",
+        f.saldo_producto != null ? fmtNum(f.saldo_producto) : "—",
+        f.usuario_nombre ?? "—",
+        referenciaKardexTexto(f.referencia_tipo, f.referencia_id, f.motivo),
+      ];
+    }),
+    headStyles: {
+      fillColor: [141, 167, 142],
+      textColor: [245, 245, 241],
+      fontStyle: "bold",
+      fontSize: 8,
+    },
+    styles: { fontSize: 7, cellPadding: 2 },
+  });
+
+  doc.save(`Kardex_Inventario_${new Date().toISOString().slice(0, 10)}.pdf`);
 }

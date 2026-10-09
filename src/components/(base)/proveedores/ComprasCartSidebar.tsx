@@ -13,6 +13,7 @@ import { Proveedor } from "./lib/zod";
 import { fmtQ, getSwalThemeOpts } from "@/lib/utils";
 import { useCrearCompra } from "./lib/hooks";
 import type { ItemCompraInput } from "./lib/zod";
+import { ModalFechaInput, ModalField, ModalInput, ModalLabel } from "@/components/ui/general-modal";
 
 // Props
 interface ComprasCartSidebarProps {
@@ -55,6 +56,19 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
       return;
     }
 
+    if (!context.numeroFactura.trim()) {
+      toast.warn("Indica el número de factura del proveedor.");
+      return;
+    }
+
+    if (
+      context.estadoPago === "Pendiente" &&
+      !context.fechaVencimientoPago.trim()
+    ) {
+      toast.warn("Indica la fecha de vencimiento de pago para compras a crédito.");
+      return;
+    }
+
     const confirm = await Swal.fire({
       title: "¿Registrar esta Compra?",
       text: `Se cargará una compra por ${fmtQ(totalCarrito)} al proveedor ${context.proveedorSeleccionado.nombre}. Se actualizará el inventario.`,
@@ -86,8 +100,13 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
         proveedor_id: context.proveedorSeleccionado.id,
         total: totalCarrito,
         estado_pago: context.estadoPago,
+        numero_factura: context.numeroFactura.trim(),
+        fecha_vencimiento_pago:
+          context.estadoPago === "Pendiente"
+            ? context.fechaVencimientoPago.trim()
+            : null,
         observaciones: context.observaciones.trim() || null,
-        items: itemsFormatted
+        items: itemsFormatted,
       });
 
       if (!res.success) {
@@ -186,6 +205,15 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
           </AnimatePresence>
         </div>
 
+        <ModalField className="text-left">
+          <ModalLabel>Número de factura</ModalLabel>
+          <ModalInput
+            value={context.numeroFactura}
+            onChange={(e) => context.setNumeroFactura(e.target.value)}
+            placeholder="Factura del proveedor"
+          />
+        </ModalField>
+
         <div className="text-left">
           <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
             Estado de Pago
@@ -216,6 +244,16 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
           </div>
         </div>
 
+        {context.estadoPago === "Pendiente" && (
+          <ModalField className="text-left">
+            <ModalLabel>Vencimiento de pago</ModalLabel>
+            <ModalFechaInput
+              value={context.fechaVencimientoPago}
+              onChange={context.setFechaVencimientoPago}
+            />
+          </ModalField>
+        )}
+
         <div className="text-left">
           <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
             Observaciones / Comentario
@@ -224,7 +262,7 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
             value={context.observaciones}
             onChange={(e) => context.setObservaciones(e.target.value)}
             rows={2}
-            placeholder="Número de factura del proveedor, condiciones de entrega..."
+            placeholder="Condiciones de entrega, notas internas..."
             className="w-full px-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors resize-none"
           />
         </div>

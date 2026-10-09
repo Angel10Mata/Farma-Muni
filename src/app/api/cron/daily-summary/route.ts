@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { sendPushNotification } from "@/utils/pushServer";
 import { assertCronAuthorized } from "@/lib/api-cron-auth";
+import { obtenerResumenLotesVencimiento } from "@/lib/resumen-lotes-vencimiento";
 
 export async function GET(request: Request) {
   const denied = assertCronAuthorized(request);
@@ -36,10 +37,23 @@ export async function GET(request: Request) {
     const totalVentas = ventas.length;
     const totalIngresos = ventas.reduce((sum, v) => sum + Number(v.total), 0);
 
+    let lotesPorVencer30 = 0;
+    try {
+      const venc = await obtenerResumenLotesVencimiento(supabase);
+      lotesPorVencer30 = venc.lotesPorVencer30;
+    } catch (vencErr) {
+      console.error("Error resumen vencimientos:", vencErr);
+    }
+
+    const parteVenc =
+      lotesPorVencer30 > 0
+        ? ` ${lotesPorVencer30} lote(s) vencen en los próximos 30 días.`
+        : "";
+
     await sendPushNotification(
       {
         title: "📊 Corte de Caja Diario",
-        body: `Se realizaron ${totalVentas} ventas hoy con un total de Q${totalIngresos.toFixed(2)}.`,
+        body: `Se realizaron ${totalVentas} ventas hoy con un total de Q${totalIngresos.toFixed(2)}.${parteVenc}`,
         url: "/farmamuni/finanzas",
       },
       ["admin", "super"],
@@ -48,7 +62,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       message: "Corte de caja procesado y notificado",
-      stats: { totalVentas, totalIngresos },
+      stats: { totalVentas, totalIngresos, lotesPorVencer30 },
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Error inesperado";

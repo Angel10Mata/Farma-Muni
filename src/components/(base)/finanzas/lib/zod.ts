@@ -126,7 +126,9 @@ export interface CuentaPorPagar {
   compra_id: string;
   proveedor_id: string;
   proveedor_nombre: string;
+  numero_factura: string | null;
   fecha_compra: string;
+  fecha_vencimiento_pago: string | null;
   total: number;
   total_pagado: number;
   saldo_pendiente: number;

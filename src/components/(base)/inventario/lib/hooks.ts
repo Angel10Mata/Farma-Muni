@@ -22,8 +22,20 @@ import {
   obtenerLotes,
   registrarBajaPorVencimiento,
   crearLoteManual,
+  obtenerKardex,
+  ajustarLotePorConteo,
+  darBajaLote,
+  devolverLoteAProveedor,
+  type ObtenerKardexResult,
 } from "./actions";
-import { type ProductFormValues } from "./zod";
+import { demoKardexMovimientos } from "@/lib/demo/fixtures";
+import {
+  type AjustarConteoInput,
+  type BajaLoteInput,
+  type DevolverProveedorInput,
+  type ObtenerKardexInput,
+  type ProductFormValues,
+} from "./zod";
 
 // Modo edición en pantalla
 export function useEditMode(initial = false) {
@@ -184,7 +196,7 @@ export function useRegistrarBajaVencido() {
   const { isDemoMode } = useDemoMode();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (input: { lote_id: string; notas?: string }) => {
+    mutationFn: async (input: BajaLoteInput) => {
       assertWritableDemo(isDemoMode);
       const res = await registrarBajaPorVencimiento(input);
       if (!res.success) throw new Error(res.code);
@@ -193,8 +205,97 @@ export function useRegistrarBajaVencido() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["productos"] });
       queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
-      queryClient.invalidateQueries({ queryKey: ["finanzas"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "kardex"] });
     },
+  });
+}
+
+export function useAjustarLotePorConteo() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: AjustarConteoInput) => {
+      assertWritableDemo(isDemoMode);
+      const res = await ajustarLotePorConteo(input);
+      if (!res.success) throw new Error(res.code);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["productos"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "kardex"] });
+    },
+  });
+}
+
+export function useDarBajaLote() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: BajaLoteInput) => {
+      assertWritableDemo(isDemoMode);
+      const res = await darBajaLote(input);
+      if (!res.success) throw new Error(res.code);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["productos"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "kardex"] });
+    },
+  });
+}
+
+export function useDevolverLoteAProveedor() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: DevolverProveedorInput) => {
+      assertWritableDemo(isDemoMode);
+      const res = await devolverLoteAProveedor(input);
+      if (!res.success) throw new Error(res.code);
+      return res;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["productos"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
+      queryClient.invalidateQueries({ queryKey: ["inventario", "kardex"] });
+    },
+  });
+}
+
+export function useKardex(params: ObtenerKardexInput) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(
+      [
+        "inventario",
+        "kardex",
+        params.productoId,
+        params.loteId,
+        params.tipo,
+        params.desde,
+        params.hasta,
+        params.pagina,
+      ],
+      isDemoMode,
+    ),
+    queryFn: async (): Promise<ObtenerKardexResult> => {
+      if (isDemoMode) {
+        return demoKardexMovimientos({
+          productoId: params.productoId,
+          loteId: params.loteId,
+          tipo: params.tipo,
+          desde: params.desde,
+          hasta: params.hasta,
+          pagina: params.pagina,
+        });
+      }
+      const res = await obtenerKardex(params);
+      if ("code" in res) throw new Error(res.code);
+      return res.data;
+    },
+    staleTime: 1000 * 60,
   });
 }
 

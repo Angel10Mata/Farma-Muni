@@ -10,7 +10,9 @@ export async function getAppSettings(): Promise<AppSettingsUpdate | null> {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("app_settings")
-    .select("id, require_device_authorization, enable_passkeys")
+    .select(
+      "id, require_device_authorization, enable_passkeys, farmacia_nombre, farmacia_direccion, farmacia_telefono, dias_credito",
+    )
     .limit(1)
     .maybeSingle();
 
@@ -38,6 +40,10 @@ export async function updateAppSettings(settings: AppSettingsUpdate): Promise<vo
       .update({
         require_device_authorization: settings.require_device_authorization,
         enable_passkeys: settings.enable_passkeys,
+        farmacia_nombre: settings.farmacia_nombre ?? null,
+        farmacia_direccion: settings.farmacia_direccion ?? null,
+        farmacia_telefono: settings.farmacia_telefono ?? null,
+        dias_credito: settings.dias_credito ?? 30,
         updated_at: new Date().toISOString(),
       })
       .eq("id", settings.id);
@@ -49,6 +55,10 @@ export async function updateAppSettings(settings: AppSettingsUpdate): Promise<vo
       .insert({
         require_device_authorization: settings.require_device_authorization,
         enable_passkeys: settings.enable_passkeys,
+        farmacia_nombre: settings.farmacia_nombre ?? "FarmaMuni",
+        farmacia_direccion: settings.farmacia_direccion ?? null,
+        farmacia_telefono: settings.farmacia_telefono ?? null,
+        dias_credito: settings.dias_credito ?? 30,
       });
 
     if (error) throw new Error(error.message);

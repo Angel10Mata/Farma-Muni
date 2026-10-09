@@ -12,6 +12,19 @@ import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
 import { Compra } from "./lib/zod";
 import { CompraDetalleModal } from "./modals/CompraDetalleModal";
 import {
+  compraPagoVencido,
+  formatearFechaCompraGt,
+  saldoPendienteCompra,
+  totalPagadoCompra,
+} from "./lib/compras-helpers";
+import { InsigniaPagoVencidoCompra } from "./InsigniaPagoVencidoCompra";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { FileDown } from "lucide";
+import { toast } from "react-toastify";
+import { obtenerReporteComprasProveedor } from "./lib/actions";
+import { descargarReporteComprasProveedorPdf } from "./lib/export-reporte-compras-proveedor-pdf";
+import { ultimoDiaMesCalendario } from "@/lib/fechas-gt";
+import {
   moduleTableBodyClass,
   moduleTableClass,
   moduleTableDesktopScrollClass,
@@ -56,6 +69,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
 
   const [currentPageCompras, setCurrentPageCompras] = useState(1);
   const [pageSizeCompras, setPageSizeCompras] = useState(15);
+  const [exportandoReporte, setExportandoReporte] = useState(false);
 
   const [mostrarMesDropdownCompras, setMostrarMesDropdownCompras] = useState(false);
   const [mostrarSemanaDropdownCompras, setMostrarSemanaDropdownCompras] = useState(false);
@@ -116,6 +130,40 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
     return weeks;
   };
 
+  const resolverRangoReporte = () => {
+    if (tipoFiltroFechaCompras === "rango" && fechaRangoDesdeCompras && fechaRangoHastaCompras) {
+      return { desde: fechaRangoDesdeCompras, hasta: fechaRangoHastaCompras };
+    }
+    if (tipoFiltroFechaCompras === "dia" && fechaDiaCompras) {
+      return { desde: fechaDiaCompras, hasta: fechaDiaCompras };
+    }
+    const monthStr = String(activeMonthCompras + 1).padStart(2, "0");
+    const lastDay = ultimoDiaMesCalendario(activeYearCompras, activeMonthCompras + 1);
+    return {
+      desde: `${activeYearCompras}-${monthStr}-01`,
+      hasta: `${activeYearCompras}-${monthStr}-${String(lastDay).padStart(2, "0")}`,
+    };
+  };
+
+  const exportarComprasProveedor = async () => {
+    const { desde, hasta } = resolverRangoReporte();
+    setExportandoReporte(true);
+    try {
+      const res = await obtenerReporteComprasProveedor(desde, hasta);
+      if (!res.success) throw new Error(res.error);
+      if (res.data.filas.length === 0) {
+        toast.warn("No hay compras en el periodo seleccionado.");
+        return;
+      }
+      descargarReporteComprasProveedorPdf(res.data);
+      toast.success("Reporte PDF generado.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo generar el reporte.");
+    } finally {
+      setExportandoReporte(false);
+    }
+  };
+
   const comprasFiltradas = useMemo(() => {
     return compras.filter((c) => {
       // 1. Búsqueda
@@ -124,12 +172,13 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
         const matchSearch =
           obtenerCodigoCompra(c.id).toLowerCase().includes(q) ||
           (c.inv_proveedores?.nombre || "").toLowerCase().includes(q) ||
+          (c.numero_factura || "").toLowerCase().includes(q) ||
           (c.observaciones || "").toLowerCase().includes(q);
         if (!matchSearch) return false;
       }
 
       // 2. Filtro de Pago
-      const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
+      const abonos = totalPagadoCompra(c.fin_transacciones);
       const isPaid = abonos >= c.total;
       
       if (filtroPago === "Pagado" && !isPaid) return false;
@@ -458,20 +507,32 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
             </AnimatePresence>
             </ModuleDateFilterLayout>
 
-            <ModuleFilterUnderlineTabs
-              ariaLabel="Estado de pago"
-              value={filtroPago}
-              options={[
-                { id: "todos", label: "Todos" },
-                { id: "Pagado", label: "Pagado" },
-                { id: "Pendiente", label: "Pendiente" },
-              ]}
-              onChange={(id) => {
-                setFiltroPago(id);
-                setCurrentPageCompras(1);
-              }}
-              className="sm:justify-end"
-            />
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <SigetActionButton
+                label="Proveedor"
+                accentColor={sigetAccent.excel}
+                morphFrom={FileDown}
+                morphTo={FileDown}
+                morphOnHover={false}
+                onClick={() => void exportarComprasProveedor()}
+                disabled={exportandoReporte}
+                className="w-auto shrink-0"
+              />
+              <ModuleFilterUnderlineTabs
+                ariaLabel="Estado de pago"
+                value={filtroPago}
+                options={[
+                  { id: "todos", label: "Todos" },
+                  { id: "Pagado", label: "Pagado" },
+                  { id: "Pendiente", label: "Pendiente" },
+                ]}
+                onChange={(id) => {
+                  setFiltroPago(id);
+                  setCurrentPageCompras(1);
+                }}
+                className="sm:justify-end"
+              />
+            </div>
           </div>
         </div>
       </section>
@@ -505,19 +566,21 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         Compra #{obtenerCodigoCompra(c.id)}
                       </span>
                       {(() => {
-                        const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
+                        const abonos = totalPagadoCompra(c.fin_transacciones);
                         const isPaid = abonos >= c.total || c.estado_pago === "Pagado";
-                        const daysPassed = Math.floor((new Date().getTime() - new Date(c.created_at).getTime()) / (1000 * 3600 * 24));
-                        const daysRemaining = 30 - daysPassed;
+                        const vencido = compraPagoVencido(c);
                         return (
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            isPaid
-                              ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                              : daysRemaining < 0 
-                                ? "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400"
-                                : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                          }`}>
-                            {isPaid ? "Pagado" : daysRemaining < 0 ? "Vencido" : `Quedan ${daysRemaining} días`}
+                          <span className="inline-flex flex-wrap items-center gap-1">
+                            <span
+                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                isPaid
+                                  ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+                              }`}
+                            >
+                              {isPaid ? "Pagado" : "Pendiente"}
+                            </span>
+                            {vencido && <InsigniaPagoVencidoCompra />}
                           </span>
                         );
                       })()}
@@ -539,8 +602,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-900 mt-1">
                       {(() => {
-                        const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
-                        const saldoCompra = Math.max(0, c.total - abonos);
+                        const saldoCompra = saldoPendienteCompra(c);
                         return (
                           <>
                             <div className="flex flex-col">
@@ -577,6 +639,8 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                       <th className={moduleTableHeadCellClass}>Compra #</th>
                       <th className={moduleTableHeadCellClass}>Fecha</th>
                       <th className={moduleTableHeadCellClass}>Proveedor</th>
+                      <th className={moduleTableHeadCellClass}>Factura</th>
+                      <th className={moduleTableHeadCellClass}>Vence pago</th>
                       <th className={moduleTableHeadCellClass}>Estado Pago</th>
                       <th className={cn(moduleTableHeadCellClass, "text-right")}>Total</th>
                       <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
@@ -591,11 +655,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         hour: "2-digit",
                         minute: "2-digit"
                       });
-                      const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
+                      const abonos = totalPagadoCompra(c.fin_transacciones);
                       const isPaid = abonos >= c.total || c.estado_pago === "Pagado";
-                      const saldoCompra = Math.max(0, c.total - abonos);
-                      const daysPassed = Math.floor((new Date().getTime() - new Date(c.created_at).getTime()) / (1000 * 3600 * 24));
-                      const daysRemaining = 30 - daysPassed;
+                      const saldoCompra = saldoPendienteCompra(c);
+                      const vencido = compraPagoVencido(c);
                       return (
                         <tr
                           key={c.id}
@@ -608,15 +671,24 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                           <td className="px-5 py-3.5 font-bold">
                             {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
                           </td>
+                          <td className="px-5 py-3.5 font-mono text-xs">
+                            {c.numero_factura?.trim() || "—"}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap text-xs">
+                            {formatearFechaCompraGt(c.fecha_vencimiento_pago)}
+                          </td>
                           <td className="px-5 py-3.5 whitespace-nowrap">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              isPaid
-                                ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                                : daysRemaining < 0 
-                                  ? "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400"
-                                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                            }`}>
-                              {isPaid ? "Pagado" : daysRemaining < 0 ? "Vencido" : `Quedan ${daysRemaining} días`}
+                            <span className="inline-flex flex-wrap items-center gap-1">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                  isPaid
+                                    ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+                                }`}
+                              >
+                                {isPaid ? "Pagado" : "Pendiente"}
+                              </span>
+                              {vencido && <InsigniaPagoVencidoCompra />}
                             </span>
                           </td>
                           <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0] whitespace-nowrap">

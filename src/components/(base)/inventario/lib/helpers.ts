@@ -1,3 +1,7 @@
+import {
+  categoriaVencimientoLote,
+  diasRestantesVencimientoGt,
+} from "@/lib/vencimientos-gt";
 import { FORMAS_FARMACEUTICAS } from "./zod";
 
 export type CamposTituloProducto = {
@@ -71,32 +75,27 @@ export function isProductoProximoAVencer(
   fechaVencimiento?: string | null,
   meses = 4,
 ): boolean {
-  if (!fechaVencimiento) return false;
-  const today = inicioDiaLocal();
-  const expDate = inicioDiaLocal(new Date(fechaVencimiento));
-  const limitDate = new Date(today);
-  limitDate.setMonth(limitDate.getMonth() + meses);
-  return expDate <= limitDate && expDate >= today;
+  const dias = diasRestantesVencimientoGt(fechaVencimiento);
+  if (dias === null) return false;
+  if (dias < 0) return false;
+  const limiteDias = Math.round(meses * 30.4375);
+  return dias <= limiteDias;
 }
 
 export function isProductoVencido(fechaVencimiento?: string | null): boolean {
-  if (!fechaVencimiento) return false;
-  const expDate = inicioDiaLocal(new Date(fechaVencimiento));
-  return expDate < inicioDiaLocal();
+  const dias = diasRestantesVencimientoGt(fechaVencimiento);
+  return dias !== null && dias < 0;
 }
 
 export function diasRestantesVencimiento(fechaVencimiento?: string | null): number | null {
-  if (!fechaVencimiento) return null;
-  const expDate = inicioDiaLocal(new Date(fechaVencimiento));
-  const today = inicioDiaLocal();
-  const diffMs = expDate.getTime() - today.getTime();
-  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+  return diasRestantesVencimientoGt(fechaVencimiento);
 }
 
 export function etiquetaEstadoVencimiento(fechaVencimiento?: string | null): string {
   if (!fechaVencimiento) return "Sin fecha";
-  if (isProductoVencido(fechaVencimiento)) return "Vencido";
-  if (isProductoProximoAVencer(fechaVencimiento)) return "Por vencer";
+  const cat = categoriaVencimientoLote(fechaVencimiento);
+  if (cat === "vencido") return "Vencido";
+  if (cat === "dias_0_30" || cat === "dias_31_60" || cat === "dias_61_90") return "Por vencer";
   return "Vigente";
 }
 

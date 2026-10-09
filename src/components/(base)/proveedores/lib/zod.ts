@@ -40,6 +40,8 @@ export const CompraRecordSchema = z.object({
   total: z.number(),
   estado_pago: z.string(),
   fecha_pago: z.string().nullable(),
+  numero_factura: z.string().nullable().optional(),
+  fecha_vencimiento_pago: z.string().nullable().optional(),
   observaciones: z.string().nullable(),
   fin_transacciones: z.array(z.unknown()).optional(),
   inv_proveedores: z
@@ -82,13 +84,26 @@ export const ItemCompraSchema = z.object({
   subtotal: z.number().nonnegative(),
 });
 
-export const CompraSchema = z.object({
-  proveedor_id: z.string().min(1, "Debe seleccionar un proveedor"),
-  total: z.number().nonnegative(),
-  estado_pago: z.string().min(1),
-  observaciones: z.string().nullable().optional(),
-  items: z.array(ItemCompraSchema).min(1, "La compra debe contener al menos un producto"),
-});
+export const CompraSchema = z
+  .object({
+    proveedor_id: z.string().min(1, "Debe seleccionar un proveedor"),
+    total: z.number().nonnegative(),
+    estado_pago: z.string().min(1),
+    numero_factura: z.string().trim().min(1, "El número de factura es obligatorio"),
+    fecha_vencimiento_pago: z.string().nullable().optional(),
+    observaciones: z.string().nullable().optional(),
+    items: z.array(ItemCompraSchema).min(1, "La compra debe contener al menos un producto"),
+  })
+  .superRefine((val, ctx) => {
+    const pagado = val.estado_pago.trim().toLowerCase() === "pagado";
+    if (!pagado && !val.fecha_vencimiento_pago?.trim()) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["fecha_vencimiento_pago"],
+        message: "La fecha de vencimiento de pago es obligatoria para compras a crédito.",
+      });
+    }
+  });
 
 export type ItemCompraInput = z.infer<typeof ItemCompraSchema>;
 export type CompraInput = z.infer<typeof CompraSchema>;

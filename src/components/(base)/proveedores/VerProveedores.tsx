@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -17,6 +17,8 @@ import { CuentasPorPagar } from "./CuentasPorPagar";
 import { CatalogoProveedores } from "./CatalogoProveedores";
 import { CrearProveedor } from "./forms/Crear";
 import { useProveedoresYProductos, useHistorialCompras } from "./lib/hooks";
+import { TarjetaCuentasPorPagar } from "./TarjetaCuentasPorPagar";
+import { resumenCuentasPorPagarDesdeCompras } from "./lib/compras-helpers";
 
 // Tabs
 const COMPRAS_TABS = [
@@ -46,6 +48,11 @@ function VerProveedoresInner() {
   };
 
   const isLoading = isLoadingPP || isLoadingCompras;
+
+  const resumenPagar = useMemo(
+    () => resumenCuentasPorPagarDesdeCompras(compras),
+    [compras],
+  );
 
   if (isLoading) {
     return (
@@ -87,6 +94,12 @@ function VerProveedoresInner() {
             </h1>
           </div>
         </div>
+
+        <TarjetaCuentasPorPagar
+          className="w-full sm:max-w-xs"
+          totalPendiente={resumenPagar.totalPendiente}
+          totalVencido={resumenPagar.totalVencido}
+        />
 
         <div className="flex w-full shrink-0 justify-end sm:w-auto">
           <div

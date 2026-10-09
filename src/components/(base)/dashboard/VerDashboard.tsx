@@ -6,7 +6,10 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
-import { DEMO_LOW_STOCK_COUNT } from "@/lib/demo/fixtures";
+import { DEMO_LOW_STOCK_COUNT, demoResumenVencimientoLotes } from "@/lib/demo/fixtures";
+import { obtenerResumenLotesVencimiento } from "@/lib/resumen-lotes-vencimiento";
+import type { ConteoVencimientoLotes } from "@/lib/vencimientos-gt";
+import { DashboardTarjetaPorVencer } from "./DashboardTarjetaPorVencer";
 import { createClient } from "@/utils/supabase/client";
 import { MorphIconBox } from "@/components/ui/morph-hover-icon";
 import { APP_MODULES, type AppModuleConfig } from "@/lib/app-modules";
@@ -293,11 +296,18 @@ export function VerDashboard() {
   const { effectiveRole } = useUserContext();
   const { isDemoMode } = useDemoMode();
   const [lowStockCount, setLowStockCount] = useState(0);
+  const [conteoVencimiento, setConteoVencimiento] = useState<ConteoVencimientoLotes | null>(
+    null,
+  );
+  const [valorCostoVence30, setValorCostoVence30] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
     if (isDemoMode) {
       setLowStockCount(DEMO_LOW_STOCK_COUNT);
+      const demo = demoResumenVencimientoLotes();
+      setConteoVencimiento(demo.conteo);
+      setValorCostoVence30(demo.valorCosto30Dias);
       return;
     }
     const fetchLowStock = async () => {
@@ -310,7 +320,18 @@ export function VerDashboard() {
         console.error("Error fetching low stock:", error);
       }
     };
-    fetchLowStock();
+    const fetchVencimientos = async () => {
+      try {
+        const supabase = createClient();
+        const resumen = await obtenerResumenLotesVencimiento(supabase);
+        setConteoVencimiento(resumen.conteo);
+        setValorCostoVence30(resumen.valorCosto30Dias);
+      } catch (e) {
+        console.error("Error fetching vencimientos:", e);
+      }
+    };
+    void fetchLowStock();
+    void fetchVencimientos();
   }, [isDemoMode]);
 
   const isSuperOrAdmin = ["super", "admin"].includes(effectiveRole);
@@ -408,6 +429,12 @@ export function VerDashboard() {
           ) : (
             <>
               <DashboardHeader />
+              {conteoVencimiento ? (
+                <DashboardTarjetaPorVencer
+                  conteo={conteoVencimiento}
+                  valorCosto30Dias={valorCostoVence30}
+                />
+              ) : null}
               {renderBentoGrid()}
             </>
           )}

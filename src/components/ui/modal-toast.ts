@@ -15,6 +15,10 @@ export const MODAL_ACTION_ERRORS: Record<string, string> = {
   DUPLICATE: "Este registro ya existe.",
   NOT_EXPIRED: "El producto aún no está vencido.",
   NO_STOCK: "No hay existencias que dar de baja.",
+  MOTIVO_REQUERIDO: "Indica un motivo de al menos 5 caracteres.",
+  CANTIDAD_INVALIDA: "La cantidad no es válida para esta operación.",
+  LOTE_NO_ENCONTRADO: "No se encontró el lote.",
+  RPC_ERROR: "No se pudo completar la operación de inventario.",
 };
 
 export function modalActionMessage(

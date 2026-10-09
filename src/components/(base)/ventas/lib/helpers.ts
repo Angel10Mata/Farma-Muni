@@ -2,12 +2,42 @@ import type { ItemCarrito, Producto, SolicitudRebajaPayload, VentaBitacoraEntry 
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import type { LoteAsignadoVenta } from "./lotes-venta";
 
-// Formato del recibo
+export function formatNumeroRecibo(numero: number | null | undefined): string {
+  if (numero == null || Number.isNaN(Number(numero))) return "";
+  return `FM-${String(Math.trunc(Number(numero))).padStart(6, "0")}`;
+}
+
 export const obtenerCodigoRecibo = (id: string) => {
   if (!id) return "N/A";
   const cleanId = id.replace(/-/g, "").toUpperCase();
   return `${cleanId.substring(0, 3)}-${cleanId.substring(3, 6)}`;
 };
+
+export function codigoReciboVenta(venta: {
+  id: string;
+  numero_recibo?: number | null;
+}): string {
+  const fm = formatNumeroRecibo(venta.numero_recibo);
+  if (fm) return fm;
+  return obtenerCodigoRecibo(venta.id);
+}
+
+export function mensajeCreditoVencidoCliente(total: number, desde: string): string {
+  const fecha = desde
+    ? new Date(`${desde}T12:00:00`).toLocaleDateString("es-GT", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "—";
+  return `Cliente con crédito vencido por Q${total.toFixed(2)} desde ${fecha}`;
+}
+
+export function carritoRequiereReceta(
+  carrito: ItemCarrito[],
+): boolean {
+  return carrito.some((i) => Boolean((i.producto as { requiere_receta?: boolean }).requiere_receta));
+}
 
 export const formatFechaRecibo = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -90,6 +120,8 @@ export function demoAsignarLotes(producto: Producto, cantidad: number): LoteAsig
   if (cantidad <= 0) return null;
   if (cantidad > producto.stock_actual) return null;
   const precio = producto.precio_venta_fefo ?? producto.precio_base;
+  const vence = new Date();
+  vence.setDate(vence.getDate() + 18);
   return [
     {
       lote_id: `demo-lote-${producto.id}`,
@@ -99,6 +131,7 @@ export function demoAsignarLotes(producto: Producto, cantidad: number): LoteAsig
       precio_costo: Math.round(precio * 0.65 * 100) / 100,
       codigo_barras: producto.codigo ?? `DEMO-${producto.id}`,
       laboratorio: null,
+      fecha_vencimiento: vence.toISOString().slice(0, 10),
     },
   ];
 }

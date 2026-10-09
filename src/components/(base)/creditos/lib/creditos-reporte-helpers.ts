@@ -1,4 +1,5 @@
 import type { CuentaPorCobrar } from "@/components/(base)/finanzas/lib/zod";
+import { formatNumeroRecibo } from "@/components/(base)/ventas/lib/helpers";
 
 export const PLAZO_CREDITO_DIAS = 30;
 
@@ -12,6 +13,11 @@ export type LineaCreditoReporte = CuentaPorCobrar & {
 
 export function etiquetaReciboCredito(cuenta: CuentaPorCobrar): string {
   if (cuenta.numero_recibo != null && String(cuenta.numero_recibo).trim()) {
+    const n = Number(cuenta.numero_recibo);
+    if (!Number.isNaN(n)) {
+      const fm = formatNumeroRecibo(n);
+      if (fm) return fm;
+    }
     return `#${cuenta.numero_recibo}`;
   }
   const id = cuenta.venta_id.replace(/-/g, "").toUpperCase();

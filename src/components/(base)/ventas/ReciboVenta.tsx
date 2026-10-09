@@ -1,5 +1,9 @@
 import { cn, fmtQ } from "@/lib/utils";
-import { formatFechaRecibo, formatMonedaRecibo, obtenerCodigoRecibo } from "./lib/helpers";
+import {
+  codigoReciboVenta,
+  formatFechaRecibo,
+  formatMonedaRecibo,
+} from "./lib/helpers";
 
 // Datos del comprobante
 export interface ReciboVentaItem {
@@ -18,6 +22,10 @@ export interface ReciboVentaProps {
   items: ReciboVentaItem[];
   total: number;
   observaciones?: string | null;
+  farmaciaNombre?: string;
+  farmaciaDireccion?: string;
+  farmaciaTelefono?: string;
+  incluyeReceta?: boolean;
   className?: string;
   id?: string;
 }
@@ -31,6 +39,10 @@ export function ReciboVenta({
   items,
   total,
   observaciones,
+  farmaciaNombre = "FarmaMuni",
+  farmaciaDireccion = "3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA",
+  farmaciaTelefono,
+  incluyeReceta,
   className,
   id,
 }: ReciboVentaProps) {
@@ -50,12 +62,16 @@ export function ReciboVenta({
           className="size-12 mx-auto object-contain mb-1"
         />
         <h1 className="text-sm font-black tracking-tight text-black uppercase leading-tight">
-          FarmaMuni
+          {farmaciaNombre}
         </h1>
         <p className="text-[9.5px] font-bold text-black leading-tight mt-0.5 max-w-[240px] mx-auto">
-          3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA
+          {farmaciaDireccion}
         </p>
-        <p className="text-[9px] font-bold text-black/80 mt-0.5">Guatemala</p>
+        {farmaciaTelefono ? (
+          <p className="text-[9px] font-bold text-black/80 mt-0.5">Tel. {farmaciaTelefono}</p>
+        ) : (
+          <p className="text-[9px] font-bold text-black/80 mt-0.5">Guatemala</p>
+        )}
       </div>
 
       {/* Detalles del Recibo */}
@@ -107,6 +123,12 @@ export function ReciboVenta({
         </p>
       </div>
 
+      {incluyeReceta && (
+        <p className="text-[9.5px] font-bold text-black mb-2 text-center">
+          Incluye medicamento con receta
+        </p>
+      )}
+
       {observaciones && (
         <p className="text-[9.5px] italic text-black font-medium mb-2 text-left">
           <span className="font-bold not-italic">Notas:</span> {observaciones}
@@ -142,9 +164,17 @@ export function buildReciboProps(
   venta: any,
   detalles: any[],
   clienteCompleto?: any,
+  extras?: {
+    farmacia?: { nombre: string; direccion: string; telefono: string } | null;
+    incluyeReceta?: boolean;
+  },
 ) {
   return {
-    codigo: obtenerCodigoRecibo(venta.id),
+    codigo: codigoReciboVenta(venta),
+    farmaciaNombre: extras?.farmacia?.nombre,
+    farmaciaDireccion: extras?.farmacia?.direccion,
+    farmaciaTelefono: extras?.farmacia?.telefono,
+    incluyeReceta: extras?.incluyeReceta,
     fecha: formatFechaRecibo(venta.created_at),
     cliente:
       clienteCompleto?.nombre || venta.ven_clientes?.nombre || "Consumidor final",
