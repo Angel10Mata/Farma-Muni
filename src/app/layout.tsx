@@ -11,6 +11,8 @@ import { DemoModeProvider } from "@/components/(base)/providers/DemoModeProvider
 import DemoModeBanner from "@/components/(base)/layout/DemoModeBanner";
 import OfflineBanner from "@/components/OfflineBanner";
 import ObsToastContainer from "@/components/(base)/layout/ObsToastContainer";
+import { AuthSessionRecovery } from "@/components/(base)/providers/AuthSessionRecovery";
+import { isStaleRefreshTokenError } from "@/lib/supabase-session";
 
 // Fuentes y metadatos de la app
 
@@ -59,10 +61,18 @@ export default async function RootLayout({
   const supabase = await createClient();
   let user = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    const { data, error } = await supabase.auth.getUser();
+    if (error && isStaleRefreshTokenError(error)) {
+      await supabase.auth.signOut();
+    } else {
+      user = data.user;
+    }
   } catch (error) {
-    console.error("Supabase auth error:", error);
+    if (isStaleRefreshTokenError(error)) {
+      await supabase.auth.signOut();
+    } else {
+      console.error("Supabase auth error:", error);
+    }
   }
 
   return (
@@ -77,6 +87,7 @@ export default async function RootLayout({
       >
 
         <Providers>
+          <AuthSessionRecovery />
           <ThemeProvider
             attribute="class"
             defaultTheme="dark"

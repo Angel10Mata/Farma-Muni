@@ -16,6 +16,7 @@ import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { useQueryClient } from "@tanstack/react-query";
 import { updateProfile } from "../lib/actions";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 import { useProfile } from "../lib/hooks";
 import { cn } from "@/lib/utils";
 
@@ -114,7 +115,11 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
     setSaving(true);
 
     try {
-      await updateProfile(userId, formData);
+      const result = await updateProfile(userId, formData);
+      if (result && "code" in result) {
+        toast.error(modalActionMessage(result.code, "No se pudo guardar el perfil."));
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: ["profile", userId] });
       setHasChanges(false);
       toast.success("Guardado correctamente.");

@@ -3,6 +3,15 @@
 import { createClient } from "@/utils/supabase/server";
 import { ClienteSchema, ClienteInput } from "./zod";
 import { revalidatePath } from "next/cache";
+import { requireRole } from "@/lib/auth-guards";
+
+const CLIENTES_WRITE_ROLES = [
+  "super",
+  "admin",
+  "ventas",
+  "clientes",
+  "finanzas",
+] as const;
 
 // Listado con métricas por cliente
 export async function obtenerClientes() {
@@ -92,9 +101,9 @@ export async function obtenerVentasCliente(clienteId: string) {
 // Alta de cliente
 export async function crearCliente(input: ClienteInput) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireRole([...CLIENTES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const parsed = ClienteSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
@@ -119,9 +128,9 @@ export async function crearCliente(input: ClienteInput) {
 // Actualización de cliente
 export async function editarCliente(id: string, input: ClienteInput) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireRole([...CLIENTES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const parsed = ClienteSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };

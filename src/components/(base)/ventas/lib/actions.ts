@@ -36,6 +36,9 @@ import {
   type LoteVendibleRow,
 } from "./lotes-venta";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireAdmin, requireVentas } from "@/lib/auth-guards";
+import { isAdminRole, resolveUserRole } from "@/lib/user-role";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 
 export interface ItemVentaInput {
   producto_id: string;
@@ -43,6 +46,16 @@ export interface ItemVentaInput {
   cantidad: number;
   precio_aplicado: number;
   subtotal: number;
+}
+
+function mensajeErrorRegistrarVenta(message: string): string {
+  if (message.includes("REBAJA_NO_AUTORIZADA")) {
+    return "La rebaja de precio no está autorizada o la solicitud ya no es válida. Solicita aprobación de nuevo.";
+  }
+  if (message.includes("PRECIO_MENOR_COSTO")) {
+    return "Hay un precio por debajo del costo del lote. Solo un administrador puede autorizar esta venta.";
+  }
+  return message;
 }
 
 // Productos y clientes para vender
@@ -297,18 +310,17 @@ async function obtenerRolUsuario(
   return profile?.rol ?? "user";
 }
 
-async function assertAdminHistorialVentas(supabase: SupabaseClient) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Sesión no válida o expirada.");
+async function assertAdminHistorialVentas() {
+  const guard = await requireAdmin();
+  if (!guard.ok) {
+    throw new Error(
+      modalActionMessage(
+        guard.code,
+        "No tienes permiso para modificar ventas del historial.",
+      ),
+    );
   }
-  const rol = await obtenerRolUsuario(supabase, user.id);
-  if (rol !== "admin" && rol !== "super") {
-    throw new Error("No tienes permiso para modificar ventas del historial.");
-  }
-  return user;
+  return guard.user;
 }
 
 function parseMotivoModificacionVenta(motivo: string) {
@@ -493,28 +505,23 @@ export async function crearVenta(params: {
   solicitud_rebaja_id?: string;
 }) {
   try {
-    const supabase = await createClient();
-    
-    // Obtener usuario autenticado
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Sesión no válida o expirada.");
+    const guard = await requireVentas();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error: modalActionMessage(
+          guard.code,
+          "Error al procesar la venta.",
+        ),
+      };
+    }
+    const { supabase, user } = guard;
 
-    const { cliente_id, tipo_venta, total, observaciones, items, solicitud_rebaja_id } = params;
+    const { cliente_id, tipo_venta, observaciones, items, solicitud_rebaja_id } = params;
 
     if (!items || items.length === 0) {
       throw new Error("La venta debe contener al menos un producto.");
     }
-
-    await assertRebajasAutorizadas(supabase, user.id, {
-      cliente_id,
-      tipo_venta,
-      total,
-      observaciones,
-      items,
-      solicitud_rebaja_id,
-    });
-
-    await assertPreciosNoMenoresAlCosto(supabase, items);
 
     for (const item of items) {
       if (!item.lote_id) {
@@ -527,20 +534,19 @@ export async function crearVenta(params: {
         cliente_id: cliente_id || null,
         usuario_id: user.id,
         tipo_venta,
-        total,
         observaciones: observaciones || null,
+        solicitud_rebaja_id: solicitud_rebaja_id ?? null,
       },
       p_items: items.map((item) => ({
         producto_id: item.producto_id,
         lote_id: item.lote_id,
         cantidad: item.cantidad,
         precio_aplicado: item.precio_aplicado,
-        subtotal: item.subtotal,
       })),
     });
 
     if (ventaError) {
-      throw new Error(ventaError.message);
+      throw new Error(mensajeErrorRegistrarVenta(ventaError.message));
     }
 
     const ventaRow = ventaRpc as { id?: string; numero_recibo?: number | null } | null;
@@ -570,18 +576,6 @@ export async function crearVenta(params: {
           ["all"],
         );
       }
-    }
-
-    if (solicitud_rebaja_id) {
-      const admin = createAdminClient();
-      await admin
-        .from("ven_solicitudes_rebaja")
-        .update({
-          estado: "completada",
-          venta_id: venta.id,
-        })
-        .eq("id", solicitud_rebaja_id)
-        .eq("solicitante_id", user.id);
     }
 
     // Revalidar rutas para refrescar cache
@@ -663,7 +657,7 @@ export async function obtenerHistorialVentas() {
 export async function obtenerBitacoraVenta(ventaId: string) {
   try {
     const supabase = await createClient();
-    await assertAdminHistorialVentas(supabase);
+    await assertAdminHistorialVentas();
 
     const { data, error } = await supabase
       .from("ven_ventas_bitacora")
@@ -907,13 +901,14 @@ export async function obtenerDetalleVenta(ventaId: string) {
 // Anular venta
 export async function anularVenta(ventaId: string, motivo: string) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Sesión no válida o expirada.");
+    const guard = await requireAdmin();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error: modalActionMessage(guard.code, "Error al anular la venta."),
+      };
     }
+    const { supabase, user } = guard;
     const motivoLimpio = parseMotivoModificacionVenta(motivo);
 
     // 1. Obtener detalles de la venta (productos y cantidades)
@@ -1009,7 +1004,7 @@ export async function editarDetalleVentaDirecto(params: {
 }) {
   try {
     const supabase = await createClient();
-    const user = await assertAdminHistorialVentas(supabase);
+    const user = await assertAdminHistorialVentas();
     const motivoLimpio = parseMotivoModificacionVenta(params.motivo);
     const { detalleId, ventaId, productoId, nuevaCantidad, nuevoPrecio, productoNombre } =
       params;
@@ -1138,7 +1133,7 @@ export async function eliminarDetalleVentaDirecto(params: {
 }) {
   try {
     const supabase = await createClient();
-    const user = await assertAdminHistorialVentas(supabase);
+    const user = await assertAdminHistorialVentas();
     const motivoLimpio = parseMotivoModificacionVenta(params.motivo);
     const { detalleId, ventaId, productoId, cantidadADevolver, productoNombre } = params;
 
@@ -1249,15 +1244,8 @@ export async function autorizarRebajaConCredencialesAdmin(
       return { success: false as const, error: "Credenciales incorrectas." };
     }
 
-    const { data: profile } = await supabaseTemp
-      .from("profiles")
-      .select("rol")
-      .eq("id", authData.user.id)
-      .maybeSingle();
-
-    const rol =
-      profile?.rol || authData.user.user_metadata?.rol || "user";
-    if (rol !== "admin" && rol !== "super") {
+    const rol = await resolveUserRole(supabaseTemp, authData.user);
+    if (!isAdminRole(rol)) {
       return {
         success: false as const,
         error: "El usuario no tiene permisos de administrador.",
@@ -1667,16 +1655,9 @@ export async function validarCredencialesAdmin(username: string, clave: string) 
       return { success: false, error: "Credenciales incorrectas." };
     }
 
-    // Verificar el rol del usuario autenticado
-    const { data: profile } = await supabaseTemp
-      .from("profiles")
-      .select("rol")
-      .eq("id", authData.user.id)
-      .single();
-      
-    const rol = profile?.rol || authData.user.user_metadata?.rol || "user";
-    
-    if (rol !== "admin" && rol !== "super") {
+    const rol = await resolveUserRole(supabaseTemp, authData.user);
+
+    if (!isAdminRole(rol)) {
       return { success: false, error: "El usuario ingresado no tiene permisos de administrador." };
     }
 

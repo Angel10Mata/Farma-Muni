@@ -2,6 +2,8 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { AppSettingsUpdate } from "./zod";
+import { requireAdmin } from "@/lib/auth-guards";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 
 // Consultas
 export async function getAppSettings(): Promise<AppSettingsUpdate | null> {
@@ -21,7 +23,14 @@ export async function getAppSettings(): Promise<AppSettingsUpdate | null> {
 
 // Mutaciones
 export async function updateAppSettings(settings: AppSettingsUpdate): Promise<void> {
-  const supabase = await createClient();
+  const auth = await requireAdmin();
+  if (!auth.ok) {
+    throw new Error(
+      modalActionMessage(auth.code, "No se pudieron guardar los ajustes."),
+    );
+  }
+
+  const supabase = auth.supabase;
 
   if (settings.id) {
     const { error } = await supabase

@@ -16,6 +16,7 @@ import { useUser } from "@/components/(base)/providers/UserProvider";
 import { CamposPerfil } from "./forms/CamposPerfil";
 import { CamposUsuario } from "./forms/CamposUsuario";
 import { updateProfile } from "./lib/actions";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
@@ -74,7 +75,13 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
   const handleRoleUpdate = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
     try {
-      await updateProfile(targetId, { rol: newRole as "user" | "admin" | "super" });
+      const result = await updateProfile(targetId, {
+        rol: newRole as "user" | "admin" | "super",
+      });
+      if (result && "code" in result) {
+        toast.error(modalActionMessage(result.code, "No se pudo actualizar el rol."));
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: ["profile", targetId] });
       toast.success("Rol actualizado.");
     } catch {

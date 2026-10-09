@@ -22,6 +22,7 @@ import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-but
 import { profileObjectSchema } from "../lib/zod";
 import { useUserCredentials, useCredentialsMutation } from "../lib/hooks";
 import { toggleUserStatus } from "../lib/actions";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 import { useUser } from "@/components/(base)/providers/UserProvider";
 import { cn } from "@/lib/utils";
 import { generateStrongPassword } from "@/utils/general/password-generator";
@@ -84,6 +85,10 @@ const UserStatusToggle = ({
     setIsLoading(true);
     try {
       const result = await toggleUserStatus(userId, shouldBan);
+      if (result && "code" in result) {
+        toast.error(modalActionMessage(result.code, "No se pudo actualizar el estado."));
+        return;
+      }
       if (result.success) onStatusChange();
     } catch (error) {
       console.error(error);

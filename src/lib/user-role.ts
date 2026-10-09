@@ -14,15 +14,36 @@ export async function resolveUserRole(
     .eq("id", user.id)
     .maybeSingle();
 
-  const metadata = user.user_metadata || {};
-  const fallback = metadata.rol || user.role || "user";
-
   if (profile?.rol) return profile.rol;
-  if (typeof fallback === "string" && fallback !== "authenticated") {
-    return fallback;
+
+  const appRol = user.app_metadata?.rol;
+  if (typeof appRol === "string" && appRol.trim()) {
+    return appRol;
   }
 
   return "user";
+}
+
+export function isFinanzasRole(role: string): boolean {
+  return ["super", "admin", "finanzas"].includes(role);
+}
+
+export async function requireFinanzasPageAccess() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect("/login");
+  }
+
+  const role = await resolveUserRole(supabase, user);
+  if (!isFinanzasRole(role)) {
+    redirect("/farmamuni");
+  }
+
+  return { supabase, user, role };
 }
 
 export function isAdminRole(role: string): boolean {

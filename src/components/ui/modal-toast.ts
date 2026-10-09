@@ -4,7 +4,7 @@ export { toast };
 
 export const MODAL_ACTION_ERRORS: Record<string, string> = {
   UNAUTHORIZED: "No autorizado. Inicie sesión nuevamente.",
-  FORBIDDEN: "No tienes permisos para esta acción.",
+  FORBIDDEN: "No tienes permiso para realizar esta acción.",
   VALIDATION: "Revisa los datos del formulario.",
   INVALID_INPUT: "Revisa los datos del formulario.",
   NOT_FOUND: "El registro no fue encontrado.",

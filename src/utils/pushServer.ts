@@ -15,11 +15,13 @@ if (publicVapidKey && privateVapidKey) {
 
 // Cliente de Supabase Admin (para leer la BD sin restricciones de RLS)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
 
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceRole, {
-  auth: { autoRefreshToken: false, persistSession: false }
-});
+const supabaseAdmin = supabaseServiceRole
+  ? createClient(supabaseUrl, supabaseServiceRole, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    })
+  : null;
 
 // ENVÍO PUSH POR ROLES
 
@@ -28,12 +30,16 @@ export async function sendPushNotification(
   targetRoles: string[] = ['all']
 ) {
   try {
+    if (!supabaseAdmin) {
+      console.warn("⚠️ SUPABASE_SERVICE_ROLE_KEY no configurada. Saltando push.");
+      return;
+    }
+
     if (!publicVapidKey || !privateVapidKey) {
       console.warn('⚠️ No hay llaves VAPID configuradas. Saltando envío de notificaciones.');
       return;
     }
 
-    // 1. Obtener todas las suscripciones
     const { data: subscriptions, error } = await supabaseAdmin
       .from('push_subscriptions')
       .select('endpoint, p256dh, auth, user_id');
@@ -49,17 +55,18 @@ export async function sendPushNotification(
 
     // 2. Si es para roles específicos, necesitamos filtrar
     // Para simplificar, si no es 'all', traemos el metadata de auth para ver los roles
-    let allowedUserIds = new Set<string>();
-    
-    if (!targetRoles.includes('all')) {
-      const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers();
-      if (!usersError && usersData?.users) {
-        usersData.users.forEach(user => {
-          const role = user.user_metadata?.role || 'user';
-          if (targetRoles.includes(role)) {
-            allowedUserIds.add(user.id);
-          }
-        });
+    const allowedUserIds = new Set<string>();
+
+    if (!targetRoles.includes("all")) {
+      const { data: profiles, error: profilesError } = await supabaseAdmin
+        .from("profiles")
+        .select("id, rol")
+        .in("rol", targetRoles);
+
+      if (!profilesError && profiles) {
+        for (const profile of profiles) {
+          allowedUserIds.add(profile.id);
+        }
       }
     }
 
@@ -80,9 +87,10 @@ export async function sendPushNotification(
 
       try {
         await webpush.sendNotification(pushSubscription, JSON.stringify(payload));
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const pushErr = err as { statusCode?: number };
         // Si el endpoint expiró (410) o no se encuentra (404), borramos la suscripción
-        if (err.statusCode === 410 || err.statusCode === 404) {
+        if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
           await supabaseAdmin
             .from('push_subscriptions')
             .delete()

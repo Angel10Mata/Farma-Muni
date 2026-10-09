@@ -10,6 +10,8 @@ import {
   type CuentaPorCobrar,
   type CuentaPorPagar,
 } from "./zod";
+import { requireFinanzas } from "@/lib/auth-guards";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 
 // Utilidades internas
 const FINANZAS_PATH = "/farmamuni/finanzas";
@@ -292,12 +294,17 @@ export async function registrarMovimiento(
   input: unknown
 ): Promise<{ success: true; data: TransaccionFinanciera } | { success: false; error: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) throw new Error("Sesión no válida o expirada.");
+    const guard = await requireFinanzas();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error: modalActionMessage(
+          guard.code,
+          "No se pudo registrar el movimiento.",
+        ),
+      };
+    }
+    const { supabase, user } = guard;
 
     const parsed = registrarMovimientoSchema.safeParse(input);
 
@@ -342,12 +349,17 @@ export async function eliminarMovimiento(id: string): Promise<{ success: true } 
       throw new Error("ID de movimiento inválido.");
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) throw new Error("Sesión no válida o expirada.");
+    const guard = await requireFinanzas();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error: modalActionMessage(
+          guard.code,
+          "No se pudo anular el movimiento.",
+        ),
+      };
+    }
+    const { supabase, user } = guard;
 
     // Obtener la transacción original
     const { data: original, error: fetchError } = await supabase

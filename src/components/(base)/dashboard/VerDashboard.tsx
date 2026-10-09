@@ -15,13 +15,38 @@ import { dashboardInnerClass, dashboardOuterClass } from "@/lib/module-layout";
 
 // SUBCOMPONENTES
 
-const DashboardHeader = () => (
-  <div className="mb-4 md:mb-6 w-full px-1 text-left">
-    <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tight text-zinc-900 dark:text-zinc-50 leading-[0.95]">
-      Administración
-    </h1>
-  </div>
-);
+function DashboardHeader({
+  centered = false,
+  title = "Administración",
+  subtitle,
+}: {
+  centered?: boolean;
+  title?: string;
+  subtitle?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "mb-2 md:mb-4 w-full px-1",
+        centered ? "text-center max-w-xl mx-auto" : "text-left",
+      )}
+    >
+      <h1
+        className={cn(
+          "font-black uppercase tracking-tight text-zinc-900 dark:text-zinc-50 leading-[0.95]",
+          centered ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl",
+        )}
+      >
+        {title}
+      </h1>
+      {subtitle ? (
+        <p className="mt-2 md:mt-3 text-sm text-zinc-500 dark:text-zinc-400 font-medium leading-snug">
+          {subtitle}
+        </p>
+      ) : null}
+    </div>
+  );
+}
 
 function DashboardBackdrop() {
   return (
@@ -68,16 +93,21 @@ function DashboardModuleCard({
   index,
   lowStockCount,
   onNavigate,
+  bentoClass,
+  featured = false,
 }: {
   mod: AppModuleConfig;
   index: number;
   lowStockCount: number;
   onNavigate: (href: string) => void;
+  bentoClass?: string;
+  featured?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
-  const iconSize =
-    mod.size === "hero"
+  const iconSize = featured
+    ? 72
+    : mod.size === "hero"
       ? 64
       : mod.size === "tall"
         ? 56
@@ -91,8 +121,11 @@ function DashboardModuleCard({
     <motion.div
       className={cn(
         "cursor-pointer w-full relative col-span-1 row-span-1 group/card",
-        mod.bento,
-        (mod.size === "hero" || mod.size === "tall") && "min-h-[250px] sm:min-h-0",
+        bentoClass ?? mod.bento,
+        featured && "min-h-[300px] md:min-h-[340px]",
+        !featured &&
+          (mod.size === "hero" || mod.size === "tall") &&
+          "min-h-[250px] sm:min-h-0",
       )}
       id={`${mod.id}-card`}
       initial={{ opacity: 0 }}
@@ -120,20 +153,36 @@ function DashboardModuleCard({
         onPointerEnter={() => setHovered(true)}
         onPointerLeave={() => setHovered(false)}
       >
-        <span className="absolute top-4 right-4 z-20 hidden sm:inline-flex rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+        <span
+          className={cn(
+            "absolute z-20 inline-flex rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400",
+            featured ? "top-5 right-5 left-5 sm:left-auto" : "top-4 right-4 hidden sm:inline-flex",
+          )}
+        >
           {mod.tag}
         </span>
         <div
           className={cn(
             "w-full h-full flex flex-col relative",
-            mod.size === "compact" || mod.size === "wide" ? "justify-start md:justify-between gap-2 md:gap-0" : "justify-between",
-            mod.size === "hero" || mod.size === "tall" ? "p-6 pb-6 md:p-8 md:pb-8" : "p-4 pb-3 md:p-5 md:pb-5",
+            featured
+              ? "justify-between gap-6 p-7 pb-6 md:p-9 md:pb-8"
+              : mod.size === "compact" || mod.size === "wide"
+                ? "justify-start md:justify-between gap-2 md:gap-0"
+                : "justify-between",
+            !featured &&
+              (mod.size === "hero" || mod.size === "tall"
+                ? "p-6 pb-6 md:p-8 md:pb-8"
+                : "p-4 pb-3 md:p-5 md:pb-5"),
           )}
         >
           <div
             className={cn(
-              "relative z-10 flex flex-row items-center justify-start gap-4 w-full",
-              mod.size === "compact" || mod.size === "wide" ? "md:flex-1" : "flex-1",
+              "relative z-10 flex w-full",
+              featured
+                ? "flex-col items-center text-center gap-5 flex-1 pt-6"
+                : "flex-row items-center justify-start gap-4",
+              !featured &&
+                (mod.size === "compact" || mod.size === "wide" ? "md:flex-1" : "flex-1"),
             )}
           >
             <ModuleMorphIcon
@@ -142,12 +191,18 @@ function DashboardModuleCard({
               hovered={hovered}
             />
 
-            <div className="flex-1 min-w-0 flex flex-col justify-start">
+            <div
+              className={cn(
+                "flex flex-col justify-start",
+                featured ? "w-full items-center" : "flex-1 min-w-0",
+              )}
+            >
               <h3
                 className="font-black tracking-tighter uppercase leading-none text-zinc-900 dark:text-zinc-100"
                 style={{
-                  fontSize:
-                    mod.size === "hero"
+                  fontSize: featured
+                    ? "2rem"
+                    : mod.size === "hero"
                       ? "1.875rem"
                       : mod.size === "tall"
                         ? "1.5rem"
@@ -167,7 +222,14 @@ function DashboardModuleCard({
                 ) : null}
               </h3>
 
-              <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium mt-2 leading-tight line-clamp-2">
+              <p
+                className={cn(
+                  "text-zinc-500 dark:text-zinc-400 font-medium mt-2 leading-snug",
+                  featured
+                    ? "text-sm max-w-sm line-clamp-3"
+                    : "text-[11px] leading-tight line-clamp-2",
+                )}
+              >
                 {mod.desc}
               </p>
             </div>
@@ -175,11 +237,20 @@ function DashboardModuleCard({
 
           <div
             className={cn(
-              "relative z-10 flex items-center justify-between border-t border-zinc-200 dark:border-zinc-800",
-              mod.size === "compact" || mod.size === "wide" ? "pt-2 md:pt-2.5 md:mt-2" : "pt-2.5 mt-2",
+              "relative z-10 flex items-center border-t border-zinc-200 dark:border-zinc-800",
+              featured ? "justify-center pt-4 w-full" : "justify-between",
+              !featured &&
+                (mod.size === "compact" || mod.size === "wide"
+                  ? "pt-2 md:pt-2.5 md:mt-2"
+                  : "pt-2.5 mt-2"),
             )}
           >
-            <div className="flex items-center justify-between mt-auto">
+            <div
+              className={cn(
+                "flex items-center mt-auto",
+                featured ? "justify-center w-full" : "justify-between",
+              )}
+            >
               <span
                 className={cn(
                   "text-[10px] md:text-xs font-bold uppercase tracking-widest transition-colors inline-flex items-center gap-1.5",
@@ -273,33 +344,73 @@ export function VerDashboard() {
     </div>
   );
 
-  const renderModuleCard = (mod: AppModuleConfig, index: number) => (
+  const isStandardUserView =
+    roleLoaded && effectiveRole === "user" && !isSuperOrAdmin;
+  const centerSingleModule =
+    roleLoaded && (isStandardUserView || negocioModules.length === 1);
+
+  const renderModuleCard = (
+    mod: AppModuleConfig,
+    index: number,
+    featured = false,
+  ) => (
     <DashboardModuleCard
       key={mod.id}
       mod={mod}
       index={index}
       lowStockCount={lowStockCount}
       onNavigate={handleCardClick}
+      bentoClass={featured ? "col-span-1 row-span-1" : undefined}
+      featured={featured}
     />
   );
 
   const renderBentoGrid = () => (
     <div className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 p-4 md:p-6">
       <AreaLabel>Negocio</AreaLabel>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 auto-rows-auto sm:auto-rows-[160px]">
+      <div className="grid w-full grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 auto-rows-auto sm:auto-rows-[160px]">
         {negocioModules.map((mod, index) => renderModuleCard(mod, index))}
       </div>
     </div>
   );
+
+  const renderSoloModule = () => {
+    const mod = negocioModules[0];
+    if (!mod) return null;
+
+    return (
+      <div className="w-full max-w-md md:max-w-lg mx-auto flex flex-col items-center gap-5 md:gap-6">
+        <DashboardHeader
+          centered
+          title="Inicio"
+          subtitle="Tu acceso al sistema está listo. Entra al módulo para comenzar."
+        />
+        <div className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/90 dark:bg-zinc-900/80 shadow-sm dark:shadow-none p-1 md:p-1.5">
+          {renderModuleCard(mod, 0, true)}
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="relative w-full flex-1 min-h-[calc(100vh-4rem)] flex flex-col overflow-hidden">
       <DashboardBackdrop />
 
       <div className={dashboardOuterClass}>
-        <div className={dashboardInnerClass}>
-          <DashboardHeader />
-          {renderBentoGrid()}
+        <div
+          className={cn(
+            dashboardInnerClass,
+            centerSingleModule && "items-center",
+          )}
+        >
+          {centerSingleModule ? (
+            renderSoloModule()
+          ) : (
+            <>
+              <DashboardHeader />
+              {renderBentoGrid()}
+            </>
+          )}
         </div>
       </div>
     </div>

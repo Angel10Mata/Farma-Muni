@@ -4,6 +4,15 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { activarProductoCatalogoPorNuevoLote } from "@/components/(base)/inventario/lib/sync-producto-catalogo";
 import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from "./zod";
+import { requireAdmin, requireRole } from "@/lib/auth-guards";
+
+const PROVEEDORES_WRITE_ROLES = [
+  "super",
+  "admin",
+  "inventario",
+  "proveedores",
+  "finanzas",
+] as const;
 
 type ActionFail = { success?: false; code: string; detail?: string };
 
@@ -64,9 +73,9 @@ export async function obtenerProveedores() {
 
 export async function guardarProveedor(id: string | undefined, input: ProveedorInput) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireRole([...PROVEEDORES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const parsed = ProveedorInputSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
@@ -96,9 +105,9 @@ export async function guardarProveedor(id: string | undefined, input: ProveedorI
 
 export async function eliminarProveedor(id: string) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireAdmin();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const { error } = await supabase.from("inv_proveedores").delete().eq("id", id);
     if (error) return { code: "INTERNAL" as const };
@@ -165,9 +174,9 @@ export async function obtenerProveedoresYProductos() {
 // Registrar compra (entra al inventario)
 export async function crearCompra(input: CompraInput) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireRole([...PROVEEDORES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase, user } = guard;
 
     const parsed = CompraSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
@@ -322,9 +331,9 @@ export async function obtenerDetalleCompra(compraId: string) {
 // Cuentas por pagar y abonos
 export async function actualizarEstadoPagoCompra(compraId: string, nuevoEstado: "Pagado" | "Pendiente") {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireRole([...PROVEEDORES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase, user } = guard;
 
     const { data: compra, error: compraErr } = await supabase
       .from("inv_compras")
@@ -401,9 +410,9 @@ export async function registrarAbonoCompra(
   notas?: string
 ) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireRole([...PROVEEDORES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase, user } = guard;
 
     if (!montoAbono || montoAbono <= 0) return { code: "VALIDATION" as const };
 

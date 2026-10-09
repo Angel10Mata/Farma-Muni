@@ -13,6 +13,7 @@ import {
   productSchema,
   type ProductFormValues,
 } from "./zod";
+import { requireInventario } from "@/lib/auth-guards";
 
 // Utilidades internas
 function normalizarFechaLote(fecha: string) {
@@ -158,11 +159,9 @@ export async function obtenerLotes() {
 // Activar o quitar del catálogo
 export async function desactivarProducto(id: string) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const { error } = await supabase
       .from("inv_productos")
@@ -179,11 +178,9 @@ export async function desactivarProducto(id: string) {
 
 export async function activarProducto(id: string) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const { error } = await supabase
       .from("inv_productos")
@@ -201,9 +198,9 @@ export async function activarProducto(id: string) {
 // Guardar producto
 export async function guardarProducto(id: string | undefined, input: ProductFormValues) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const parsed = productSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
@@ -272,11 +269,9 @@ export async function guardarProducto(id: string | undefined, input: ProductForm
 // Lotes y bajas por vencimiento
 export async function crearLoteManual(input: unknown) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const parsed = crearLoteManualSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
@@ -314,11 +309,9 @@ export async function crearLoteManual(input: unknown) {
 
 export async function registrarBajaPorVencimiento(input: unknown) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase, user } = guard;
 
     const parsed = bajaVencidoSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
