@@ -14,7 +14,7 @@ import { AuroraText } from "@/components/ui/aurora-text";
 import { PushNotificationToggle } from "@/components/ui/PushNotificationToggle";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
-import { ADMIN_MENU_ITEMS, APP_MODULES } from "@/lib/app-modules";
+import { adminMenuItemsForRole, APP_MODULES } from "@/lib/app-modules";
 import {
   adminIconColors,
   adminMorphIcons,
@@ -80,6 +80,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
 
   const isRoot = pathname === "/farmamuni";
   const isSuperOrAdmin = ["super", "admin"].includes(effectiveRole);
+  const adminMenuItems = adminMenuItemsForRole(realRole);
   const mobileTop = isRoot ? "top-14" : "top-[6.5rem]";
   const mobileHeight = isRoot
     ? "h-[calc(100vh-3.5rem)]"
@@ -495,7 +496,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                             </p>
                           </div>
                         </Link>
-                        {ADMIN_MENU_ITEMS.map((item) => {
+                        {adminMenuItems.map((item) => {
                           const pair = adminMorphIcons[item.id];
                           const palette = adminIconColors[item.id];
                           const active = isActivePath(item.href);

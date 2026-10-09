@@ -280,7 +280,9 @@ export function ventaCoincideFiltroPagoHistorial(
 export function ventaEstaAnulada(venta: {
   observaciones?: string | null;
   anulada?: boolean | null;
+  estado?: string | null;
 }): boolean {
+  if ((venta.estado ?? "activa") === "anulada") return true;
   if (venta.anulada === true) return true;
   return (venta.observaciones ?? "").includes("[ANULADA]");
 }

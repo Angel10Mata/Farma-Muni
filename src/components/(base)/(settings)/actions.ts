@@ -2,12 +2,18 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { AppSettingsUpdate } from "./zod";
-import { requireAdmin } from "@/lib/auth-guards";
+import { requireSuper } from "@/lib/auth-guards";
 import { modalActionMessage } from "@/components/ui/modal-toast";
 
 // Consultas
 export async function getAppSettings(): Promise<AppSettingsUpdate | null> {
-  const supabase = await createClient();
+  const auth = await requireSuper();
+  if (!auth.ok) {
+    throw new Error(
+      modalActionMessage(auth.code, "No tienes permiso para ver la configuración."),
+    );
+  }
+  const supabase = auth.supabase;
   const { data, error } = await supabase
     .from("app_settings")
     .select(
@@ -25,7 +31,7 @@ export async function getAppSettings(): Promise<AppSettingsUpdate | null> {
 
 // Mutaciones
 export async function updateAppSettings(settings: AppSettingsUpdate): Promise<void> {
-  const auth = await requireAdmin();
+  const auth = await requireSuper();
   if (!auth.ok) {
     throw new Error(
       modalActionMessage(auth.code, "No se pudieron guardar los ajustes."),

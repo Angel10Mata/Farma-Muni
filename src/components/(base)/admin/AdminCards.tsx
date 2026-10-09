@@ -5,50 +5,32 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { MorphIconBox } from "@/components/ui/morph-hover-icon";
 import { adminIconColors, adminMorphIcons } from "@/lib/morph-icons";
+import { adminMenuItemsForRole } from "@/lib/app-modules";
 
-// Opciones
-const adminOptions = [
-  {
-    id: "dispositivos",
-    href: "/farmamuni/admin/dispositivos",
-    title: "Dispositivos",
-    desc: "Autorizar o rechazar solicitudes de acceso por dispositivo.",
-    color: "border-amber-500/20 bg-amber-500/5 dark:border-amber-500/40",
-  },
-  {
-    id: "usuarios",
-    href: "/farmamuni/admin/usuarios",
-    title: "Usuarios",
-    desc: "Gestionar cuentas de usuario, roles y permisos.",
-    color: "border-purple-500/20 bg-purple-500/5 dark:border-purple-500/40",
-  },
-  {
-    id: "configuraciones",
-    href: "/farmamuni/admin/configuraciones",
-    title: "Configuraciones",
-    desc: "Ajustes generales del sistema y seguridad.",
-    color: "border-blue-500/20 bg-blue-500/5 dark:border-blue-500/40",
-  },
-] as const;
+const cardColors: Record<string, string> = {
+  dispositivos: "border-amber-500/20 bg-amber-500/5 dark:border-amber-500/40",
+  usuarios: "border-purple-500/20 bg-purple-500/5 dark:border-purple-500/40",
+  configuraciones: "border-blue-500/20 bg-blue-500/5 dark:border-blue-500/40",
+};
 
-// Tarjeta
 function AdminCard({
   opt,
   pendingDevices,
 }: {
-  opt: (typeof adminOptions)[number];
+  opt: ReturnType<typeof adminMenuItemsForRole>[number];
   pendingDevices: number;
 }) {
   const [hovered, setHovered] = useState(false);
   const pair = adminMorphIcons[opt.id];
   const palette = adminIconColors[opt.id];
+  const color = cardColors[opt.id] ?? cardColors.usuarios;
 
   return (
     <div
       id={`card-${opt.id}`}
       className={cn(
         "group relative overflow-hidden rounded-4xl md:rounded-[2.5rem] border flex shadow-sm cursor-pointer",
-        opt.color,
+        color,
       )}
     >
       <Link
@@ -89,11 +71,18 @@ function AdminCard({
   );
 }
 
-// Export
-export function AdminCards({ pendingDevices }: { pendingDevices: number }) {
+export function AdminCards({
+  pendingDevices,
+  role,
+}: {
+  pendingDevices: number;
+  role: string;
+}) {
+  const items = adminMenuItemsForRole(role);
+
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-      {adminOptions.map((opt) => (
+      {items.map((opt) => (
         <AdminCard key={opt.href} opt={opt} pendingDevices={pendingDevices} />
       ))}
     </div>

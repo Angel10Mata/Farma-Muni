@@ -39,7 +39,7 @@ as $$
   ) pagos on true
   where v.cliente_id is not null
     and lower(trim(v.tipo_venta)) in ('crédito', 'credito')
-    and coalesce(v.observaciones, '') not like '%[ANULADA]%'
+    and coalesce(v.estado, 'activa') <> 'anulada'
     and greatest(
       0::numeric,
       coalesce(v.total, 0)::numeric - coalesce(pagos.total_cobrado, 0)::numeric
@@ -76,7 +76,7 @@ as $$
   from public.inv_compras ic
   left join public.inv_proveedores p on p.id = ic.proveedor_id
   left join lateral (
-    select sum(abs(coalesce(ft.monto, 0))) as total_pagado
+    select sum(coalesce(ft.monto, 0)) as total_pagado
     from public.fin_transacciones ft
     where ft.compra_id = ic.id
       and ft.categoria in ('pago_proveedor', 'compra')

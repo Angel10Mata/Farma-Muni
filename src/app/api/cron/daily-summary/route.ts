@@ -21,7 +21,7 @@ export async function GET(request: Request) {
 
     const { data: ventasRaw, error } = await supabase
       .from("ventas")
-      .select("total, observaciones")
+      .select("total, estado")
       .gte("created_at", startOfDay.toISOString())
       .lte("created_at", endOfDay.toISOString());
 
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     }
 
     const ventas = (ventasRaw ?? []).filter(
-      (v) => !(v.observaciones ?? "").includes("[ANULADA]"),
+      (v) => (v.estado ?? "activa") !== "anulada",
     );
 
     const totalVentas = ventas.length;

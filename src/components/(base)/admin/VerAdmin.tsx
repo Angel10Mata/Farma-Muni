@@ -6,13 +6,20 @@ import { AlertTriangle } from "lucide-react";
 import { AdminCards } from "./AdminCards";
 import { adminPageShellClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
 
 export function VerAdmin() {
+  const { realRole } = useUserContext();
+  const isSuper = realRole === "super";
   const [pendingDevices, setPendingDevices] = useState(0);
 
   useEffect(() => {
+    if (!isSuper) {
+      setPendingDevices(0);
+      return;
+    }
     void getPendingDevicesCount().then((c) => setPendingDevices(c ?? 0));
-  }, []);
+  }, [isSuper]);
 
   return (
     <div className={adminPageShellClass}>
@@ -28,7 +35,7 @@ export function VerAdmin() {
         </p>
       </div>
 
-      {pendingDevices > 0 && (
+      {isSuper && pendingDevices > 0 && (
         <div className="flex items-center gap-3 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30">
           <div className="shrink-0">
             <AlertTriangle className="size-6 text-amber-600 dark:text-amber-400" />
@@ -43,7 +50,7 @@ export function VerAdmin() {
         </div>
       )}
 
-      <AdminCards pendingDevices={pendingDevices} />
+      <AdminCards pendingDevices={pendingDevices} role={realRole} />
     </div>
   );
 }

@@ -188,13 +188,37 @@ export function VerFinanzas() {
   const totalRegistros = listado?.count || 0;
 
   // Handlers
-  const handleDelete = async (id: string) => {
+  const promptMotivoReverso = async (descripcion: string) => {
+    const result = await Swal.fire({
+      title: "¿Reversar movimiento?",
+      text: `Se creará un registro inverso para: "${descripcion}".`,
+      input: "textarea",
+      inputPlaceholder: "Motivo obligatorio (mín. 5 caracteres)",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Reversar",
+      cancelButtonText: "Cancelar",
+      inputValidator: (value) => {
+        if (!value || value.trim().length < 5) {
+          return "El motivo es obligatorio (mínimo 5 caracteres).";
+        }
+        return null;
+      },
+      ...getSwalThemeOpts(),
+    });
+    return result.isConfirmed ? result.value.trim() : null;
+  };
+
+  const handleDelete = async (id: string, descripcion: string) => {
+    const motivo = await promptMotivoReverso(descripcion);
+    if (!motivo) return;
+
     setIsDeleting(true);
     try {
-      await anularMovimiento(id);
-      toast.success("El registro ha sido anulado correctamente.");
+      await anularMovimiento({ id, motivo });
+      toast.success("El movimiento fue reversado correctamente.");
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : "No se pudo anular el registro";
+      const message = error instanceof Error ? error.message : "No se pudo reversar el registro";
       toast.error(message);
     } finally {
       setIsDeleting(false);
@@ -584,23 +608,11 @@ export function VerFinanzas() {
                               <button
                                 onClick={() => {
                                   setActiveMenuId(null);
-                                  Swal.fire({
-                                    title: "¿Anular registro?",
-                                    text: `Se creará un registro inverso para anular: "${mov.descripcion}". Esta acción no se puede deshacer.`,
-                                    icon: "warning",
-                                    showCancelButton: true,
-                                    confirmButtonText: "Sí, anular",
-                                    cancelButtonText: "Cancelar",
-                                    ...getSwalThemeOpts()
-                                  }).then((result) => {
-                                    if (result.isConfirmed) {
-                                      handleDelete(mov.id);
-                                    }
-                                  });
+                                  void handleDelete(mov.id, mov.descripcion);
                                 }}
                                 className="w-full text-left flex items-center gap-2 px-2 py-1.5 text-xs font-bold text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-500/10 rounded-md cursor-pointer"
                               >
-                                <Trash2 className="size-3.5" /> Anular
+                                <Trash2 className="size-3.5" /> Reversar
                               </button>
                             </div>
                           )}
@@ -668,22 +680,10 @@ export function VerFinanzas() {
                             <button
                               type="button"
                               onClick={() => {
-                                Swal.fire({
-                                  title: "¿Anular registro?",
-                                  text: `Se creará un registro inverso para anular: "${mov.descripcion}". Esta acción no se puede deshacer.`,
-                                  icon: "warning",
-                                  showCancelButton: true,
-                                  confirmButtonText: "Sí, anular",
-                                  cancelButtonText: "Cancelar",
-                                  ...getSwalThemeOpts()
-                                }).then((result) => {
-                                  if (result.isConfirmed) {
-                                    handleDelete(mov.id);
-                                  }
-                                });
+                                void handleDelete(mov.id, mov.descripcion);
                               }}
                               className="p-1 sm:p-2 rounded-xl text-zinc-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all focus:opacity-100 cursor-pointer"
-                              title="Anular registro"
+                              title="Reversar movimiento"
                             >
                               <Trash2 className="size-3.5 sm:size-4 mx-auto" />
                             </button>

@@ -19,6 +19,8 @@ import {
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { useDetalleVenta, useAnularVenta, useEditarDetalleVenta, useEliminarDetalleVenta, useBitacoraVenta } from "../lib/hooks";
 import { codigoReciboVenta, resumenAccionBitacoraVenta } from "../lib/helpers";
+
+const PERMITIR_EDICION_LINEAS_HISTORIAL = false;
 import { formatFechaHoraTablaCompactGt } from "@/lib/fechas-gt";
 
 interface DetalleVentaModalProps {
@@ -278,32 +280,34 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                             </div>
                             <div className="flex flex-col items-end gap-1">
                               <span className="font-bold text-[#8DA78E]">{fmtQ(d.subtotal)}</span>
-                              <div className="flex items-center gap-1">
-                                <SigetActionButton
-                                  label="Editar"
-                                  accentColor={sigetAccent.editar}
-                                  morphFrom={PencilNode}
-                                  morphTo={SquarePenNode}
-                                  onClick={() => {
-                                    setEditingDetalleId(d.id);
-                                    setEditingDetalleQty(d.cantidad);
-                                    setEditingDetallePrice(d.precio_aplicado);
-                                  }}
-                                  iconOnly
-                                  ariaLabel="Editar artículo en venta"
-                                  className="w-auto shrink-0"
-                                />
-                                <SigetActionButton
-                                  label="Quitar"
-                                  accentColor={sigetAccent.quitar}
-                                  morphFrom={Trash2Node}
-                                  morphTo={TrashNode}
-                                  onClick={() => handleEliminarProductoDeVenta(d)}
-                                  iconOnly
-                                  ariaLabel="Eliminar artículo"
-                                  className="w-auto shrink-0"
-                                />
-                              </div>
+                              {PERMITIR_EDICION_LINEAS_HISTORIAL ? (
+                                <div className="flex items-center gap-1">
+                                  <SigetActionButton
+                                    label="Editar"
+                                    accentColor={sigetAccent.editar}
+                                    morphFrom={PencilNode}
+                                    morphTo={SquarePenNode}
+                                    onClick={() => {
+                                      setEditingDetalleId(d.id);
+                                      setEditingDetalleQty(d.cantidad);
+                                      setEditingDetallePrice(d.precio_aplicado);
+                                    }}
+                                    iconOnly
+                                    ariaLabel="Editar artículo en venta"
+                                    className="w-auto shrink-0"
+                                  />
+                                  <SigetActionButton
+                                    label="Quitar"
+                                    accentColor={sigetAccent.quitar}
+                                    morphFrom={Trash2Node}
+                                    morphTo={TrashNode}
+                                    onClick={() => handleEliminarProductoDeVenta(d)}
+                                    iconOnly
+                                    ariaLabel="Eliminar artículo"
+                                    className="w-auto shrink-0"
+                                  />
+                                </div>
+                              ) : null}
                             </div>
                           </div>
                         )}

@@ -9,12 +9,6 @@ import type {
 import { productoFarmaciaDesdeLegacy } from "@/components/(base)/inventario/lib/helpers";
 import type { KardexFila, Producto } from "@/components/(base)/inventario/lib/zod";
 import type { Compra, Proveedor } from "@/components/(base)/proveedores/lib/zod";
-import type { ConteoVencimientoLotes, LoteVencimientoCampos } from "@/lib/vencimientos-gt";
-import {
-  contarLotesPorCategoriaVencimiento,
-  valorCostoLotesCategoria,
-} from "@/lib/vencimientos-gt";
-
 // HELPERS Y CATÁLOGOS BASE
 
 const now = new Date();
@@ -143,37 +137,6 @@ export const DEMO_PRODUCTOS: Producto[] = PRODUCTOS_CATALOGO.map((p, i) => {
   };
 });
 
-export function demoLotesCamposVencimiento(): LoteVencimientoCampos[] {
-  const hoy = new Date();
-  return DEMO_PRODUCTOS.map((p, i) => {
-    const offset =
-      i % 5 === 0 ? -5 : i % 5 === 1 ? 12 : i % 5 === 2 ? 45 : i % 5 === 3 ? 75 : 120;
-    const vence = new Date(hoy);
-    vence.setDate(vence.getDate() + offset);
-    const iso = vence.toISOString().slice(0, 10);
-    return {
-      activo: p.activo,
-      cantidad_actual: p.stock_actual,
-      fecha_vencimiento: iso,
-      precio_costo: Math.round(p.precio_base * 0.65 * 100) / 100,
-    };
-  });
-}
-
-export function demoResumenVencimientoLotes(): {
-  conteo: ConteoVencimientoLotes;
-  valorCosto30Dias: number;
-  lotesPorVencer30: number;
-} {
-  const lotes = demoLotesCamposVencimiento();
-  const conteo = contarLotesPorCategoriaVencimiento(lotes);
-  return {
-    conteo,
-    valorCosto30Dias: valorCostoLotesCategoria(lotes, "dias_0_30"),
-    lotesPorVencer30: conteo.dias_0_30,
-  };
-}
-
 export const DEMO_LOW_STOCK_COUNT = DEMO_PRODUCTOS.filter(
   (p) => p.stock_actual <= p.stock_minimo,
 ).length;
@@ -216,15 +179,22 @@ export const DEMO_VENTAS_HISTORIAL = Array.from({ length: 55 }, (_, i) => {
   const cliente = DEMO_CLIENTES_DB[i % DEMO_CLIENTES_DB.length];
   const esCredito = i % 4 === 0;
   const total = Math.round((15 + (i * 17.3) % 480) * 100) / 100;
+  const esAnulada = i === 50;
   return {
     id: `demo-venta-${pad(i + 1)}`,
     created_at: daysAgo(i % 45),
+    numero_recibo: 1000 + i,
     tipo_venta: esCredito ? "credito" : "contado",
     total,
+    estado: esAnulada ? "anulada" : "activa",
     observaciones: i % 6 === 0 ? "Cliente frecuente" : i % 9 === 0 ? "Entrega a domicilio" : null,
     cliente_id: cliente.id,
     usuario_id: "demo-user",
-    anulada: i === 50,
+    anulada: esAnulada,
+    anulada_por: esAnulada ? "demo-user" : null,
+    anulada_at: esAnulada ? daysAgo(2) : null,
+    motivo_anulacion: esAnulada ? "Error en el registro de la venta (demo)" : null,
+    anulada_por_profile: esAnulada ? { nombre: "Admin Sistema" } : null,
     ven_clientes: { nombre: cliente.nombre, nit: cliente.nit },
     profiles: { nombre: CAJEROS[i % CAJEROS.length] },
   };

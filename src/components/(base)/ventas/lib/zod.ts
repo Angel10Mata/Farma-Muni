@@ -49,6 +49,10 @@ export const VentaSchema = z.object({
   usuario_id: z.string(),
   tipo_venta: z.string(),
   total: z.number(),
+  estado: z.enum(["activa", "anulada"]).optional(),
+  anulada_por: z.string().uuid().nullable().optional(),
+  anulada_at: z.string().nullable().optional(),
+  motivo_anulacion: z.string().nullable().optional(),
   observaciones: z.string().nullable(),
   ven_clientes: z
     .object({

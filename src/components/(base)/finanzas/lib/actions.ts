@@ -11,6 +11,7 @@ import {
   type CuentaPorPagar,
 } from "./zod";
 import { requireFinanzas } from "@/lib/auth-guards";
+import { MotivoModificacionVentaSchema } from "@/components/(base)/ventas/lib/zod";
 import { modalActionMessage } from "@/components/ui/modal-toast";
 
 // Utilidades internas
@@ -39,8 +40,39 @@ function ventaEsCreditoFinanzas(tipoVenta: string | null | undefined): boolean {
   return t === "crédito" || t === "credito";
 }
 
-function ventaAnuladaFinanzas(observaciones: string | null | undefined): boolean {
-  return (observaciones ?? "").includes("[ANULADA]");
+function ventaAnuladaFinanzas(estado: string | null | undefined): boolean {
+  return (estado ?? "activa") === "anulada";
+}
+
+function parseMotivoReverso(motivo: string): string {
+  const parsed = MotivoModificacionVentaSchema.safeParse(motivo);
+  if (!parsed.success) {
+    throw new Error("El motivo es obligatorio (mínimo 5 caracteres).");
+  }
+  return parsed.data;
+}
+
+function mensajeErrorRpcReversarMovimiento(message: string): string {
+  const m = message.toUpperCase();
+  if (m.includes("FORBIDDEN")) {
+    return "No tienes permiso para reversar movimientos.";
+  }
+  if (m.includes("MOTIVO_REQUERIDO")) {
+    return "El motivo del reverso es obligatorio (mínimo 5 caracteres).";
+  }
+  if (m.includes("NO_ENCONTRADA")) {
+    return "No se encontró el movimiento.";
+  }
+  if (m.includes("ES_REVERSO")) {
+    return "No se puede reversar un movimiento que ya es un reverso.";
+  }
+  if (m.includes("YA_REVERSADO")) {
+    return "Este movimiento ya fue reversado.";
+  }
+  if (m.includes("USAR_ANULAR_VENTA")) {
+    return "Este ingreso pertenece a una venta: anula la venta desde Ventas.";
+  }
+  return message || "No se pudo reversar el movimiento.";
 }
 
 // Fallback sin RPC
@@ -50,7 +82,7 @@ async function listarCuentasPorCobrarFallback(
   const { data: ventas, error } = await supabase
     .from("ventas")
     .select(
-      "id, cliente_id, numero_recibo, created_at, total, observaciones, tipo_venta, ven_clientes(nombre)",
+      "id, cliente_id, numero_recibo, created_at, total, estado, tipo_venta, ven_clientes(nombre)",
     )
     .not("cliente_id", "is", null);
 
@@ -59,7 +91,7 @@ async function listarCuentasPorCobrarFallback(
   const creditoVentas = (ventas ?? []).filter(
     (v) =>
       ventaEsCreditoFinanzas(v.tipo_venta as string) &&
-      !ventaAnuladaFinanzas(v.observaciones as string | null) &&
+      !ventaAnuladaFinanzas(v.estado as string | null) &&
       v.cliente_id,
   );
 
@@ -142,7 +174,7 @@ async function listarCuentasPorPagarFallback(
     for (const tx of txs ?? []) {
       if (!tx.compra_id) continue;
       const prev = pagadoPorCompra.get(tx.compra_id) ?? 0;
-      pagadoPorCompra.set(tx.compra_id, prev + Math.abs(Number(tx.monto)));
+      pagadoPorCompra.set(tx.compra_id, prev + Number(tx.monto));
     }
   }
 
@@ -347,7 +379,10 @@ export async function registrarMovimiento(
   }
 }
 
-export async function eliminarMovimiento(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function reversarMovimiento(
+  id: string,
+  motivo: string,
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     if (!id || typeof id !== "string") {
       throw new Error("ID de movimiento inválido.");
@@ -359,54 +394,43 @@ export async function eliminarMovimiento(id: string): Promise<{ success: true } 
         success: false,
         error: modalActionMessage(
           guard.code,
-          "No se pudo anular el movimiento.",
+          "No se pudo reversar el movimiento.",
         ),
       };
     }
-    const { supabase, user } = guard;
+    const { supabase } = guard;
+    const motivoLimpio = parseMotivoReverso(motivo);
 
-    // Obtener la transacción original
-    const { data: original, error: fetchError } = await supabase
-      .from("fin_transacciones")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !original) {
-      throw new Error("No se encontró el movimiento a anular.");
-    }
-
-    // Insertar la transacción inversa (monto negativo)
-    const { error: insertError } = await supabase.from("fin_transacciones").insert({
-      tipo_movimiento: original.tipo_movimiento,
-      categoria: original.categoria,
-      monto: -Math.abs(original.monto), // Monto negativo para revertir saldos
-      descripcion: `Anulación: ${original.descripcion}`,
-      fecha_movimiento: new Date().toISOString(),
-      usuario_id: user.id,
-      venta_id: original.venta_id,
-      compra_id: original.compra_id,
-      gasto_fijo_id: original.gasto_fijo_id,
+    const { error: rpcError } = await supabase.rpc("reversar_movimiento", {
+      p_mov_id: id,
+      p_motivo: motivoLimpio,
     });
 
-    if (insertError) throw new Error(insertError.message);
-
-    // Si es una venta, sincronizar el estado [ANULADA] en el módulo de Ventas
-    if (original.venta_id) {
-      const { data: v } = await supabase.from("ventas").select("observaciones").eq("id", original.venta_id).single();
-      const obs = v?.observaciones || "";
-      if (!obs.includes("[ANULADA]")) {
-        await supabase.from("ventas").update({ observaciones: `${obs} [ANULADA]`.trim() }).eq("id", original.venta_id);
-      }
+    if (rpcError) {
+      return {
+        success: false,
+        error: mensajeErrorRpcReversarMovimiento(rpcError.message),
+      };
     }
 
     revalidatePath(FINANZAS_PATH);
     revalidatePath("/farmamuni/ventas");
+    revalidatePath("/farmamuni/proveedores");
     return { success: true };
   } catch (error: unknown) {
-    console.error("Error al anular movimiento:", error);
-    return { success: false, error: toErrorMessage(error, "No se pudo anular el movimiento.") };
+    console.error("Error al reversar movimiento:", error);
+    return {
+      success: false,
+      error: toErrorMessage(error, "No se pudo reversar el movimiento."),
+    };
   }
+}
+
+export async function eliminarMovimiento(
+  id: string,
+  motivo: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  return reversarMovimiento(id, motivo);
 }
 
 // Cuentas por cobrar y por pagar

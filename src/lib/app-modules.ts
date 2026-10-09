@@ -108,17 +108,25 @@ export const ADMIN_MENU_ITEMS = [
     href: `${APP_BASE_PATH}/admin/dispositivos`,
     title: "Dispositivos",
     desc: "Autorizar o rechazar solicitudes de acceso por dispositivo.",
+    superOnly: true,
   },
   {
     id: "usuarios",
     href: `${APP_BASE_PATH}/admin/usuarios`,
     title: "Usuarios",
     desc: "Gestionar cuentas de usuario, roles y permisos.",
+    superOnly: false,
   },
   {
     id: "configuraciones",
     href: `${APP_BASE_PATH}/admin/configuraciones`,
     title: "Configuraciones",
     desc: "Ajustes generales del sistema y seguridad.",
+    superOnly: true,
   },
 ] as const;
+
+export function adminMenuItemsForRole(role: string) {
+  const isSuper = role === "super";
+  return ADMIN_MENU_ITEMS.filter((item) => isSuper || !item.superOnly);
+}

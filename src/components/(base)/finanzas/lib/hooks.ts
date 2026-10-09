@@ -119,9 +119,9 @@ export function useEliminarMovimiento() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, motivo }: { id: string; motivo: string }) => {
       assertWritableDemo(isDemoMode);
-      const result = await eliminarMovimiento(id);
+      const result = await eliminarMovimiento(id, motivo);
       if (!result.success) throw new Error(result.error);
       return result;
     },

@@ -37,6 +37,8 @@ import { cn, fmtNum, fmtQ } from "@/lib/utils";
 import {
   modulePillSwitchBtnClass,
   modulePillSwitchShellClass,
+  modulePillSwitchTabBtnClass,
+  modulePillSwitchTabShellClass,
 } from "@/components/ui/module-pill-switch";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -894,7 +896,7 @@ const LocationFilterDropdown = ({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -4, scale: 0.98 }}
             transition={{ duration: 0.15 }}
-            className="absolute right-0 mt-2 w-64 bg-white dark:bg-zinc-900 border border-slate-200/80 dark:border-slate-800/80 rounded-2xl shadow-xl z-[200] opacity-100 p-2 max-h-72 overflow-y-auto custom-scrollbar"
+            className="absolute left-0 top-full z-[200] mt-2 w-64 max-w-[min(16rem,calc(100vw-2rem))] rounded-2xl border border-slate-200/80 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800/80 dark:bg-zinc-900 max-h-72 overflow-y-auto custom-scrollbar origin-top-left"
           >
             <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
               <span>Ubicaciones</span>
@@ -1385,7 +1387,7 @@ export function VerInventario() {
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           <InventarioSubnav />
           <div
-            className={cn(modulePillSwitchShellClass, "w-full max-w-md sm:max-w-[14rem]")}
+            className={modulePillSwitchTabShellClass}
             role="tablist"
             aria-label="Vista de inventario"
           >
@@ -1398,7 +1400,7 @@ export function VerInventario() {
                 setProductoSeleccionado(null);
                 setCurrentPage(1);
               }}
-              className={modulePillSwitchBtnClass(vistaInventario === "lotes")}
+              className={modulePillSwitchTabBtnClass(vistaInventario === "lotes")}
             >
               Egresos
             </button>
@@ -1412,7 +1414,7 @@ export function VerInventario() {
                 setFiltroProximoVencer(false);
                 setCurrentPage(1);
               }}
-              className={modulePillSwitchBtnClass(vistaInventario === "catalogo")}
+              className={modulePillSwitchTabBtnClass(vistaInventario === "catalogo")}
             >
               Catálogo
             </button>

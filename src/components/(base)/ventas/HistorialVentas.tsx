@@ -25,7 +25,9 @@ import {
   ventaEsCreditoHistorial,
   etiquetaTipoVentaHistorial,
   resolverMesExportacionVentas,
+  ventaEstaAnulada,
 } from "./lib/helpers";
+import { formatFechaHoraGt } from "@/lib/fechas-gt";
 import { fechaCalendarioGt, ultimoDiaMesCalendario } from "@/lib/fechas-gt";
 import { useHistorialVentas } from "./lib/hooks";
 import { obtenerReporteVentasMes, obtenerReporteVentasReceta } from "./lib/actions";
@@ -56,6 +58,29 @@ import {
 interface HistorialVentasProps {
   onPrint: (venta: any, detalles: any) => void;
   onShareWhatsApp: (venta: any) => void;
+}
+
+function InsigniaVentaAnulada({ venta }: { venta: Record<string, unknown> }) {
+  if (!ventaEstaAnulada(venta as Parameters<typeof ventaEstaAnulada>[0])) {
+    return null;
+  }
+  const motivo = (venta.motivo_anulacion as string | null)?.trim();
+  const quien =
+    (venta.anulada_por_profile as { nombre?: string } | null)?.nombre?.trim() ||
+    "Administrador";
+  const cuando = venta.anulada_at
+    ? formatFechaHoraGt(venta.anulada_at as string)
+    : null;
+  return (
+    <div className="rounded-lg border border-rose-200 bg-rose-50/80 px-2.5 py-1.5 text-[10px] text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-200">
+      <p className="font-black uppercase tracking-wide">Anulada</p>
+      {motivo ? <p className="mt-0.5 font-medium">{motivo}</p> : null}
+      <p className="mt-0.5 text-rose-700/90 dark:text-rose-300/80">
+        {quien}
+        {cuando ? ` · ${cuando}` : ""}
+      </p>
+    </div>
+  );
 }
 
 // Fecha legible en la tabla
@@ -446,7 +471,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
               {paginatedData.map((v) => {
                 const date = formatCustomDate(v.created_at);
                 return (
-                  <div key={v.id} className={cn("bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-sm relative overflow-hidden", v.observaciones?.includes("[ANULADA]") && "border-rose-200 bg-rose-50/30 dark:bg-rose-900/10")}>
+                  <div key={v.id} className={cn("bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 flex flex-col gap-3 shadow-sm relative overflow-hidden", ventaEstaAnulada(v) && "border-rose-200 bg-rose-50/30 dark:bg-rose-900/10")}>
                     <div className="flex items-center justify-between">
                       <span className="text-xs font-black text-slate-900 dark:text-white">
                         Venta {codigoReciboVenta(v)}
@@ -472,6 +497,7 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                       <p className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
                         <Calendar className="size-3.5 text-[#8DA78E]" /> {date}
                       </p>
+                      <InsigniaVentaAnulada venta={v} />
                       {v.observaciones && (
                         <p className="text-[10px] text-slate-500 italic mt-1 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40">
                           {v.observaciones}
@@ -545,13 +571,16 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
                         key={v.id}
                         className={cn(
                           moduleTableRowClass,
-                          v.observaciones?.includes("[ANULADA]")
+                          ventaEstaAnulada(v)
                             ? "bg-rose-50/50 dark:bg-rose-500/5 hover:bg-rose-50 dark:hover:bg-rose-500/10"
                             : undefined
                         )}
                       >
                         <td className={cn(moduleTableCellClass, "font-bold text-zinc-900 dark:text-white whitespace-nowrap")}>
-                          {codigoReciboVenta(v)}
+                          <div className="flex flex-col gap-1">
+                            <span>{codigoReciboVenta(v)}</span>
+                            <InsigniaVentaAnulada venta={v} />
+                          </div>
                         </td>
                         <td className={cn(moduleTableCellClass, "text-zinc-500 whitespace-nowrap")}>{date}</td>
                         <td className={cn(moduleTableCellClass, "font-bold")}>

@@ -32,17 +32,17 @@ export default function EncabezadoApp() {
   const pathname = usePathname();
   const isRoot = pathname === "/farmamuni";
   const canSimulate = ["super", "admin"].includes(effectiveRole);
-  const canManage = canSimulate;
+  const canSeePendingDevices = effectiveRole === "super";
 
   useEffect(() => {
     const init = async () => {
       setMounted(true);
-      if (!canManage) return;
+      if (!canSeePendingDevices) return;
       const c = await getPendingDevicesCount();
       setPendingDevices(c ?? 0);
     };
     init();
-  }, [canManage]);
+  }, [canSeePendingDevices]);
 
   const handleLogoClick = (e: React.MouseEvent) => {
     // Prevent default navigation to show the animation instead
@@ -167,7 +167,7 @@ export default function EncabezadoApp() {
                   )}
                 </AnimatePresence>
               </button>
-              {!isOpen && canManage && pendingDevices > 0 && (
+              {!isOpen && canSeePendingDevices && pendingDevices > 0 && (
                 <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-celeste-kore text-[10px] font-bold text-white animate-pulse pointer-events-none">
                   {pendingDevices}
                 </span>

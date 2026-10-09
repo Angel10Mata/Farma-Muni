@@ -41,6 +41,11 @@ import {
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdmin, requireVentas } from "@/lib/auth-guards";
 import { isAdminRole, resolveUserRole } from "@/lib/user-role";
+import {
+  clearAdminCredentialFailures,
+  isAdminCredentialRateLimited,
+  recordAdminCredentialFailure,
+} from "@/lib/rate-limit";
 import { modalActionMessage } from "@/components/ui/modal-toast";
 
 export interface ItemVentaInput {
@@ -801,7 +806,11 @@ export async function obtenerHistorialVentas() {
 
     const ventas = data || [];
     const usuarioIds = [
-      ...new Set(ventas.map((v) => v.usuario_id).filter(Boolean)),
+      ...new Set(
+        ventas
+          .flatMap((v) => [v.usuario_id, v.anulada_por])
+          .filter(Boolean),
+      ),
     ] as string[];
 
     let perfilesPorId: Record<string, { nombre: string }> = {};
@@ -825,6 +834,9 @@ export async function obtenerHistorialVentas() {
     return ventas.map((venta) => ({
       ...venta,
       profiles: venta.usuario_id ? perfilesPorId[venta.usuario_id] ?? null : null,
+      anulada_por_profile: venta.anulada_por
+        ? perfilesPorId[venta.anulada_por] ?? null
+        : null,
     }));
   } catch (error: any) {
     console.error("Error en obtenerHistorialVentas:", error);
@@ -1176,6 +1188,23 @@ export async function obtenerDetalleVenta(ventaId: string) {
   }
 }
 
+function mensajeErrorRpcAnularVenta(message: string): string {
+  const m = message.toUpperCase();
+  if (m.includes("FORBIDDEN")) {
+    return "No tienes permiso para anular ventas.";
+  }
+  if (m.includes("MOTIVO_REQUERIDO")) {
+    return "El motivo de anulación es obligatorio (mínimo 5 caracteres).";
+  }
+  if (m.includes("NO_ENCONTRADA")) {
+    return "No se encontró la venta.";
+  }
+  if (m.includes("YA_ANULADA")) {
+    return "Esta venta ya está anulada.";
+  }
+  return message || "No se pudo anular la venta.";
+}
+
 // Anular venta
 export async function anularVenta(ventaId: string, motivo: string) {
   try {
@@ -1189,63 +1218,16 @@ export async function anularVenta(ventaId: string, motivo: string) {
     const { supabase, user } = guard;
     const motivoLimpio = parseMotivoModificacionVenta(motivo);
 
-    // 1. Obtener detalles de la venta (productos y cantidades)
-    const { data: detalles, error: detError } = await supabase
-      .from("ven_detalles")
-      .select("producto_id, cantidad, lote_id")
-      .eq("venta_id", ventaId);
+    const { error: rpcError } = await supabase.rpc("anular_venta", {
+      p_venta_id: ventaId,
+      p_motivo: motivoLimpio,
+    });
 
-    if (detError) throw new Error(detError.message);
-
-    if (detalles && detalles.length > 0) {
-      for (const item of detalles) {
-        await ajustarStockPorVenta(supabase, {
-          producto_id: item.producto_id,
-          lote_id: item.lote_id,
-          delta: item.cantidad,
-        });
-      }
-    }
-
-    // 3. Eliminar los detalles de la venta
-    const { error: delDetallesError } = await supabase
-      .from("ven_detalles")
-      .delete()
-      .eq("venta_id", ventaId);
-
-    if (delDetallesError) throw new Error(delDetallesError.message);
-
-    // 4. Revertir transacción financiera (si existe) en el módulo de Finanzas
-    const { data: finTx } = await supabase
-      .from("fin_transacciones")
-      .select("*")
-      .eq("venta_id", ventaId)
-      .eq("categoria", "venta")
-      .gt("monto", 0)
-      .single();
-
-    if (finTx) {
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from("fin_transacciones").insert({
-        tipo_movimiento: finTx.tipo_movimiento,
-        categoria: finTx.categoria,
-        monto: -Math.abs(finTx.monto),
-        descripcion: `Anulación: ${finTx.descripcion}`,
-        usuario_id: user?.id,
-        venta_id: ventaId
-      });
-    }
-
-    // 5. Marcar la venta principal como anulada (no eliminarla físicamente)
-    const { data: vInfo } = await supabase.from("ventas").select("observaciones").eq("id", ventaId).single();
-    const currentObs = vInfo?.observaciones || "";
-    if (!currentObs.includes("[ANULADA]")) {
-      const { error: updVentaError } = await supabase
-        .from("ventas")
-        .update({ observaciones: `${currentObs} [ANULADA]`.trim() })
-        .eq("id", ventaId);
-        
-      if (updVentaError) throw new Error(updVentaError.message);
+    if (rpcError) {
+      return {
+        success: false,
+        error: mensajeErrorRpcAnularVenta(rpcError.message),
+      };
     }
 
     await registrarBitacoraVenta(supabase, {
@@ -1255,23 +1237,27 @@ export async function anularVenta(ventaId: string, motivo: string) {
       motivo: motivoLimpio,
     });
 
-    // Revalidar rutas para refrescar cache de inventario, ventas y finanzas
     revalidatePath("/farmamuni/inventario");
     revalidatePath("/farmamuni/ventas");
     revalidatePath("/farmamuni/finanzas");
+    revalidatePath("/farmamuni/creditos");
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en anularVenta:", error);
     return {
       success: false,
-      error: error.message || "Error al anular la venta."
+      error:
+        error instanceof Error ? error.message : "Error al anular la venta.",
     };
   }
 }
 
-// Corregir líneas del historial
-export async function editarDetalleVentaDirecto(params: {
+const ERROR_CORREGIR_VENTA_HISTORIAL =
+  "Para corregir una venta, anúlala y regístrala de nuevo.";
+
+// Corregir líneas del historial (deshabilitado)
+export async function editarDetalleVentaDirecto(_params: {
   detalleId: string;
   ventaId: string;
   productoId: string;
@@ -1280,128 +1266,10 @@ export async function editarDetalleVentaDirecto(params: {
   motivo: string;
   productoNombre?: string;
 }) {
-  try {
-    const supabase = await createClient();
-    const user = await assertAdminHistorialVentas();
-    const motivoLimpio = parseMotivoModificacionVenta(params.motivo);
-    const { detalleId, ventaId, productoId, nuevaCantidad, nuevoPrecio, productoNombre } =
-      params;
-
-    // 1. Obtener la cantidad anterior del detalle para calcular la diferencia de stock
-    const { data: detAnterior, error: getDetError } = await supabase
-      .from("ven_detalles")
-      .select("cantidad, precio_aplicado, lote_id")
-      .eq("id", detalleId)
-      .single();
-
-    if (getDetError || !detAnterior) {
-      throw new Error("No se encontró el detalle de la venta anterior.");
-    }
-
-    const cantidadAnterior = detAnterior.cantidad;
-    const diffCantidad = nuevaCantidad - cantidadAnterior; // Si aumenta, descontamos más stock. Si disminuye, devolvemos stock.
-
-    const loteId = detAnterior.lote_id as string | null;
-
-    if (diffCantidad > 0) {
-      if (loteId) {
-        const { data: lote } = await supabase
-          .from("inv_lotes")
-          .select("cantidad_actual")
-          .eq("id", loteId)
-          .maybeSingle();
-        const disp = Number(lote?.cantidad_actual) || 0;
-        if (disp < diffCantidad) {
-          throw new Error(
-            `Stock insuficiente en el lote para aumentar la cantidad. Disponibles: ${disp}.`,
-          );
-        }
-      } else {
-        const { data: prod, error: getProdError } = await supabase
-          .from("inv_productos")
-          .select("nombre, stock_actual")
-          .eq("id", productoId)
-          .single();
-
-        if (getProdError || !prod) {
-          throw new Error("Producto no encontrado.");
-        }
-
-        if (prod.stock_actual < diffCantidad) {
-          throw new Error(
-            `Stock insuficiente para aumentar la cantidad. Disponibles: ${prod.stock_actual}.`,
-          );
-        }
-      }
-    }
-
-    if (diffCantidad !== 0) {
-      await ajustarStockPorVenta(supabase, {
-        producto_id: productoId,
-        lote_id: loteId,
-        delta: -diffCantidad,
-      });
-    }
-
-    // 4. Actualizar el item del detalle
-    const nuevoSubtotal = nuevaCantidad * nuevoPrecio;
-    const { error: updateDetError } = await supabase
-      .from("ven_detalles")
-      .update({
-        cantidad: nuevaCantidad,
-        precio_aplicado: nuevoPrecio,
-        subtotal: nuevoSubtotal
-      })
-      .eq("id", detalleId);
-
-    if (updateDetError) {
-      throw new Error(`Error al actualizar el detalle: ${updateDetError.message}`);
-    }
-
-    // 5. Recalcular el total general de la venta
-    const { data: todosLosDetalles, error: sumError } = await supabase
-      .from("ven_detalles")
-      .select("subtotal")
-      .eq("venta_id", ventaId);
-
-    if (sumError || !todosLosDetalles) {
-      throw new Error("Error al recalcular el total de la venta.");
-    }
-
-    const nuevoTotalVenta = todosLosDetalles.reduce((sum, d) => sum + d.subtotal, 0);
-
-    const { error: updateVentaError } = await supabase
-      .from("ventas")
-      .update({ total: nuevoTotalVenta })
-      .eq("id", ventaId);
-
-    if (updateVentaError) {
-      throw new Error(`Error al actualizar el total de la venta: ${updateVentaError.message}`);
-    }
-
-    await registrarBitacoraVenta(supabase, {
-      ventaId,
-      usuarioId: user.id,
-      accion: "editar_linea",
-      motivo: motivoLimpio,
-      detalle: {
-        producto_id: productoId,
-        producto_nombre: productoNombre ?? null,
-        cantidad_anterior: cantidadAnterior,
-        cantidad_nueva: nuevaCantidad,
-        precio_anterior: detAnterior.precio_aplicado,
-        precio_nuevo: nuevoPrecio,
-      },
-    });
-
-    return { success: true, nuevoTotal: nuevoTotalVenta };
-  } catch (error: any) {
-    console.error("Error en editarDetalleVentaDirecto:", error);
-    return { success: false, error: error.message || "Error al editar el detalle de la venta." };
-  }
+  return { success: false, error: ERROR_CORREGIR_VENTA_HISTORIAL };
 }
 
-export async function eliminarDetalleVentaDirecto(params: {
+export async function eliminarDetalleVentaDirecto(_params: {
   detalleId: string;
   ventaId: string;
   productoId: string;
@@ -1409,83 +1277,60 @@ export async function eliminarDetalleVentaDirecto(params: {
   motivo: string;
   productoNombre?: string;
 }) {
-  try {
-    const supabase = await createClient();
-    const user = await assertAdminHistorialVentas();
-    const motivoLimpio = parseMotivoModificacionVenta(params.motivo);
-    const { detalleId, ventaId, productoId, cantidadADevolver, productoNombre } = params;
+  return { success: false, error: ERROR_CORREGIR_VENTA_HISTORIAL };
+}
 
-    const { data: detRow } = await supabase
-      .from("ven_detalles")
-      .select("lote_id")
-      .eq("id", detalleId)
-      .maybeSingle();
+const VENTAS_SIN_PERMISO = "Sin permiso para realizar esta acción.";
+const CREDENCIALES_ADMIN_INCORRECTAS = "Credenciales incorrectas.";
 
-    await ajustarStockPorVenta(supabase, {
-      producto_id: productoId,
-      lote_id: detRow?.lote_id ?? null,
-      delta: cantidadADevolver,
-    });
-
-    // 3. Eliminar el registro del detalle de venta
-    const { error: deleteDetError } = await supabase
-      .from("ven_detalles")
-      .delete()
-      .eq("id", detalleId);
-
-    if (deleteDetError) {
-      throw new Error(`Error al eliminar el detalle de venta: ${deleteDetError.message}`);
-    }
-
-    // 4. Recalcular el total general de la venta
-    const { data: todosLosDetalles, error: sumError } = await supabase
-      .from("ven_detalles")
-      .select("subtotal")
-      .eq("venta_id", ventaId);
-
-    if (sumError || !todosLosDetalles) {
-      throw new Error("Error al recalcular el total de la venta.");
-    }
-
-    const nuevoTotalVenta = todosLosDetalles.reduce((sum, d) => sum + d.subtotal, 0);
-
-    // 5. Actualizar el total en la cabecera de la venta
-    const { error: updateVentaError } = await supabase
-      .from("ventas")
-      .update({ total: nuevoTotalVenta })
-      .eq("id", ventaId);
-
-    if (updateVentaError) {
-      throw new Error(`Error al actualizar el total de la venta: ${updateVentaError.message}`);
-    }
-
-    // Enviar notificación de movimiento sospechoso a admins y supers
-    await sendPushNotification(
-      {
-        title: '🚨 Movimiento Sospechoso',
-        body: `Se ha anulado/eliminado un producto de la venta #${ventaId.slice(0, 8)}. Revisa las finanzas.`,
-        url: '/farmamuni/ventas'
-      },
-      ['admin', 'super']
-    );
-
-    await registrarBitacoraVenta(supabase, {
-      ventaId,
-      usuarioId: user.id,
-      accion: "quitar_linea",
-      motivo: motivoLimpio,
-      detalle: {
-        producto_id: productoId,
-        producto_nombre: productoNombre ?? null,
-        cantidad_devuelta: cantidadADevolver,
-      },
-    });
-
-    return { success: true, nuevoTotal: nuevoTotalVenta };
-  } catch (error: any) {
-    console.error("Error en eliminarDetalleVentaDirecto:", error);
-    return { success: false, error: error.message || "Error al eliminar el producto de la venta." };
+async function verificarCredencialesAdminConLimite(
+  callerUserId: string,
+  username: string,
+  clave: string,
+): Promise<
+  | { ok: true; adminUserId: string }
+  | { ok: false; error: string }
+> {
+  if (isAdminCredentialRateLimited(callerUserId)) {
+    return { ok: false, error: "Demasiados intentos. Espera unos minutos." };
   }
+
+  const usuario = username.trim();
+  if (!usuario || !clave) {
+    return { ok: false, error: "Usuario y contraseña son obligatorios." };
+  }
+
+  const email = usuario.includes("@") ? usuario : `${usuario}@app.com`;
+  const supabaseTemp = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    },
+  );
+
+  const { data: authData, error: authError } =
+    await supabaseTemp.auth.signInWithPassword({
+      email,
+      password: clave,
+    });
+
+  if (authError || !authData.user) {
+    recordAdminCredentialFailure(callerUserId);
+    return { ok: false, error: CREDENCIALES_ADMIN_INCORRECTAS };
+  }
+
+  const rol = await resolveUserRole(supabaseTemp, authData.user);
+  if (!isAdminRole(rol)) {
+    recordAdminCredentialFailure(callerUserId);
+    return { ok: false, error: CREDENCIALES_ADMIN_INCORRECTAS };
+  }
+
+  clearAdminCredentialFailures(callerUserId);
+  return { ok: true, adminUserId: authData.user.id };
 }
 
 // Rebajas y autorización de admin
@@ -1495,39 +1340,18 @@ export async function autorizarRebajaConCredencialesAdmin(
   clave: string,
 ) {
   try {
-    const usuario = username.trim();
-    if (!usuario || !clave) {
-      return { success: false as const, error: "Usuario y contraseña son obligatorios." };
+    const guard = await requireVentas();
+    if (!guard.ok) {
+      return { success: false as const, error: VENTAS_SIN_PERMISO };
     }
 
-    const email = usuario.includes("@") ? usuario : `${usuario}@app.com`;
-    const supabaseTemp = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      },
+    const credenciales = await verificarCredencialesAdminConLimite(
+      guard.user.id,
+      username,
+      clave,
     );
-
-    const { data: authData, error: authError } =
-      await supabaseTemp.auth.signInWithPassword({
-        email,
-        password: clave,
-      });
-
-    if (authError || !authData.user) {
-      return { success: false as const, error: "Credenciales incorrectas." };
-    }
-
-    const rol = await resolveUserRole(supabaseTemp, authData.user);
-    if (!isAdminRole(rol)) {
-      return {
-        success: false as const,
-        error: "El usuario no tiene permisos de administrador.",
-      };
+    if (!credenciales.ok) {
+      return { success: false as const, error: credenciales.error };
     }
 
     const admin = createAdminClient();
@@ -1548,7 +1372,7 @@ export async function autorizarRebajaConCredencialesAdmin(
       .from("ven_solicitudes_rebaja")
       .update({
         estado: "aprobada",
-        resuelto_por: authData.user.id,
+        resuelto_por: credenciales.adminUserId,
         resuelto_at: new Date().toISOString(),
       })
       .eq("id", solicitudId);
@@ -1910,38 +1734,22 @@ export async function rechazarSolicitudRebaja(
 
 export async function validarCredencialesAdmin(username: string, clave: string) {
   try {
-    const email = username.includes("@") ? username : `${username}@app.com`;
-    
-    // Crear un cliente temporal que no maneje sesiones ni cookies en el servidor
-    const supabaseTemp = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        }
-      }
-    );
-
-    const { data: authData, error: authError } = await supabaseTemp.auth.signInWithPassword({
-      email,
-      password: clave,
-    });
-
-    if (authError || !authData.user) {
-      return { success: false, error: "Credenciales incorrectas." };
+    const guard = await requireVentas();
+    if (!guard.ok) {
+      return { success: false, error: VENTAS_SIN_PERMISO };
     }
 
-    const rol = await resolveUserRole(supabaseTemp, authData.user);
-
-    if (!isAdminRole(rol)) {
-      return { success: false, error: "El usuario ingresado no tiene permisos de administrador." };
+    const credenciales = await verificarCredencialesAdminConLimite(
+      guard.user.id,
+      username,
+      clave,
+    );
+    if (!credenciales.ok) {
+      return { success: false, error: credenciales.error };
     }
 
     return { success: true };
-  } catch (error: any) {
-    console.error("Error en validarCredencialesAdmin:", error);
-    return { success: false, error: "Error al validar credenciales." };
+  } catch {
+    return { success: false, error: CREDENCIALES_ADMIN_INCORRECTAS };
   }
 }

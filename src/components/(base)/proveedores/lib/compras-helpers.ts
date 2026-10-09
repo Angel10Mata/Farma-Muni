@@ -8,6 +8,8 @@ export function esEstadoCompraPagado(estado: string | null | undefined): boolean
   return (estado ?? "").trim().toLowerCase() === "pagado";
 }
 
+const CATEGORIAS_PAGO_COMPRA = new Set(["pago_proveedor", "compra"]);
+
 export function totalPagadoCompra(
   finTransacciones: unknown[] | null | undefined,
 ): number {
@@ -17,8 +19,8 @@ export function totalPagadoCompra(
         (t): t is { categoria?: string; monto?: number } =>
           typeof t === "object" && t !== null,
       )
-      .filter((t) => t.categoria === "pago_proveedor")
-      .reduce((sum, t) => sum + Math.abs(Number(t.monto ?? 0)), 0) ?? 0
+      .filter((t) => CATEGORIAS_PAGO_COMPRA.has(t.categoria ?? ""))
+      .reduce((sum, t) => sum + Number(t.monto ?? 0), 0) ?? 0
   );
 }
 

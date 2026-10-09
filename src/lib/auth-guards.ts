@@ -42,6 +42,10 @@ export async function requireAdmin(): Promise<AuthGuardResult> {
   return requireRole(["super", "admin"]);
 }
 
+export async function requireSuper(): Promise<AuthGuardResult> {
+  return requireRole(["super"]);
+}
+
 export async function requireInventario(): Promise<AuthGuardResult> {
   return requireRole(["super", "admin", "inventario"]);
 }

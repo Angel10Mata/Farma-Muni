@@ -197,13 +197,16 @@ export async function crearCompra(input: CompraInput) {
 
     const {
       proveedor_id,
-      total,
       estado_pago,
       observaciones,
       items,
       numero_factura,
       fecha_vencimiento_pago,
     } = parsed.data;
+    const total = items.reduce(
+      (sum, item) => sum + item.cantidad * item.precio_costo,
+      0,
+    );
     const pagado = esEstadoPagado(estado_pago);
     const facturaNorm = numero_factura.trim();
 
@@ -226,6 +229,20 @@ export async function crearCompra(input: CompraInput) {
       return mapDbError(compraError ?? { message: "No se creó la compra." });
     }
 
+    const revertirCompraParcial = async () => {
+      const { data: detalles } = await supabase
+        .from("inv_compras_detalles")
+        .select("id")
+        .eq("compra_id", compra.id);
+      const detalleIds = (detalles ?? []).map((d) => d.id as string);
+      if (detalleIds.length > 0) {
+        await supabase.from("inv_lotes").delete().in("compra_detalle_id", detalleIds);
+        await supabase.from("inv_compras_detalles").delete().in("id", detalleIds);
+      }
+      await supabase.from("fin_transacciones").delete().eq("compra_id", compra.id);
+      await supabase.from("inv_compras").delete().eq("id", compra.id);
+    };
+
     for (const item of items) {
       const { data: detalleRow, error: detalleError } = await supabase
         .from("inv_compras_detalles")
@@ -240,6 +257,7 @@ export async function crearCompra(input: CompraInput) {
         .single();
 
       if (detalleError || !detalleRow) {
+        await revertirCompraParcial();
         return mapDbError(detalleError ?? { message: "No se guardó el detalle de compra." });
       }
 
@@ -260,12 +278,14 @@ export async function crearCompra(input: CompraInput) {
       });
 
       if (loteError) {
+        await revertirCompraParcial();
         return mapDbError(loteError);
       }
 
       try {
         await activarProductoCatalogoPorNuevoLote(supabase, item.producto_id);
       } catch (err) {
+        await revertirCompraParcial();
         const message = err instanceof Error ? err.message : "Error al actualizar catálogo.";
         return { code: "DB_ERROR", detail: message.slice(0, 200) };
       }
@@ -281,6 +301,7 @@ export async function crearCompra(input: CompraInput) {
         compra_id: compra.id,
       });
       if (finError) {
+        await revertirCompraParcial();
         return mapDbError(finError);
       }
     }
@@ -369,17 +390,18 @@ export async function actualizarEstadoPagoCompra(compraId: string, nuevoEstado: 
 
     if (compraErr) return { code: "INTERNAL" as const };
 
+    const { data: txs } = await supabase
+      .from("fin_transacciones")
+      .select("monto, categoria")
+      .eq("compra_id", compraId)
+      .in("categoria", ["pago_proveedor", "compra"]);
+
+    const pagadoActual = totalPagadoCompra(txs);
+    const totalCompra = Number(compra.total) || 0;
+    const saldo = Math.max(0, totalCompra - pagadoActual);
+
     if (nuevoEstado === "Pagado" && compra.estado_pago !== "Pagado") {
-      const { data: pagos } = await supabase
-        .from("fin_transacciones")
-        .select("monto")
-        .eq("compra_id", compraId)
-        .eq("categoria", "pago_proveedor");
-
-      const pagado = pagos?.reduce((sum, p) => sum + Number(p.monto), 0) || 0;
-      const saldo = Number(compra.total) - pagado;
-
-      if (saldo > 0) {
+      if (saldo > 0.01) {
         const { error: finError } = await supabase.from("fin_transacciones").insert({
           tipo_movimiento: "egreso",
           categoria: "pago_proveedor",
@@ -391,25 +413,16 @@ export async function actualizarEstadoPagoCompra(compraId: string, nuevoEstado: 
         if (finError) return { code: "INTERNAL" as const };
       }
     } else if (nuevoEstado === "Pendiente" && compra.estado_pago !== "Pendiente") {
-      const { data: pagos } = await supabase
-        .from("fin_transacciones")
-        .select("*")
-        .eq("compra_id", compraId)
-        .eq("categoria", "pago_proveedor");
-
-      if (pagos && pagos.length > 0) {
-        const saldoNeto = pagos.reduce((sum, p) => sum + Number(p.monto), 0);
-        if (saldoNeto > 0) {
-          const { error: finError } = await supabase.from("fin_transacciones").insert({
-            tipo_movimiento: "egreso",
-            categoria: "pago_proveedor",
-            monto: -Math.abs(saldoNeto),
-            descripcion: `Anulación automática al marcar compra como Pendiente`,
-            usuario_id: user.id,
-            compra_id: compraId,
-          });
-          if (finError) return { code: "INTERNAL" as const };
-        }
+      if (pagadoActual > 0.01) {
+        const { error: finError } = await supabase.from("fin_transacciones").insert({
+          tipo_movimiento: "egreso",
+          categoria: "pago_proveedor",
+          monto: -pagadoActual,
+          descripcion: `Reverso al marcar compra como Pendiente`,
+          usuario_id: user.id,
+          compra_id: compraId,
+        });
+        if (finError) return { code: "INTERNAL" as const };
       }
     }
 
@@ -450,11 +463,9 @@ export async function registrarAbonoCompra(
 
     if (compraError || !compra) return { code: "NOT_FOUND" as const };
 
-    const pagado = compra.fin_transacciones
-      ?.filter((t: { categoria: string }) => t.categoria === "pago_proveedor")
-      .reduce((acc: number, curr: { monto: number }) => acc + Math.abs(Number(curr.monto)), 0) || 0;
-
-    const saldo = Number(compra.total) - pagado;
+    const pagado = totalPagadoCompra(compra.fin_transacciones);
+    const totalCompra = Number(compra.total) || 0;
+    const saldo = Math.max(0, totalCompra - pagado);
     if (montoAbono > saldo + 0.01) return { code: "VALIDATION" as const };
 
     const desc = notas
@@ -472,12 +483,20 @@ export async function registrarAbonoCompra(
 
     if (finError) return { code: "INTERNAL" as const };
 
-    if (montoAbono >= saldo - 0.01) {
-      await supabase
-        .from("inv_compras")
-        .update({ estado_pago: "Pagado", fecha_pago: new Date().toISOString() })
-        .eq("id", compraId);
-    }
+    const pagadoTras = pagado + montoAbono;
+    const estadoTras =
+      pagadoTras >= totalCompra - 0.01
+        ? "Pagado"
+        : pagadoTras <= 0.01
+          ? "Pendiente"
+          : compra.estado_pago;
+    await supabase
+      .from("inv_compras")
+      .update({
+        estado_pago: estadoTras,
+        fecha_pago: pagadoTras >= totalCompra - 0.01 ? new Date().toISOString() : null,
+      })
+      .eq("id", compraId);
 
     revalidatePath("/farmamuni/proveedores");
     revalidatePath("/farmamuni/finanzas");

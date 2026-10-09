@@ -50,6 +50,10 @@ export function isAdminRole(role: string): boolean {
   return ["super", "admin"].includes(role);
 }
 
+export function isSuperRole(role: string): boolean {
+  return role === "super";
+}
+
 // GUARD PÁGINAS ADMIN (SERVER)
 
 export async function requireAdminPageAccess() {
@@ -68,4 +72,12 @@ export async function requireAdminPageAccess() {
   }
 
   return { supabase, user, role };
+}
+
+export async function requireSuperPageAccess() {
+  const ctx = await requireAdminPageAccess();
+  if (!isSuperRole(ctx.role)) {
+    redirect("/farmamuni/admin");
+  }
+  return ctx;
 }

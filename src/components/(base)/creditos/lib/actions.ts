@@ -29,15 +29,31 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
     );
     hoyGt.setHours(0, 0, 0, 0);
 
-    // Ventas al crédito
-    const { data: ventasData, error: ventasError } = await supabase
-      .from("ventas")
-      .select("id, cliente_id, total, tipo_venta, created_at, fecha_credito_vencimiento")
-      .eq("tipo_venta", "Crédito")
-      .order("created_at", { ascending: false })
-      .limit(2000);
+    const ventasData: Array<{
+      id: string;
+      cliente_id: string | null;
+      total: number | null;
+      tipo_venta: string | null;
+      created_at: string;
+      fecha_credito_vencimiento: string | null;
+    }> = [];
+    const PAGE = 500;
+    let offset = 0;
+    while (true) {
+      const { data: page, error: ventasError } = await supabase
+        .from("ventas")
+        .select("id, cliente_id, total, tipo_venta, created_at, fecha_credito_vencimiento, estado")
+        .eq("tipo_venta", "Crédito")
+        .neq("estado", "anulada")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + PAGE - 1);
 
-    if (ventasError) throw new Error(ventasError.message);
+      if (ventasError) throw new Error(ventasError.message);
+      if (!page?.length) break;
+      ventasData.push(...page);
+      if (page.length < PAGE) break;
+      offset += PAGE;
+    }
 
     // Abonos y cargos de esas ventas
     const ventasIds = ventasData ? ventasData.map((v: any) => v.id) : [];
@@ -155,9 +171,10 @@ export async function obtenerDetalleCredito(clienteId: string): Promise<VentaCre
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("ventas")
-    .select("id, created_at, tipo_venta, total, observaciones, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)")
+    .select("id, created_at, tipo_venta, total, estado, observaciones, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)")
     .eq("cliente_id", clienteId)
     .eq("tipo_venta", "Crédito")
+    .neq("estado", "anulada")
     .order("created_at", { ascending: false });
 
   if (error) {

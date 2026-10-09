@@ -2,7 +2,7 @@
 
 import { createClient as createAdminClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth-guards";
+import { requireSuper } from "@/lib/auth-guards";
 import { modalActionMessage } from "@/components/ui/modal-toast";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
@@ -10,7 +10,7 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY as string;
 const supabaseAdmin = createAdminClient(supabaseUrl, supabaseServiceKey);
 
 export async function authorizeDevice(deviceId: string, friendlyName?: string) {
-  const auth = await requireAdmin();
+  const auth = await requireSuper();
   if (!auth.ok) {
     return {
       success: false,
@@ -34,7 +34,7 @@ export async function authorizeDevice(deviceId: string, friendlyName?: string) {
 }
 
 export async function denyDevice(deviceId: string) {
-  const auth = await requireAdmin();
+  const auth = await requireSuper();
   if (!auth.ok) {
     return {
       success: false,
