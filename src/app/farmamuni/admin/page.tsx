@@ -1,6 +1,8 @@
 import { Suspense } from "react";
 import { VerAdmin } from "@/components/(base)/admin/VerAdmin";
 
+export const dynamic = "force-dynamic";
+
 // Administración
 export default function AdminPage() {
   return (

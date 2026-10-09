@@ -1,12 +1,18 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
 import { AlertTriangle } from "lucide-react";
 import { AdminCards } from "./AdminCards";
 import { adminPageShellClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 
-// Admin
-export async function VerAdmin() {
-  const pendingDevices = (await getPendingDevicesCount()) ?? 0;
+export function VerAdmin() {
+  const [pendingDevices, setPendingDevices] = useState(0);
+
+  useEffect(() => {
+    void getPendingDevicesCount().then((c) => setPendingDevices(c ?? 0));
+  }, []);
 
   return (
     <div className={adminPageShellClass}>

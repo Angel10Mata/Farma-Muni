@@ -1,5 +1,6 @@
 "use server";
 
+import { unstable_rethrow } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
 
 // Dispositivos pendientes de autorizar
@@ -13,7 +14,7 @@ export async function getPendingDevicesCount() {
 
     return count || 0;
   } catch (error) {
-    console.error("Error getting pending devices count:", error);
+    unstable_rethrow(error);
     return 0;
   }
 }
