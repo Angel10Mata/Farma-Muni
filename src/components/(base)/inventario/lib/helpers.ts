@@ -132,6 +132,39 @@ export function claveProductoUnico(p: {
   return [n(p.nombre_generico), n(p.concentracion), n(p.forma_farmaceutica), n(p.presentacion)].join("\0");
 }
 
+export const MIN_CARACTERES_BUSQUEDA_PRODUCTO = 3;
+
+export function normalizarTextoBusquedaProducto(texto: string): string {
+  return texto
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+export function lineaSugerenciaProductoCatalogo(p: CamposTituloProducto): string {
+  const generico = (p.nombre_generico || "").trim();
+  const conc = (p.concentracion || "").trim();
+  const forma = etiquetaFormaFarmaceutica(p.forma_farmaceutica);
+  const pres = (p.presentacion || "").trim();
+  const titulo = conc ? `${generico} ${conc}` : generico;
+  return [titulo, forma, pres].filter(Boolean).join(" · ");
+}
+
+export function identificacionProductoCompleta(campos: {
+  nombre_generico: string;
+  concentracion: string;
+  forma_farmaceutica: string;
+  presentacion: string;
+}): boolean {
+  return (
+    campos.nombre_generico.trim().length >= 2 &&
+    campos.concentracion.trim().length > 0 &&
+    campos.forma_farmaceutica.trim().length > 0 &&
+    campos.presentacion.trim().length > 0
+  );
+}
+
 export function productoFarmaciaDesdeLegacy(
   nombre: string,
   descripcion: string,

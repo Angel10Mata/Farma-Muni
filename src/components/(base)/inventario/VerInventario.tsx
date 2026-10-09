@@ -37,9 +37,8 @@ import { cn, fmtNum, fmtQ } from "@/lib/utils";
 import {
   modulePillSwitchBtnClass,
   modulePillSwitchShellClass,
-  modulePillSwitchTabBtnClass,
-  modulePillSwitchTabShellClass,
 } from "@/components/ui/module-pill-switch";
+import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useProductos,
@@ -77,6 +76,7 @@ import {
   esLoteActivoConExistencia,
   parseCategoriaVencimientoQuery,
   type CategoriaVencimientoLote,
+  type ConteoVencimientoLotes,
 } from "@/lib/vencimientos-gt";
 import { exportarPDF } from "./utils";
 import {
@@ -962,6 +962,160 @@ const LocationFilterDropdown = ({
   );
 };
 
+const VencimientoFilterDropdown = ({
+  selectedCategoria,
+  onSelectCategoria,
+  conteo,
+}: {
+  selectedCategoria: CategoriaVencimientoLote | null;
+  onSelectCategoria: (cat: CategoriaVencimientoLote | null) => void;
+  conteo: ConteoVencimientoLotes;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const totalLotes = useMemo(
+    () => CATEGORIAS_VENCIMIENTO_LOTE.reduce((sum, cat) => sum + conteo[cat], 0),
+    [conteo],
+  );
+
+  const labelSeleccion = selectedCategoria
+    ? ETIQUETAS_CATEGORIA_VENCIMIENTO[selectedCategoria]
+    : "Todas las categorías";
+
+  return (
+    <div className="relative shrink-0" ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className={cn(
+          "px-3 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-2 cursor-pointer h-[44px] shadow-xs select-none",
+          selectedCategoria
+            ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:text-[#A3BEB0] dark:bg-[#8DA78E]/20"
+            : "border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-slate-700 dark:text-slate-300 hover:border-[#8DA78E]",
+        )}
+      >
+        <CalendarX className="size-3.5 text-[#8DA78E] shrink-0" />
+        <span className="truncate max-w-[140px] md:max-w-[170px]">{labelSeleccion}</span>
+
+        {selectedCategoria ? (
+          <span className="flex items-center gap-1.5 ml-1">
+            <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#8DA78E] text-white">
+              {conteo[selectedCategoria]}
+            </span>
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelectCategoria(null);
+              }}
+              className="p-0.5 rounded-full hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors"
+              title="Limpiar filtro"
+            >
+              <X className="size-3" />
+            </span>
+          </span>
+        ) : (
+          <ChevronDown
+            className={cn(
+              "size-3 text-slate-400 shrink-0 transition-transform duration-200",
+              isOpen && "rotate-180",
+            )}
+          />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 top-full z-[200] mt-2 w-64 max-w-[min(16rem,calc(100vw-2rem))] rounded-2xl border border-slate-200/80 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800/80 dark:bg-zinc-900 max-h-72 overflow-y-auto custom-scrollbar origin-top-left"
+          >
+            <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
+              <span>Vencimiento por lote</span>
+              <span className="text-[#8DA78E] font-bold">{totalLotes} lotes</span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                onSelectCategoria(null);
+                setIsOpen(false);
+              }}
+              className={cn(
+                "w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer my-0.5",
+                selectedCategoria === null
+                  ? "bg-[#8DA78E] text-white shadow-sm"
+                  : "text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/10 hover:text-[#8DA78E]",
+              )}
+            >
+              <div className="flex items-center gap-2">
+                <CalendarX className="size-3.5 opacity-80 shrink-0" />
+                <span>Todas las categorías</span>
+              </div>
+              <span
+                className={cn(
+                  "px-2 py-0.5 text-[10px] rounded-full font-extrabold",
+                  selectedCategoria === null
+                    ? "bg-white/20 text-white"
+                    : "bg-slate-100 dark:bg-zinc-900 text-slate-500",
+                )}
+              >
+                {totalLotes}
+              </span>
+            </button>
+
+            {CATEGORIAS_VENCIMIENTO_LOTE.map((cat) => {
+              const isSelected = selectedCategoria === cat;
+              const count = conteo[cat];
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    onSelectCategoria(cat);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer my-0.5 text-left",
+                    isSelected
+                      ? "bg-[#8DA78E] text-white shadow-sm"
+                      : "text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/10 hover:text-[#8DA78E]",
+                  )}
+                >
+                  <span className="truncate pr-2">{ETIQUETAS_CATEGORIA_VENCIMIENTO[cat]}</span>
+                  <span
+                    className={cn(
+                      "px-2 py-0.5 text-[10px] rounded-full font-extrabold shrink-0",
+                      isSelected
+                        ? "bg-white/20 text-white"
+                        : "bg-slate-100 dark:bg-zinc-900 text-slate-500",
+                    )}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
+
 function inventarioTabUnderlineClass(active: boolean) {
   return cn(
     "flex-1 min-w-0 py-2 text-xs font-black uppercase tracking-wider text-center border-b-2 cursor-pointer text-[#8DA78E] dark:text-[#A3BEB0]",
@@ -1386,39 +1540,24 @@ export function VerInventario() {
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           <InventarioSubnav />
-          <div
-            className={modulePillSwitchTabShellClass}
-            role="tablist"
-            aria-label="Vista de inventario"
-          >
-            <button
-              type="button"
-              role="tab"
-              aria-selected={vistaInventario === "lotes"}
-              onClick={() => {
-                setVistaInventario("lotes");
-                setProductoSeleccionado(null);
-                setCurrentPage(1);
-              }}
-              className={modulePillSwitchTabBtnClass(vistaInventario === "lotes")}
-            >
-              Egresos
-            </button>
-            <button
-              type="button"
-              role="tab"
-              aria-selected={vistaInventario === "catalogo"}
-              onClick={() => {
-                setVistaInventario("catalogo");
-                setProductoSeleccionado(null);
+          <ModuleFilterUnderlineTabs
+            ariaLabel="Vista de inventario"
+            value={vistaInventario}
+            options={[
+              { id: "lotes", label: "Egresos" },
+              { id: "catalogo", label: "Catálogo" },
+            ]}
+            onChange={(id) => {
+              setVistaInventario(id);
+              setProductoSeleccionado(null);
+              setCurrentPage(1);
+              if (id === "catalogo") {
                 setFiltroProximoVencer(false);
-                setCurrentPage(1);
-              }}
-              className={modulePillSwitchTabBtnClass(vistaInventario === "catalogo")}
-            >
-              Catálogo
-            </button>
-          </div>
+                setFiltroVencidos(false);
+              }
+            }}
+            className="w-full sm:w-auto min-w-[12rem]"
+          />
           <SigetActionButton
             label="Crear"
             accentColor={sigetAccent.crear}
@@ -1451,40 +1590,6 @@ export function VerInventario() {
             />
           </div>
 
-          {vistaInventario === "lotes" && conteoVencimientoLotes ? (
-            <div className="flex flex-wrap gap-2">
-              {CATEGORIAS_VENCIMIENTO_LOTE.map((cat) => {
-                const activo = filtroCategoriaVencimiento === cat;
-                return (
-                  <button
-                    key={cat}
-                    type="button"
-                    onClick={() =>
-                      aplicarFiltroCategoriaVencimiento(activo ? null : cat)
-                    }
-                    className={cn(
-                      "rounded-full border px-3 py-1 text-[10px] font-black uppercase tracking-wide transition-colors",
-                      activo
-                        ? "border-[#2c5f9b] bg-[#2c5f9b]/10 text-[#2c5f9b] dark:border-[#6f9fd4] dark:text-[#6f9fd4]"
-                        : "border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300",
-                    )}
-                  >
-                    {ETIQUETAS_CATEGORIA_VENCIMIENTO[cat]} ({conteoVencimientoLotes[cat]})
-                  </button>
-                );
-              })}
-              {filtroCategoriaVencimiento ? (
-                <button
-                  type="button"
-                  onClick={() => aplicarFiltroCategoriaVencimiento(null)}
-                  className="text-[10px] font-bold text-zinc-500 underline self-center"
-                >
-                  Quitar filtro
-                </button>
-              ) : null}
-            </div>
-          ) : null}
-
           <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
               {ubicacionesUnicas.length > 0 ? (
@@ -1498,6 +1603,16 @@ export function VerInventario() {
                   products={productos}
                 />
               ) : null}
+              {vistaInventario === "lotes" && conteoVencimientoLotes ? (
+                <VencimientoFilterDropdown
+                  selectedCategoria={filtroCategoriaVencimiento}
+                  onSelectCategoria={(cat) => {
+                    aplicarFiltroCategoriaVencimiento(cat);
+                    setCurrentPage(1);
+                  }}
+                  conteo={conteoVencimientoLotes}
+                />
+              ) : null}
               <div className="flex w-full min-w-0 max-w-lg border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 select-none">
                 <button
                   type="button"
@@ -1506,24 +1621,6 @@ export function VerInventario() {
                 >
                   Stock bajo
                 </button>
-                {vistaInventario === "catalogo" ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => resetFiltrosAlerta(filtroProximoVencer ? null : "proximo")}
-                      className={inventarioTabUnderlineClass(filtroProximoVencer)}
-                    >
-                      Vencimiento
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => resetFiltrosAlerta(filtroVencidos ? null : "vencidos")}
-                      className={inventarioTabUnderlineClass(filtroVencidos)}
-                    >
-                      Vencidos
-                    </button>
-                  </>
-                ) : null}
               </div>
             </div>
 

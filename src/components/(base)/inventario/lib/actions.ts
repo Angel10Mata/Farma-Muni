@@ -2,7 +2,13 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { claveProductoUnico } from "./helpers";
+import {
+  claveProductoUnico,
+  identificacionProductoCompleta,
+  MIN_CARACTERES_BUSQUEDA_PRODUCTO,
+  normalizarTextoBusquedaProducto,
+} from "./helpers";
+import { productoSugerenciaSchema, type ProductoSugerencia } from "./zod";
 import { activarProductoCatalogoPorNuevoLote } from "./sync-producto-catalogo";
 import {
   ajustarConteoSchema,
@@ -83,6 +89,54 @@ function mapLoteDbError(error: { code?: string; message?: string }) {
   return { success: false as const, code: "INTERNAL" as const };
 }
 
+const PRODUCTO_SUGERENCIA_SELECT =
+  "id, nombre, nombre_generico, concentracion, forma_farmaceutica, presentacion, precio_base";
+
+function mapFilaProductoSugerencia(row: Record<string, unknown>): ProductoSugerencia | null {
+  const parsed = productoSugerenciaSchema.safeParse({
+    id: row.id,
+    nombre: row.nombre,
+    nombre_generico: row.nombre_generico,
+    concentracion: row.concentracion,
+    forma_farmaceutica: row.forma_farmaceutica,
+    presentacion: row.presentacion,
+    precio_base: Number(row.precio_base) || 0,
+  });
+  return parsed.success ? parsed.data : null;
+}
+
+async function encontrarProductoPorClaveUnica(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  campos: {
+    nombre_generico: string;
+    concentracion: string;
+    forma_farmaceutica: string;
+    presentacion: string;
+  },
+  excludeId?: string,
+): Promise<ProductoSugerencia | null> {
+  const clave = claveProductoUnico(campos);
+  let query = supabase.from("inv_productos").select(PRODUCTO_SUGERENCIA_SELECT);
+  if (excludeId) query = query.neq("id", excludeId);
+  const { data, error } = await query;
+  if (error) throw error;
+  for (const row of data ?? []) {
+    const candidato = mapFilaProductoSugerencia(row as Record<string, unknown>);
+    if (!candidato) continue;
+    if (
+      claveProductoUnico({
+        nombre_generico: candidato.nombre_generico,
+        concentracion: candidato.concentracion,
+        forma_farmaceutica: candidato.forma_farmaceutica,
+        presentacion: candidato.presentacion,
+      }) === clave
+    ) {
+      return candidato;
+    }
+  }
+  return null;
+}
+
 async function existeProductoDuplicado(
   supabase: Awaited<ReturnType<typeof createClient>>,
   campos: {
@@ -93,22 +147,69 @@ async function existeProductoDuplicado(
   },
   excludeId?: string,
 ) {
-  const clave = claveProductoUnico(campos);
-  let query = supabase
-    .from("inv_productos")
-    .select("id, nombre_generico, concentracion, forma_farmaceutica, presentacion");
-  if (excludeId) query = query.neq("id", excludeId);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []).some(
-    (row) =>
-      claveProductoUnico({
-        nombre_generico: String(row.nombre_generico ?? ""),
-        concentracion: String(row.concentracion ?? ""),
-        forma_farmaceutica: String(row.forma_farmaceutica ?? ""),
-        presentacion: String(row.presentacion ?? ""),
-      }) === clave,
-  );
+  return (await encontrarProductoPorClaveUnica(supabase, campos, excludeId)) !== null;
+}
+
+export async function buscarProductosSimilares(texto: string) {
+  try {
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
+
+    const term = texto.trim();
+    if (term.length < MIN_CARACTERES_BUSQUEDA_PRODUCTO) {
+      return { success: true as const, data: [] as ProductoSugerencia[] };
+    }
+
+    const needle = normalizarTextoBusquedaProducto(term);
+
+    const { data, error } = await supabase
+      .from("inv_productos")
+      .select(PRODUCTO_SUGERENCIA_SELECT)
+      .order("nombre_generico", { ascending: true })
+      .limit(500);
+
+    if (error) return { code: "INTERNAL" as const };
+
+    const resultados: ProductoSugerencia[] = [];
+    for (const row of data ?? []) {
+      const item = mapFilaProductoSugerencia(row as Record<string, unknown>);
+      if (!item) continue;
+      const ng = normalizarTextoBusquedaProducto(item.nombre_generico);
+      const n = normalizarTextoBusquedaProducto(item.nombre);
+      if (!ng.includes(needle) && !n.includes(needle)) continue;
+      resultados.push(item);
+      if (resultados.length >= 8) break;
+    }
+
+    return { success: true as const, data: resultados };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function encontrarProductoDuplicadoExacto(campos: {
+  nombre_generico: string;
+  concentracion: string;
+  forma_farmaceutica: string;
+  presentacion: string;
+}) {
+  try {
+    const guard = await requireInventario();
+    if (!guard.ok) return { code: guard.code };
+    if (!identificacionProductoCompleta(campos)) {
+      return { success: true as const, data: null as ProductoSugerencia | null };
+    }
+    const producto = await encontrarProductoPorClaveUnica(guard.supabase, {
+      nombre_generico: campos.nombre_generico.trim(),
+      concentracion: campos.concentracion.trim(),
+      forma_farmaceutica: campos.forma_farmaceutica,
+      presentacion: campos.presentacion.trim(),
+    });
+    return { success: true as const, data: producto };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
 }
 
 function esErrorProductoUnico(error: { code?: string; message?: string }) {

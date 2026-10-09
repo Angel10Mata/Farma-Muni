@@ -1,6 +1,6 @@
 ---
 name: ui-modales
-description: Implementa formularios y ventanas flotantes con ModalShell de general-modal.tsx — ModalInput, ModalFooter, ModalConfirmDelete y feedback con toast. Se usa al crear o editar modales, formularios en overlay o confirmaciones destructivas dentro de un modal.
+description: Implementa formularios y ventanas flotantes con ModalShell de general-modal.tsx — ModalInput, ModalFooter, ModalConfirmDelete, modales wizard multi-paso (GvModalShell) y feedback con toast. Se usa al crear o editar modales, formularios en overlay o confirmaciones destructivas dentro de un modal.
 ---
 
 # Modales
@@ -132,6 +132,171 @@ export function EjemploModal({
 ```
 
 Montar el cuerpo con `{open && <Body />}` para resetear estado en cada apertura.
+
+## Modal wizard (multi-paso)
+
+Formularios largos en **varios pasos** dentro del mismo overlay: barra de progreso arriba, un solo `react-hook-form`, validación **por paso** con Zod y footer **Cancelar/Atrás** + **Siguiente/Enviar**.
+
+**Referencia de producción:** `gestion-vehiculos/solicitudes/forms/Crear.tsx` (Nueva Solicitud de Vehículo).
+
+### Cuándo usarlo
+
+- Dos o más bloques lógicos (ej. datos de solicitud → misión).
+- El modal debe **mantener altura** al cambiar de paso (contenido pesado en paso 1, p. ej. calendario).
+- Datos del paso anterior deben conservarse al volver con **Atrás** (sin remontar queries).
+
+### Shell (gestión territorial / vehículos)
+
+No usar `ModalForm` plano; usar el envoltorio GV sobre `ModalShell`:
+
+| Pieza | Import |
+|-------|--------|
+| Marco | `GvModalShell` (`fullHeight` por defecto, `maxWidth="max-w-lg"`) |
+| Formulario | `GvModalForm` |
+| Cuerpo scroll | `GvModalFormBody` |
+| Footer | `GvModalFooter` con `className="flex flex-wrap items-center justify-center gap-2"` |
+
+Desde: `@/components/(SIGET)/gestion-territorial/gestion-vehiculos/lib/gv-modal-shell` (o ruta relativa `../../lib/gv-modal-shell` dentro del módulo).
+
+Selects en wizard: `GV_MODAL_SELECT_TRIGGER_CLASS`, `GV_MODAL_SELECT_CONTENT_CLASS`, `GV_MODAL_SELECT_ITEM_CLASS` (`z-[250]`, fondo opaco).
+
+Botones de acción: **solo** `SigetActionButton` (skill `ui-tema-botones`), no `ModalSubmit` en el footer del wizard.
+
+### Estado y reset
+
+```tsx
+const WIZARD_PASOS = 2; // o export const en lib/zod.ts del módulo
+const WIZARD_PASOS_META = [{ titulo: "Paso A" }, { titulo: "Paso B" }] as const;
+const WIZARD_CONTENIDO_MIN_H = "min-h-[34rem]"; // evita que el modal encoja entre pasos
+
+const [wizardStep, setWizardStep] = useState(1);
+
+useEffect(() => {
+  if (open) {
+    setWizardStep(1);
+    reset(defaultValues); // react-hook-form
+  }
+}, [open, reset, /* deps de default */]);
+```
+
+Montar con `{open ? <GvModalForm>...</GvModalForm> : null}` dentro de `GvModalShell`.
+
+### Zod por paso
+
+En `lib/zod.ts` del módulo:
+
+- Schema **completo** para envío final (`solicitudInputSchema` / equivalente).
+- `solicitudWizardPaso1Schema`, `solicitudWizardPaso2Schema`, … solo campos del paso.
+- Constante `SOLICITUD_WIZARD_PASOS` (o `WIZARD_PASOS`).
+
+Validar con `.safeParse()` en handlers, **no** confiar solo en `handleSubmit` hasta el último paso.
+
+Helper para mapear errores Zod a `setError` (solo paths del paso):
+
+```tsx
+function aplicarErroresZod(
+  error: ZodError,
+  setError: (name: keyof FormInput, err: { message: string }) => void,
+  clearErrors: (names?: (keyof FormInput)[]) => void,
+  fields: (keyof FormInput)[],
+) {
+  clearErrors(fields);
+  for (const issue of error.issues) {
+    const path = issue.path[0];
+    if (typeof path === "string" && fields.includes(path as keyof FormInput)) {
+      setError(path as keyof FormInput, { message: issue.message });
+    }
+  }
+}
+```
+
+En fallo de paso: `toast.warn("…")` con mensaje corto; errores inline solo en campos del paso (evitar mensajes bajo widgets que se autocompletan, p. ej. calendario).
+
+### Barra de progreso
+
+Debajo del header, dentro de `GvModalFormBody`:
+
+- Fila `flex gap-1.5`; un segmento por paso (`flex-1`).
+- Barra `h-1 rounded-full`: activo o completado → `bg-[#2c5f9b] dark:bg-[#6f9fd4]`; pendiente → `bg-zinc-200 dark:bg-zinc-700`.
+- Etiqueta `text-[10px] font-semibold`: paso activo → `modalAccentClass`; resto → `text-muted-foreground`.
+- Sin subtítulo “Paso X de Y” salvo que el producto lo pida.
+
+### Pasos en DOM (no desmontar)
+
+**No** usar `AnimatePresence` con `key={wizardStep}` si el paso 1 tiene queries TanStack o estado interno pesado.
+
+Envolver cada paso en un `div` con `hidden` / `aria-hidden`:
+
+```tsx
+<div className={cn("space-y-3", WIZARD_CONTENIDO_MIN_H)}>
+  <div className={cn("space-y-3", wizardStep !== 1 && "hidden")} aria-hidden={wizardStep !== 1}>
+    {/* paso 1 */}
+  </div>
+  <div className={cn("space-y-3", wizardStep !== 2 && "hidden")} aria-hidden={wizardStep !== 2}>
+    {/* paso 2 */}
+  </div>
+</div>
+```
+
+Mantener `useQuery(..., { enabled: open && … })` **sin** atar `enabled` al número de paso si los datos deben seguir en caché al ir a paso 2 y volver.
+
+### Submit del formulario
+
+Un solo `<GvModalForm onSubmit={…}>`. En `preventDefault`:
+
+- Si `wizardStep < WIZARD_PASOS` → `handleSiguiente()` (valida paso actual, `setWizardStep(n+1)`).
+- Si último paso → `handleEnviarClick()` (valida paso final y luego `handleSubmit(onSubmit)`).
+
+`handleSiguiente` / `handleEnviarClick` usan `getValues()`, no envían al servidor hasta el envío final.
+
+### Footer
+
+| Paso | Izquierda | Derecha (`type="submit"`) |
+|------|-----------|---------------------------|
+| 1 | `SigetActionButton` Cancelar (`sigetAccent.cancelar`, icono `X`) | Siguiente (`sigetAccent.crear`, `ChevronRight`) |
+| 2+ | Atrás (`sigetAccent.cancelar`, `ChevronLeft`, `onClick={handleAtras}`) | Siguiente o Enviar |
+| Último | Atrás | Enviar (`sigetAccent.guardar`, `Send` → `Check`, `ariaBusy` si pending) |
+
+Deshabilitar **Siguiente** con reglas de negocio del paso (ej. fechas incompletas en paso 1) además de `isPending`.
+
+Centrar acciones: `GvModalFooter className="flex flex-wrap items-center justify-center gap-2"`.
+
+### Plantilla mínima wizard
+
+```tsx
+<GvModalShell open={open} onClose={onClose} title="Título del flujo" maxWidth="max-w-lg">
+  {open ? (
+    <GvModalForm
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (wizardStep < WIZARD_PASOS) handleSiguiente();
+        else handleEnviarClick();
+      }}
+    >
+      <GvModalFormBody className="space-y-4">
+        {/* barra de progreso WIZARD_PASOS_META */}
+        <div className={cn("space-y-3", WIZARD_CONTENIDO_MIN_H)}>
+          <div className={cn("space-y-3", wizardStep !== 1 && "hidden")} aria-hidden={wizardStep !== 1}>
+            {/* campos paso 1 */}
+          </div>
+          <div className={cn("space-y-3", wizardStep !== 2 && "hidden")} aria-hidden={wizardStep !== 2}>
+            {/* campos paso 2 */}
+          </div>
+        </div>
+      </GvModalFormBody>
+      <GvModalFooter className="flex flex-wrap items-center justify-center gap-2">
+        {/* Cancelar / Atrás + SigetActionButton submit */}
+      </GvModalFooter>
+    </GvModalForm>
+  ) : null}
+</GvModalShell>
+```
+
+### Prohibiciones wizard
+
+- Desmontar pasos con animación que destruya hooks de datos del paso 1.
+- `Dialog` de shadcn o segundo modal encima sin `ModalConfirmDelete`.
+- Validación `shouldValidate: true` al limpiar campos sincronizados desde UI compleja (calendario); preferir `shouldValidate: false` y validar en **Siguiente**.
 
 ## Confirmación destructiva
 

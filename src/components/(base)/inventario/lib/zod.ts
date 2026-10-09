@@ -48,6 +48,27 @@ export const productSchema = z.object({
 
 export type ProductFormValues = z.infer<typeof productSchema>;
 
+export const productoSugerenciaSchema = z.object({
+  id: z.string().uuid(),
+  nombre: z.string(),
+  nombre_generico: z.string(),
+  concentracion: z.string(),
+  forma_farmaceutica: z.string(),
+  presentacion: z.string(),
+  precio_base: z.number(),
+});
+
+export type ProductoSugerencia = z.infer<typeof productoSugerenciaSchema>;
+
+export const PRODUCTO_WIZARD_PASOS = 4;
+
+export const PRODUCTO_WIZARD_PASOS_META = [
+  { titulo: "Identificación" },
+  { titulo: "Venta y control" },
+  { titulo: "Detalles" },
+  { titulo: "Primer lote" },
+] as const;
+
 export const motivoInventarioSchema = z
   .string()
   .trim()
@@ -158,6 +179,23 @@ export const crearLoteManualSchema = z.object({
 });
 
 export type CrearLoteManualInput = z.infer<typeof crearLoteManualSchema>;
+
+export const productoWizardPaso1Schema = productSchema.pick({
+  nombre: true,
+  nombre_generico: true,
+  concentracion: true,
+  forma_farmaceutica: true,
+  presentacion: true,
+});
+
+export const productoWizardPaso2Schema = productSchema.pick({
+  unidad_venta: true,
+  requiere_receta: true,
+  precio_base: true,
+  stock_minimo: true,
+});
+
+export const productoWizardLoteSchema = crearLoteManualSchema.omit({ producto_id: true });
 
 export const loteInventarioSchema = z.object({
   id: z.string().uuid(),

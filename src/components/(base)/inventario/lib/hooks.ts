@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
@@ -22,6 +22,8 @@ import {
   obtenerLotes,
   registrarBajaPorVencimiento,
   crearLoteManual,
+  buscarProductosSimilares,
+  encontrarProductoDuplicadoExacto,
   obtenerKardex,
   ajustarLotePorConteo,
   darBajaLote,
@@ -35,7 +37,61 @@ import {
   type DevolverProveedorInput,
   type ObtenerKardexInput,
   type ProductFormValues,
+  type ProductoSugerencia,
 } from "./zod";
+import {
+  claveProductoUnico,
+  MIN_CARACTERES_BUSQUEDA_PRODUCTO,
+  normalizarTextoBusquedaProducto,
+} from "./helpers";
+
+function demoProductosSugerencia(texto: string): ProductoSugerencia[] {
+  const needle = normalizarTextoBusquedaProducto(texto);
+  if (needle.length < MIN_CARACTERES_BUSQUEDA_PRODUCTO) return [];
+  return DEMO_PRODUCTOS.filter((p) => {
+    const ng = normalizarTextoBusquedaProducto(p.nombre_generico);
+    const n = normalizarTextoBusquedaProducto(p.nombre);
+    return ng.includes(needle) || n.includes(needle);
+  })
+    .slice(0, 8)
+    .map((p) => ({
+      id: p.id,
+      nombre: p.nombre,
+      nombre_generico: p.nombre_generico,
+      concentracion: p.concentracion,
+      forma_farmaceutica: String(p.forma_farmaceutica),
+      presentacion: p.presentacion,
+      precio_base: p.precio_base,
+    }));
+}
+
+function demoDuplicadoExacto(campos: {
+  nombre_generico: string;
+  concentracion: string;
+  forma_farmaceutica: string;
+  presentacion: string;
+}): ProductoSugerencia | null {
+  const clave = claveProductoUnico(campos);
+  const hit = DEMO_PRODUCTOS.find(
+    (p) =>
+      claveProductoUnico({
+        nombre_generico: p.nombre_generico,
+        concentracion: p.concentracion,
+        forma_farmaceutica: String(p.forma_farmaceutica),
+        presentacion: p.presentacion,
+      }) === clave,
+  );
+  if (!hit) return null;
+  return {
+    id: hit.id,
+    nombre: hit.nombre,
+    nombre_generico: hit.nombre_generico,
+    concentracion: hit.concentracion,
+    forma_farmaceutica: String(hit.forma_farmaceutica),
+    presentacion: hit.presentacion,
+    precio_base: hit.precio_base,
+  };
+}
 
 // Modo edición en pantalla
 export function useEditMode(initial = false) {
@@ -168,6 +224,69 @@ export function useGuardarProducto() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["productos"] });
     },
+  });
+}
+
+export function useBuscarProductosSimilares(texto: string, enabled: boolean) {
+  const { isDemoMode } = useDemoMode();
+  const [debounced, setDebounced] = useState("");
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(texto.trim()), 300);
+    return () => window.clearTimeout(id);
+  }, [texto]);
+
+  return useQuery({
+    queryKey: demoQueryKey(["inventario", "productos-similares", debounced], isDemoMode),
+    queryFn: async () => {
+      if (debounced.length < MIN_CARACTERES_BUSQUEDA_PRODUCTO) return [];
+      if (isDemoMode) return demoProductosSugerencia(debounced);
+      const res = await buscarProductosSimilares(debounced);
+      if (!res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    enabled: enabled && debounced.length >= MIN_CARACTERES_BUSQUEDA_PRODUCTO,
+    staleTime: 30_000,
+  });
+}
+
+export function useProductoDuplicadoExacto(
+  campos: {
+    nombre_generico: string;
+    concentracion: string;
+    forma_farmaceutica: string;
+    presentacion: string;
+  },
+  enabled: boolean,
+) {
+  const { isDemoMode } = useDemoMode();
+  const [debounced, setDebounced] = useState(campos);
+
+  useEffect(() => {
+    const id = window.setTimeout(() => setDebounced(campos), 300);
+    return () => window.clearTimeout(id);
+  }, [campos.nombre_generico, campos.concentracion, campos.forma_farmaceutica, campos.presentacion]);
+
+  return useQuery({
+    queryKey: demoQueryKey(
+      [
+        "inventario",
+        "producto-duplicado",
+        debounced.nombre_generico,
+        debounced.concentracion,
+        debounced.forma_farmaceutica,
+        debounced.presentacion,
+      ],
+      isDemoMode,
+    ),
+    queryFn: async () => {
+      if (isDemoMode) return demoDuplicadoExacto(debounced);
+      const res = await encontrarProductoDuplicadoExacto(debounced);
+      if (!res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    enabled,
+    staleTime: 10_000,
   });
 }
 
