@@ -65,21 +65,10 @@ function demoProductosSugerencia(texto: string): ProductoSugerencia[] {
     }));
 }
 
-function demoDuplicadoExacto(campos: {
-  nombre_generico: string;
-  concentracion: string;
-  forma_farmaceutica: string;
-  presentacion: string;
-}): ProductoSugerencia | null {
-  const clave = claveProductoUnico(campos);
+function demoDuplicadoExacto(nombreGenerico: string): ProductoSugerencia | null {
+  const clave = claveProductoUnico({ nombre_generico: nombreGenerico });
   const hit = DEMO_PRODUCTOS.find(
-    (p) =>
-      claveProductoUnico({
-        nombre_generico: p.nombre_generico,
-        concentracion: p.concentracion,
-        forma_farmaceutica: String(p.forma_farmaceutica),
-        presentacion: p.presentacion,
-      }) === clave,
+    (p) => claveProductoUnico({ nombre_generico: p.nombre_generico }) === clave,
   );
   if (!hit) return null;
   return {
@@ -250,33 +239,20 @@ export function useBuscarProductosSimilares(texto: string, enabled: boolean) {
   });
 }
 
-export function useProductoDuplicadoExacto(
-  campos: {
-    nombre_generico: string;
-    concentracion: string;
-    forma_farmaceutica: string;
-    presentacion: string;
-  },
-  enabled: boolean,
-) {
+export function useProductoDuplicadoExacto(nombreGenerico: string, enabled: boolean) {
   const { isDemoMode } = useDemoMode();
-  const [debounced, setDebounced] = useState(campos);
+  const [debounced, setDebounced] = useState(nombreGenerico);
 
   useEffect(() => {
-    const id = window.setTimeout(() => setDebounced(campos), 300);
+    const id = window.setTimeout(() => setDebounced(nombreGenerico), 300);
     return () => window.clearTimeout(id);
-  }, [campos.nombre_generico, campos.concentracion, campos.forma_farmaceutica, campos.presentacion]);
+  }, [nombreGenerico]);
 
-  return useQuery({
+  const isDebouncing = nombreGenerico !== debounced;
+
+  const query = useQuery({
     queryKey: demoQueryKey(
-      [
-        "inventario",
-        "producto-duplicado",
-        debounced.nombre_generico,
-        debounced.concentracion,
-        debounced.forma_farmaceutica,
-        debounced.presentacion,
-      ],
+      ["inventario", "producto-duplicado", debounced],
       isDemoMode,
     ),
     queryFn: async () => {
@@ -285,9 +261,11 @@ export function useProductoDuplicadoExacto(
       if (!res.success) throw new Error(res.code ?? "ERROR");
       return res.data;
     },
-    enabled,
+    enabled: enabled && !isDebouncing,
     staleTime: 10_000,
   });
+
+  return { ...query, isDebouncing };
 }
 
 export function useCrearLoteManual() {

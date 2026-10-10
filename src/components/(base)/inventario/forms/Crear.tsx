@@ -1,27 +1,27 @@
 "use client";
 
-import { useEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "react-toastify";
+import Swal from "sweetalert2";
 import type { ZodError } from "zod";
 import { Check, ChevronLeft, ChevronRight, Send, SkipForward, X } from "lucide";
 import ImageUploader from "@/components/imgs/ImageUploader";
 import {
   ModalCancelButton,
-  ModalConfirmDelete,
   ModalField,
   ModalFooter,
   ModalForm,
   ModalFechaInput,
   ModalInput,
   ModalLabel,
+  ModalSelect,
   ModalShell,
   ModalTextarea,
   modalAccentClass,
   modalActionMessage,
-  modalFieldClass,
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { cn } from "@/lib/utils";
+import { cn, getSwalThemeOpts } from "@/lib/utils";
 import { useProveedores } from "@/components/(base)/proveedores/lib/hooks";
 import { normalizarFechaCalendario } from "@/lib/fechas-gt";
 import {
@@ -32,8 +32,7 @@ import {
 import { ProductoBusquedaAutocomplete } from "./ProductoBusquedaAutocomplete";
 import { CrearLoteManual } from "./CrearLoteManual";
 import {
-  claveProductoUnico,
-  identificacionProductoCompleta,
+  nombreGenericoListoParaDuplicado,
   lineaSugerenciaProductoCatalogo,
 } from "../lib/helpers";
 import {
@@ -100,18 +99,23 @@ function aplicarErroresZod(
 function marcarCamposIdentificacionDuplicado(
   setFieldErrors: Dispatch<SetStateAction<Record<string, string>>>,
 ) {
-  setFieldErrors((prev) => {
-    const next = { ...prev };
-    for (const key of CAMPOS_IDENTIFICACION) {
-      next[key] = DUPLICATE_PRODUCTO_MSG;
-    }
-    return next;
-  });
+  setFieldErrors((prev) => ({
+    ...prev,
+    nombre_generico: DUPLICATE_PRODUCTO_MSG,
+  }));
 }
 
 function CampoError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="text-xs font-bold text-red-500">{message}</p>;
+}
+
+function textoHtmlSwalSeguro(texto: string) {
+  return texto
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function AlertaProductoExistente({
@@ -131,7 +135,7 @@ function AlertaProductoExistente({
       role="alert"
     >
       <p className="text-sm font-bold text-amber-950 dark:text-amber-100">
-        Este producto ya existe.
+        Ya existe un producto con este nombre genérico.
       </p>
       <p className="mt-1 text-xs text-amber-900/90 dark:text-amber-100/80">
         {lineaSugerenciaProductoCatalogo(producto)}
@@ -149,7 +153,7 @@ function AlertaProductoExistente({
           className="w-auto shrink-0"
           ariaLabel="Agregar lote a este producto"
         />
-        {modo === "eleccion" && onCrearNuevo ? (
+        {onCrearNuevo ? (
           <SigetActionButton
             label="Nuevo"
             accentColor={sigetAccent.cancelar}
@@ -175,13 +179,8 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
   const [wizardStep, setWizardStep] = useState(1);
   const [productoId, setProductoId] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [confirmarDescartar, setConfirmarDescartar] = useState(false);
   const [mostrarWizard, setMostrarWizard] = useState(true);
   const [loteManualProducto, setLoteManualProducto] = useState<ProductoSugerencia | null>(null);
-  const [conflictoProducto, setConflictoProducto] = useState<{
-    producto: ProductoSugerencia;
-    modo: "exacto" | "eleccion";
-  } | null>(null);
   const [continuarTrasSugerencia, setContinuarTrasSugerencia] = useState(false);
 
   const [nombre, setNombre] = useState("");
@@ -211,62 +210,39 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
   const { mutateAsync: guardarProducto, isPending: isGuardandoProducto } = useGuardarProducto();
   const { mutateAsync: crearLote, isPending: isGuardandoLote } = useCrearLoteManual();
 
-  const camposIdentificacion = useMemo(
-    () => ({
-      nombre_generico: nombreGenerico.trim(),
-      concentracion: concentracion.trim(),
-      forma_farmaceutica: formaFarmaceutica,
-      presentacion: presentacion.trim(),
-    }),
-    [nombreGenerico, concentracion, formaFarmaceutica, presentacion],
-  );
+  const nombreGenericoParaDuplicado = nombreGenerico.trim();
 
-  const identificacionLista = identificacionProductoCompleta(camposIdentificacion);
-
-  const { data: duplicadoExactoLive } = useProductoDuplicadoExacto(
-    camposIdentificacion,
-    isOpen && mostrarWizard && wizardStep === 1 && identificacionLista && !continuarTrasSugerencia,
-  );
-
-  useEffect(() => {
-    if (!isOpen || wizardStep !== 1 || continuarTrasSugerencia) return;
-    if (conflictoProducto?.modo === "eleccion") return;
-    if (duplicadoExactoLive) {
-      setConflictoProducto({ producto: duplicadoExactoLive, modo: "exacto" });
-      return;
-    }
-    setConflictoProducto((prev) => (prev?.modo === "exacto" ? null : prev));
-  }, [duplicadoExactoLive, wizardStep, continuarTrasSugerencia, isOpen, conflictoProducto?.modo]);
-
-  const bloqueaAvancePaso1 =
+  const verificacionDuplicadoActiva =
+    isOpen &&
+    mostrarWizard &&
     wizardStep === 1 &&
-    conflictoProducto !== null &&
-    (conflictoProducto.modo === "exacto" || !continuarTrasSugerencia);
+    nombreGenericoListoParaDuplicado(nombreGenericoParaDuplicado) &&
+    !continuarTrasSugerencia;
+
+  const {
+    data: duplicadoExactoLive,
+    isFetching: buscandoDuplicado,
+    isDebouncing: debounceDuplicado,
+  } = useProductoDuplicadoExacto(nombreGenericoParaDuplicado, verificacionDuplicadoActiva);
+
+  const productoDuplicado =
+    verificacionDuplicadoActiva && !debounceDuplicado && !buscandoDuplicado
+      ? (duplicadoExactoLive ?? null)
+      : null;
+
+  const bloqueaAvancePaso1 = wizardStep === 1 && productoDuplicado !== null;
 
   const limpiarConflictoPorEdicion = () => {
     setContinuarTrasSugerencia(false);
-    setConflictoProducto(null);
   };
 
   const aplicarProductoSugerido = (producto: ProductoSugerencia) => {
-    const camposProducto = {
-      nombre_generico: producto.nombre_generico,
-      concentracion: producto.concentracion,
-      forma_farmaceutica: producto.forma_farmaceutica,
-      presentacion: producto.presentacion,
-    };
-    const modo =
-      identificacionLista &&
-      claveProductoUnico(camposIdentificacion) === claveProductoUnico(camposProducto)
-        ? "exacto"
-        : "eleccion";
     setNombreGenerico(producto.nombre_generico);
     setConcentracion(producto.concentracion);
     setFormaFarmaceutica(producto.forma_farmaceutica as FormaFarmaceutica);
     setPresentacion(producto.presentacion);
     if (!nombre.trim()) setNombre(producto.nombre);
     setContinuarTrasSugerencia(false);
-    setConflictoProducto({ producto, modo });
   };
 
   const abrirLoteParaProducto = (producto: ProductoSugerencia) => {
@@ -288,10 +264,8 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
     setWizardStep(1);
     setProductoId(null);
     setFieldErrors({});
-    setConfirmarDescartar(false);
     setMostrarWizard(true);
     setLoteManualProducto(null);
-    setConflictoProducto(null);
     setContinuarTrasSugerencia(false);
     setNombre("");
     setNombreGenerico("");
@@ -359,13 +333,24 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
     onClose();
   };
 
-  const solicitarCerrar = () => {
+  const solicitarCerrar = async () => {
     if (productoId) {
       cerrarConProductoSinLote();
       return;
     }
     if (tieneDatosEscritos()) {
-      setConfirmarDescartar(true);
+      const result = await Swal.fire({
+        title: "¿Descartar cambios?",
+        text: "Se perderá lo que llevas escrito en este formulario.",
+        icon: "warning",
+        showCancelButton: true,
+        confirmButtonText: "Descartar",
+        cancelButtonText: "Cancelar",
+        ...getSwalThemeOpts(),
+      });
+      if (result.isConfirmed) {
+        handleClose();
+      }
       return;
     }
     handleClose();
@@ -391,7 +376,37 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
       ? "border-red-500 dark:border-red-500 focus-visible:ring-red-500/25"
       : undefined;
 
-  const validarPaso1 = () => {
+  const mostrarSwalProductoDuplicado = async (dup: ProductoSugerencia) => {
+    const linea = lineaSugerenciaProductoCatalogo(dup);
+    const comercial = dup.nombre.trim();
+    const detalleHtml = comercial
+      ? `<p class="text-sm text-left mt-2">${textoHtmlSwalSeguro(linea)}</p><p class="text-xs text-left mt-1 opacity-80">${textoHtmlSwalSeguro(comercial)}</p>`
+      : `<p class="text-sm text-left mt-2">${textoHtmlSwalSeguro(linea)}</p>`;
+
+    const result = await Swal.fire({
+      title: "Ya existe un producto con este nombre genérico",
+      html: detalleHtml,
+      icon: "warning",
+      showCancelButton: true,
+      showDenyButton: true,
+      confirmButtonText: "Agregar",
+      denyButtonText: "Nuevo",
+      cancelButtonText: "Cerrar",
+      reverseButtons: true,
+      focusCancel: true,
+      ...getSwalThemeOpts(),
+    });
+
+    if (result.isConfirmed) {
+      abrirLoteParaProducto(dup);
+      return;
+    }
+    if (result.isDenied) {
+      setContinuarTrasSugerencia(true);
+    }
+  };
+
+  const validarPaso1 = async () => {
     limpiarErroresCampos(CAMPOS_IDENTIFICACION);
     const parsed = productoWizardPaso1Schema.safeParse({
       nombre: nombre.trim(),
@@ -405,8 +420,12 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
       toast.warn("Revisa los datos del formulario.");
       return false;
     }
-    if (bloqueaAvancePaso1) {
-      toast.warn("Resuelve el producto existente antes de continuar.");
+    if (debounceDuplicado || buscandoDuplicado) {
+      toast.warn("Verificando si el producto ya existe en catálogo…");
+      return false;
+    }
+    if (productoDuplicado) {
+      await mostrarSwalProductoDuplicado(productoDuplicado);
       return false;
     }
     return true;
@@ -496,7 +515,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
 
   const handleSiguiente = async () => {
     if (wizardStep === 1) {
-      if (!validarPaso1()) return;
+      if (!(await validarPaso1())) return;
       setWizardStep(2);
       return;
     }
@@ -568,13 +587,6 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
   const isPending = isGuardandoProducto || isGuardandoLote;
   const bloqueadoPorImagen = isUploadingImage;
 
-  const selectClass = (key: string) =>
-    cn(
-      modalFieldClass,
-      "h-10 w-full rounded-lg bg-transparent px-3 text-sm text-foreground outline-none transition-colors focus-visible:outline-none",
-      inputErrorClass(key),
-    );
-
   return (
     <>
     <ModalShell
@@ -586,6 +598,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
     >
       {isOpen ? (
         <ModalForm
+          noValidate
           onSubmit={handleFormSubmit}
           className="flex min-h-0 flex-1 flex-col gap-4"
         >
@@ -665,6 +678,17 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
                   inputClassName={inputErrorClass("nombre_generico")}
                   required
                 />
+                {debounceDuplicado || buscandoDuplicado ? (
+                  <p className="text-xs text-zinc-500">Comprobando catálogo…</p>
+                ) : null}
+                {productoDuplicado ? (
+                  <AlertaProductoExistente
+                    producto={productoDuplicado}
+                    modo="exacto"
+                    onAgregarLote={() => abrirLoteParaProducto(productoDuplicado)}
+                    onCrearNuevo={() => setContinuarTrasSugerencia(true)}
+                  />
+                ) : null}
               </ModalField>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -686,7 +710,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
 
                 <ModalField>
                   <ModalLabel htmlFor="producto-forma">Forma farmacéutica *</ModalLabel>
-                  <select
+                  <ModalSelect
                     id="producto-forma"
                     value={formaFarmaceutica}
                     onChange={(e) => {
@@ -694,14 +718,14 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
                       limpiarConflictoPorEdicion();
                       limpiarErroresCampos(["forma_farmaceutica"]);
                     }}
-                    className={selectClass("forma_farmaceutica")}
+                    className={inputErrorClass("forma_farmaceutica")}
                   >
                     {FORMAS_FARMACEUTICAS.map((f) => (
                       <option key={f.value} value={f.value}>
                         {f.label}
                       </option>
                     ))}
-                  </select>
+                  </ModalSelect>
                   <CampoError message={fieldErrors.forma_farmaceutica} />
                 </ModalField>
               </div>
@@ -722,21 +746,6 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
                 <CampoError message={fieldErrors.presentacion} />
               </ModalField>
 
-              {conflictoProducto ? (
-                <AlertaProductoExistente
-                  producto={conflictoProducto.producto}
-                  modo={conflictoProducto.modo}
-                  onAgregarLote={() => abrirLoteParaProducto(conflictoProducto.producto)}
-                  onCrearNuevo={
-                    conflictoProducto.modo === "eleccion"
-                      ? () => {
-                          setContinuarTrasSugerencia(true);
-                          setConflictoProducto(null);
-                        }
-                      : undefined
-                  }
-                />
-              ) : null}
             </div>
 
             <div
@@ -833,7 +842,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
               </p>
 
               <ModalField>
-                <ModalLabel htmlFor="producto-descripcion">Descripción / Componentes</ModalLabel>
+                <ModalLabel htmlFor="producto-descripcion">Descripción</ModalLabel>
                 <ModalTextarea
                   id="producto-descripcion"
                   value={descripcion}
@@ -865,23 +874,26 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <ModalField>
                   <ModalLabel htmlFor="lote-proveedor">Proveedor *</ModalLabel>
-                  <select
+                  <ModalSelect
                     id="lote-proveedor"
                     value={proveedorLoteId}
                     onChange={(e) => {
                       setProveedorLoteId(e.target.value);
                       limpiarErroresCampos(["proveedor_id"]);
                     }}
-                    className={selectClass("proveedor_id")}
+                    className={cn(
+                      inputErrorClass("proveedor_id"),
+                      !proveedorLoteId && "text-zinc-500 dark:text-zinc-400",
+                    )}
                     required
                   >
-                    <option value="">Seleccionar proveedor...</option>
+                    <option value="">Seleccionar proveedor…</option>
                     {proveedores.map((p) => (
                       <option key={p.id} value={p.id}>
                         {p.nombre}
                       </option>
                     ))}
-                  </select>
+                  </ModalSelect>
                   <CampoError message={fieldErrors.proveedor_id} />
                 </ModalField>
 
@@ -1021,18 +1033,14 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
             </div>
           </div>
 
-          {confirmarDescartar ? (
-            <ModalConfirmDelete
-              title="¿Descartar cambios?"
-              message="Se perderá lo que llevas escrito en este formulario."
-              confirmText="Descartar"
-              intent="deactivate"
-              onCancel={() => setConfirmarDescartar(false)}
-              onConfirm={() => {
-                setConfirmarDescartar(false);
-                handleClose();
-              }}
-            />
+          {wizardStep === 1 && bloqueaAvancePaso1 && productoDuplicado ? (
+            <p
+              className="shrink-0 rounded-lg border border-amber-300/80 bg-amber-50 px-3 py-2 text-center text-xs text-amber-950 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-100"
+              role="status"
+            >
+              Siguiente está bloqueado: el catálogo ya tiene este nombre genérico. Usa la alerta
+              amarilla para Agregar lote o pulsar Nuevo.
+            </p>
           ) : null}
 
           <ModalFooter className="flex flex-wrap items-center justify-center gap-2">
@@ -1073,7 +1081,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
                 morphFrom={ChevronRight}
                 morphTo={ChevronRight}
                 type="submit"
-                disabled={isPending || bloqueadoPorImagen || (wizardStep === 1 && bloqueaAvancePaso1)}
+                disabled={isPending || bloqueadoPorImagen}
                 ariaBusy={wizardStep === 3 && isGuardandoProducto}
                 className="w-auto shrink-0"
               />

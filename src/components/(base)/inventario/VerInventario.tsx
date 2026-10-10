@@ -21,6 +21,8 @@ import {
   FileDown,
 } from "lucide-react";
 import {
+  Box as BoxNode,
+  Package as PackageNode,
   Pencil as PencilNode,
   Plus as PlusNode,
   SquarePen as SquarePenNode,
@@ -80,11 +82,18 @@ import {
 } from "@/lib/vencimientos-gt";
 import { exportarPDF } from "./utils";
 import {
+  ModalCancelButton,
   ModalConfirmDelete,
+  ModalField,
+  ModalFooter,
+  ModalForm,
   ModalShell,
   modalActionMessage,
   toast,
 } from "@/components/ui/general-modal";
+import { CrearLoteManual } from "./forms/CrearLoteManual";
+import { ProductoBusquedaAutocomplete } from "./forms/ProductoBusquedaAutocomplete";
+import type { ProductoSugerencia } from "./lib/zod";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { inventarioPageShellClass, moduleControlsShellClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
@@ -168,10 +177,12 @@ function ProductoFarmaciaTitulo({
   producto,
   className,
   tituloClassName,
+  comercialClassName,
 }: {
   producto: Producto;
   className?: string;
   tituloClassName?: string;
+  comercialClassName?: string;
 }) {
   const comercial = nombreComercialSiDistinto(producto);
   return (
@@ -180,7 +191,12 @@ function ProductoFarmaciaTitulo({
         {tituloProductoFarmacia(producto)}
       </p>
       {comercial ? (
-        <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
+        <p
+          className={cn(
+            "mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400",
+            comercialClassName,
+          )}
+        >
           {comercial}
         </p>
       ) : null}
@@ -595,6 +611,7 @@ function ProductoDetalle({
               <ProductoFarmaciaTitulo
                 producto={producto}
                 tituloClassName="text-xl font-black text-slate-900 dark:text-white md:text-2xl"
+                comercialClassName="mt-1 text-base font-semibold text-slate-600 dark:text-slate-300 md:text-lg"
               />
             </div>
           </div>
@@ -1179,6 +1196,9 @@ export function VerInventario() {
   const { mutateAsync: registrarBajaAsync, isPending: isBajaPending } = useRegistrarBajaVencido();
   const [showDesactivarModal, setShowDesactivarModal] = useState<Producto | null>(null);
   const [showBajaModal, setShowBajaModal] = useState<Producto | null>(null);
+  const [modalSeleccionProductoLote, setModalSeleccionProductoLote] = useState(false);
+  const [busquedaProductoLote, setBusquedaProductoLote] = useState("");
+  const [loteManualProducto, setLoteManualProducto] = useState<ProductoSugerencia | null>(null);
   const [loteOperacion, setLoteOperacion] = useState<{
     lote: LoteOperacionTarget;
     modo: "conteo" | "baja" | "devolucion";
@@ -1391,6 +1411,17 @@ export function VerInventario() {
     router.push("/farmamuni/inventario/nuevo");
   };
 
+  const handleNuevoLote = () => {
+    setBusquedaProductoLote("");
+    setModalSeleccionProductoLote(true);
+  };
+
+  const handleSeleccionProductoParaLote = (producto: ProductoSugerencia) => {
+    setModalSeleccionProductoLote(false);
+    setBusquedaProductoLote("");
+    setLoteManualProducto(producto);
+  };
+
   const handleDesactivarProducto = (producto: Producto) => {
     setShowDesactivarModal(producto);
   };
@@ -1559,11 +1590,14 @@ export function VerInventario() {
             className="w-full sm:w-auto min-w-[12rem]"
           />
           <SigetActionButton
-            label="Crear"
+            label={vistaInventario === "catalogo" ? "Producto" : "Lote"}
             accentColor={sigetAccent.crear}
-            morphFrom={PlusNode}
-            morphTo={UserPlus}
-            onClick={handleNuevoProducto}
+            morphFrom={vistaInventario === "catalogo" ? PlusNode : BoxNode}
+            morphTo={vistaInventario === "catalogo" ? UserPlus : PackageNode}
+            onClick={vistaInventario === "catalogo" ? handleNuevoProducto : handleNuevoLote}
+            ariaLabel={
+              vistaInventario === "catalogo" ? "Nuevo producto" : "Nuevo lote"
+            }
             className="w-full sm:w-auto shrink-0"
           />
         </div>
@@ -2095,6 +2129,50 @@ export function VerInventario() {
             void refetchProductos();
           }}
         />
+
+        <ModalShell
+          isOpen={modalSeleccionProductoLote}
+          onClose={() => setModalSeleccionProductoLote(false)}
+          title="Nuevo lote"
+          maxWidth="max-w-lg"
+        >
+          <ModalForm
+            onSubmit={(e) => e.preventDefault()}
+            className="space-y-4"
+          >
+            <p className="text-sm text-zinc-600 dark:text-zinc-300">
+              Busca en el catálogo el producto al que vas a registrar existencias.
+            </p>
+            <ModalField>
+              <ProductoBusquedaAutocomplete
+                id="inventario-nuevo-lote-producto"
+                label="Producto del catálogo"
+                value={busquedaProductoLote}
+                onChange={setBusquedaProductoLote}
+                onSelectProducto={handleSeleccionProductoParaLote}
+                enabled={modalSeleccionProductoLote}
+                listaTitulo="Productos del catálogo"
+              />
+            </ModalField>
+            <ModalFooter className="flex justify-center gap-2">
+              <ModalCancelButton onClick={() => setModalSeleccionProductoLote(false)} />
+            </ModalFooter>
+          </ModalForm>
+        </ModalShell>
+
+        {loteManualProducto ? (
+          <CrearLoteManual
+            open
+            producto={loteManualProducto}
+            precioVentaInicial={String(loteManualProducto.precio_base || "")}
+            onClose={() => setLoteManualProducto(null)}
+            onSuccess={() => {
+              setLoteManualProducto(null);
+              void refetchLotes();
+              void refetchProductos();
+            }}
+          />
+        ) : null}
       </div>
 
       <AnimatePresence>

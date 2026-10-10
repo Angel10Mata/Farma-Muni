@@ -12,9 +12,9 @@ import {
   ModalFechaInput,
   ModalInput,
   ModalLabel,
+  ModalSelect,
   ModalShell,
   modalActionMessage,
-  modalFieldClass,
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { cn } from "@/lib/utils";
@@ -78,11 +78,6 @@ export function CrearLoteManual({
       setPrecioCostoLote("");
     }
   }, [open, producto.id, producto.precio_base, precioVentaInicial]);
-
-  const selectClass = cn(
-    modalFieldClass,
-    "h-10 w-full rounded-lg bg-transparent px-3 text-sm text-foreground outline-none transition-colors focus-visible:outline-none",
-  );
 
   const aplicarErrores = (error: ZodError) => {
     const next: Record<string, string> = {};
@@ -171,20 +166,22 @@ export function CrearLoteManual({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ModalField>
                 <ModalLabel htmlFor="lote-manual-proveedor">Proveedor *</ModalLabel>
-                <select
+                <ModalSelect
                   id="lote-manual-proveedor"
                   value={proveedorLoteId}
                   onChange={(e) => setProveedorLoteId(e.target.value)}
-                  className={selectClass}
+                  className={cn(
+                    !proveedorLoteId && "text-zinc-500 dark:text-zinc-400",
+                  )}
                   required
                 >
-                  <option value="">Seleccionar proveedor...</option>
+                  <option value="">Seleccionar proveedor…</option>
                   {proveedores.map((p) => (
                     <option key={p.id} value={p.id}>
                       {p.nombre}
                     </option>
                   ))}
-                </select>
+                </ModalSelect>
                 {fieldErrors.proveedor_id ? (
                   <p className="text-xs font-bold text-red-500">{fieldErrors.proveedor_id}</p>
                 ) : null}

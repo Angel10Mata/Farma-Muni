@@ -4,7 +4,7 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import {
   claveProductoUnico,
-  identificacionProductoCompleta,
+  nombreGenericoListoParaDuplicado,
   MIN_CARACTERES_BUSQUEDA_PRODUCTO,
   normalizarTextoBusquedaProducto,
 } from "./helpers";
@@ -105,17 +105,12 @@ function mapFilaProductoSugerencia(row: Record<string, unknown>): ProductoSugere
   return parsed.success ? parsed.data : null;
 }
 
-async function encontrarProductoPorClaveUnica(
+async function encontrarProductoPorNombreGenerico(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  campos: {
-    nombre_generico: string;
-    concentracion: string;
-    forma_farmaceutica: string;
-    presentacion: string;
-  },
+  nombreGenerico: string,
   excludeId?: string,
 ): Promise<ProductoSugerencia | null> {
-  const clave = claveProductoUnico(campos);
+  const clave = claveProductoUnico({ nombre_generico: nombreGenerico });
   let query = supabase.from("inv_productos").select(PRODUCTO_SUGERENCIA_SELECT);
   if (excludeId) query = query.neq("id", excludeId);
   const { data, error } = await query;
@@ -123,14 +118,7 @@ async function encontrarProductoPorClaveUnica(
   for (const row of data ?? []) {
     const candidato = mapFilaProductoSugerencia(row as Record<string, unknown>);
     if (!candidato) continue;
-    if (
-      claveProductoUnico({
-        nombre_generico: candidato.nombre_generico,
-        concentracion: candidato.concentracion,
-        forma_farmaceutica: candidato.forma_farmaceutica,
-        presentacion: candidato.presentacion,
-      }) === clave
-    ) {
+    if (claveProductoUnico({ nombre_generico: candidato.nombre_generico }) === clave) {
       return candidato;
     }
   }
@@ -139,15 +127,10 @@ async function encontrarProductoPorClaveUnica(
 
 async function existeProductoDuplicado(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  campos: {
-    nombre_generico: string;
-    concentracion: string;
-    forma_farmaceutica: string;
-    presentacion: string;
-  },
+  nombreGenerico: string,
   excludeId?: string,
 ) {
-  return (await encontrarProductoPorClaveUnica(supabase, campos, excludeId)) !== null;
+  return (await encontrarProductoPorNombreGenerico(supabase, nombreGenerico, excludeId)) !== null;
 }
 
 export async function buscarProductosSimilares(texto: string) {
@@ -188,24 +171,15 @@ export async function buscarProductosSimilares(texto: string) {
   }
 }
 
-export async function encontrarProductoDuplicadoExacto(campos: {
-  nombre_generico: string;
-  concentracion: string;
-  forma_farmaceutica: string;
-  presentacion: string;
-}) {
+export async function encontrarProductoDuplicadoExacto(nombreGenerico: string) {
   try {
     const guard = await requireInventario();
     if (!guard.ok) return { code: guard.code };
-    if (!identificacionProductoCompleta(campos)) {
+    const term = nombreGenerico.trim();
+    if (!nombreGenericoListoParaDuplicado(term)) {
       return { success: true as const, data: null as ProductoSugerencia | null };
     }
-    const producto = await encontrarProductoPorClaveUnica(guard.supabase, {
-      nombre_generico: campos.nombre_generico.trim(),
-      concentracion: campos.concentracion.trim(),
-      forma_farmaceutica: campos.forma_farmaceutica,
-      presentacion: campos.presentacion.trim(),
-    });
+    const producto = await encontrarProductoPorNombreGenerico(guard.supabase, term);
     return { success: true as const, data: producto };
   } catch {
     return { code: "INTERNAL" as const };
@@ -347,15 +321,8 @@ export async function guardarProducto(id: string | undefined, input: ProductForm
     const parsed = productSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
 
-    const farmacia = {
-      nombre_generico: parsed.data.nombre_generico,
-      concentracion: parsed.data.concentracion,
-      forma_farmaceutica: parsed.data.forma_farmaceutica,
-      presentacion: parsed.data.presentacion,
-    };
-
     try {
-      const duplicado = await existeProductoDuplicado(supabase, farmacia, id);
+      const duplicado = await existeProductoDuplicado(supabase, parsed.data.nombre_generico, id);
       if (duplicado) return { code: "DUPLICATE" as const };
     } catch {
       return { code: "INTERNAL" as const };

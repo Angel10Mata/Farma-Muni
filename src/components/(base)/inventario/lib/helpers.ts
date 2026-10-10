@@ -121,15 +121,12 @@ export function patchInvProductoStockActual(nuevaCantidad: number): {
   return { stock_actual };
 }
 
-// Clave única de producto (nombre genérico + presentación)
-export function claveProductoUnico(p: {
-  nombre_generico: string;
-  concentracion: string;
-  forma_farmaceutica: string;
-  presentacion: string;
-}): string {
-  const n = (s: string) => s.trim().toLowerCase();
-  return [n(p.nombre_generico), n(p.concentracion), n(p.forma_farmaceutica), n(p.presentacion)].join("\0");
+export function claveProductoUnico(p: { nombre_generico: string }): string {
+  return p.nombre_generico.trim().toLowerCase();
+}
+
+export function nombreGenericoListoParaDuplicado(nombreGenerico: string): boolean {
+  return nombreGenerico.trim().length >= 2;
 }
 
 export const MIN_CARACTERES_BUSQUEDA_PRODUCTO = 3;

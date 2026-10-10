@@ -24,8 +24,7 @@ export const FORMAS_FARMACEUTICAS: { value: FormaFarmaceutica; label: string }[]
   { value: "otro", label: "Otro" },
 ];
 
-export const DUPLICATE_PRODUCTO_MSG =
-  "Ya existe un producto con el mismo genérico, concentración, forma y presentación";
+export const DUPLICATE_PRODUCTO_MSG = "Ya existe un producto con el mismo nombre genérico";
 
 export const DUPLICATE_LOTE_MSG =
   "Ya existe un lote con ese código de barras y número de lote";
@@ -68,6 +67,10 @@ export const PRODUCTO_WIZARD_PASOS_META = [
   { titulo: "Detalles" },
   { titulo: "Primer lote" },
 ] as const;
+
+export const EDITAR_PRODUCTO_WIZARD_PASOS = 3;
+
+export const EDITAR_PRODUCTO_WIZARD_PASOS_META = PRODUCTO_WIZARD_PASOS_META.slice(0, 3);
 
 export const motivoInventarioSchema = z
   .string()
