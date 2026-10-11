@@ -41,16 +41,40 @@ export function nombreComercialSiDistinto(p: CamposTituloProducto): string | nul
   return comercial;
 }
 
+export type BusquedaInventarioCampo = "todos" | "generico" | "laboratorio" | "comercial";
+
 export function productoCoincideBusquedaInventario(
-  p: { nombre?: string; nombre_generico?: string | null; codigo?: string | null },
+  p: {
+    nombre?: string;
+    nombre_generico?: string | null;
+    codigo?: string | null;
+    laboratorio?: string | null;
+  },
   busqueda: string,
+  campo: BusquedaInventarioCampo = "todos",
 ): boolean {
   const q = busqueda.trim().toLowerCase();
   if (!q) return true;
+  if (campo === "generico") {
+    return (
+      (p.nombre_generico || "").toLowerCase().includes(q) ||
+      (p.codigo || "").toLowerCase().includes(q)
+    );
+  }
+  if (campo === "comercial") {
+    return (
+      (p.nombre || "").toLowerCase().includes(q) ||
+      (p.codigo || "").toLowerCase().includes(q)
+    );
+  }
+  if (campo === "laboratorio") {
+    return (p.laboratorio || "").toLowerCase().includes(q);
+  }
   return (
     (p.nombre || "").toLowerCase().includes(q) ||
     (p.nombre_generico || "").toLowerCase().includes(q) ||
-    (p.codigo || "").toLowerCase().includes(q)
+    (p.codigo || "").toLowerCase().includes(q) ||
+    (p.laboratorio || "").toLowerCase().includes(q)
   );
 }
 

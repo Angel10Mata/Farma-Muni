@@ -252,6 +252,43 @@ function lotesPorProductoId(lotes: LoteInventario[], productoId: string): LoteIn
     .sort((a, b) => (a.fecha_vencimiento ?? "").localeCompare(b.fecha_vencimiento ?? ""));
 }
 
+function mapLaboratorioCatalogoPorProducto(lotes: LoteInventario[]): Map<string, string> {
+  const porProducto = new Map<string, Set<string>>();
+  for (const lote of lotes) {
+    if (!lote.activo) continue;
+    const lab = lote.laboratorio?.trim();
+    if (!lab) continue;
+    const set = porProducto.get(lote.producto_id) ?? new Set<string>();
+    set.add(lab);
+    porProducto.set(lote.producto_id, set);
+  }
+  const result = new Map<string, string>();
+  for (const [id, set] of porProducto) {
+    result.set(id, [...set].sort((a, b) => a.localeCompare(b, "es")).join(" · "));
+  }
+  return result;
+}
+
+type VistaInventario = "lotes" | "generico" | "laboratorio" | "comercial";
+
+function esVistaCatalogo(vista: VistaInventario): boolean {
+  return vista !== "lotes";
+}
+
+function campoBusquedaPorVista(vista: VistaInventario) {
+  if (vista === "generico") return "generico" as const;
+  if (vista === "laboratorio") return "laboratorio" as const;
+  if (vista === "comercial") return "comercial" as const;
+  return "todos" as const;
+}
+
+function placeholderBusquedaInventario(vista: VistaInventario): string {
+  if (vista === "generico") return "Buscar por nombre genérico o código de barras...";
+  if (vista === "laboratorio") return "Buscar por laboratorio...";
+  if (vista === "comercial") return "Buscar por nombre comercial o código de barras...";
+  return "Buscar por nombre, genérico o código de barras...";
+}
+
 function mapUbicacionesPorProducto(lotes: LoteInventario[]): Map<string, string> {
   const porProducto = new Map<string, Set<string>>();
   for (const lote of lotes) {
@@ -1154,7 +1191,7 @@ export function VerInventario() {
     useState<CategoriaVencimientoLote | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("activos");
   const [filtroUbicacion, setFiltroUbicacion] = useState("");
-  const [vistaInventario, setVistaInventario] = useState<"lotes" | "catalogo">("catalogo");
+  const [vistaInventario, setVistaInventario] = useState<VistaInventario>("generico");
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
 
   const { data: productosCatalogo = [], isLoading: isLoadingCatalogo, refetch: refetchProductos } = useProductos();
@@ -1171,6 +1208,10 @@ export function VerInventario() {
     () => mapUbicacionesPorProducto(lotes as LoteInventario[]),
     [lotes],
   );
+  const laboratorioPorProductoId = useMemo(
+    () => mapLaboratorioCatalogoPorProducto(lotes as LoteInventario[]),
+    [lotes],
+  );
 
   const productosCatalogoConUbicacion = useMemo(
     () =>
@@ -1180,9 +1221,10 @@ export function VerInventario() {
         return {
           ...row,
           ubicacion: ubicacionesPorProductoId.get(idCat) ?? row.ubicacion ?? null,
+          laboratorio: laboratorioPorProductoId.get(idCat) ?? row.laboratorio ?? null,
         };
       }),
-    [productosCatalogo, ubicacionesPorProductoId],
+    [productosCatalogo, ubicacionesPorProductoId, laboratorioPorProductoId],
   );
 
   const isLoading = vistaInventario === "lotes" ? isLoadingLotes : isLoadingCatalogo;
@@ -1259,6 +1301,12 @@ export function VerInventario() {
     const vista = searchParams.get("vista");
     if (vista === "lotes") {
       setVistaInventario("lotes");
+    } else if (vista === "catalogo" || vista === "generico") {
+      setVistaInventario("generico");
+    } else if (vista === "laboratorio") {
+      setVistaInventario("laboratorio");
+    } else if (vista === "comercial") {
+      setVistaInventario("comercial");
     }
     const cat = parseCategoriaVencimientoQuery(searchParams.get("vencimiento"));
     if (cat) {
@@ -1351,7 +1399,11 @@ export function VerInventario() {
   ).sort((a, b) => a.localeCompare(b));
 
   const productosFiltrados = productos.filter((p) => {
-    const matchesSearch = productoCoincideBusquedaInventario(p, busqueda);
+    const matchesSearch = productoCoincideBusquedaInventario(
+      p,
+      busqueda,
+      campoBusquedaPorVista(vistaInventario),
+    );
 
     const matchesStock = !filtroStockBajo || p.stock_actual <= p.stock_minimo;
 
@@ -1393,6 +1445,18 @@ export function VerInventario() {
     const aLow = a.stock_actual <= a.stock_minimo ? 0 : 1;
     const bLow = b.stock_actual <= b.stock_minimo ? 0 : 1;
     if (aLow !== bLow) return aLow - bLow;
+    if (vistaInventario === "laboratorio") {
+      return (a.laboratorio || "—").localeCompare(b.laboratorio || "—", "es");
+    }
+    if (vistaInventario === "comercial") {
+      return (a.nombre || "").localeCompare(b.nombre || "", "es");
+    }
+    if (esVistaCatalogo(vistaInventario)) {
+      const ag = (a.nombre_generico || a.nombre || "").trim();
+      const bg = (b.nombre_generico || b.nombre || "").trim();
+      const byGen = ag.localeCompare(bg, "es");
+      if (byGen !== 0) return byGen;
+    }
     return tituloProductoFarmacia(a).localeCompare(tituloProductoFarmacia(b), "es");
   });
 
@@ -1405,7 +1469,7 @@ export function VerInventario() {
     activePage * pageSize
   );
 
-  const inventarioTableColumnCount = vistaInventario === "catalogo" ? 6 : 10;
+  const inventarioTableColumnCount = esVistaCatalogo(vistaInventario) ? 6 : 10;
 
   const handleNuevoProducto = () => {
     router.push("/farmamuni/inventario/nuevo");
@@ -1575,28 +1639,30 @@ export function VerInventario() {
             ariaLabel="Vista de inventario"
             value={vistaInventario}
             options={[
-              { id: "lotes", label: "Egresos" },
-              { id: "catalogo", label: "Catálogo" },
+              { id: "lotes", label: "Ingresos" },
+              { id: "generico", label: "Genérico" },
+              { id: "laboratorio", label: "Laboratorio" },
+              { id: "comercial", label: "Comercial" },
             ]}
             onChange={(id) => {
               setVistaInventario(id);
               setProductoSeleccionado(null);
               setCurrentPage(1);
-              if (id === "catalogo") {
+              if (id !== "lotes") {
                 setFiltroProximoVencer(false);
                 setFiltroVencidos(false);
               }
             }}
-            className="w-full sm:w-auto min-w-[12rem]"
+            className="w-full sm:w-auto min-w-0 max-w-full overflow-x-auto"
           />
           <SigetActionButton
-            label={vistaInventario === "catalogo" ? "Producto" : "Lote"}
+            label={esVistaCatalogo(vistaInventario) ? "Producto" : "Lote"}
             accentColor={sigetAccent.crear}
-            morphFrom={vistaInventario === "catalogo" ? PlusNode : BoxNode}
-            morphTo={vistaInventario === "catalogo" ? UserPlus : PackageNode}
-            onClick={vistaInventario === "catalogo" ? handleNuevoProducto : handleNuevoLote}
+            morphFrom={esVistaCatalogo(vistaInventario) ? PlusNode : BoxNode}
+            morphTo={esVistaCatalogo(vistaInventario) ? UserPlus : PackageNode}
+            onClick={esVistaCatalogo(vistaInventario) ? handleNuevoProducto : handleNuevoLote}
             ariaLabel={
-              vistaInventario === "catalogo" ? "Nuevo producto" : "Nuevo lote"
+              esVistaCatalogo(vistaInventario) ? "Nuevo producto" : "Nuevo lote"
             }
             className="w-full sm:w-auto shrink-0"
           />
@@ -1614,7 +1680,7 @@ export function VerInventario() {
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
             <input
               type="text"
-              placeholder="Buscar por nombre, genérico o código de barras..."
+              placeholder={placeholderBusquedaInventario(vistaInventario)}
               value={busqueda}
               onChange={(e) => {
                 setBusqueda(e.target.value);
@@ -1844,7 +1910,7 @@ export function VerInventario() {
                     <th className={moduleTableHeadCellClass}>Ubicación</th>
                     <th className={moduleTableHeadCellClass}>Existencias</th>
                     <th className={moduleTableHeadCellClass}>Estado</th>
-                    {vistaInventario === "catalogo" ? (
+                    {esVistaCatalogo(vistaInventario) ? (
                       <th className={cn(moduleTableHeadCellClass, "text-right")}>P. sugerido</th>
                     ) : null}
                     <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
@@ -1990,7 +2056,7 @@ export function VerInventario() {
                               {p.activo ? "Activo" : "Inactivo"}
                             </span>
                           </td>
-                          {vistaInventario === "catalogo" ? (
+                          {esVistaCatalogo(vistaInventario) ? (
                             <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0]">
                               {fmtQ(p.precio_base)}
                             </td>

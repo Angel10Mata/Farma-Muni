@@ -4,7 +4,7 @@ import { useEffect, useState, type Dispatch, type SetStateAction } from "react";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 import type { ZodError } from "zod";
-import { Check, ChevronLeft, ChevronRight, Send, SkipForward, X } from "lucide";
+import { Check, ChevronLeft, ChevronRight, Package, Plus, Send, SkipForward, X } from "lucide";
 import ImageUploader from "@/components/imgs/ImageUploader";
 import {
   ModalCancelButton,
@@ -118,57 +118,6 @@ function textoHtmlSwalSeguro(texto: string) {
     .replace(/"/g, "&quot;");
 }
 
-function AlertaProductoExistente({
-  producto,
-  modo,
-  onAgregarLote,
-  onCrearNuevo,
-}: {
-  producto: ProductoSugerencia;
-  modo: "exacto" | "eleccion";
-  onAgregarLote: () => void;
-  onCrearNuevo?: () => void;
-}) {
-  return (
-    <div
-      className="rounded-xl border border-amber-300/80 bg-amber-50 px-3 py-3 dark:border-amber-800/80 dark:bg-amber-950/40"
-      role="alert"
-    >
-      <p className="text-sm font-bold text-amber-950 dark:text-amber-100">
-        Ya existe un producto con este nombre genérico.
-      </p>
-      <p className="mt-1 text-xs text-amber-900/90 dark:text-amber-100/80">
-        {lineaSugerenciaProductoCatalogo(producto)}
-        {producto.nombre.trim() ? (
-          <span className="mt-0.5 block text-[10px] opacity-80">{producto.nombre}</span>
-        ) : null}
-      </p>
-      <div className="mt-3 flex flex-wrap justify-center gap-2">
-        <SigetActionButton
-          label="Agregar"
-          accentColor={sigetAccent.crear}
-          morphFrom={ChevronRight}
-          morphTo={ChevronRight}
-          onClick={onAgregarLote}
-          className="w-auto shrink-0"
-          ariaLabel="Agregar lote a este producto"
-        />
-        {onCrearNuevo ? (
-          <SigetActionButton
-            label="Nuevo"
-            accentColor={sigetAccent.cancelar}
-            morphFrom={SkipForward}
-            morphTo={ChevronRight}
-            onClick={onCrearNuevo}
-            className="w-auto shrink-0"
-            ariaLabel="Crear uno nuevo igualmente"
-          />
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 interface CrearProductoProps {
   isOpen?: boolean;
   onClose: () => void;
@@ -182,6 +131,9 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
   const [mostrarWizard, setMostrarWizard] = useState(true);
   const [loteManualProducto, setLoteManualProducto] = useState<ProductoSugerencia | null>(null);
   const [continuarTrasSugerencia, setContinuarTrasSugerencia] = useState(false);
+  const [productoElegidoCatalogo, setProductoElegidoCatalogo] = useState<ProductoSugerencia | null>(
+    null,
+  );
 
   const [nombre, setNombre] = useState("");
   const [nombreGenerico, setNombreGenerico] = useState("");
@@ -230,19 +182,37 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
       ? (duplicadoExactoLive ?? null)
       : null;
 
-  const bloqueaAvancePaso1 = wizardStep === 1 && productoDuplicado !== null;
+  const bloqueaAvancePaso1 =
+    wizardStep === 1 && productoDuplicado !== null && !continuarTrasSugerencia;
+
+  const productoParaLote = productoDuplicado ?? productoElegidoCatalogo;
 
   const limpiarConflictoPorEdicion = () => {
     setContinuarTrasSugerencia(false);
+    setProductoElegidoCatalogo(null);
   };
 
   const aplicarProductoSugerido = (producto: ProductoSugerencia) => {
     setNombreGenerico(producto.nombre_generico);
-    setConcentracion(producto.concentracion);
-    setFormaFarmaceutica(producto.forma_farmaceutica as FormaFarmaceutica);
-    setPresentacion(producto.presentacion);
-    if (!nombre.trim()) setNombre(producto.nombre);
     setContinuarTrasSugerencia(false);
+    setProductoElegidoCatalogo(producto);
+  };
+
+  const handlePasoNuevo = () => {
+    if (!productoParaLote && !productoDuplicado) {
+      return;
+    }
+    setContinuarTrasSugerencia(true);
+    setProductoElegidoCatalogo(null);
+  };
+
+  const handlePasoLote = () => {
+    const producto = productoParaLote;
+    if (!producto) {
+      toast.warn("Elige un producto del listado o escribe un genérico que ya exista en catálogo.");
+      return;
+    }
+    abrirLoteParaProducto(producto);
   };
 
   const abrirLoteParaProducto = (producto: ProductoSugerencia) => {
@@ -267,6 +237,7 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
     setMostrarWizard(true);
     setLoteManualProducto(null);
     setContinuarTrasSugerencia(false);
+    setProductoElegidoCatalogo(null);
     setNombre("");
     setNombreGenerico("");
     setConcentracion("");
@@ -408,6 +379,14 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
 
   const validarPaso1 = async () => {
     limpiarErroresCampos(CAMPOS_IDENTIFICACION);
+    if (nombreGenerico.trim().length < 2) {
+      setFieldErrors((prev) => ({
+        ...prev,
+        nombre_generico: "El nombre genérico debe tener al menos 2 caracteres",
+      }));
+      toast.warn("Indica el nombre genérico del producto.");
+      return false;
+    }
     const parsed = productoWizardPaso1Schema.safeParse({
       nombre: nombre.trim(),
       nombre_generico: nombreGenerico.trim(),
@@ -646,48 +625,66 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
               aria-hidden={wizardStep !== 1}
             >
               <ModalField>
-                <ProductoBusquedaAutocomplete
-                  id="producto-nombre"
-                  label="Nombre comercial *"
-                  value={nombre}
-                  onChange={(v) => {
-                    setNombre(v);
-                    limpiarErroresCampos(["nombre"]);
-                  }}
-                  onSelectProducto={aplicarProductoSugerido}
-                  enabled={wizardStep === 1 && isOpen && mostrarWizard}
-                  error={fieldErrors.nombre}
-                  inputClassName={inputErrorClass("nombre")}
-                  required
-                />
-              </ModalField>
-
-              <ModalField>
-                <ProductoBusquedaAutocomplete
-                  id="producto-nombre-generico"
-                  label="Nombre genérico *"
-                  value={nombreGenerico}
-                  onChange={(v) => {
-                    setNombreGenerico(v);
-                    limpiarConflictoPorEdicion();
-                    limpiarErroresCampos(["nombre_generico"]);
-                  }}
-                  onSelectProducto={aplicarProductoSugerido}
-                  enabled={wizardStep === 1 && isOpen && mostrarWizard}
-                  error={fieldErrors.nombre_generico}
-                  inputClassName={inputErrorClass("nombre_generico")}
-                  required
-                />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-2">
+                  <div className="min-w-0 flex-1">
+                    <ProductoBusquedaAutocomplete
+                      id="producto-nombre-generico"
+                      label="Nombre genérico *"
+                      value={nombreGenerico}
+                      onChange={(v) => {
+                        setNombreGenerico(v);
+                        limpiarConflictoPorEdicion();
+                        limpiarErroresCampos(["nombre_generico"]);
+                      }}
+                      onSelectProducto={aplicarProductoSugerido}
+                      enabled={wizardStep === 1 && isOpen && mostrarWizard}
+                      error={fieldErrors.nombre_generico}
+                      inputClassName={inputErrorClass("nombre_generico")}
+                      required
+                    />
+                  </div>
+                  <div className="flex shrink-0 flex-wrap justify-end gap-2 sm:pb-0.5">
+                    <SigetActionButton
+                      label="Nuevo"
+                      accentColor={sigetAccent.crear}
+                      morphFrom={Plus}
+                      morphTo={Plus}
+                      type="button"
+                      onClick={handlePasoNuevo}
+                      disabled={!productoParaLote || continuarTrasSugerencia}
+                      className="w-auto shrink-0"
+                      ariaLabel="Crear producto nuevo en catálogo"
+                    />
+                    <SigetActionButton
+                      label="Lote"
+                      accentColor={sigetAccent.guardar}
+                      morphFrom={Package}
+                      morphTo={Package}
+                      type="button"
+                      onClick={handlePasoLote}
+                      disabled={!productoParaLote}
+                      className="w-auto shrink-0"
+                      ariaLabel="Agregar lote a este producto"
+                    />
+                  </div>
+                </div>
                 {debounceDuplicado || buscandoDuplicado ? (
                   <p className="text-xs text-zinc-500">Comprobando catálogo…</p>
                 ) : null}
-                {productoDuplicado ? (
-                  <AlertaProductoExistente
-                    producto={productoDuplicado}
-                    modo="exacto"
-                    onAgregarLote={() => abrirLoteParaProducto(productoDuplicado)}
-                    onCrearNuevo={() => setContinuarTrasSugerencia(true)}
-                  />
+                {productoParaLote && !continuarTrasSugerencia ? (
+                  <p
+                    className="rounded-lg border border-amber-200/80 bg-amber-50 px-2.5 py-2 text-xs text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100"
+                    role="status"
+                  >
+                    <span className="font-bold">Este genérico ya está en catálogo.</span>
+                    <span className="mt-0.5 block opacity-90">
+                      {lineaSugerenciaProductoCatalogo(productoParaLote)}
+                    </span>
+                    <span className="mt-1 block text-[10px] opacity-80">
+                      Usa <strong>Lote</strong> para registrar existencias al producto existente, o{" "}
+                      <strong>Nuevo</strong> para seguir el alta completa.
+                    </span>
+                  </p>
                 ) : null}
               </ModalField>
 
@@ -744,6 +741,24 @@ export function CrearProducto({ isOpen = true, onClose, onSuccess }: CrearProduc
                   required
                 />
                 <CampoError message={fieldErrors.presentacion} />
+              </ModalField>
+
+              <ModalField>
+                <ModalLabel htmlFor="producto-nombre">Nombre comercial *</ModalLabel>
+                <ModalInput
+                  id="producto-nombre"
+                  value={nombre}
+                  onChange={(e) => {
+                    setNombre(e.target.value);
+                    limpiarErroresCampos(["nombre"]);
+                  }}
+                  className={inputErrorClass("nombre")}
+                  required
+                />
+                <p className="text-[11px] text-zinc-500">
+                  Opcional en ventas si difiere del genérico; en listados se muestra el genérico.
+                </p>
+                <CampoError message={fieldErrors.nombre} />
               </ModalField>
 
             </div>
