@@ -84,16 +84,16 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
     context.setIsProcesando(true);
     try {
       const itemsFormatted: ItemCompraInput[] = context.carrito.map((i) => ({
-        producto_id: i.producto.id,
+        producto_id: i.comercial.id,
         codigo_barras: i.codigo_barras,
         numero_lote: i.numero_lote,
         fecha_vencimiento: i.fecha_vencimiento,
         ubicacion: i.ubicacion ?? null,
         cantidad: i.cantidad,
         precio_costo: i.precio_costo,
-        precio_venta: i.precio_venta,
-        laboratorio: i.laboratorio ?? null,
         subtotal: i.subtotal,
+        actualizar_precio_venta: i.actualizar_precio_venta ?? false,
+        precio_venta: i.precio_venta,
       }));
 
       const res = await crearCompraAsync({

@@ -2,8 +2,8 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { activarProductoCatalogoPorNuevoLote } from "@/components/(base)/inventario/lib/sync-producto-catalogo";
 import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from "./zod";
+import { detalleCodigoBarrasDuplicado } from "@/lib/inv-lote-codigo-barras";
 import { FACTURA_DUPLICATE_MSG } from "./compras-helpers";
 import { formatFechaHoraGt } from "@/lib/fechas-gt";
 import { fmtQ } from "@/lib/utils";
@@ -147,11 +147,12 @@ export async function obtenerProveedoresYProductos() {
 
     if (provError) return { code: "INTERNAL" as const };
 
-    const { data: productos, error: prodError } = await supabase
-      .from("inv_productos")
-      .select("id, nombre, precio_base, stock_actual, activo")
-      .eq("activo", true)
-      .order("nombre", { ascending: true });
+    const { data: comercialesRaw, error: prodError } = await supabase
+      .from("v_inv_comerciales")
+      .select(
+        "producto_id, nombre_comercial, presentacion, precio_venta, activo, catalogo_id, catalogo_nombre, generico_id, generico_nombre, concentracion, forma_farmaceutica, laboratorio_id, laboratorio_nombre, stock_vendible",
+      )
+      .order("nombre_comercial", { ascending: true });
 
     if (prodError) return { code: "INTERNAL" as const };
 
@@ -171,26 +172,72 @@ export async function obtenerProveedoresYProductos() {
       }
     }
 
-    const productosConProveedor = (productos ?? []).map((p) => ({
-      ...p,
-      ultimo_proveedor_id: ultimoProveedorPorProducto.get(p.id) ?? null,
-    }));
+    const comerciales = (comercialesRaw ?? []).map((row) => {
+      const productoId = String(row.producto_id);
+      return {
+        id: productoId,
+        nombre_comercial: String(row.nombre_comercial ?? ""),
+        presentacion: String(row.presentacion ?? ""),
+        precio_venta: Number(row.precio_venta) || 0,
+        activo: Boolean(row.activo),
+        catalogo_id: String(row.catalogo_id),
+        catalogo_nombre: String(row.catalogo_nombre ?? ""),
+        generico_id: String(row.generico_id),
+        generico_nombre: String(row.generico_nombre ?? ""),
+        concentracion: String(row.concentracion ?? ""),
+        forma_farmaceutica: String(row.forma_farmaceutica ?? ""),
+        laboratorio_id: String(row.laboratorio_id),
+        laboratorio_nombre: String(row.laboratorio_nombre ?? ""),
+        stock_vendible: Number(row.stock_vendible) || 0,
+        ultimo_proveedor_id: ultimoProveedorPorProducto.get(productoId) ?? null,
+      };
+    });
 
     return {
       success: true as const,
-      data: { proveedores: proveedores ?? [], productos: productosConProveedor },
+      data: { proveedores: proveedores ?? [], comerciales },
     };
   } catch {
     return { code: "INTERNAL" as const };
   }
 }
 
-// Registrar compra (entra al inventario)
+export async function verificarCodigoBarrasEnCompra(codigoBarras: string) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { code: "UNAUTHORIZED" as const };
+
+    const codigo = codigoBarras.trim();
+    if (!codigo) {
+      return { code: "VALIDATION" as const, detail: "El código de barras es obligatorio." };
+    }
+
+    const { data } = await supabase
+      .from("inv_lotes")
+      .select("id")
+      .eq("codigo_barras", codigo)
+      .limit(1)
+      .maybeSingle();
+
+    if (!data) {
+      return { success: true as const, disponible: true as const };
+    }
+
+    const detail = await detalleCodigoBarrasDuplicado(supabase, codigo);
+    return { success: true as const, disponible: false as const, detail };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
 export async function crearCompra(input: CompraInput) {
   try {
     const guard = await requireRole([...PROVEEDORES_WRITE_ROLES]);
     if (!guard.ok) return { code: guard.code };
-    const { supabase, user } = guard;
+    const { supabase } = guard;
 
     const parsed = CompraSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
@@ -203,114 +250,67 @@ export async function crearCompra(input: CompraInput) {
       numero_factura,
       fecha_vencimiento_pago,
     } = parsed.data;
-    const total = items.reduce(
-      (sum, item) => sum + item.cantidad * item.precio_costo,
-      0,
-    );
     const pagado = esEstadoPagado(estado_pago);
-    const facturaNorm = numero_factura.trim();
 
-    const { data: compra, error: compraError } = await supabase
-      .from("inv_compras")
-      .insert({
-        proveedor_id,
-        total,
-        estado_pago: pagado ? "Pagado" : estado_pago,
-        fecha_pago: pagado ? new Date().toISOString() : null,
-        numero_factura: facturaNorm,
-        fecha_vencimiento_pago:
-          pagado ? null : fecha_vencimiento_pago?.trim().slice(0, 10) || null,
-        observaciones: observaciones?.trim() || null,
-      })
-      .select("id")
-      .single();
-
-    if (compraError || !compra) {
-      return mapDbError(compraError ?? { message: "No se creó la compra." });
-    }
-
-    const revertirCompraParcial = async () => {
-      const { data: detalles } = await supabase
-        .from("inv_compras_detalles")
-        .select("id")
-        .eq("compra_id", compra.id);
-      const detalleIds = (detalles ?? []).map((d) => d.id as string);
-      if (detalleIds.length > 0) {
-        await supabase.from("inv_lotes").delete().in("compra_detalle_id", detalleIds);
-        await supabase.from("inv_compras_detalles").delete().in("id", detalleIds);
-      }
-      await supabase.from("fin_transacciones").delete().eq("compra_id", compra.id);
-      await supabase.from("inv_compras").delete().eq("id", compra.id);
+    const payloadCompra = {
+      proveedor_id,
+      estado_pago: pagado ? "Pagado" : estado_pago,
+      numero_factura: numero_factura.trim(),
+      fecha_vencimiento_pago:
+        pagado ? null : fecha_vencimiento_pago?.trim().slice(0, 10) || null,
+      observaciones: observaciones?.trim() || null,
     };
 
-    for (const item of items) {
-      const { data: detalleRow, error: detalleError } = await supabase
-        .from("inv_compras_detalles")
-        .insert({
-          compra_id: compra.id,
-          producto_id: item.producto_id,
-          cantidad: item.cantidad,
-          precio_costo: item.precio_costo,
-          subtotal: item.subtotal,
-        })
-        .select("id")
-        .single();
+    const payloadItems = items.map((item) => ({
+      producto_id: item.producto_id,
+      codigo_barras: item.codigo_barras.trim(),
+      numero_lote: item.numero_lote.trim(),
+      fecha_vencimiento: normalizarFechaLote(item.fecha_vencimiento),
+      ubicacion: item.ubicacion?.trim() || null,
+      cantidad: item.cantidad,
+      precio_costo: item.precio_costo,
+      subtotal: item.subtotal,
+      actualizar_precio_venta: item.actualizar_precio_venta ?? false,
+      precio_venta: item.precio_venta,
+    }));
 
-      if (detalleError || !detalleRow) {
-        await revertirCompraParcial();
-        return mapDbError(detalleError ?? { message: "No se guardó el detalle de compra." });
+    const { data, error } = await supabase.rpc("registrar_compra", {
+      p_compra: payloadCompra,
+      p_items: payloadItems,
+    });
+
+    if (error) {
+      const msg = error.message ?? "";
+      if (
+        msg.includes("código de barras") ||
+        msg.includes("codigo de barras") ||
+        msg.includes("duplicados")
+      ) {
+        return { code: "DUPLICATE" as const, detail: msg };
       }
-
-      const { error: loteError } = await supabase.from("inv_lotes").insert({
-        producto_id: item.producto_id,
-        proveedor_id,
-        laboratorio: item.laboratorio?.trim() || null,
-        compra_detalle_id: detalleRow.id,
-        codigo_barras: item.codigo_barras.trim(),
-        numero_lote: item.numero_lote.trim(),
-        cantidad_inicial: item.cantidad,
-        cantidad_actual: item.cantidad,
-        precio_costo: item.precio_costo,
-        precio_venta: item.precio_venta,
-        fecha_vencimiento: normalizarFechaLote(item.fecha_vencimiento),
-        ubicacion: item.ubicacion?.trim() || null,
-        activo: true,
-      });
-
-      if (loteError) {
-        await revertirCompraParcial();
-        return mapDbError(loteError);
+      if (msg.includes("factura")) {
+        return { code: "DUPLICATE" as const, detail: FACTURA_DUPLICATE_MSG };
       }
-
-      try {
-        await activarProductoCatalogoPorNuevoLote(supabase, item.producto_id);
-      } catch (err) {
-        await revertirCompraParcial();
-        const message = err instanceof Error ? err.message : "Error al actualizar catálogo.";
-        return { code: "DB_ERROR", detail: message.slice(0, 200) };
+      if (msg.includes("No autorizado") || msg.includes("Sesión")) {
+        return { code: "FORBIDDEN" as const, detail: msg.slice(0, 200) };
       }
+      return { code: "DB_ERROR" as const, detail: msg.slice(0, 200) || undefined };
     }
 
-    if (pagado) {
-      const { error: finError } = await supabase.from("fin_transacciones").insert({
-        tipo_movimiento: "egreso",
-        categoria: "pago_proveedor",
-        monto: total,
-        descripcion: `Pago inmediato de compra al registrar`,
-        usuario_id: user.id,
-        compra_id: compra.id,
-      });
-      if (finError) {
-        await revertirCompraParcial();
-        return mapDbError(finError);
-      }
+    const compraId =
+      data && typeof data === "object" && "compra_id" in data
+        ? String((data as { compra_id: string }).compra_id)
+        : null;
+
+    if (!compraId) {
+      return { code: "DB_ERROR" as const, detail: "No se recibió el identificador de la compra." };
     }
 
     revalidatePath("/farmamuni/inventario");
     revalidatePath("/farmamuni/proveedores");
     revalidatePath("/farmamuni/finanzas");
 
-    return { success: true as const, compra_id: compra.id };
+    return { success: true as const, compra_id: compraId };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error inesperado.";
     return { code: "INTERNAL" as const, detail: message };

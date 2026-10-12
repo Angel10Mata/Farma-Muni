@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Truck } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -17,9 +17,6 @@ import { CuentasPorPagar } from "./CuentasPorPagar";
 import { CatalogoProveedores } from "./CatalogoProveedores";
 import { CrearProveedor } from "./forms/Crear";
 import { useProveedoresYProductos, useHistorialCompras } from "./lib/hooks";
-import { TarjetaCuentasPorPagar } from "./TarjetaCuentasPorPagar";
-import { resumenCuentasPorPagarDesdeCompras } from "./lib/compras-helpers";
-
 // Tabs
 const COMPRAS_TABS = [
   { id: "ingresar_compra" as const, label: "Registrar" },
@@ -37,7 +34,7 @@ function VerProveedoresInner() {
 
   // Datos
   const { data: dataPP, isLoading: isLoadingPP, refetch: refetchPP } = useProveedoresYProductos();
-  const productos = dataPP?.productos || [];
+  const comerciales = dataPP?.comerciales || [];
   const proveedores = dataPP?.proveedores || [];
   
   const { data: compras = [], isLoading: isLoadingCompras, refetch: refetchCompras } = useHistorialCompras();
@@ -48,11 +45,6 @@ function VerProveedoresInner() {
   };
 
   const isLoading = isLoadingPP || isLoadingCompras;
-
-  const resumenPagar = useMemo(
-    () => resumenCuentasPorPagarDesdeCompras(compras),
-    [compras],
-  );
 
   if (isLoading) {
     return (
@@ -95,12 +87,6 @@ function VerProveedoresInner() {
           </div>
         </div>
 
-        <TarjetaCuentasPorPagar
-          className="w-full sm:max-w-xs"
-          totalPendiente={resumenPagar.totalPendiente}
-          totalVencido={resumenPagar.totalVencido}
-        />
-
         <div className="flex w-full shrink-0 justify-end sm:w-auto">
           <div
             className={cn(
@@ -135,7 +121,7 @@ function VerProveedoresInner() {
         {activeTab === "ingresar_compra" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 min-h-0 h-full">
             <div className="lg:col-span-8 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pb-4 pr-1">
-              <ComprasProductSection productos={productos} proveedores={proveedores} />
+              <ComprasProductSection comerciales={comerciales} proveedores={proveedores} />
             </div>
             <div className="lg:col-span-4 h-full flex flex-col gap-4">
               <ComprasCartSidebar proveedores={proveedores} cargarDatos={cargarDatos} />

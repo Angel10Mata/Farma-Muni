@@ -426,15 +426,25 @@ export function demoProductosPos() {
 export function demoProveedoresYProductos() {
   return {
     proveedores: DEMO_PROVEEDORES,
-    productos: DEMO_PRODUCTOS.map((p, i) => {
+    comerciales: DEMO_PRODUCTOS.map((p, i) => {
       const cat = PRODUCTOS_CATALOGO[i];
       const prov = DEMO_PROVEEDORES[cat?.provIdx ?? i % DEMO_PROVEEDORES.length];
+      const catalogoNombre = cat?.nombre?.split(" ")[0] ?? "Producto";
       return {
         id: p.id,
-        nombre: p.nombre,
-        precio_base: p.precio_base,
-        stock_actual: p.stock_actual,
+        nombre_comercial: p.nombre,
+        presentacion: cat?.desc ?? "Presentación demo",
+        precio_venta: p.precio_base,
         activo: p.activo,
+        catalogo_id: `demo-cat-${i}`,
+        catalogo_nombre: catalogoNombre,
+        generico_id: `demo-gen-${i}`,
+        generico_nombre: cat?.nombre ?? p.nombre,
+        concentracion: "—",
+        forma_farmaceutica: "tableta",
+        laboratorio_id: `demo-lab-${i}`,
+        laboratorio_nombre: "Laboratorio demo",
+        stock_vendible: p.stock_actual,
         ultimo_proveedor_id: prov.id,
       };
     }),

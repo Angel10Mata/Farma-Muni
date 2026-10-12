@@ -2,7 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
-import { requireInventario } from "@/lib/auth-guards";
+import { requireInventario, requireRole } from "@/lib/auth-guards";
+
+const COMERCIAL_WRITE_ROLES = ["super", "admin", "inventario", "proveedores"] as const;
 import {
   MIN_CARACTERES_BUSQUEDA_PRODUCTO,
   normalizarTextoBusquedaProducto,
@@ -624,7 +626,7 @@ export async function guardarLaboratorio(id: string | undefined, input: Laborato
 
 export async function guardarComercial(id: string | undefined, input: ComercialInput) {
   try {
-    const guard = await requireInventario();
+    const guard = await requireRole([...COMERCIAL_WRITE_ROLES]);
     if (!guard.ok) return { code: guard.code };
     const { supabase } = guard;
 
@@ -683,6 +685,7 @@ export async function guardarComercial(id: string | undefined, input: ComercialI
     if (!inserted?.id) return { code: "INTERNAL" as const };
 
     revalidatePath(INVENTARIO_PATH);
+    revalidatePath("/farmamuni/proveedores");
     return { success: true as const, id: inserted.id as string };
   } catch {
     return { code: "INTERNAL" as const };

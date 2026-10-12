@@ -1,6 +1,5 @@
 import { z } from "zod";
 
-// Proveedores
 export const ProveedorSchema = z.object({
   id: z.string(),
   nombre: z.string(),
@@ -10,27 +9,35 @@ export const ProveedorSchema = z.object({
   correo: z.string().nullable().optional(),
 });
 
-// Productos y carrito
-export const ProductoSchema = z.object({
+export const ComercialCompraSchema = z.object({
   id: z.string(),
-  nombre: z.string(),
-  precio_base: z.number(),
-  stock_actual: z.number(),
-  activo: z.boolean().optional(),
+  nombre_comercial: z.string(),
+  presentacion: z.string(),
+  precio_venta: z.number(),
+  activo: z.boolean(),
+  catalogo_id: z.string(),
+  catalogo_nombre: z.string(),
+  generico_id: z.string(),
+  generico_nombre: z.string(),
+  concentracion: z.string(),
+  forma_farmaceutica: z.string(),
+  laboratorio_id: z.string(),
+  laboratorio_nombre: z.string(),
+  stock_vendible: z.number(),
   ultimo_proveedor_id: z.string().nullable().optional(),
 });
 
 export const ItemCarritoCompraSchema = z.object({
-  producto: ProductoSchema,
+  comercial: ComercialCompraSchema,
   codigo_barras: z.string().min(1, "Código de barras obligatorio"),
   numero_lote: z.string().min(1, "Número de lote obligatorio"),
   fecha_vencimiento: z.string().min(1, "Fecha de vencimiento obligatoria"),
   ubicacion: z.string().nullable().optional(),
   cantidad: z.number(),
   precio_costo: z.number(),
-  precio_venta: z.number().nonnegative(),
-  laboratorio: z.string().nullable().optional(),
   subtotal: z.number(),
+  actualizar_precio_venta: z.boolean().optional(),
+  precio_venta: z.number().nonnegative().optional(),
 });
 
 export const CompraRecordSchema = z.object({
@@ -54,13 +61,11 @@ export const CompraRecordSchema = z.object({
   inv_compras_detalles: z.array(z.unknown()).optional(),
 });
 
-// Tipos
 export type Proveedor = z.infer<typeof ProveedorSchema>;
-export type Producto = z.infer<typeof ProductoSchema>;
+export type ComercialCompra = z.infer<typeof ComercialCompraSchema>;
 export type ItemCarritoCompra = z.infer<typeof ItemCarritoCompraSchema>;
 export type Compra = z.infer<typeof CompraRecordSchema>;
 
-// Entrada de formularios
 export const ProveedorInputSchema = z.object({
   nombre: z.string().min(1, "El nombre es requerido").trim(),
   descripcion: z.string().nullable().optional().or(z.literal("")),
@@ -79,9 +84,9 @@ export const ItemCompraSchema = z.object({
   ubicacion: z.string().nullable().optional(),
   cantidad: z.number().positive(),
   precio_costo: z.number().nonnegative(),
-  precio_venta: z.number().nonnegative(),
-  laboratorio: z.string().nullable().optional(),
   subtotal: z.number().nonnegative(),
+  actualizar_precio_venta: z.boolean().optional(),
+  precio_venta: z.number().nonnegative().optional(),
 });
 
 export const CompraSchema = z

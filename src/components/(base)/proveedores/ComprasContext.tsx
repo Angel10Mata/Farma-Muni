@@ -1,15 +1,12 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
-import { ItemCarritoCompra, Proveedor, Producto } from "./lib/zod";
+import { ItemCarritoCompra, Proveedor, ComercialCompra } from "./lib/zod";
 
-// Contexto
 interface ComprasContextProps {
-  // Tabs
   activeTab: "compras" | "historial" | "proveedores" | "cuentas_por_pagar";
   setActiveTab: (tab: "compras" | "historial" | "proveedores" | "cuentas_por_pagar") => void;
 
-  // Modales
   isCrearOpen: boolean;
   setIsCrearOpen: (val: boolean) => void;
   isEditarOpen: boolean;
@@ -21,7 +18,6 @@ interface ComprasContextProps {
   modoEdicionProveedor: boolean;
   setModoEdicionProveedor: (val: boolean) => void;
 
-  // Carrito
   carrito: ItemCarritoCompra[];
   setCarrito: React.Dispatch<React.SetStateAction<ItemCarritoCompra[]>>;
   proveedorSeleccionado: Proveedor | null;
@@ -33,12 +29,15 @@ interface ComprasContextProps {
   proveedorAutoSeleccionado: boolean;
   setProveedorAutoSeleccionado: (val: boolean) => void;
 
-  productoSeleccionado: Producto | null;
-  setProductoSeleccionado: React.Dispatch<React.SetStateAction<Producto | null>>;
-  productoBusqueda: string;
-  setProductoBusqueda: (val: string) => void;
-  mostrarSugerenciasProd: boolean;
-  setMostrarSugerenciasProd: (val: boolean) => void;
+  comercialSeleccionado: ComercialCompra | null;
+  setComercialSeleccionado: React.Dispatch<React.SetStateAction<ComercialCompra | null>>;
+  comercialBusqueda: string;
+  setComercialBusqueda: (val: string) => void;
+  mostrarSugerenciasComercial: boolean;
+  setMostrarSugerenciasComercial: (val: boolean) => void;
+  comercialesExtra: ComercialCompra[];
+  setComercialesExtra: React.Dispatch<React.SetStateAction<ComercialCompra[]>>;
+
   cantSeleccionada: number | "";
   setCantSeleccionada: (val: number | "") => void;
   costoSeleccionado: number | "";
@@ -51,12 +50,11 @@ interface ComprasContextProps {
   setFechaVencimientoLote: (val: string) => void;
   ubicacionLote: string;
   setUbicacionLote: (val: string) => void;
-  laboratorioLote: string;
-  setLaboratorioLote: (val: string) => void;
-  precioVentaSeleccionado: number | "";
-  setPrecioVentaSeleccionado: (val: number | "") => void;
+  precioVentaEditado: number | "";
+  setPrecioVentaEditado: (val: number | "") => void;
+  actualizarPrecioVenta: boolean;
+  setActualizarPrecioVenta: (val: boolean) => void;
 
-  // Orden
   estadoPago: "Pendiente" | "Pagado";
   setEstadoPago: (val: "Pendiente" | "Pagado") => void;
   numeroFactura: string;
@@ -68,70 +66,56 @@ interface ComprasContextProps {
   isProcesando: boolean;
   setIsProcesando: (val: boolean) => void;
 
-  // Acciones del carrito
-  agregarAlCarrito: (item: ItemCarritoCompra) => void;
+  agregarAlCarrito: (item: ItemCarritoCompra) => boolean;
   removerDelCarrito: (index: number) => void;
   limpiarCarrito: () => void;
 }
 
 const ComprasContext = createContext<ComprasContextProps | undefined>(undefined);
 
-// Provider
 export function ComprasProvider({ children }: { children: ReactNode }) {
-  // Tabs
   const [activeTab, setActiveTab] = useState<"compras" | "historial" | "proveedores" | "cuentas_por_pagar">("compras");
 
-  // Modales de proveedor
   const [isCrearOpen, setIsCrearOpen] = useState(false);
   const [isEditarOpen, setIsEditarOpen] = useState(false);
   const [proveedorAEditar, setProveedorAEditar] = useState<Proveedor | null>(null);
   const [proveedorSeleccionadoTab3, setProveedorSeleccionadoTab3] = useState<Proveedor | null>(null);
   const [modoEdicionProveedor, setModoEdicionProveedor] = useState(false);
 
-  // Carrito
   const [carrito, setCarrito] = useState<ItemCarritoCompra[]>([]);
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
   const [proveedorBusqueda, setProveedorBusqueda] = useState("");
   const [mostrarSugerenciasProv, setMostrarSugerenciasProv] = useState(false);
   const [proveedorAutoSeleccionado, setProveedorAutoSeleccionado] = useState(false);
 
-  // Producto y lote
-  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
-  const [productoBusqueda, setProductoBusqueda] = useState("");
-  const [mostrarSugerenciasProd, setMostrarSugerenciasProd] = useState(false);
+  const [comercialSeleccionado, setComercialSeleccionado] = useState<ComercialCompra | null>(null);
+  const [comercialBusqueda, setComercialBusqueda] = useState("");
+  const [mostrarSugerenciasComercial, setMostrarSugerenciasComercial] = useState(false);
+  const [comercialesExtra, setComercialesExtra] = useState<ComercialCompra[]>([]);
+
   const [cantSeleccionada, setCantSeleccionada] = useState<number | "">(1);
   const [costoSeleccionado, setCostoSeleccionado] = useState<number | "">("");
   const [codigoBarrasLote, setCodigoBarrasLote] = useState("");
   const [numeroLote, setNumeroLote] = useState("");
   const [fechaVencimientoLote, setFechaVencimientoLote] = useState("");
   const [ubicacionLote, setUbicacionLote] = useState("");
-  const [laboratorioLote, setLaboratorioLote] = useState("");
-  const [precioVentaSeleccionado, setPrecioVentaSeleccionado] = useState<number | "">("");
+  const [precioVentaEditado, setPrecioVentaEditado] = useState<number | "">("");
+  const [actualizarPrecioVenta, setActualizarPrecioVenta] = useState(false);
 
-  // Orden
   const [estadoPago, setEstadoPago] = useState<"Pendiente" | "Pagado">("Pagado");
   const [numeroFactura, setNumeroFactura] = useState("");
   const [fechaVencimientoPago, setFechaVencimientoPago] = useState("");
   const [observaciones, setObservaciones] = useState("");
   const [isProcesando, setIsProcesando] = useState(false);
 
-  // Acciones carrito
-  const agregarAlCarrito = (item: ItemCarritoCompra) => {
-    setCarrito((prev) => {
-      const exists = prev.findIndex(
-        (p) =>
-          p.producto.id === item.producto.id &&
-          p.codigo_barras === item.codigo_barras &&
-          p.precio_costo === item.precio_costo,
-      );
-      if (exists !== -1) {
-        const copy = [...prev];
-        copy[exists].cantidad += item.cantidad;
-        copy[exists].subtotal = copy[exists].cantidad * copy[exists].precio_costo;
-        return copy;
-      }
-      return [...prev, item];
-    });
+  const agregarAlCarrito = (item: ItemCarritoCompra): boolean => {
+    const codigoNorm = item.codigo_barras.trim();
+    const duplicado = carrito.some((p) => p.codigo_barras.trim() === codigoNorm);
+    if (duplicado) {
+      return false;
+    }
+    setCarrito((prev) => [...prev, item]);
+    return true;
   };
 
   const removerDelCarrito = (index: number) => {
@@ -151,41 +135,74 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     setNumeroLote("");
     setFechaVencimientoLote("");
     setUbicacionLote("");
-    setLaboratorioLote("");
-    setPrecioVentaSeleccionado("");
+    setPrecioVentaEditado("");
+    setActualizarPrecioVenta(false);
+    setComercialSeleccionado(null);
+    setComercialBusqueda("");
   };
 
   return (
     <ComprasContext.Provider
       value={{
-        activeTab, setActiveTab,
-        isCrearOpen, setIsCrearOpen,
-        isEditarOpen, setIsEditarOpen,
-        proveedorAEditar, setProveedorAEditar,
-        proveedorSeleccionadoTab3, setProveedorSeleccionadoTab3,
-        modoEdicionProveedor, setModoEdicionProveedor,
-        carrito, setCarrito,
-        proveedorSeleccionado, setProveedorSeleccionado,
-        proveedorBusqueda, setProveedorBusqueda,
-        mostrarSugerenciasProv, setMostrarSugerenciasProv,
-        proveedorAutoSeleccionado, setProveedorAutoSeleccionado,
-        productoSeleccionado, setProductoSeleccionado,
-        productoBusqueda, setProductoBusqueda,
-        mostrarSugerenciasProd, setMostrarSugerenciasProd,
-        cantSeleccionada, setCantSeleccionada,
-        costoSeleccionado, setCostoSeleccionado,
-        codigoBarrasLote, setCodigoBarrasLote,
-        numeroLote, setNumeroLote,
-        fechaVencimientoLote, setFechaVencimientoLote,
-        ubicacionLote, setUbicacionLote,
-        laboratorioLote, setLaboratorioLote,
-        precioVentaSeleccionado, setPrecioVentaSeleccionado,
-        estadoPago, setEstadoPago,
-        numeroFactura, setNumeroFactura,
-        fechaVencimientoPago, setFechaVencimientoPago,
-        observaciones, setObservaciones,
-        isProcesando, setIsProcesando,
-        agregarAlCarrito, removerDelCarrito, limpiarCarrito
+        activeTab,
+        setActiveTab,
+        isCrearOpen,
+        setIsCrearOpen,
+        isEditarOpen,
+        setIsEditarOpen,
+        proveedorAEditar,
+        setProveedorAEditar,
+        proveedorSeleccionadoTab3,
+        setProveedorSeleccionadoTab3,
+        modoEdicionProveedor,
+        setModoEdicionProveedor,
+        carrito,
+        setCarrito,
+        proveedorSeleccionado,
+        setProveedorSeleccionado,
+        proveedorBusqueda,
+        setProveedorBusqueda,
+        mostrarSugerenciasProv,
+        setMostrarSugerenciasProv,
+        proveedorAutoSeleccionado,
+        setProveedorAutoSeleccionado,
+        comercialSeleccionado,
+        setComercialSeleccionado,
+        comercialBusqueda,
+        setComercialBusqueda,
+        mostrarSugerenciasComercial,
+        setMostrarSugerenciasComercial,
+        comercialesExtra,
+        setComercialesExtra,
+        cantSeleccionada,
+        setCantSeleccionada,
+        costoSeleccionado,
+        setCostoSeleccionado,
+        codigoBarrasLote,
+        setCodigoBarrasLote,
+        numeroLote,
+        setNumeroLote,
+        fechaVencimientoLote,
+        setFechaVencimientoLote,
+        ubicacionLote,
+        setUbicacionLote,
+        precioVentaEditado,
+        setPrecioVentaEditado,
+        actualizarPrecioVenta,
+        setActualizarPrecioVenta,
+        estadoPago,
+        setEstadoPago,
+        numeroFactura,
+        setNumeroFactura,
+        fechaVencimientoPago,
+        setFechaVencimientoPago,
+        observaciones,
+        setObservaciones,
+        isProcesando,
+        setIsProcesando,
+        agregarAlCarrito,
+        removerDelCarrito,
+        limpiarCarrito,
       }}
     >
       {children}
@@ -193,7 +210,6 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Hook
 export function useCompras() {
   const context = useContext(ComprasContext);
   if (context === undefined) {
