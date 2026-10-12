@@ -22,15 +22,46 @@ export function etiquetaFormaFarmaceutica(forma: string | null | undefined): str
   return raw.charAt(0).toUpperCase() + raw.slice(1);
 }
 
+function fragmentoYaEnTitulo(titulo: string, fragmento: string): boolean {
+  const f = fragmento.trim();
+  if (!f) return true;
+  const t = normalizarTextoBusquedaProducto(titulo);
+  const n = normalizarTextoBusquedaProducto(f);
+  return t.includes(n);
+}
+
 export function tituloProductoFarmacia(p: CamposTituloProducto): string {
-  const generico = (p.nombre_generico || p.nombre || "—").trim();
+  const nombre = (p.nombre || "").trim();
+  const nombreGenerico = (p.nombre_generico || "").trim();
   const conc = (p.concentracion || "").trim();
   const forma = etiquetaFormaFarmaceutica(p.forma_farmaceutica);
   const pres = (p.presentacion || "").trim();
-  const tituloBase = conc ? `${generico} ${conc}` : generico;
+
+  if (!pres && nombreGenerico && conc) {
+    const lineaCatalogoConc = `${nombreGenerico} ${conc}`.trim();
+    if (
+      nombre &&
+      normalizarTextoBusquedaProducto(nombre) ===
+        normalizarTextoBusquedaProducto(lineaCatalogoConc)
+    ) {
+      return lineaCatalogoConc;
+    }
+    if (
+      nombre &&
+      fragmentoYaEnTitulo(nombre, conc) &&
+      fragmentoYaEnTitulo(nombre, nombreGenerico)
+    ) {
+      return nombre;
+    }
+    return lineaCatalogoConc;
+  }
+
+  const generico = nombreGenerico || nombre || "—";
+  const tituloBase =
+    conc && !fragmentoYaEnTitulo(generico, conc) ? `${generico} ${conc}` : generico;
   const suffix: string[] = [];
-  if (forma) suffix.push(forma);
-  if (pres) suffix.push(pres);
+  if (forma && !fragmentoYaEnTitulo(tituloBase, forma)) suffix.push(forma);
+  if (pres && !fragmentoYaEnTitulo(tituloBase, pres)) suffix.push(pres);
   return suffix.length > 0 ? `${tituloBase} · ${suffix.join(" · ")}` : tituloBase;
 }
 
@@ -295,6 +326,37 @@ export function normalizarTextoBusquedaProducto(texto: string): string {
     .replace(/[\u0300-\u036f]/g, "");
 }
 
+export function claveGenericoInventario(concentracion: string, formaFarmaceutica: string): string {
+  return `${normalizarTextoBusquedaProducto(concentracion)}|${normalizarTextoBusquedaProducto(formaFarmaceutica)}`;
+}
+
+export function buscarGenericoCoincidente<
+  T extends { concentracion: string; forma_farmaceutica: string },
+>(genericos: T[], concentracion: string, formaFarmaceutica: string): T | null {
+  const conc = concentracion.trim();
+  if (!conc) return null;
+  const clave = claveGenericoInventario(conc, formaFarmaceutica);
+  return (
+    genericos.find(
+      (g) => claveGenericoInventario(g.concentracion, g.forma_farmaceutica) === clave,
+    ) ?? null
+  );
+}
+
+export function elegirGenericoReferenciaCatalogo<
+  T extends {
+    comerciales: number;
+    concentracion: string;
+    forma_farmaceutica: string;
+    requiere_receta: boolean;
+    stock_minimo: number;
+  },
+>(genericos: T[]): T | null {
+  if (genericos.length === 0) return null;
+  if (genericos.length === 1) return genericos[0];
+  return [...genericos].sort((a, b) => b.comerciales - a.comerciales)[0] ?? null;
+}
+
 export function lineaSugerenciaProductoCatalogo(p: CamposTituloProducto): string {
   const generico = (p.nombre_generico || "").trim();
   const conc = (p.concentracion || "").trim();
@@ -351,4 +413,27 @@ export function productoFarmaciaDesdeLegacy(
   const presentacion = descripcion.trim() || nombre.trim();
 
   return { nombre_generico, concentracion, forma_farmaceutica, presentacion };
+}
+
+export function esLaboratorioPlaceholder(nombre: string): boolean {
+  return normalizarTextoBusquedaProducto(nombre) === "sin laboratorio";
+}
+
+export function laboratoriosParaSeleccionComercial<
+  T extends { id: string; nombre: string; proveedor_nombre?: string | null },
+>(laboratorios: T[]): T[] {
+  return laboratorios.filter((l) => !esLaboratorioPlaceholder(l.nombre));
+}
+
+export function ordenarLaboratoriosProveedorPrimero<
+  T extends { id: string; proveedor_id?: string | null },
+>(laboratorios: T[], proveedorId: string | null | undefined): T[] {
+  if (!proveedorId) return [...laboratorios];
+  const delProveedor: T[] = [];
+  const otros: T[] = [];
+  for (const lab of laboratorios) {
+    if (lab.proveedor_id === proveedorId) delProveedor.push(lab);
+    else otros.push(lab);
+  }
+  return [...delProveedor, ...otros];
 }

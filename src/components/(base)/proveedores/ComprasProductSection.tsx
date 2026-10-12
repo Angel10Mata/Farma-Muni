@@ -521,6 +521,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
 
       <NuevoComercialCompraModal
         open={modalComercialOpen}
+        proveedorCompra={context.proveedorSeleccionado}
         onClose={() => setModalComercialOpen(false)}
         onCreated={(c) => {
           context.setComercialesExtra((prev) => {

@@ -50,16 +50,19 @@ import {
   useCatalogosResumenInventario,
   useGenericosInventario,
   useComercialesInventario,
+  useLaboratoriosInventario,
 } from "./lib/hooks";
 import type { InventarioJerarquiaFiltros } from "./lib/jerarquia-zod";
 import {
   filasDesdeCatalogos,
   filasDesdeComerciales,
   filasDesdeGenericos,
+  esFilaAgregadaLaboratorio,
   filasDesdeLaboratorio,
   mapLoteAFilaInventario,
   type FilaInventarioUi,
 } from "./lib/map-inventario-filas";
+import type { ProductoComercial } from "./lib/jerarquia-zod";
 import type { LoteInventario } from "./lib/zod";
 import {
   etiquetaEstadoVencimiento,
@@ -520,6 +523,11 @@ function ProductoCard({
               Lab: {producto.laboratorio}
             </p>
           ) : null}
+          {producto.laboratorio_proveedor_nombre ? (
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase truncate">
+              Prov. lab: {producto.laboratorio_proveedor_nombre}
+            </p>
+          ) : null}
           {producto.inv_proveedores?.nombre ? (
             <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase truncate">
               Prov: {producto.inv_proveedores.nombre}
@@ -828,6 +836,156 @@ function ProductoDetalle({
           onClick={onEditClick}
           className="w-auto shrink-0 flex-1 sm:flex-initial"
         />
+      </div>
+    </motion.div>
+  );
+}
+
+function LaboratorioDetalle({
+  laboratorio,
+  comerciales,
+  proveedorNombre,
+  onClose,
+  onEditProducto,
+}: {
+  laboratorio: Producto;
+  comerciales: ProductoComercial[];
+  proveedorNombre: string | null;
+  onClose: () => void;
+  onEditProducto: (productoId: string) => void;
+}) {
+  const detalleLabelClass =
+    "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
+  const detalleFieldClass =
+    "rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2.5 text-sm text-slate-800 dark:border-[#A3BEB0]/15 dark:bg-zinc-900/40 dark:text-slate-100";
+  const stockTotal = comerciales.reduce((s, c) => s + c.stock_vendible, 0);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 24 }}
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-left animate-fade-in dark:bg-zinc-800"
+    >
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
+              <Building2 className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className={detalleLabelClass}>Laboratorio</p>
+              <p className="text-xl font-black text-slate-900 dark:text-white md:text-2xl">
+                {laboratorio.laboratorio || laboratorio.nombre}
+              </p>
+              {proveedorNombre ? (
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Proveedor: {proveedorNombre}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="cursor-pointer px-2 text-xl font-bold leading-none text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Productos</span>
+            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+              {comerciales.length}
+            </span>
+          </div>
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Stock vendible</span>
+            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+              {fmtNum(stockTotal)}
+            </span>
+          </div>
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Activos</span>
+            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+              {comerciales.filter((c) => c.activo).length}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h4 className={detalleLabelClass}>Productos comerciales</h4>
+          {comerciales.length === 0 ? (
+            <p className={detalleFieldClass}>No hay productos registrados bajo este laboratorio.</p>
+          ) : (
+            <ul className="divide-y divide-[#C1D1C5]/25 overflow-hidden rounded-xl border border-[#C1D1C5]/30 dark:divide-[#A3BEB0]/15 dark:border-[#A3BEB0]/15">
+              {comerciales.map((c) => {
+                const fila = filasDesdeComerciales([c])[0];
+                const productoUi = { ...fila } as Producto;
+                const isLow = c.stock_vendible <= c.stock_minimo;
+                return (
+                  <li
+                    key={c.producto_id}
+                    className="flex flex-col gap-3 bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <ProductoFarmaciaTitulo
+                        producto={productoUi}
+                        tituloClassName="text-sm font-bold text-slate-900 dark:text-slate-100"
+                        comercialClassName="text-xs text-slate-500 dark:text-slate-400"
+                      />
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        {c.presentacion}
+                        {c.proximo_vencimiento
+                          ? ` · Próx. vence ${new Date(c.proximo_vencimiento).toLocaleDateString("es-GT")}`
+                          : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Stock</p>
+                        <p
+                          className={cn(
+                            "text-sm font-black tabular-nums",
+                            isLow ? "text-red-500" : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                          )}
+                        >
+                          {fmtNum(c.stock_vendible)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Precio</p>
+                        <p className="text-sm font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                          {fmtQ(c.precio_venta)}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-md px-2 py-0.5 text-[9px] font-black uppercase",
+                          c.activo
+                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
+                            : "bg-red-500/10 text-red-600 dark:text-red-400",
+                        )}
+                      >
+                        {c.activo ? "Activo" : "Inactivo"}
+                      </span>
+                      <SigetActionButton
+                        label="Editar"
+                        accentColor={sigetAccent.editar}
+                        morphFrom={PencilNode}
+                        morphTo={SquarePenNode}
+                        onClick={() => onEditProducto(c.producto_id)}
+                        className="w-auto shrink-0"
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -1188,13 +1346,6 @@ export function VerInventario() {
     void refetchComerciales();
   };
 
-  const lotesProductoDetalle = useMemo(() => {
-    if (!productoSeleccionado) return [];
-    return lotesPorProductoId(
-      lotes as LoteInventario[],
-      idProductoCatalogo(productoSeleccionado),
-    );
-  }, [productoSeleccionado, lotes]);
   const ubicacionesPorProductoId = useMemo(
     () => mapUbicacionesPorProducto(lotes as LoteInventario[]),
     [lotes],
@@ -1203,6 +1354,50 @@ export function VerInventario() {
     () => mapLaboratorioCatalogoPorProducto(lotes as LoteInventario[]),
     [lotes],
   );
+  const { data: laboratoriosJerarquia = [] } = useLaboratoriosInventario();
+  const proveedorPorLaboratorioId = useMemo(() => {
+    const m = new Map<string, string | null>();
+    for (const l of laboratoriosJerarquia) {
+      m.set(l.id, l.proveedor_nombre ?? null);
+    }
+    return m;
+  }, [laboratoriosJerarquia]);
+
+  const detalleEsLaboratorio = Boolean(
+    productoSeleccionado &&
+      vistaInventario === "laboratorio" &&
+      esFilaAgregadaLaboratorio(productoSeleccionado),
+  );
+
+  const comercialesLaboratorioDetalle = useMemo(() => {
+    const labId = productoSeleccionado?.laboratorio_id;
+    if (!labId || !detalleEsLaboratorio) return [];
+    return comerciales
+      .filter((c) => c.laboratorio_id === labId)
+      .sort((a, b) => a.nombre_comercial.localeCompare(b.nombre_comercial, "es"));
+  }, [productoSeleccionado?.laboratorio_id, detalleEsLaboratorio, comerciales]);
+
+  const proveedorLaboratorioDetalle = useMemo(() => {
+    const labId = productoSeleccionado?.laboratorio_id;
+    if (!labId) return null;
+    return (
+      proveedorPorLaboratorioId.get(labId) ??
+      productoSeleccionado?.laboratorio_proveedor_nombre ??
+      null
+    );
+  }, [
+    productoSeleccionado?.laboratorio_id,
+    productoSeleccionado?.laboratorio_proveedor_nombre,
+    proveedorPorLaboratorioId,
+  ]);
+
+  const lotesProductoDetalle = useMemo(() => {
+    if (!productoSeleccionado || detalleEsLaboratorio) return [];
+    return lotesPorProductoId(
+      lotes as LoteInventario[],
+      idProductoCatalogo(productoSeleccionado),
+    );
+  }, [productoSeleccionado, lotes, detalleEsLaboratorio]);
 
   const lotesFiltradosJerarquia = useMemo(() => {
     const all = lotes as LoteInventario[];
@@ -1245,9 +1440,12 @@ export function VerInventario() {
           ubicacion: ubicacionesPorProductoId.get(idCat) ?? row.ubicacion ?? null,
           laboratorio:
             row.laboratorio ?? laboratorioPorProductoId.get(idCat) ?? row.laboratorio ?? null,
+          laboratorio_proveedor_nombre: row.laboratorio_id
+            ? proveedorPorLaboratorioId.get(row.laboratorio_id) ?? null
+            : null,
         };
       }),
-    [filasJerarquia, ubicacionesPorProductoId, laboratorioPorProductoId],
+    [filasJerarquia, ubicacionesPorProductoId, laboratorioPorProductoId, proveedorPorLaboratorioId],
   );
 
   const isLoading =
@@ -2003,6 +2201,9 @@ export function VerInventario() {
                       <th className={moduleTableHeadCellClass}>Código</th>
                     ) : null}
                     <th className={moduleTableHeadCellClass}>Producto</th>
+                    {vistaInventario === "laboratorio" ? (
+                      <th className={moduleTableHeadCellClass}>Proveedor del lab</th>
+                    ) : null}
                     {vistaInventario === "lotes" ? (
                       <>
                         <th className={moduleTableHeadCellClass}>Laboratorio</th>
@@ -2115,6 +2316,11 @@ export function VerInventario() {
                           <td className="px-5 py-3.5 min-w-[200px]">
                             <ProductoFarmaciaTitulo producto={p} />
                           </td>
+                          {vistaInventario === "laboratorio" ? (
+                            <td className="px-5 py-3.5 text-sm text-slate-600 dark:text-slate-300 max-w-[140px] truncate">
+                              {p.laboratorio_proveedor_nombre || "—"}
+                            </td>
+                          ) : null}
                           {vistaInventario === "lotes" ? (
                             <>
                               <td className="px-5 py-3.5 text-sm text-slate-600 dark:text-slate-300 max-w-[120px] truncate">
@@ -2395,16 +2601,29 @@ export function VerInventario() {
                 className="pointer-events-auto flex h-[min(820px,calc(100dvh-var(--banner-height,0px)-2rem))] max-h-[calc(100dvh-var(--banner-height,0px)-2rem)] w-full min-w-[320px] max-w-[min(960px,96vw)] flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl dark:bg-zinc-900"
               >
                 <div className="h-full min-h-0">
-                  <ProductoDetalle
-                    producto={productoSeleccionado}
-                    lotesProducto={lotesProductoDetalle}
-                    onClose={() => setProductoSeleccionado(null)}
-                    onEditClick={() => {
-                      const id = idProductoCatalogo(productoSeleccionado);
-                      setProductoSeleccionado(null);
-                      router.push(`/farmamuni/inventario/editar/${id}`);
-                    }}
-                  />
+                  {detalleEsLaboratorio ? (
+                    <LaboratorioDetalle
+                      laboratorio={productoSeleccionado}
+                      comerciales={comercialesLaboratorioDetalle}
+                      proveedorNombre={proveedorLaboratorioDetalle}
+                      onClose={() => setProductoSeleccionado(null)}
+                      onEditProducto={(productoId) => {
+                        setProductoSeleccionado(null);
+                        router.push(`/farmamuni/inventario/editar/${productoId}`);
+                      }}
+                    />
+                  ) : (
+                    <ProductoDetalle
+                      producto={productoSeleccionado}
+                      lotesProducto={lotesProductoDetalle}
+                      onClose={() => setProductoSeleccionado(null)}
+                      onEditClick={() => {
+                        const id = idProductoCatalogo(productoSeleccionado);
+                        setProductoSeleccionado(null);
+                        router.push(`/farmamuni/inventario/editar/${id}`);
+                      }}
+                    />
+                  )}
                 </div>
               </motion.div>
             </div>

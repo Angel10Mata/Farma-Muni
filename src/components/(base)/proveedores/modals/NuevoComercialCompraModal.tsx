@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { toast } from "react-toastify";
 import {
   ModalField,
@@ -14,23 +15,29 @@ import {
 } from "@/components/ui/general-modal";
 import { modalActionMessage } from "@/components/ui/modal-toast";
 import {
+  laboratoriosParaSeleccionComercial,
+  ordenarLaboratoriosProveedorPrimero,
+} from "@/components/(base)/inventario/lib/helpers";
+import {
   useCatalogosInventario,
   useGenericosInventario,
   useGuardarComercialInventario,
   useLaboratoriosInventario,
 } from "@/components/(base)/inventario/lib/hooks";
-import type { ComercialCompra } from "../lib/zod";
+import type { ComercialCompra, Proveedor } from "../lib/zod";
 
 interface NuevoComercialCompraModalProps {
   open: boolean;
   onClose: () => void;
   onCreated: (comercial: ComercialCompra) => void;
+  proveedorCompra?: Proveedor | null;
 }
 
 export function NuevoComercialCompraModal({
   open,
   onClose,
   onCreated,
+  proveedorCompra,
 }: NuevoComercialCompraModalProps) {
   const [catalogoId, setCatalogoId] = useState("");
   const [genericoId, setGenericoId] = useState("");
@@ -45,6 +52,11 @@ export function NuevoComercialCompraModal({
   );
   const { data: laboratorios = [] } = useLaboratoriosInventario();
   const { mutateAsync: guardarComercial, isPending } = useGuardarComercialInventario();
+
+  const laboratoriosOrdenados = useMemo(() => {
+    const base = laboratoriosParaSeleccionComercial(laboratorios);
+    return ordenarLaboratoriosProveedorPrimero(base, proveedorCompra?.id);
+  }, [laboratorios, proveedorCompra?.id]);
 
   const genericoSeleccionado = useMemo(
     () => genericos.find((g) => g.generico_id === genericoId),
@@ -71,8 +83,12 @@ export function NuevoComercialCompraModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const precio = Number(precioVenta);
-    if (!genericoId || !laboratorioId) {
-      toast.warn("Selecciona genérico y laboratorio.");
+    if (!genericoId) {
+      toast.warn("Selecciona un genérico.");
+      return;
+    }
+    if (!laboratorioId) {
+      toast.warn("Selecciona un laboratorio. Si falta uno, créalo en el detalle del proveedor.");
       return;
     }
     if (!nombreComercial.trim() || !presentacion.trim()) {
@@ -97,13 +113,14 @@ export function NuevoComercialCompraModal({
         },
       });
     } catch (err) {
-      const e = err as Error & { message?: string; detail?: string };
-      toast.error(modalActionMessage(e.message ?? "ERROR", e.detail ?? "No se pudo crear el comercial."));
+      const er = err as Error & { message?: string; detail?: string };
+      toast.error(modalActionMessage(er.message ?? "ERROR", er.detail ?? "No se pudo crear el comercial."));
       return;
     }
 
     const id = res.id;
-    if (!id || !genericoSeleccionado || !catalogoSeleccionado || !laboratorioSeleccionado) {
+    const labNombre = laboratorioSeleccionado?.nombre ?? "";
+    if (!id || !genericoSeleccionado || !catalogoSeleccionado) {
       toast.success("Producto comercial creado.");
       reset();
       onClose();
@@ -122,8 +139,8 @@ export function NuevoComercialCompraModal({
       generico_nombre: genericoSeleccionado.generico_nombre,
       concentracion: genericoSeleccionado.concentracion,
       forma_farmaceutica: String(genericoSeleccionado.forma_farmaceutica),
-      laboratorio_id: laboratorioSeleccionado.id,
-      laboratorio_nombre: laboratorioSeleccionado.nombre,
+      laboratorio_id: laboratorioId,
+      laboratorio_nombre: labNombre,
       stock_vendible: 0,
       ultimo_proveedor_id: null,
     });
@@ -179,14 +196,26 @@ export function NuevoComercialCompraModal({
 
         <ModalField>
           <ModalLabel>Laboratorio</ModalLabel>
+          <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+            Crea laboratorios en{" "}
+            <Link
+              href="/farmamuni/proveedores"
+              className="font-bold text-[#2c5f9b] underline dark:text-[#6f9fd4]"
+            >
+              Proveedores
+            </Link>
+            {proveedorCompra ? ` (detalle de ${proveedorCompra.nombre})` : ""}.
+          </p>
           <ModalSelect
             value={laboratorioId}
             onChange={(e) => setLaboratorioId(e.target.value)}
           >
             <option value="">Seleccionar…</option>
-            {laboratorios.map((l) => (
+            {laboratoriosOrdenados.map((l) => (
               <option key={l.id} value={l.id}>
+                {l.proveedor_id === proveedorCompra?.id ? "★ " : ""}
                 {l.nombre}
+                {l.proveedor_nombre ? ` · ${l.proveedor_nombre}` : ""}
               </option>
             ))}
           </ModalSelect>

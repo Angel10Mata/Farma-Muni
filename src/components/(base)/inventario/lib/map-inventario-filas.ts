@@ -32,6 +32,7 @@ export type FilaInventarioUi = {
   catalogo_id?: string;
   generico_id?: string;
   laboratorio_id?: string;
+  laboratorio_proveedor_nombre?: string | null;
   inv_proveedores?: { nombre: string } | null;
 };
 
@@ -59,8 +60,8 @@ export function filasDesdeGenericos(items: InvGenerico[]): FilaInventarioUi[] {
     catalogo_id: g.catalogo_id,
     catalogo_nombre: g.catalogo_nombre,
     codigo: "",
-    nombre: g.generico_nombre,
-    nombre_generico: g.generico_nombre,
+    nombre: [g.catalogo_nombre, g.concentracion].filter(Boolean).join(" "),
+    nombre_generico: g.catalogo_nombre,
     concentracion: g.concentracion,
     forma_farmaceutica: g.forma_farmaceutica,
     descripcion: "",
@@ -101,6 +102,12 @@ export function filasDesdeComerciales(items: ProductoComercial[]): FilaInventari
     fecha_vencimiento: c.proximo_vencimiento,
     bajo_minimo: c.stock_vendible <= c.stock_minimo,
   }));
+}
+
+export function esFilaAgregadaLaboratorio(row: FilaInventarioUi): boolean {
+  return Boolean(
+    row.laboratorio_id && row.id === row.laboratorio_id && (row.comerciales_count ?? 0) > 0,
+  );
 }
 
 export function filasDesdeLaboratorio(comerciales: ProductoComercial[]): FilaInventarioUi[] {

@@ -38,12 +38,15 @@ import {
   guardarCatalogo,
   guardarComercial,
   guardarGenerico,
+  crearProveedorYLaboratorio,
+  desligarLaboratorioDeProveedor,
   guardarLaboratorio,
   listarCatalogos,
   listarCatalogosResumen,
   listarComercialesInventario,
   listarGenericosInventario,
   listarLaboratorios,
+  listarLaboratoriosPorProveedor,
   obtenerComercial,
 } from "./jerarquia-actions";
 import type {
@@ -209,9 +212,34 @@ export function useLaboratoriosInventario() {
   });
 }
 
-export function useComercialesInventario(filtros?: InventarioJerarquiaFiltros) {
+export function useLaboratoriosPorProveedor(proveedorId: string | null) {
   const { isDemoMode } = useDemoMode();
   return useQuery({
+    queryKey: demoQueryKey(
+      ["inventario", "laboratorios-proveedor", proveedorId],
+      isDemoMode,
+    ),
+    queryFn: async () => {
+      if (!proveedorId) return [];
+      if (isDemoMode) {
+        return DEMO_LABORATORIOS.filter((l) => l.proveedor_id === proveedorId);
+      }
+      const res = await listarLaboratoriosPorProveedor(proveedorId);
+      if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    enabled: !!proveedorId,
+    staleTime: JERARQUIA_STALE,
+  });
+}
+
+export function useComercialesInventario(
+  filtros?: InventarioJerarquiaFiltros,
+  options?: { enabled?: boolean },
+) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    enabled: options?.enabled ?? true,
     queryKey: demoQueryKey(
       [
         "inventario",
@@ -275,6 +303,8 @@ function invalidateJerarquiaInventario(queryClient: ReturnType<typeof useQueryCl
   queryClient.invalidateQueries({ queryKey: ["inventario", "laboratorios"] });
   queryClient.invalidateQueries({ queryKey: ["inventario", "comerciales"] });
   queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
+  queryClient.invalidateQueries({ queryKey: ["proveedores"] });
+  queryClient.invalidateQueries({ queryKey: ["inventario", "laboratorios-proveedor"] });
 }
 
 export function useGuardarCatalogoInventario() {
@@ -322,6 +352,47 @@ export function useGuardarLaboratorioInventario() {
     mutationFn: async ({ id, data }: { id?: string; data: LaboratorioInput }) => {
       assertWritableDemo(isDemoMode);
       const res = await guardarLaboratorio(id, data);
+      if (!("success" in res) || !res.success) {
+        const code = "code" in res ? res.code : "ERROR";
+        const err = new Error(code) as Error & { detail?: string };
+        if ("detail" in res && res.detail) err.detail = res.detail;
+        throw err;
+      }
+      return res;
+    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
+  });
+}
+
+export function useDesligarLaboratorioProveedor() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      laboratorioId,
+      proveedorId,
+    }: {
+      laboratorioId: string;
+      proveedorId: string;
+    }) => {
+      assertWritableDemo(isDemoMode);
+      const res = await desligarLaboratorioDeProveedor(laboratorioId, proveedorId);
+      if (!("success" in res) || !res.success) {
+        throw new Error("code" in res ? res.code : "ERROR");
+      }
+      return res;
+    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
+  });
+}
+
+export function useCrearProveedorYLaboratorio() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: Parameters<typeof crearProveedorYLaboratorio>[0]) => {
+      assertWritableDemo(isDemoMode);
+      const res = await crearProveedorYLaboratorio(input);
       if (!("success" in res) || !res.success) {
         const code = "code" in res ? res.code : "ERROR";
         const err = new Error(code) as Error & { detail?: string };
@@ -485,8 +556,9 @@ export function useCrearLoteManual() {
     mutationFn: async (input: Parameters<typeof crearLoteManual>[0]) => {
       assertWritableDemo(isDemoMode);
       const res = await crearLoteManual(input);
-      if (!res.success) {
-        const err = new Error(res.code) as Error & { detail?: string };
+      if (!("success" in res) || !res.success) {
+        const code = "code" in res ? res.code : "ERROR";
+        const err = new Error(code) as Error & { detail?: string };
         if ("detail" in res && res.detail) err.detail = res.detail;
         throw err;
       }

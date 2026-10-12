@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import {
   useGuardarComercialInventario,
   useGuardarGenericoInventario,
+  useLaboratoriosInventario,
 } from "../lib/hooks";
 import {
   EDITAR_PRODUCTO_WIZARD_PASOS,
@@ -60,6 +61,9 @@ export function EditarJerarquia({
     useGuardarComercialInventario();
   const { mutateAsync: guardarGenerico, isPending: guardandoGenerico } =
     useGuardarGenericoInventario();
+  const { data: laboratorios = [] } = useLaboratoriosInventario();
+
+  const laboratorioVinculado = laboratorios.find((l) => l.id === producto.laboratorio_id);
 
   const isBusy = guardandoComercial || guardandoGenerico;
 
@@ -218,6 +222,14 @@ export function EditarJerarquia({
                 </button>
               </label>
             </ModalField>
+            {laboratorioVinculado ? (
+              <p className="text-xs text-zinc-500">
+                Laboratorio: <span className="font-bold">{laboratorioVinculado.nombre}</span>
+                {laboratorioVinculado.proveedor_nombre
+                  ? ` · Proveedor del lab: ${laboratorioVinculado.proveedor_nombre}`
+                  : " · Sin proveedor asignado al laboratorio"}
+              </p>
+            ) : null}
             <p className="text-xs text-zinc-500">
               Los lotes se editan desde Inventario → vista Lotes (código, vencimiento, costo,
               ubicación). No incluyen laboratorio ni precio de venta.

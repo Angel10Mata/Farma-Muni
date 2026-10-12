@@ -81,7 +81,7 @@ function VerProveedoresInner() {
             <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
               Compras
             </p>
-            <h1 className="mt-1 truncate text-2xl font-black uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-3xl">
+            <h1 className="truncate text-2xl font-black uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-3xl">
               Gestión de compra
             </h1>
           </div>
@@ -115,12 +115,12 @@ function VerProveedoresInner() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col pt-1">
+      <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 min-h-0 h-full">
         {/* TAB 1: INGRESAR COMPRA */}
         {activeTab === "ingresar_compra" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 min-h-0 h-full">
-            <div className="lg:col-span-8 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pb-4 pr-1">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start flex-1 min-h-0 h-full">
+            <div className="lg:col-span-8 flex flex-col gap-4 h-full min-h-0 overflow-y-auto pb-2 pr-1">
               <ComprasProductSection comerciales={comerciales} proveedores={proveedores} />
             </div>
             <div className="lg:col-span-4 h-full flex flex-col gap-4">

@@ -36,6 +36,7 @@ import {
 } from "lucide";
 import { toast } from "react-toastify";
 import { guardarProveedor, eliminarProveedor } from "../lib/actions";
+import { ProveedorLaboratoriosSection } from "../ProveedorLaboratoriosSection";
 import { useComprasProveedor } from "../lib/hooks";
 import { cn, fmtQ } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
@@ -155,6 +156,15 @@ function compraEstaPendiente(c: CompraProveedor): boolean {
       ?.filter((t) => t.categoria === "pago_proveedor")
       .reduce((sum, t) => sum + Math.abs(Number(t.monto)), 0) || 0;
   return abonos < compraMonto(c) && c.estado_pago !== "Pagado";
+}
+
+function saldoPendienteCompra(c: CompraProveedor): number {
+  const total = compraMonto(c);
+  const abonos =
+    c.fin_transacciones
+      ?.filter((t) => t.categoria === "pago_proveedor")
+      .reduce((sum, t) => sum + Math.abs(Number(t.monto)), 0) || 0;
+  return Math.max(0, total - abonos);
 }
 
 // Panel detalle
@@ -327,73 +337,94 @@ function ProveedorDetallePanel({
               ) : null}
             </div>
 
-            <div className="space-y-3 border-t border-[#C1D1C5]/20 pt-3">
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70">
-                Estado Financiero
-              </h4>
-              {comprasPendientes.length === 0 ? (
-                <div className="flex items-center gap-3 rounded-xl border border-emerald-100 bg-emerald-50 p-3.5 dark:border-emerald-900/30 dark:bg-emerald-950/15">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/40">
-                    <Check className="size-5 text-emerald-600 dark:text-emerald-400" />
-                  </div>
-                  <p className="text-sm font-bold text-emerald-700 dark:text-emerald-300">
-                    No tiene pagos pendientes
-                  </p>
-                </div>
-              ) : (
-                <div className="flex items-center justify-start rounded-xl border border-[#8DA78E]/20 bg-[#8DA78E]/10 px-3.5 py-3.5 dark:border-[#A3BEB0]/15 dark:bg-[#8DA78E]/5">
-                  <span className="text-xs font-bold uppercase text-[#525D53] dark:text-[#A3BEB0]">
-                    Pendiente ({comprasPendientes.length}{" "}
-                    {comprasPendientes.length === 1 ? "compra" : "compras"})
-                  </span>
-                </div>
-              )}
-            </div>
+            {comprasPendientes.length > 0 ? (
+              <div className="space-y-3 border-t border-[#C1D1C5]/20 pt-3">
+                <h4 className="text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70">
+                  Pagos pendientes
+                </h4>
+                <ul className="space-y-2">
+                  {comprasPendientes.map((c) => (
+                    <li
+                      key={c.id}
+                      className="rounded-xl border border-amber-200/80 bg-amber-50/90 px-3.5 py-3 dark:border-amber-900/40 dark:bg-amber-950/25"
+                    >
+                      <p className="text-base font-black tabular-nums text-amber-950 dark:text-amber-100">
+                        {fmtQ(saldoPendienteCompra(c))}
+                      </p>
+                      <p className="mt-0.5 text-xs font-semibold leading-snug text-amber-900/80 dark:text-amber-200/90">
+                        {new Date(c.created_at).toLocaleDateString("es-GT", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })}
+                        {c.numero_factura ? ` · Fact. ${c.numero_factura}` : ""}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
 
             <div>
               <h4 className="mb-2.5 text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70">
                 Estadísticas
               </h4>
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 min-[420px]:gap-2.5">
                 {[
                   {
                     icon: ShoppingBag,
-                    label: "Total Compras",
+                    label: "Total compras",
                     value: String(compras.length),
-                    color: "text-[#8DA78E] dark:text-[#A3BEB0]",
+                    valueClass: "text-slate-900 dark:text-white",
+                    iconClass: "text-[#8DA78E] dark:text-[#A3BEB0]",
                   },
                   {
                     icon: TrendingUp,
-                    label: "Pendiente",
-                    value: `${comprasPendientes.length} ${comprasPendientes.length === 1 ? "compra" : "compras"}`,
-                    color: "text-rose-500",
+                    label: "Por pagar",
+                    value: String(comprasPendientes.length),
+                    valueClass: "text-rose-600 dark:text-rose-400",
+                    iconClass: "text-rose-500",
                   },
                   {
                     icon: Calendar,
-                    label: "Última Compra",
+                    label: "Última compra",
                     value: ultimaCompra
-                      ? new Date(ultimaCompra).toLocaleDateString("es-GT")
-                      : "Sin compras",
-                    color: "text-[#8DA78E] dark:text-[#A3BEB0]",
+                      ? new Date(ultimaCompra).toLocaleDateString("es-GT", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                        })
+                      : "—",
+                    valueClass: "text-slate-900 dark:text-white",
+                    iconClass: "text-[#8DA78E] dark:text-[#A3BEB0]",
                   },
-                ].map(({ icon: Icon, label, value, color }) => (
+                ].map(({ icon: Icon, label, value, valueClass, iconClass }) => (
                   <div
                     key={label}
-                    className="flex flex-col justify-center rounded-xl border border-[#C1D1C5]/30 bg-white p-2.5 dark:border-[#A3BEB0]/10 dark:bg-[#525D53]/10"
+                    className="min-w-0 rounded-xl border border-[#C1D1C5]/30 bg-white p-3 dark:border-[#A3BEB0]/10 dark:bg-zinc-800/80"
                   >
-                    <div className="mb-1 flex items-center gap-1.5">
-                      <Icon className={`size-4 shrink-0 ${color}`} />
-                      <span className="truncate text-[10px] font-bold uppercase leading-tight tracking-wider text-[#525D53] dark:text-[#A3BEB0]/70">
+                    <div className="mb-1.5 flex items-start gap-2">
+                      <Icon className={`mt-0.5 size-4 shrink-0 ${iconClass}`} />
+                      <span className="text-[11px] font-bold uppercase leading-snug text-slate-600 dark:text-slate-300">
                         {label}
                       </span>
                     </div>
-                    <p className={`truncate text-sm font-black leading-snug ${color}`}>{value}</p>
+                    <p
+                      className={cn(
+                        "break-words text-base font-black leading-snug tabular-nums",
+                        valueClass,
+                      )}
+                    >
+                      {value}
+                    </p>
                   </div>
                 ))}
               </div>
             </div>
           </>
         )}
+
+        <ProveedorLaboratoriosSection proveedor={proveedor} />
       </div>
 
       <div className="flex shrink-0 justify-end gap-3 border-t border-zinc-200 bg-[#F5F5F1] p-4 dark:border-zinc-800 dark:bg-zinc-900 md:p-6 md:pt-4">

@@ -64,12 +64,10 @@ export const productoSugerenciaSchema = z.object({
 
 export type ProductoSugerencia = z.infer<typeof productoSugerenciaSchema>;
 
-export const PRODUCTO_WIZARD_PASOS = 5;
+export const PRODUCTO_WIZARD_PASOS = 3;
 
 export const PRODUCTO_WIZARD_PASOS_META = [
-  { titulo: "Catálogo" },
-  { titulo: "Genérico" },
-  { titulo: "Laboratorio" },
+  { titulo: "Catálogo y genérico" },
   { titulo: "Comercial" },
   { titulo: "Primer lote" },
 ] as const;

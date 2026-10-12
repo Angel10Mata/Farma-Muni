@@ -14,10 +14,10 @@ export const modulePageShellClass = [
 export const modulePageShellFixedClass = [
   "w-full",
   moduleContentMaxWidth,
-  "mx-auto flex flex-col gap-6",
+  "mx-auto flex flex-col gap-3",
   "px-3 sm:px-4 md:px-5",
-  "pt-32 pb-8 md:pt-28",
-  "relative mt-4 md:mt-8 flex-1 min-h-0 h-screen",
+  "pt-24 pb-4 md:pt-20",
+  "relative flex-1 min-h-0 h-screen",
 ].join(" ");
 
 export const dashboardOuterClass =

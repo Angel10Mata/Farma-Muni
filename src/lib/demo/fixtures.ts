@@ -127,7 +127,13 @@ const DEMO_LABORATORIOS_NOMBRES = [
 
 type DemoJerarquia = {
   catalogos: Array<{ id: string; nombre: string; descripcion: string | null; activo: boolean }>;
-  laboratorios: Array<{ id: string; nombre: string; activo: boolean }>;
+  laboratorios: Array<{
+    id: string;
+    nombre: string;
+    activo: boolean;
+    proveedor_id?: string | null;
+    proveedor_nombre?: string | null;
+  }>;
   genericos: Array<{
     generico_id: string;
     catalogo_id: string;
@@ -177,6 +183,8 @@ function buildDemoJerarquia(): DemoJerarquia {
     id: `demo-lab-${pad(i + 1)}`,
     nombre,
     activo: true,
+    proveedor_id: DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length]?.id ?? null,
+    proveedor_nombre: DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length]?.nombre ?? null,
   }));
 
   const catalogosMap = new Map<string, { id: string; nombre: string }>();

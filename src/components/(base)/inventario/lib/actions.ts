@@ -98,7 +98,11 @@ async function mapLoteDbError(
       detail,
     };
   }
-  return { success: false as const, code: "INTERNAL" as const };
+  return {
+    success: false as const,
+    code: "INTERNAL" as const,
+    detail: msg.trim() || undefined,
+  };
 }
 
 const COMERCIAL_DUPLICADO_SELECT =
@@ -412,8 +416,9 @@ export async function crearLoteManual(input: unknown) {
 
     try {
       await activarProductoCatalogoPorNuevoLote(supabase, parsed.data.producto_id);
-    } catch {
-      return { code: "INTERNAL" as const };
+    } catch (syncErr) {
+      const syncMsg = syncErr instanceof Error ? syncErr.message : "Error al actualizar stock del producto";
+      return { code: "INTERNAL" as const, detail: syncMsg };
     }
 
     revalidatePath("/farmamuni/inventario");

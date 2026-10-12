@@ -33,6 +33,8 @@ export const invLaboratorioSchema = z.object({
   id: z.string().uuid(),
   nombre: z.string(),
   activo: z.boolean(),
+  proveedor_id: z.string().uuid().nullable().optional(),
+  proveedor_nombre: z.string().nullable().optional(),
   created_at: z.string().optional(),
 });
 
@@ -147,9 +149,44 @@ export type GenericoInput = z.infer<typeof genericoInputSchema>;
 export const laboratorioInputSchema = z.object({
   nombre: z.string().trim().min(2, "El nombre del laboratorio es requerido"),
   activo: z.boolean().default(true),
+  proveedor_id: z.string().uuid().nullable().optional(),
 });
 
 export type LaboratorioInput = z.infer<typeof laboratorioInputSchema>;
+
+export const laboratorioCreateInputSchema = laboratorioInputSchema.extend({
+  proveedor_id: z.string().uuid("Debe seleccionar un proveedor"),
+});
+
+export type LaboratorioCreateInput = z.infer<typeof laboratorioCreateInputSchema>;
+
+export const laboratorioUpdateInputSchema = laboratorioInputSchema.extend({
+  proveedor_id: z
+    .string()
+    .uuid("Debe seleccionar un proveedor")
+    .nullable()
+    .optional(),
+});
+
+export type LaboratorioUpdateInput = z.infer<typeof laboratorioUpdateInputSchema>;
+
+export const crearProveedorYLaboratorioInputSchema = z.object({
+  proveedor: z.object({
+    nombre: z.string().min(1, "El nombre es requerido").trim(),
+    descripcion: z.string().nullable().optional().or(z.literal("")),
+    nit: z.string().nullable().optional().or(z.literal("")),
+    telefono: z.string().nullable().optional().or(z.literal("")),
+    correo: z.string().email("Correo inválido").nullable().optional().or(z.literal("")),
+  }),
+  laboratorio: z.object({
+    nombre: z.string().trim().min(2, "El nombre del laboratorio es requerido"),
+    activo: z.boolean().default(true),
+  }),
+});
+
+export type CrearProveedorYLaboratorioInput = z.infer<
+  typeof crearProveedorYLaboratorioInputSchema
+>;
 
 export const comercialInputSchema = z.object({
   generico_id: z.string().uuid("Debe seleccionar un genérico"),
