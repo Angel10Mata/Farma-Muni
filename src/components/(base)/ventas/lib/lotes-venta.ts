@@ -7,17 +7,16 @@ export type LoteAsignadoVenta = {
   precio_venta: number;
   precio_costo: number;
   codigo_barras: string;
-  laboratorio: string | null;
+  numero_lote: string | null;
   fecha_vencimiento: string | null;
 };
 
 export type LoteVendibleRow = {
   id: string;
   codigo_barras: string;
+  numero_lote: string | null;
   cantidad_actual: number;
   precio_costo: number;
-  precio_venta: number | null;
-  laboratorio: string | null;
   fecha_vencimiento: string | null;
   created_at?: string | null;
   ubicacion?: string | null;
@@ -37,16 +36,6 @@ export function loteVendiblePorFecha(
   return fecha >= hoy;
 }
 
-export function precioVentaDeLote(
-  precioVenta: number | null | undefined,
-  precioBaseProducto: number,
-): number {
-  if (precioVenta != null && !Number.isNaN(Number(precioVenta))) {
-    return Math.max(0, Number(precioVenta));
-  }
-  return Math.max(0, Number(precioBaseProducto) || 0);
-}
-
 export function filtrarLotesVendiblesFefo(lotes: LoteVendibleRow[], hoy = fechaHoyVentaGt()) {
   return lotes.filter((l) => loteVendiblePorFecha(l.fecha_vencimiento, hoy));
 }
@@ -54,10 +43,11 @@ export function filtrarLotesVendiblesFefo(lotes: LoteVendibleRow[], hoy = fechaH
 export function asignarCantidadFefo(
   lotes: LoteVendibleRow[],
   cantidad: number,
-  precioBaseProducto: number,
+  precioVentaComercial: number,
 ): { ok: true; asignaciones: LoteAsignadoVenta[] } | { ok: false; cantidad_disponible: number } {
   let restante = cantidad;
   const asignaciones: LoteAsignadoVenta[] = [];
+  const precioVenta = Math.max(0, Number(precioVentaComercial) || 0);
 
   for (const lote of lotes) {
     if (restante <= 0) break;
@@ -68,10 +58,10 @@ export function asignarCantidadFefo(
       lote_id: lote.id,
       cantidad: tomar,
       stock_lote: disp,
-      precio_venta: precioVentaDeLote(lote.precio_venta, precioBaseProducto),
+      precio_venta: precioVenta,
       precio_costo: Number(lote.precio_costo) || 0,
       codigo_barras: lote.codigo_barras,
-      laboratorio: lote.laboratorio,
+      numero_lote: lote.numero_lote ?? null,
       fecha_vencimiento: lote.fecha_vencimiento ?? null,
     });
     restante -= tomar;

@@ -402,23 +402,65 @@ export const DEMO_CREDITO_DETALLE: VentaCreditoDetalle[] = DEMO_VENTAS_HISTORIAL
 // HELPERS POS Y LISTADOS
 
 export function demoProductosPos() {
-  return {
-    productos: DEMO_PRODUCTOS.filter((p) => p.activo).map((p, i) => ({
-      id: p.id,
-      codigo: `DEMO-${String(i + 1).padStart(4, "0")}`,
-      nombre: p.nombre,
-      nombre_generico: p.nombre_generico,
-      descripcion: p.descripcion,
-      precio_base: p.precio_base,
-      precio_venta_fefo: p.precio_base,
-      precio_venta_desde: i % 7 === 0 ? Math.round(p.precio_base * 0.95 * 100) / 100 : undefined,
-      precio_venta_varios: i % 7 === 0,
-      stock_actual: p.stock_actual,
-      stock_minimo: p.stock_minimo,
+  const comerciales = DEMO_PRODUCTOS.filter((p) => p.activo).map((p, i) => {
+    const cat = PRODUCTOS_CATALOGO[i];
+    const catalogoNombre = cat?.nombre?.split(" ")[0] ?? "Producto";
+    return {
+      producto_id: p.id,
+      nombre_comercial: p.nombre,
+      presentacion: cat?.desc ?? "Presentación demo",
+      laboratorio_nombre: "Laboratorio demo",
+      precio_venta: p.precio_base,
+      generico_id: `demo-gen-pos-${i}`,
+      stock_vendible: p.stock_actual,
       imagen_url: p.imagen_url ?? null,
-      ubicacion: "Demo",
       activo: p.activo,
-    })),
+    };
+  });
+
+  const genericosMap = new Map<string, {
+    generico_id: string;
+    generico_nombre: string;
+    catalogo_id: string;
+    catalogo_nombre: string;
+    concentracion: string;
+    forma_farmaceutica: string;
+    requiere_receta: boolean;
+    stock_minimo: number;
+    stock_vendible: number;
+    bajo_minimo: boolean;
+    activo: boolean;
+  }>();
+
+  comerciales.forEach((c, i) => {
+    const cat = PRODUCTOS_CATALOGO[i];
+    const prod = DEMO_PRODUCTOS[i];
+    const catalogoNombre = cat?.nombre?.split(" ")[0] ?? "Producto";
+    const gid = c.generico_id;
+    const prev = genericosMap.get(gid);
+    const stock = c.stock_vendible;
+    if (prev) {
+      prev.stock_vendible += stock;
+    } else {
+      genericosMap.set(gid, {
+        generico_id: gid,
+        generico_nombre: cat?.nombre ?? c.nombre_comercial,
+        catalogo_id: `demo-cat-pos-${i}`,
+        catalogo_nombre: catalogoNombre,
+        concentracion: "500 mg",
+        forma_farmaceutica: "tableta",
+        requiere_receta: i % 5 === 0,
+        stock_minimo: prod?.stock_minimo ?? 0,
+        stock_vendible: stock,
+        bajo_minimo: stock <= (prod?.stock_minimo ?? 0),
+        activo: true,
+      });
+    }
+  });
+
+  return {
+    genericos: Array.from(genericosMap.values()).filter((g) => g.stock_vendible > 0),
+    comerciales,
     clientes: DEMO_CLIENTES_DB,
   };
 }

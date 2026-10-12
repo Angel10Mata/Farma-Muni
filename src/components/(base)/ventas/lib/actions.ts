@@ -4,10 +4,11 @@ import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import {
   CrearSolicitudRebajaSchema,
-  Producto,
   Cliente,
   SolicitudRebajaPayloadSchema,
   MotivoModificacionVentaSchema,
+  type ComercialVenta,
+  type GenericoVenta,
 } from "./zod";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
@@ -34,10 +35,45 @@ import {
   asignarCantidadFefo,
   filtrarLotesVendiblesFefo,
   loteVendiblePorFecha,
-  precioVentaDeLote,
   type LoteAsignadoVenta,
   type LoteVendibleRow,
 } from "./lotes-venta";
+
+const V_INV_GENERICOS_POS =
+  "generico_id, catalogo_id, catalogo_nombre, concentracion, forma_farmaceutica, generico_nombre, requiere_receta, stock_minimo, activo, comerciales, comerciales_con_stock, stock_vendible, precio_desde, bajo_minimo";
+
+const V_INV_COMERCIALES_POS =
+  "producto_id, nombre_comercial, presentacion, precio_venta, imagen_url, activo, generico_id, generico_nombre, requiere_receta, catalogo_id, catalogo_nombre, laboratorio_id, laboratorio_nombre, stock_vendible, proximo_vencimiento, lotes_vendibles, concentracion, forma_farmaceutica, unidad_venta, stock_minimo, generico_activo";
+
+function mapFilaGenericoVenta(row: Record<string, unknown>): GenericoVenta {
+  return {
+    generico_id: String(row.generico_id),
+    generico_nombre: String(row.generico_nombre ?? ""),
+    catalogo_id: String(row.catalogo_id),
+    catalogo_nombre: String(row.catalogo_nombre ?? ""),
+    concentracion: String(row.concentracion ?? ""),
+    forma_farmaceutica: String(row.forma_farmaceutica ?? ""),
+    requiere_receta: Boolean(row.requiere_receta),
+    stock_minimo: Number(row.stock_minimo) || 0,
+    stock_vendible: Number(row.stock_vendible) || 0,
+    bajo_minimo: Boolean(row.bajo_minimo),
+    activo: Boolean(row.activo),
+  };
+}
+
+function mapFilaComercialVenta(row: Record<string, unknown>): ComercialVenta {
+  return {
+    producto_id: String(row.producto_id),
+    nombre_comercial: String(row.nombre_comercial ?? ""),
+    presentacion: String(row.presentacion ?? ""),
+    laboratorio_nombre: String(row.laboratorio_nombre ?? ""),
+    precio_venta: Number(row.precio_venta) || 0,
+    generico_id: String(row.generico_id),
+    stock_vendible: Number(row.stock_vendible) || 0,
+    imagen_url: (row.imagen_url as string | null) ?? null,
+    activo: Boolean(row.activo),
+  };
+}
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireAdmin, requireVentas } from "@/lib/auth-guards";
 import { isAdminRole, resolveUserRole } from "@/lib/user-role";
@@ -165,78 +201,34 @@ export async function obtenerFarmaciaReciboSettings(): Promise<{
   };
 }
 
-// Productos y clientes para vender
 export async function obtenerProductosYClientes() {
   try {
     const supabase = await createClient();
 
-    // Obtener productos activos
-    const { data: productos, error: prodError } = await supabase
-      .from("inv_productos")
-      .select("*")
+    const { data: genericosRaw, error: genError } = await supabase
+      .from("v_inv_genericos")
+      .select(V_INV_GENERICOS_POS)
       .eq("activo", true)
-      .order("nombre", { ascending: true });
+      .order("generico_nombre", { ascending: true });
 
-    if (prodError) throw new Error(prodError.message);
+    if (genError) throw new Error(genError.message);
 
-    const { data: lotesRaw, error: lotesError } = await supabase
-      .from("inv_lotes")
-      .select(
-        "producto_id, id, codigo_barras, cantidad_actual, precio_venta, precio_costo, laboratorio, fecha_vencimiento, created_at, ubicacion",
-      )
+    const { data: comercialesRaw, error: comError } = await supabase
+      .from("v_inv_comerciales")
+      .select(V_INV_COMERCIALES_POS)
       .eq("activo", true)
-      .gt("cantidad_actual", 0)
-      .order("fecha_vencimiento", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true });
+      .eq("generico_activo", true)
+      .order("nombre_comercial", { ascending: true });
 
-    if (lotesError) throw new Error(lotesError.message);
+    if (comError) throw new Error(comError.message);
 
-    const lotesPorProducto = new Map<string, LoteVendibleRow[]>();
-    for (const row of lotesRaw ?? []) {
-      const lote: LoteVendibleRow = {
-        id: row.id as string,
-        codigo_barras: row.codigo_barras as string,
-        cantidad_actual: Number(row.cantidad_actual) || 0,
-        precio_costo: Number(row.precio_costo) || 0,
-        precio_venta: row.precio_venta != null ? Number(row.precio_venta) : null,
-        laboratorio: (row.laboratorio as string | null) ?? null,
-        fecha_vencimiento: (row.fecha_vencimiento as string | null) ?? null,
-        created_at: (row.created_at as string | null) ?? null,
-        ubicacion: (row.ubicacion as string | null) ?? null,
-      };
-      if (!loteVendiblePorFecha(lote.fecha_vencimiento)) continue;
-      const pid = row.producto_id as string;
-      const list = lotesPorProducto.get(pid) ?? [];
-      list.push(lote);
-      lotesPorProducto.set(pid, list);
-    }
+    const genericos = (genericosRaw ?? []).map((row) =>
+      mapFilaGenericoVenta(row as Record<string, unknown>),
+    );
+    const comerciales = (comercialesRaw ?? []).map((row) =>
+      mapFilaComercialVenta(row as Record<string, unknown>),
+    );
 
-    const productosPos = (productos ?? []).map((prod) => {
-      const lotes = lotesPorProducto.get(prod.id as string) ?? [];
-      const precios = lotes.map((l) =>
-        precioVentaDeLote(l.precio_venta, Number(prod.precio_base) || 0),
-      );
-      const fefo = lotes[0];
-      const precioFefo = fefo
-        ? precioVentaDeLote(fefo.precio_venta, Number(prod.precio_base) || 0)
-        : Number(prod.precio_base) || 0;
-      const minPrecio = precios.length > 0 ? Math.min(...precios) : precioFefo;
-      const maxPrecio = precios.length > 0 ? Math.max(...precios) : precioFefo;
-      const varios = precios.length > 1 && maxPrecio - minPrecio > 0.001;
-      const stockLotes = lotes.reduce((s, l) => s + (Number(l.cantidad_actual) || 0), 0);
-
-      return {
-        ...prod,
-        codigo: fefo?.codigo_barras ?? "",
-        ubicacion: fefo?.ubicacion ?? prod.ubicacion ?? null,
-        stock_actual: stockLotes > 0 ? stockLotes : Number(prod.stock_actual) || 0,
-        precio_venta_fefo: precioFefo,
-        precio_venta_desde: varios ? minPrecio : undefined,
-        precio_venta_varios: varios,
-      };
-    });
-
-    // Obtener todos los clientes
     const { data: clientes, error: cliError } = await supabase
       .from("ven_clientes")
       .select("*")
@@ -245,10 +237,11 @@ export async function obtenerProductosYClientes() {
     if (cliError) throw new Error(cliError.message);
 
     return {
-      productos: productosPos,
+      genericos,
+      comerciales,
       clientes: clientes || [],
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en obtenerProductosYClientes:", error);
     throw new Error("No se pudieron cargar los productos o clientes.");
   }
@@ -273,7 +266,7 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
     const { data: lote, error } = await supabase
       .from("inv_lotes")
       .select(
-        "id, producto_id, codigo_barras, numero_lote, cantidad_actual, precio_costo, precio_venta, laboratorio, fecha_vencimiento, ubicacion, activo, inv_productos(*)",
+        "id, producto_id, codigo_barras, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, ubicacion, activo",
       )
       .eq("codigo_barras", codigoNorm)
       .eq("activo", true)
@@ -283,9 +276,7 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
     if (error) {
       return { success: false as const, error: error.message };
     }
-    const productoJoin = lote?.inv_productos;
-    const productoRow = Array.isArray(productoJoin) ? productoJoin[0] : productoJoin;
-    if (!lote || !productoRow) {
+    if (!lote) {
       return { success: false as const, error: "No hay lote activo con stock para ese código." };
     }
 
@@ -293,31 +284,49 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
       return { success: false as const, error: "El lote está vencido y no se puede vender." };
     }
 
-    const producto = productoRow as Producto;
-    if (!producto.activo) {
-      return { success: false as const, error: "El producto del lote está inactivo." };
+    const productoId = lote.producto_id as string;
+    const { data: comercialRow, error: comercialError } = await supabase
+      .from("v_inv_comerciales")
+      .select(V_INV_COMERCIALES_POS)
+      .eq("producto_id", productoId)
+      .maybeSingle();
+
+    if (comercialError || !comercialRow) {
+      return { success: false as const, error: "No se encontró el producto comercial del lote." };
     }
 
-    const precioVenta = precioVentaDeLote(
-      lote.precio_venta != null ? Number(lote.precio_venta) : null,
-      producto.precio_base,
-    );
+    const comercial = mapFilaComercialVenta(comercialRow as Record<string, unknown>);
+    if (!comercial.activo || comercial.stock_vendible <= 0) {
+      return { success: false as const, error: "El comercial no tiene stock vendible." };
+    }
+
+    const { data: genericoRow, error: genericoError } = await supabase
+      .from("v_inv_genericos")
+      .select(V_INV_GENERICOS_POS)
+      .eq("generico_id", comercial.generico_id)
+      .maybeSingle();
+
+    if (genericoError || !genericoRow) {
+      return { success: false as const, error: "No se encontró el genérico del producto." };
+    }
+
+    const generico = mapFilaGenericoVenta(genericoRow as Record<string, unknown>);
 
     return {
       success: true as const,
       lote: {
         id: lote.id as string,
-        producto_id: lote.producto_id as string,
+        producto_id: productoId,
         codigo_barras: lote.codigo_barras as string,
         numero_lote: (lote.numero_lote as string | null) ?? null,
         cantidad_actual: Number(lote.cantidad_actual) || 0,
         precio_costo: Number(lote.precio_costo) || 0,
-        precio_venta: precioVenta,
-        laboratorio: (lote.laboratorio as string | null) ?? null,
+        precio_venta: comercial.precio_venta,
         fecha_vencimiento: (lote.fecha_vencimiento as string | null) ?? null,
         ubicacion: (lote.ubicacion as string | null) ?? null,
       },
-      producto,
+      comercial,
+      generico,
     };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error al buscar el lote.";
@@ -339,23 +348,25 @@ export async function asignarLotes(productoId: string, cantidad: number) {
       return { success: false as const, error: "La cantidad debe ser mayor a 0." };
     }
 
-    const { data: producto, error: prodError } = await supabase
-      .from("inv_productos")
-      .select("id, nombre, precio_base, activo")
-      .eq("id", productoId)
+    const { data: comercialRow, error: comercialError } = await supabase
+      .from("v_inv_comerciales")
+      .select(V_INV_COMERCIALES_POS)
+      .eq("producto_id", productoId)
       .maybeSingle();
 
-    if (prodError || !producto) {
-      return { success: false as const, error: "Producto no encontrado." };
+    if (comercialError || !comercialRow) {
+      return { success: false as const, error: "Producto comercial no encontrado." };
     }
-    if (!producto.activo) {
-      return { success: false as const, error: "El producto está inactivo." };
+
+    const comercial = mapFilaComercialVenta(comercialRow as Record<string, unknown>);
+    if (!comercial.activo) {
+      return { success: false as const, error: "El producto comercial está inactivo." };
     }
 
     const { data: lotes, error } = await supabase
       .from("inv_lotes")
       .select(
-        "id, codigo_barras, cantidad_actual, precio_costo, precio_venta, laboratorio, fecha_vencimiento, created_at",
+        "id, codigo_barras, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, created_at",
       )
       .eq("producto_id", productoId)
       .eq("activo", true)
@@ -371,25 +382,20 @@ export async function asignarLotes(productoId: string, cantidad: number) {
       (lotes ?? []).map((l) => ({
         id: l.id as string,
         codigo_barras: l.codigo_barras as string,
+        numero_lote: (l.numero_lote as string | null) ?? null,
         cantidad_actual: Number(l.cantidad_actual) || 0,
         precio_costo: Number(l.precio_costo) || 0,
-        precio_venta: l.precio_venta != null ? Number(l.precio_venta) : null,
-        laboratorio: (l.laboratorio as string | null) ?? null,
         fecha_vencimiento: (l.fecha_vencimiento as string | null) ?? null,
         created_at: (l.created_at as string | null) ?? null,
       })),
     );
 
-    const resultado = asignarCantidadFefo(
-      vendibles,
-      cantidad,
-      Number(producto.precio_base) || 0,
-    );
+    const resultado = asignarCantidadFefo(vendibles, cantidad, comercial.precio_venta);
 
     if (!resultado.ok) {
       return {
         success: false as const,
-        error: `Stock insuficiente para ${producto.nombre}. Disponibles: ${resultado.cantidad_disponible}.`,
+        error: `Stock insuficiente para ${comercial.nombre_comercial}. Disponibles: ${resultado.cantidad_disponible}.`,
         cantidad_disponible: resultado.cantidad_disponible,
       };
     }
@@ -501,23 +507,13 @@ async function precioVentaReferenciaItem(
   supabase: SupabaseClient,
   item: ItemVentaInput,
 ): Promise<number> {
-  if (item.lote_id) {
-    const { data: lote } = await supabase
-      .from("inv_lotes")
-      .select("precio_venta, producto_id")
-      .eq("id", item.lote_id)
-      .maybeSingle();
-    if (lote) {
-      const { data: prod } = await supabase
-        .from("inv_productos")
-        .select("precio_base")
-        .eq("id", lote.producto_id)
-        .maybeSingle();
-      return precioVentaDeLote(
-        lote.precio_venta != null ? Number(lote.precio_venta) : null,
-        Number(prod?.precio_base) || 0,
-      );
-    }
+  const { data: comercial } = await supabase
+    .from("v_inv_comerciales")
+    .select("precio_venta")
+    .eq("producto_id", item.producto_id)
+    .maybeSingle();
+  if (comercial) {
+    return Number(comercial.precio_venta) || 0;
   }
   const { data: prod } = await supabase
     .from("inv_productos")
@@ -677,12 +673,12 @@ export async function crearVenta(params: {
     }
 
     const productoIds = [...new Set(items.map((i) => i.producto_id))];
-    const { data: productosReceta } = await supabase
-      .from("inv_productos")
-      .select("id, requiere_receta")
-      .in("id", productoIds);
+    const { data: comercialesReceta } = await supabase
+      .from("v_inv_comerciales")
+      .select("producto_id, requiere_receta")
+      .in("producto_id", productoIds);
 
-    const requiereReceta = (productosReceta ?? []).some((p) =>
+    const requiereReceta = (comercialesReceta ?? []).some((p) =>
       Boolean(p.requiere_receta),
     );
 
@@ -1175,7 +1171,7 @@ export async function obtenerDetalleVenta(ventaId: string) {
     const { data, error } = await supabase
       .from("ven_detalles")
       .select(
-        "*, inv_lotes(codigo_barras, numero_lote, precio_venta, precio_costo, laboratorio), inv_productos(nombre)",
+        "*, inv_lotes(codigo_barras, numero_lote, precio_costo), inv_productos(nombre, presentacion, generico_id, laboratorio_id, inv_genericos(concentracion, forma_farmaceutica, inv_catalogos(nombre)), inv_laboratorios(nombre))",
       )
       .eq("venta_id", ventaId);
 

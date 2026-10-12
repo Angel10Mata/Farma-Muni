@@ -1,22 +1,29 @@
 import { z } from "zod";
 
-// Catálogo y carrito
-export const ProductoSchema = z.object({
-  id: z.string(),
-  codigo: z.string().optional(),
-  nombre: z.string(),
-  nombre_generico: z.string().optional(),
-  descripcion: z.string().optional().default(""),
-  precio_base: z.number(),
-  precio_venta_fefo: z.number().optional(),
-  precio_venta_desde: z.number().optional(),
-  precio_venta_varios: z.boolean().optional(),
-  stock_actual: z.number(),
+export const GenericoVentaSchema = z.object({
+  generico_id: z.string().uuid(),
+  generico_nombre: z.string(),
+  catalogo_id: z.string().uuid(),
+  catalogo_nombre: z.string(),
+  concentracion: z.string(),
+  forma_farmaceutica: z.string(),
+  requiere_receta: z.boolean(),
   stock_minimo: z.number(),
+  stock_vendible: z.number(),
+  bajo_minimo: z.boolean().optional(),
+  activo: z.boolean().optional(),
+});
+
+export const ComercialVentaSchema = z.object({
+  producto_id: z.string().uuid(),
+  nombre_comercial: z.string(),
+  presentacion: z.string(),
+  laboratorio_nombre: z.string(),
+  precio_venta: z.number(),
+  generico_id: z.string().uuid(),
+  stock_vendible: z.number(),
   imagen_url: z.string().nullable().optional(),
-  ubicacion: z.string().nullable().optional(),
   activo: z.boolean(),
-  requiere_receta: z.boolean().optional(),
 });
 
 export const ClienteSchema = z.object({
@@ -29,13 +36,15 @@ export const ClienteSchema = z.object({
 });
 
 export const ItemCarritoSchema = z.object({
-  producto: ProductoSchema,
+  generico: GenericoVentaSchema,
+  comercial: ComercialVentaSchema,
   lote_id: z.string().uuid().optional(),
+  numero_lote: z.string().nullable().optional(),
   codigo_barras_lote: z.string().optional(),
   stock_lote: z.number().optional(),
   precio_costo_lote: z.number().optional(),
-  precio_venta_lote: z.number(),
-  laboratorio: z.string().nullable().optional(),
+  precio_venta_referencia: z.number(),
+  laboratorio_nombre: z.string().optional(),
   cantidad: z.number(),
   precio_aplicado: z.number(),
   subtotal: z.number(),
@@ -69,12 +78,12 @@ export const VentaSchema = z.object({
     .optional(),
 });
 
-export type Producto = z.infer<typeof ProductoSchema>;
+export type GenericoVenta = z.infer<typeof GenericoVentaSchema>;
+export type ComercialVenta = z.infer<typeof ComercialVentaSchema>;
 export type Cliente = z.infer<typeof ClienteSchema>;
 export type ItemCarrito = z.infer<typeof ItemCarritoSchema>;
 export type Venta = z.infer<typeof VentaSchema>;
 
-// Registrar venta
 export const ItemVentaSchema = z.object({
   producto_id: z.string().uuid(),
   lote_id: z.string().uuid().optional().nullable(),
@@ -94,7 +103,6 @@ export const CrearVentaSchema = z.object({
 export type ItemVentaInput = z.infer<typeof ItemVentaSchema>;
 export type CrearVentaInput = z.infer<typeof CrearVentaSchema>;
 
-// Solicitudes de rebaja
 export const SolicitudRebajaItemPayloadSchema = z.object({
   producto_id: z.string().uuid(),
   lote_id: z.string().uuid().optional(),
@@ -149,7 +157,6 @@ export const CrearSolicitudRebajaSchema = z.object({
 
 export type CrearSolicitudRebajaInput = z.infer<typeof CrearSolicitudRebajaSchema>;
 
-// Bitácora de ventas
 export const VentaBitacoraAccionSchema = z.enum([
   "editar_linea",
   "quitar_linea",

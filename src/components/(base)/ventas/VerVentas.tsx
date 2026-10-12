@@ -21,7 +21,7 @@ import { useDatosVentas } from "./lib/hooks";
 
 type RefetchVentasDatos = ReturnType<typeof useDatosVentas>["refetch"];
 
-import { Producto, Cliente, Venta, ItemCarrito } from "./lib/zod";
+import { ComercialVenta, GenericoVenta, Cliente, Venta, ItemCarrito } from "./lib/zod";
 import { useVentas, VentasProvider } from "./ContextoVentas";
 import { SeccionProductosVentas } from "./SeccionProductosVentas";
 import { BarraCarritoVentas } from "./BarraCarritoVentas";
@@ -40,7 +40,17 @@ import { ModalAutorizacionRebajaVentas } from "./ModalAutorizacionRebajaVentas";
 import { PanelSolicitudesRebajaVentas } from "./PanelSolicitudesRebajaVentas";
 import { SolicitudesRebajaAdmin } from "./SolicitudesRebajaAdmin";
 
-function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: RefetchVentasDatos }) {
+function VerVentasInner({
+  genericos,
+  comerciales,
+  clientes,
+  refetchDatos,
+}: {
+  genericos: GenericoVenta[];
+  comerciales: ComercialVenta[];
+  clientes: Cliente[];
+  refetchDatos: RefetchVentasDatos;
+}) {
   const { effectiveRole, realRole } = useUserContext();
   const puedeVerHistorial = ["admin", "super"].includes(effectiveRole);
   const { isDemoMode } = useDemoMode();
@@ -194,39 +204,106 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
       const { data: dataMaster } = await refetchDatos();
       if (!dataMaster) throw new Error("No se pudieron actualizar productos y clientes.");
-      const nuevosProductos: Producto[] = dataMaster.productos as Producto[];
-      
+      const nuevosComerciales = (dataMaster.comerciales as ComercialVenta[]) ?? [];
+      const nuevosGenericos = (dataMaster.genericos as GenericoVenta[]) ?? [];
+
       const nuevosItemsCarrito: ItemCarrito[] = detalles.map((d: {
         producto_id: string;
         lote_id?: string | null;
         cantidad: number;
         precio_aplicado: number;
         subtotal: number;
-        inv_lotes?: { codigo_barras?: string; laboratorio?: string | null; precio_venta?: number | null; precio_costo?: number } | null;
-        inv_productos?: { nombre?: string } | null;
+        inv_lotes?: { codigo_barras?: string; numero_lote?: string | null; precio_costo?: number } | null;
+        inv_productos?: {
+          nombre?: string;
+          presentacion?: string;
+          generico_id?: string;
+          inv_genericos?:
+            | {
+                generico_nombre?: string;
+                concentracion?: string;
+                forma_farmaceutica?: string;
+                requiere_receta?: boolean;
+                stock_minimo?: number;
+                inv_catalogos?: { nombre?: string } | { nombre?: string }[] | null;
+              }
+            | Array<{
+                generico_nombre?: string;
+                concentracion?: string;
+                forma_farmaceutica?: string;
+                requiere_receta?: boolean;
+                stock_minimo?: number;
+                inv_catalogos?: { nombre?: string } | { nombre?: string }[] | null;
+              }>
+            | null;
+          inv_laboratorios?: { nombre?: string } | { nombre?: string }[] | null;
+        } | null;
       }) => {
-        const prodEncontrado = nuevosProductos.find((p) => p.id === d.producto_id);
-        const precioVentaLote =
-          d.inv_lotes?.precio_venta != null
-            ? Number(d.inv_lotes.precio_venta)
-            : d.precio_aplicado;
-        return {
-          producto: prodEncontrado || {
-            id: d.producto_id,
-            codigo: d.inv_lotes?.codigo_barras || "",
-            nombre: d.inv_productos?.nombre || "Producto",
-            descripcion: "",
-            precio_base: precioVentaLote,
-            stock_actual: d.cantidad,
-            stock_minimo: 0,
+        const comercial =
+          nuevosComerciales.find((c) => c.producto_id === d.producto_id) ?? {
+            producto_id: d.producto_id,
+            nombre_comercial: d.inv_productos?.nombre || "Producto",
+            presentacion: d.inv_productos?.presentacion || "",
+            laboratorio_nombre:
+              (Array.isArray(d.inv_productos?.inv_laboratorios)
+                ? d.inv_productos?.inv_laboratorios[0]?.nombre
+                : d.inv_productos?.inv_laboratorios?.nombre) || "",
+            precio_venta: d.precio_aplicado,
+            generico_id: d.inv_productos?.generico_id || "",
+            stock_vendible: d.cantidad,
             activo: true,
-          },
+          };
+        const generico =
+          nuevosGenericos.find((g) => g.generico_id === comercial.generico_id) ?? {
+            generico_id: comercial.generico_id || d.producto_id,
+            generico_nombre: String(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.generico_nombre
+                : d.inv_productos?.inv_genericos?.generico_nombre) ||
+                d.inv_productos?.nombre ||
+                "Genérico",
+            ),
+            catalogo_id: "",
+            catalogo_nombre: String(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? (d.inv_productos?.inv_genericos[0]?.inv_catalogos as { nombre?: string } | null)?.nombre
+                : (d.inv_productos?.inv_genericos as { inv_catalogos?: { nombre?: string } } | null)
+                    ?.inv_catalogos?.nombre) || "",
+            ),
+            concentracion: String(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.concentracion
+                : d.inv_productos?.inv_genericos?.concentracion) || "",
+            ),
+            forma_farmaceutica: String(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.forma_farmaceutica
+                : d.inv_productos?.inv_genericos?.forma_farmaceutica) || "",
+            ),
+            requiere_receta: Boolean(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.requiere_receta
+                : d.inv_productos?.inv_genericos?.requiere_receta) ?? false,
+            ),
+            stock_minimo: Number(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.stock_minimo
+                : d.inv_productos?.inv_genericos?.stock_minimo) || 0,
+            ),
+            stock_vendible: comercial.stock_vendible,
+            activo: true,
+          };
+        const precioRef = comercial.precio_venta || d.precio_aplicado;
+        return {
+          generico,
+          comercial,
           lote_id: d.lote_id ?? undefined,
           codigo_barras_lote: d.inv_lotes?.codigo_barras,
+          numero_lote: d.inv_lotes?.numero_lote ?? null,
           stock_lote: d.cantidad,
           precio_costo_lote: Number(d.inv_lotes?.precio_costo) || 0,
-          precio_venta_lote: precioVentaLote,
-          laboratorio: d.inv_lotes?.laboratorio ?? null,
+          precio_venta_referencia: precioRef,
+          laboratorio_nombre: comercial.laboratorio_nombre,
           cantidad: d.cantidad,
           precio_aplicado: d.precio_aplicado,
           subtotal: d.subtotal,
@@ -342,12 +419,14 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       autoTable(doc, {
         startY: currentY,
         head: [["Cant", "Detalle", "Precio", "Sub"]],
-        body: detalles.map((d) => [
-          d.cantidad,
-          d.inv_productos?.nombre || "Pedido",
-          `${fmtQ(d.precio_aplicado)}`,
-          `${fmtQ(d.subtotal)}`
-        ]),
+        body: detalles.map((d) => {
+          const unit = d.cantidad > 0 ? d.subtotal / d.cantidad : d.precio_aplicado ?? 0;
+          const detalle =
+            d.nombre != null
+              ? `${d.nombre}${d.descripcion ? ` — ${d.descripcion}` : ""}`
+              : d.inv_productos?.nombre || "Pedido";
+          return [d.cantidad, detalle, `${fmtQ(unit)}`, `${fmtQ(d.subtotal)}`];
+        }),
         theme: "plain",
         styles: { fontSize: 7, cellPadding: 1, valign: "middle", textColor: [0, 0, 0], fontStyle: "bold" },
         columnStyles: {
@@ -519,19 +598,14 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-xl">
                   <div className="flex flex-col gap-1">
                     <span className="font-bold text-slate-900 dark:text-white text-lg">
-                      {item.cantidad}x {item.producto.nombre}
+                      {item.cantidad}x {item.comercial.nombre_comercial}
                     </span>
-                    {(!item.producto.ubicacion || item.producto.ubicacion === "Sin asignar") ? (
-                      <div className="flex items-center gap-1.5 text-amber-500 font-bold bg-amber-50 dark:bg-amber-500/10 w-fit px-2.5 py-1 rounded-md">
-                        <AlertTriangle className="size-4" />
-                        <span className="text-sm">Sin ubicación asignada</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-[#8DA78E] font-bold bg-[#8DA78E]/10 w-fit px-2.5 py-1 rounded-md">
-                        <Package className="size-4" />
-                        <span className="text-sm">{item.producto.ubicacion}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5 text-[#8DA78E] font-bold bg-[#8DA78E]/10 w-fit px-2.5 py-1 rounded-md">
+                      <Package className="size-4" />
+                      <span className="text-sm">
+                        {item.generico.generico_nombre} · {item.comercial.presentacion}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -588,6 +662,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                   {
                     farmacia: ventas.reciboFarmacia,
                     incluyeReceta: Boolean(ventas.reciboModalData.incluyeReceta),
+                    items: ventas.reciboModalData.reciboItems,
                   },
                 )}
               />
@@ -600,7 +675,10 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 morphTo={PrinterNode}
                 morphOnHover={false}
                 onClick={() => {
-                  handleImprimirVenta(ventas.reciboModalData.venta, ventas.reciboModalData.detalles);
+                  handleImprimirVenta(
+                    ventas.reciboModalData.venta,
+                    ventas.reciboModalData.reciboItems ?? ventas.reciboModalData.detalles,
+                  );
                 }}
                 className="w-auto shrink-0"
               />
@@ -610,7 +688,12 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 morphFrom={FileDownNode}
                 morphTo={FileDownNode}
                 morphOnHover={false}
-                onClick={() => exportarFacturaPDF(ventas.reciboModalData.venta, ventas.reciboModalData.detalles)}
+                onClick={() =>
+                  exportarFacturaPDF(
+                    ventas.reciboModalData.venta,
+                    ventas.reciboModalData.reciboItems ?? ventas.reciboModalData.detalles,
+                  )
+                }
                 className="w-auto shrink-0"
               />
               <SigetActionButton
@@ -619,7 +702,13 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 morphFrom={MessageCircleNode}
                 morphTo={MessageCircleNode}
                 morphOnHover={false}
-                onClick={() => shareWhatsAppAsImage(ventas.reciboModalData.venta, ventas.reciboModalData.detalles, ventas.reciboModalData.clienteCompleto)}
+                onClick={() =>
+                  shareWhatsAppAsImage(
+                    ventas.reciboModalData.venta,
+                    ventas.reciboModalData.reciboItems ?? ventas.reciboModalData.detalles,
+                    ventas.reciboModalData.clienteCompleto,
+                  )
+                }
                 className="w-auto shrink-0"
               />
               <SigetActionButton
@@ -689,7 +778,11 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
       {ventas.activeTab === "pos" || !puedeVerHistorial ? (
         <div className="flex flex-col lg:flex-row gap-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <SeccionProductosVentas productos={productos} clientes={clientes} />
+          <SeccionProductosVentas
+            genericos={genericos}
+            comerciales={comerciales}
+            clientes={clientes}
+          />
           <BarraCarritoVentas />
         </div>
       ) : (
@@ -761,12 +854,23 @@ export function VerVentas() {
     );
   }
 
-  const productos = (data?.productos as Producto[]) || [];
+  const genericos = (data?.genericos as GenericoVenta[]) || [];
+  const comerciales = (data?.comerciales as ComercialVenta[]) || [];
   const clientes = (data?.clientes as Cliente[]) || [];
 
   return (
-    <VentasProvider productos={productos} clientes={clientes} refetchDatos={refetchDatos}>
-      <VerVentasInner productos={productos} clientes={clientes} refetchDatos={refetchDatos} />
+    <VentasProvider
+      genericos={genericos}
+      comerciales={comerciales}
+      clientes={clientes}
+      refetchDatos={refetchDatos}
+    >
+      <VerVentasInner
+        genericos={genericos}
+        comerciales={comerciales}
+        clientes={clientes}
+        refetchDatos={refetchDatos}
+      />
     </VentasProvider>
   );
 }

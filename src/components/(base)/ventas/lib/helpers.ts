@@ -1,4 +1,10 @@
-import type { ItemCarrito, Producto, SolicitudRebajaPayload, VentaBitacoraEntry } from "./zod";
+import type {
+  ComercialVenta,
+  GenericoVenta,
+  ItemCarrito,
+  SolicitudRebajaPayload,
+  VentaBitacoraEntry,
+} from "./zod";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import type { LoteAsignadoVenta } from "./lotes-venta";
 
@@ -33,10 +39,8 @@ export function mensajeCreditoVencidoCliente(total: number, desde: string): stri
   return `Cliente con crédito vencido por Q${total.toFixed(2)} desde ${fecha}`;
 }
 
-export function carritoRequiereReceta(
-  carrito: ItemCarrito[],
-): boolean {
-  return carrito.some((i) => Boolean((i.producto as { requiere_receta?: boolean }).requiere_receta));
+export function carritoRequiereReceta(carrito: ItemCarrito[]): boolean {
+  return carrito.some((i) => i.generico.requiere_receta);
 }
 
 export const formatFechaRecibo = (dateStr: string) => {
@@ -82,14 +86,14 @@ export function validarCarritoPrecioCosto(carrito: ItemCarrito[]): string | null
   for (const item of carrito) {
     const costo = costoUnitarioProducto(item.precio_costo_lote);
     if (precioMenorQueCosto(item.precio_aplicado, costo)) {
-      return mensajePrecioBajoCosto(item.producto.nombre, costo);
+      return mensajePrecioBajoCosto(item.comercial.nombre_comercial, costo);
     }
   }
   return null;
 }
 
 export function precioReferenciaRebajaItem(item: ItemCarrito): number {
-  return item.precio_venta_lote;
+  return item.precio_venta_referencia;
 }
 
 export function precioReferenciaRebajaPayload(item: {
@@ -99,38 +103,48 @@ export function precioReferenciaRebajaPayload(item: {
   return item.precio_venta_referencia ?? item.precio_base ?? 0;
 }
 
-export function etiquetaPrecioPos(producto: Producto): string {
-  if (producto.precio_venta_varios && producto.precio_venta_desde != null) {
-    return `desde ${formatMonedaRecibo(producto.precio_venta_desde)}`;
-  }
-  const precio = producto.precio_venta_fefo ?? producto.precio_base;
-  return formatMonedaRecibo(precio);
+export function etiquetaPrecioComercial(comercial: ComercialVenta): string {
+  return formatMonedaRecibo(comercial.precio_venta);
 }
 
-export function productoCoincideBusquedaPos(producto: Producto, query: string): boolean {
+export function genericoCoincideBusquedaPos(generico: GenericoVenta, query: string): boolean {
   const q = query.toLowerCase();
   return (
-    (producto.nombre || "").toLowerCase().includes(q) ||
-    (producto.nombre_generico || "").toLowerCase().includes(q) ||
-    (producto.codigo || "").toLowerCase().includes(q)
+    generico.generico_nombre.toLowerCase().includes(q) ||
+    generico.catalogo_nombre.toLowerCase().includes(q) ||
+    generico.concentracion.toLowerCase().includes(q) ||
+    generico.forma_farmaceutica.toLowerCase().includes(q)
   );
 }
 
-export function demoAsignarLotes(producto: Producto, cantidad: number): LoteAsignadoVenta[] | null {
+export function buscarGenericoPorId(genericos: GenericoVenta[], genericoId: string) {
+  return genericos.find((g) => g.generico_id === genericoId) ?? null;
+}
+
+export function comercialesDelGenerico(comerciales: ComercialVenta[], genericoId: string) {
+  return comerciales.filter(
+    (c) => c.generico_id === genericoId && c.activo && c.stock_vendible > 0,
+  );
+}
+
+export function demoAsignarLotes(
+  comercial: ComercialVenta,
+  cantidad: number,
+): LoteAsignadoVenta[] | null {
   if (cantidad <= 0) return null;
-  if (cantidad > producto.stock_actual) return null;
-  const precio = producto.precio_venta_fefo ?? producto.precio_base;
+  if (cantidad > comercial.stock_vendible) return null;
+  const precio = comercial.precio_venta;
   const vence = new Date();
   vence.setDate(vence.getDate() + 18);
   return [
     {
-      lote_id: `demo-lote-${producto.id}`,
+      lote_id: `demo-lote-${comercial.producto_id}`,
       cantidad,
-      stock_lote: producto.stock_actual,
+      stock_lote: comercial.stock_vendible,
       precio_venta: precio,
       precio_costo: Math.round(precio * 0.65 * 100) / 100,
-      codigo_barras: producto.codigo ?? `DEMO-${producto.id}`,
-      laboratorio: null,
+      codigo_barras: `DEMO-${comercial.producto_id}`,
+      numero_lote: "DEMO-001",
       fecha_vencimiento: vence.toISOString().slice(0, 10),
     },
   ];
@@ -155,16 +169,16 @@ export function buildSolicitudRebajaPayload(params: {
     total: params.total,
     observaciones: params.observaciones,
     items: params.carrito.map((i) => ({
-      producto_id: i.producto.id,
+      producto_id: i.comercial.producto_id,
       lote_id: i.lote_id,
       cantidad: i.cantidad,
       precio_aplicado: i.precio_aplicado,
-      precio_venta_referencia: i.precio_venta_lote,
-      precio_base: i.precio_venta_lote,
+      precio_venta_referencia: i.precio_venta_referencia,
+      precio_base: i.precio_venta_referencia,
       precio_costo: costoUnitarioProducto(i.precio_costo_lote),
       subtotal: i.subtotal,
-      producto_nombre: i.producto.nombre,
-      producto_codigo: i.codigo_barras_lote ?? i.producto.codigo ?? "",
+      producto_nombre: i.comercial.nombre_comercial,
+      producto_codigo: i.codigo_barras_lote ?? "",
     })),
   };
 }

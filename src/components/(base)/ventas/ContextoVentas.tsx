@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useState, ReactNode, useEffect, useRef, useCallback } from "react";
-import { Producto, Cliente, ItemCarrito, Venta } from "./lib/zod";
+import { ComercialVenta, GenericoVenta, Cliente, ItemCarrito, Venta } from "./lib/zod";
 import Swal from "sweetalert2";
 import { toast } from "@/components/ui/general-modal";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
@@ -18,12 +18,14 @@ import {
 } from "./lib/actions";
 import {
   buildSolicitudRebajaPayload,
+  buscarGenericoPorId,
   carritoRequiereReceta,
   carritoTieneRebajas,
   demoAsignarLotes,
   mensajeCreditoVencidoCliente,
   validarCarritoPrecioCosto,
 } from "./lib/helpers";
+import { mapCarritoToReciboItems } from "./ReciboVenta";
 import type { LoteAsignadoVenta } from "./lib/lotes-venta";
 import { useEstadoSolicitudRebaja } from "./lib/hooks";
 import { getSwalThemeOpts } from "@/lib/utils";
@@ -41,10 +43,12 @@ interface VentasContextType {
   // Estado POS
   carrito: ItemCarrito[];
   setCarrito: React.Dispatch<React.SetStateAction<ItemCarrito[]>>;
-  productoBusqueda: string;
-  setProductoBusqueda: React.Dispatch<React.SetStateAction<string>>;
-  productoSeleccionado: Producto | null;
-  setProductoSeleccionado: React.Dispatch<React.SetStateAction<Producto | null>>;
+  genericoBusqueda: string;
+  setGenericoBusqueda: React.Dispatch<React.SetStateAction<string>>;
+  genericoSeleccionado: GenericoVenta | null;
+  setGenericoSeleccionado: React.Dispatch<React.SetStateAction<GenericoVenta | null>>;
+  comercialSeleccionado: ComercialVenta | null;
+  setComercialSeleccionado: React.Dispatch<React.SetStateAction<ComercialVenta | null>>;
   cantSeleccionada: number | "";
   setCantSeleccionada: React.Dispatch<React.SetStateAction<number | "">>;
   mostrarSugerenciasProd: boolean;
@@ -94,15 +98,15 @@ interface VentasContextType {
 
   // Acciones del carrito y cobro
   handleAgregarAlCarrito: (
-    productoOverride?: Producto,
+    comercialOverride?: ComercialVenta,
+    genericoOverride?: GenericoVenta,
     cantOverride?: number,
     loteMeta?: {
       lote_id: string;
       codigo_barras_lote: string;
       stock_lote: number;
       precio_costo_lote: number;
-      precio_venta_lote: number;
-      laboratorio?: string | null;
+      numero_lote?: string | null;
       cantidad?: number;
       fecha_vencimiento?: string | null;
     },
@@ -146,7 +150,19 @@ type RefetchVentasDatos = ReturnType<
   typeof import("./lib/hooks").useDatosVentas
 >["refetch"];
 
-export function VentasProvider({ children, productos, clientes, refetchDatos }: { children: ReactNode, productos: Producto[], clientes: Cliente[], refetchDatos: RefetchVentasDatos }) {
+export function VentasProvider({
+  children,
+  genericos,
+  comerciales,
+  clientes,
+  refetchDatos,
+}: {
+  children: ReactNode;
+  genericos: GenericoVenta[];
+  comerciales: ComercialVenta[];
+  clientes: Cliente[];
+  refetchDatos: RefetchVentasDatos;
+}) {
   const { isDemoMode } = useDemoMode();
   const { user, realRole, simulatedRole } = useUserContext();
 
@@ -155,8 +171,9 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
 
   // Estado POS
   const [carrito, setCarrito] = useState<ItemCarrito[]>([]);
-  const [productoBusqueda, setProductoBusqueda] = useState("");
-  const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+  const [genericoBusqueda, setGenericoBusqueda] = useState("");
+  const [genericoSeleccionado, setGenericoSeleccionado] = useState<GenericoVenta | null>(null);
+  const [comercialSeleccionado, setComercialSeleccionado] = useState<ComercialVenta | null>(null);
   const [cantSeleccionada, setCantSeleccionada] = useState<number | "">(1);
   const [mostrarSugerenciasProd, setMostrarSugerenciasProd] = useState(false);
   const [imagenAmpliadaUrl, setImagenAmpliadaUrl] = useState<string | null>(null);
@@ -285,7 +302,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     if (!esperandoAutorizacionRebaja || rebajaAutorizada) return;
     const snapshot = JSON.stringify(
       carrito.map((i) => ({
-        id: i.producto.id,
+        id: i.comercial.producto_id,
         l: i.lote_id ?? null,
         c: i.cantidad,
         p: i.precio_aplicado,
@@ -331,21 +348,27 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
 
   // Acciones del carrito y cobro
   const handleAgregarAlCarrito = async (
-    productoOverride?: Producto,
+    comercialOverride?: ComercialVenta,
+    genericoOverride?: GenericoVenta,
     cantOverride?: number,
     loteMeta?: {
       lote_id: string;
       codigo_barras_lote: string;
       stock_lote: number;
       precio_costo_lote: number;
-      precio_venta_lote: number;
-      laboratorio?: string | null;
+      numero_lote?: string | null;
       cantidad?: number;
       fecha_vencimiento?: string | null;
     },
   ) => {
-    const prod = productoOverride || productoSeleccionado;
-    if (!prod) return;
+    const comercial = comercialOverride || comercialSeleccionado;
+    if (!comercial) return;
+
+    const generico =
+      genericoOverride ||
+      buscarGenericoPorId(genericos, comercial.generico_id) ||
+      genericoSeleccionado;
+    if (!generico) return;
 
     const cant = cantOverride !== undefined ? cantOverride : Number(cantSeleccionada) || 0;
     if (cant <= 0) return;
@@ -359,22 +382,22 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
           lote_id: loteMeta.lote_id,
           cantidad: cantLote,
           stock_lote: loteMeta.stock_lote,
-          precio_venta: loteMeta.precio_venta_lote,
+          precio_venta: comercial.precio_venta,
           precio_costo: loteMeta.precio_costo_lote,
           codigo_barras: loteMeta.codigo_barras_lote,
-          laboratorio: loteMeta.laboratorio ?? null,
+          numero_lote: loteMeta.numero_lote ?? null,
           fecha_vencimiento: loteMeta.fecha_vencimiento ?? null,
         },
       ];
     } else if (isDemoMode) {
-      const demo = demoAsignarLotes(prod, cant);
+      const demo = demoAsignarLotes(comercial, cant);
       if (!demo) {
-        toast.warn(`Stock insuficiente. Disponibles: ${prod.stock_actual}.`);
+        toast.warn(`Stock insuficiente. Disponibles: ${comercial.stock_vendible}.`);
         return;
       }
       asignaciones = demo;
     } else {
-      const res = await asignarLotes(prod.id, cant);
+      const res = await asignarLotes(comercial.producto_id, cant);
       if (!res.success) {
         toast.warn(res.error);
         return;
@@ -387,7 +410,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       let next = [...prev];
       for (const a of asignaciones) {
         const itemExistente = next.find(
-          (i) => i.producto.id === prod.id && i.lote_id === a.lote_id,
+          (i) => i.comercial.producto_id === comercial.producto_id && i.lote_id === a.lote_id,
         );
         const cantidadFinal = (itemExistente?.cantidad || 0) + a.cantidad;
         const stockMax = itemExistente?.stock_lote ?? a.stock_lote;
@@ -399,7 +422,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
 
         if (itemExistente) {
           next = next.map((i) =>
-            i.lote_id === a.lote_id && i.producto.id === prod.id
+            i.lote_id === a.lote_id && i.comercial.producto_id === comercial.producto_id
               ? {
                   ...i,
                   cantidad: cantidadFinal,
@@ -409,16 +432,18 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
           );
         } else {
           next.push({
-            producto: prod,
+            generico,
+            comercial,
             lote_id: a.lote_id,
             codigo_barras_lote: a.codigo_barras,
+            numero_lote: a.numero_lote,
             stock_lote: a.stock_lote,
             precio_costo_lote: a.precio_costo,
-            precio_venta_lote: a.precio_venta,
-            laboratorio: a.laboratorio,
+            precio_venta_referencia: comercial.precio_venta,
+            laboratorio_nombre: comercial.laboratorio_nombre,
             cantidad: a.cantidad,
-            precio_aplicado: a.precio_venta,
-            subtotal: a.cantidad * a.precio_venta,
+            precio_aplicado: comercial.precio_venta,
+            subtotal: a.cantidad * comercial.precio_venta,
           });
         }
         agregados += a.cantidad;
@@ -441,10 +466,11 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     setAnimateCart(true);
     setTimeout(() => setAnimateCart(false), 500);
 
-    toast.success(`Se añadió ${prod.nombre}`);
+    toast.success(`Se añadió ${comercial.nombre_comercial}`);
 
-    setProductoSeleccionado(null);
-    setProductoBusqueda("");
+    setComercialSeleccionado(null);
+    setGenericoSeleccionado(null);
+    setGenericoBusqueda("");
     setCantSeleccionada(1);
     setMostrarSugerenciasProd(false);
   };
@@ -458,7 +484,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       return;
     }
 
-    const stockMax = item.stock_lote ?? item.producto.stock_actual;
+    const stockMax = item.stock_lote ?? item.comercial.stock_vendible;
     if (nuevaCant > stockMax) {
       toast.warn(`Solo hay ${stockMax} unidades disponibles.`);
       return;
@@ -475,7 +501,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     const item = carrito[index];
     const confirm = await Swal.fire({
       title: "¿Eliminar del carrito?",
-      text: `¿Deseas eliminar "${item.producto.nombre}" de la venta?`,
+      text: `¿Deseas eliminar "${item.comercial.nombre_comercial}" de la venta?`,
       icon: "warning",
       showCancelButton: true,
       confirmButtonText: "Sí, eliminar",
@@ -596,7 +622,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
           setRebajaAutorizada(false);
           carritoSnapshotRef.current = JSON.stringify(
             carrito.map((i) => ({
-              id: i.producto.id,
+              id: i.comercial.producto_id,
               c: i.cantidad,
               p: i.precio_aplicado,
             })),
@@ -647,15 +673,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
             ? { nombre: clienteSeleccionado.nombre, nit: clienteSeleccionado.nit }
             : null,
         };
-        const freshDetails = carrito.map((i) => ({
-          cantidad: i.cantidad,
-          precio_aplicado: i.precio_aplicado,
-          subtotal: i.subtotal,
-          inv_productos: {
-            nombre: i.producto.nombre,
-            codigo: i.codigo_barras_lote ?? i.producto.codigo ?? "",
-          },
-        }));
+        const freshDetails = mapCarritoToReciboItems(carrito);
         const clientSave = clienteSeleccionado;
         setCarrito([]);
         setClienteSeleccionado(null);
@@ -663,7 +681,8 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
         setObservaciones("");
         setReciboModalData({
           venta: ventaObj,
-          detalles: freshDetails,
+          detalles: [],
+          reciboItems: freshDetails,
           clienteCompleto: clientSave,
         });
         toast.info("Venta simulada — no se guardó en la base de datos.");
@@ -671,7 +690,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
       }
 
       const itemsFormatted: ItemVentaInput[] = carrito.map((i) => ({
-        producto_id: i.producto.id,
+        producto_id: i.comercial.producto_id,
         lote_id: i.lote_id ?? null,
         cantidad: i.cantidad,
         precio_aplicado: i.precio_aplicado,
@@ -719,15 +738,7 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
         ven_clientes: clienteSeleccionado ? { nombre: clienteSeleccionado.nombre, nit: clienteSeleccionado.nit } : null
       };
 
-      const freshDetails = carrito.map((i) => ({
-        cantidad: i.cantidad,
-        precio_aplicado: i.precio_aplicado,
-        subtotal: i.subtotal,
-        inv_productos: {
-          nombre: i.producto.nombre,
-          codigo: i.codigo_barras_lote ?? i.producto.codigo ?? "",
-        },
-      }));
+      const reciboItems = mapCarritoToReciboItems(carrito);
 
       refetchDatos();
       const clientSave = clienteSeleccionado;
@@ -743,7 +754,8 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
 
       setReciboModalData({
         venta: ventaObj,
-        detalles: freshDetails,
+        detalles: [],
+        reciboItems,
         clienteCompleto: clientSave,
         incluyeReceta,
       });
@@ -760,8 +772,9 @@ export function VentasProvider({ children, productos, clientes, refetchDatos }: 
     <VentasContext.Provider value={{
       activeTab, setActiveTab,
       carrito, setCarrito,
-      productoBusqueda, setProductoBusqueda,
-      productoSeleccionado, setProductoSeleccionado,
+      genericoBusqueda, setGenericoBusqueda,
+      genericoSeleccionado, setGenericoSeleccionado,
+      comercialSeleccionado, setComercialSeleccionado,
       cantSeleccionada, setCantSeleccionada,
       mostrarSugerenciasProd, setMostrarSugerenciasProd,
       imagenAmpliadaUrl, setImagenAmpliadaUrl,

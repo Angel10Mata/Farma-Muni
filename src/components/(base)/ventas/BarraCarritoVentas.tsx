@@ -48,7 +48,7 @@ export function BarraCarritoVentas() {
             ) : (
               ventas.carrito.map((item, idx) => (
                 <motion.div
-                  key={`${item.lote_id ?? "sin-lote"}-${item.producto.id}-${idx}`}
+                  key={`${item.lote_id ?? "sin-lote"}-${item.comercial.producto_id}-${idx}`}
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, x: 20 }}
@@ -57,7 +57,7 @@ export function BarraCarritoVentas() {
                   {ventas.editingCartItemIndex === idx ? (
                     <div className="flex flex-col gap-2.5 w-full">
                       <h4 className="text-sm font-black text-slate-800 dark:text-white truncate">
-                        Editar: {item.producto.nombre}
+                        Editar: {item.comercial.nombre_comercial}
                       </h4>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex flex-col gap-1">
@@ -103,7 +103,7 @@ export function BarraCarritoVentas() {
                               toast.warn("Ingresa un precio y una cantidad válidos.");
                               return;
                             }
-                            const stockMax = item.stock_lote ?? item.producto.stock_actual;
+                            const stockMax = item.stock_lote ?? item.comercial.stock_vendible;
                             if (newQty > stockMax) {
                               toast.warn(`Solo hay ${stockMax} unidades en este lote.`);
                               return;
@@ -126,10 +126,10 @@ export function BarraCarritoVentas() {
                       <div className="flex items-center gap-3 flex-1 min-w-0 w-full sm:w-auto">
                         {/* Product First Image */}
                         <div className="size-11 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden shrink-0 flex items-center justify-center">
-                          {item.producto.imagen_url ? (
+                          {item.comercial.imagen_url ? (
                             <img
-                              src={createClient().storage.from("Imagenes_Farmacia").getPublicUrl(item.producto.imagen_url).data.publicUrl}
-                              alt={item.producto.nombre}
+                              src={createClient().storage.from("Imagenes_Farmacia").getPublicUrl(item.comercial.imagen_url).data.publicUrl}
+                              alt={item.comercial.nombre_comercial}
                               className="w-full h-full object-cover"
                             />
                           ) : (
@@ -137,30 +137,25 @@ export function BarraCarritoVentas() {
                           )}
                         </div>
 
-                        {/* Name and Unit Price */}
                         <div className="flex-1 min-w-0">
-                          <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate" title={item.producto.nombre}>
-                            {item.producto.nombre}
+                          <h4
+                            className="text-xs font-bold text-slate-900 dark:text-white truncate"
+                            title={item.comercial.nombre_comercial}
+                          >
+                            {item.comercial.nombre_comercial}
                           </h4>
-                          {item.laboratorio ? (
-                            <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                              Lab: {item.laboratorio}
-                            </p>
-                          ) : null}
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                            {item.generico.generico_nombre}
+                          </p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                            Lab: {item.comercial.laboratorio_nombre} · {item.comercial.presentacion}
+                          </p>
                           {item.codigo_barras_lote ? (
                             <p className="text-[10px] text-slate-400 truncate">
-                              Lote: {item.codigo_barras_lote}
+                              Barras: {item.codigo_barras_lote}
+                              {item.numero_lote ? ` · Lote ${item.numero_lote}` : ""}
                             </p>
                           ) : null}
-                          {(!item.producto.ubicacion || item.producto.ubicacion === 'Sin asignar') ? (
-                            <p className="text-[10px] font-bold text-amber-500 flex items-center gap-1 mt-0.5">
-                              <AlertTriangle className="size-3" /> Sin ubicación
-                            </p>
-                          ) : (
-                            <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                              {item.producto.ubicacion}
-                            </p>
-                          )}
                           <div className="flex items-center text-[10px] text-slate-500 dark:text-slate-400 font-medium gap-1 mt-1">
                             <span>Unitario: Q</span>
                             <div className="flex items-center border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-zinc-900 px-1 py-0.5 transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">

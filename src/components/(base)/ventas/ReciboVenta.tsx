@@ -147,16 +147,76 @@ export function ReciboVenta({
 }
 
 // Armar recibo desde una venta
-export function mapDetallesToReciboItems(detalles: any[]): ReciboVentaItem[] {
-  return detalles.map((d) => ({
-    cantidad: d.cantidad,
-    nombre: d.inv_productos?.nombre || "Producto",
-    descripcion: (d.inv_lotes?.codigo_barras ?? d.inv_productos?.codigo)
-      ? `${d.inv_lotes?.codigo_barras ?? d.inv_productos?.codigo}${d.precio_aplicado ? ` · ${fmtQ(d.precio_aplicado)} c/u` : ""}`
-      : d.precio_aplicado
-        ? `${fmtQ(d.precio_aplicado)} c/u`
-        : null,
-    subtotal: d.subtotal,
+function lineaGenericoDesdeDetalle(d: Record<string, unknown>): string {
+  const prod = d.inv_productos as Record<string, unknown> | null | undefined;
+  const genRaw = prod?.inv_genericos;
+  const gen = Array.isArray(genRaw) ? genRaw[0] : genRaw;
+  const genObj = gen as Record<string, unknown> | null | undefined;
+  const catRaw = genObj?.inv_catalogos;
+  const cat = Array.isArray(catRaw) ? catRaw[0] : catRaw;
+  const catalogo = (cat as { nombre?: string } | null)?.nombre?.trim();
+  const conc = String(genObj?.concentracion ?? "").trim();
+  const forma = String(genObj?.forma_farmaceutica ?? "").trim();
+  const partes = [catalogo, conc, forma].filter(Boolean);
+  if (partes.length > 0) return partes.join(" ");
+  return String(prod?.nombre ?? "Producto");
+}
+
+function lineaComercialDesdeDetalle(d: Record<string, unknown>): string {
+  const prod = d.inv_productos as Record<string, unknown> | null | undefined;
+  const labRaw = prod?.inv_laboratorios;
+  const lab = Array.isArray(labRaw) ? labRaw[0] : labRaw;
+  const lote = d.inv_lotes as Record<string, unknown> | null | undefined;
+  const marca = String(prod?.nombre ?? "").trim();
+  const labNombre = (lab as { nombre?: string } | null)?.nombre?.trim() ?? "";
+  const presentacion = String(prod?.presentacion ?? "").trim();
+  const barras = String(lote?.codigo_barras ?? "").trim();
+  const numeroLote = String(lote?.numero_lote ?? "").trim();
+  const trozos = [
+    marca ? `Marca: ${marca}` : "",
+    labNombre ? `Lab: ${labNombre}` : "",
+    presentacion ? `Pres: ${presentacion}` : "",
+    barras ? `Barras: ${barras}` : "",
+    numeroLote ? `Lote: ${numeroLote}` : "",
+  ].filter(Boolean);
+  return trozos.join(" · ");
+}
+
+export function mapDetallesToReciboItems(detalles: unknown[]): ReciboVentaItem[] {
+  return detalles.map((d) => {
+    const row = d as Record<string, unknown>;
+    return {
+      cantidad: Number(row.cantidad) || 0,
+      nombre: lineaGenericoDesdeDetalle(row),
+      descripcion: lineaComercialDesdeDetalle(row),
+      subtotal: Number(row.subtotal) || 0,
+    };
+  });
+}
+
+export function mapCarritoToReciboItems(carrito: {
+  cantidad: number;
+  subtotal: number;
+  precio_aplicado: number;
+  generico: { generico_nombre: string; concentracion: string; forma_farmaceutica: string };
+  comercial: { nombre_comercial: string; laboratorio_nombre: string; presentacion: string };
+  codigo_barras_lote?: string;
+  numero_lote?: string | null;
+}[]): ReciboVentaItem[] {
+  return carrito.map((i) => ({
+    cantidad: i.cantidad,
+    nombre: `${i.generico.generico_nombre}`.trim() ||
+      `${i.generico.concentracion} ${i.generico.forma_farmaceutica}`.trim(),
+    descripcion: [
+      `Marca: ${i.comercial.nombre_comercial}`,
+      `Lab: ${i.comercial.laboratorio_nombre}`,
+      `Pres: ${i.comercial.presentacion}`,
+      i.codigo_barras_lote ? `Barras: ${i.codigo_barras_lote}` : "",
+      i.numero_lote ? `Lote: ${i.numero_lote}` : "",
+    ]
+      .filter(Boolean)
+      .join(" · "),
+    subtotal: i.subtotal,
   }));
 }
 
@@ -167,6 +227,7 @@ export function buildReciboProps(
   extras?: {
     farmacia?: { nombre: string; direccion: string; telefono: string } | null;
     incluyeReceta?: boolean;
+    items?: ReciboVentaItem[];
   },
 ) {
   return {
@@ -180,7 +241,7 @@ export function buildReciboProps(
       clienteCompleto?.nombre || venta.ven_clientes?.nombre || "Consumidor final",
     nit: clienteCompleto?.nit || venta.ven_clientes?.nit || "C/F",
     formaPago: venta.tipo_venta || "Contado",
-    items: mapDetallesToReciboItems(detalles),
+    items: extras?.items ?? mapDetallesToReciboItems(detalles),
     total: venta.total,
     observaciones: venta.observaciones,
   };

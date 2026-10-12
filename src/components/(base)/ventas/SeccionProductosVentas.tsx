@@ -5,21 +5,30 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, Minus, Package, Check, ChevronDown, UserPlus, X, AlertTriangle, User } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { fmtQ } from "@/lib/utils";
-import { Producto, Cliente } from "./lib/zod";
+import { ComercialVenta, GenericoVenta, Cliente } from "./lib/zod";
 import { useVentas } from "./ContextoVentas";
 import { toast } from "@/components/ui/general-modal";
 import { buscarLotePorCodigoBarras } from "./lib/actions";
-import { etiquetaPrecioPos, productoCoincideBusquedaPos } from "./lib/helpers";
+import {
+  comercialesDelGenerico,
+  etiquetaPrecioComercial,
+  genericoCoincideBusquedaPos,
+} from "./lib/helpers";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { mensajeCreditoVencidoCliente } from "./lib/helpers";
 
 interface SeccionProductosVentasProps {
-  productos: Producto[];
+  genericos: GenericoVenta[];
+  comerciales: ComercialVenta[];
   clientes: Cliente[];
 }
 
-export function SeccionProductosVentas({ productos, clientes }: SeccionProductosVentasProps) {
+export function SeccionProductosVentas({
+  genericos,
+  comerciales,
+  clientes,
+}: SeccionProductosVentasProps) {
   const ventas = useVentas();
   const { isDemoMode } = useDemoMode();
   const { realRole, simulatedRole } = useUserContext();
@@ -39,10 +48,15 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
     );
   });
 
-  const sugerenciasProductos = productos.filter((p) => {
-    if (!ventas.productoBusqueda) return false;
-    return productoCoincideBusquedaPos(p, ventas.productoBusqueda.trim());
+  const sugerenciasGenericos = genericos.filter((g) => {
+    if (!ventas.genericoBusqueda) return false;
+    if (g.stock_vendible <= 0) return false;
+    return genericoCoincideBusquedaPos(g, ventas.genericoBusqueda.trim());
   });
+
+  const comercialesVisibles = ventas.genericoSeleccionado
+    ? comercialesDelGenerico(comerciales, ventas.genericoSeleccionado.generico_id)
+    : [];
 
   // Panel de cliente y productos
   return (
@@ -222,18 +236,17 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
           </div>
         )}
 
-        {/* 3. Búsqueda manual de producto */}
         <div className="flex flex-col gap-1.5 w-full relative text-left" ref={prodDropdownRef}>
           <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-            Búsqueda manual de producto
+            Buscar genérico o escanear código de barras
           </label>
           <div className="relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
             <input
               type="text"
-              value={ventas.productoBusqueda}
+              value={ventas.genericoBusqueda}
               onChange={(e) => {
-                ventas.setProductoBusqueda(e.target.value);
+                ventas.setGenericoBusqueda(e.target.value);
                 ventas.setMostrarSugerenciasProd(true);
               }}
               onFocus={() => ventas.setMostrarSugerenciasProd(true)}
@@ -246,101 +259,68 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
                   if (!isDemoMode) {
                     const res = await buscarLotePorCodigoBarras(query);
                     if (res.success) {
-                      const prod = {
-                        ...res.producto,
-                        codigo: res.lote.codigo_barras,
-                      };
-                      await ventas.handleAgregarAlCarrito(prod, 1, {
-                        lote_id: res.lote.id,
-                        codigo_barras_lote: res.lote.codigo_barras,
-                        stock_lote: res.lote.cantidad_actual,
-                        precio_costo_lote: res.lote.precio_costo,
-                        precio_venta_lote: res.lote.precio_venta,
-                        laboratorio: res.lote.laboratorio,
-                        fecha_vencimiento: res.lote.fecha_vencimiento,
-                        cantidad: 1,
-                      });
-                      ventas.setProductoBusqueda("");
+                      await ventas.handleAgregarAlCarrito(
+                        res.comercial,
+                        res.generico,
+                        1,
+                        {
+                          lote_id: res.lote.id,
+                          codigo_barras_lote: res.lote.codigo_barras,
+                          stock_lote: res.lote.cantidad_actual,
+                          precio_costo_lote: res.lote.precio_costo,
+                          numero_lote: res.lote.numero_lote,
+                          fecha_vencimiento: res.lote.fecha_vencimiento,
+                          cantidad: 1,
+                        },
+                      );
+                      ventas.setGenericoBusqueda("");
                       return;
                     }
                   }
 
-                  const exactMatch = productos.find(
-                    (p) => p.codigo?.toLowerCase() === query.toLowerCase(),
-                  );
-                  if (exactMatch) {
-                    await ventas.handleAgregarAlCarrito(exactMatch, 1);
-                  } else {
-                    toast.error(`No se encontró el código: ${query}`);
-                    ventas.setProductoBusqueda("");
-                  }
+                  toast.error(`No se encontró lote activo para: ${query}`);
+                  ventas.setGenericoBusqueda("");
                 }
               }}
-              placeholder="Nombre o código de barras..."
+              placeholder="Genérico o código de barras del lote..."
               className="w-full pl-12 pr-4 h-[46px] border rounded-xl text-sm bg-white dark:bg-zinc-900 border-[#E5E9E5] dark:border-[#3D473F] text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors"
             />
           </div>
 
           <AnimatePresence>
-            {ventas.mostrarSugerenciasProd && sugerenciasProductos.length > 0 && (
+            {ventas.mostrarSugerenciasProd && sugerenciasGenericos.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -4 }}
-                className="absolute left-0 right-0 top-full mt-1 max-h-[380px] overflow-y-auto bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 text-left"
+                className="absolute left-0 right-0 top-full mt-1 max-h-[280px] overflow-y-auto bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 text-left"
               >
-                {sugerenciasProductos.map((p) => {
-                  const isLow = p.stock_actual <= p.stock_minimo;
-                  const isOut = p.stock_actual <= 0;
+                {sugerenciasGenericos.map((g) => {
+                  const isLow = g.bajo_minimo ?? g.stock_vendible <= g.stock_minimo;
                   return (
                     <button
-                      key={p.id}
+                      key={g.generico_id}
                       type="button"
                       onClick={() => {
-                        ventas.setProductoSeleccionado(p);
-                        ventas.setProductoBusqueda(p.nombre);
+                        ventas.setGenericoSeleccionado(g);
+                        ventas.setComercialSeleccionado(null);
+                        ventas.setGenericoBusqueda(g.generico_nombre);
                         ventas.setMostrarSugerenciasProd(false);
                       }}
-                      disabled={isOut}
-                      className={`w-full px-4 py-2.5 border-b border-slate-100 dark:border-slate-900 hover:bg-[#8DA78E]/10 dark:hover:bg-[#8DA78E]/20 text-left flex items-center justify-between text-xs cursor-pointer ${
-                        isOut ? "opacity-40 cursor-not-allowed" : ""
-                      }`}
+                      className="w-full px-4 py-2.5 border-b border-slate-100 dark:border-slate-900 hover:bg-[#8DA78E]/10 dark:hover:bg-[#8DA78E]/20 text-left flex items-center justify-between text-xs cursor-pointer"
                     >
-                      <div className="flex items-center gap-3">
-                        {p.imagen_url ? (
-                          <img
-                            src={createClient().storage.from("Imagenes_Farmacia").getPublicUrl(p.imagen_url).data.publicUrl}
-                            alt={p.nombre}
-                            className="w-10 h-10 object-cover rounded-md border border-slate-200 dark:border-slate-700 bg-white dark:bg-zinc-800"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 flex items-center justify-center rounded-md border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-zinc-800 text-slate-400">
-                            <Search className="size-4" />
-                          </div>
-                        )}
-                        <div>
-                          <p className="font-bold text-slate-950 dark:text-white">{p.nombre}</p>
-                          <div className="flex items-center gap-2 mt-0.5">
-                            <p className="text-[10px] text-slate-500">Cód: {p.codigo || "C/F"}</p>
-                            <span className="text-[10px] text-slate-300">|</span>
-                            {(!p.ubicacion || p.ubicacion === 'Sin asignar') ? (
-                              <p className="text-[10px] font-bold text-amber-500 flex items-center gap-1">
-                                <AlertTriangle className="size-3" /> Sin ubicación
-                              </p>
-                            ) : (
-                              <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400 mt-0.5">
-                                {p.ubicacion}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-black text-[#8DA78E]">{etiquetaPrecioPos(p)}</p>
-                        <p className={`text-[9px] font-bold ${isOut ? "text-red-500" : isLow ? "text-amber-500" : "text-slate-400"}`}>
-                          Stock: {p.stock_actual}
+                      <div>
+                        <p className="font-bold text-slate-950 dark:text-white">{g.generico_nombre}</p>
+                        <p className="text-[10px] text-slate-500">
+                          {g.catalogo_nombre} · Stock vendible: {g.stock_vendible}
+                          {g.requiere_receta ? " · Receta" : ""}
                         </p>
                       </div>
+                      <p
+                        className={`text-[9px] font-bold ${isLow ? "text-amber-500" : "text-slate-400"}`}
+                      >
+                        Mín: {g.stock_minimo}
+                      </p>
                     </button>
                   );
                 })}
@@ -348,6 +328,38 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
             )}
           </AnimatePresence>
         </div>
+
+        {ventas.genericoSeleccionado && (
+          <div className="flex flex-col gap-2">
+            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+              Productos comerciales
+            </label>
+            {comercialesVisibles.length === 0 ? (
+              <p className="text-xs text-slate-500">Sin comerciales con stock para este genérico.</p>
+            ) : (
+              <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-900">
+                {comercialesVisibles.map((c) => (
+                  <button
+                    key={c.producto_id}
+                    type="button"
+                    onClick={() => ventas.setComercialSeleccionado(c)}
+                    className={`w-full px-3 py-2 text-left text-xs hover:bg-[#8DA78E]/10 ${
+                      ventas.comercialSeleccionado?.producto_id === c.producto_id
+                        ? "bg-[#8DA78E]/15"
+                        : ""
+                    }`}
+                  >
+                    <p className="font-bold text-slate-900 dark:text-white">{c.nombre_comercial}</p>
+                    <p className="text-[10px] text-slate-500">
+                      {c.laboratorio_nombre} · {c.presentacion} · {etiquetaPrecioComercial(c)} · Stock:{" "}
+                      {c.stock_vendible}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 4. Cantidad y Añadir */}
         <div className="flex items-end gap-3 w-full">
@@ -390,7 +402,7 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
           <button
             type="button"
             onClick={() => ventas.handleAgregarAlCarrito()}
-            disabled={!ventas.productoSeleccionado}
+            disabled={!ventas.comercialSeleccionado}
             className="w-[65%] h-[46px] bg-[#C6D2C6] hover:bg-[#A9BCA9] disabled:opacity-50 disabled:bg-[#C6D2C6] text-white font-bold text-sm rounded-xl transition-colors flex items-center justify-center cursor-pointer shadow-xs shrink-0"
           >
             Añadir
@@ -399,7 +411,7 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
 
         {/* Galería de Imágenes (Si existe) */}
         <AnimatePresence>
-          {ventas.productoSeleccionado && (
+          {ventas.comercialSeleccionado?.imagen_url && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: "auto" }}
@@ -407,33 +419,25 @@ export function SeccionProductosVentas({ productos, clientes }: SeccionProductos
               className="w-full overflow-hidden mt-1"
             >
               <div className="flex flex-col gap-2 bg-white dark:bg-zinc-900 border border-[#E5E9E5] dark:border-[#3D473F] rounded-xl p-3 shadow-sm w-full">
-                <span className="text-[9px] uppercase tracking-widest font-black text-slate-400">Galería de Imágenes (3 Máx)</span>
-                <div className="grid grid-cols-3 gap-2">
-                  {[
-                    ventas.productoSeleccionado.imagen_url,
-                    null,
-                    null,
-                  ].map((imgUrl, imgIdx) => {
-                    if (imgUrl) {
-                      const fullUrl = createClient().storage.from("Imagenes_Farmacia").getPublicUrl(imgUrl).data.publicUrl;
-                      return (
-                        <img
-                          key={imgIdx}
-                          src={fullUrl}
-                          alt={`${ventas.productoSeleccionado?.nombre} ${imgIdx + 1}`}
-                          onClick={() => ventas.setImagenAmpliadaUrl(fullUrl)}
-                          className="aspect-square w-full object-cover rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-zinc-800 shadow-xs cursor-pointer hover:opacity-85 transition-opacity"
-                        />
-                      );
-                    } else {
-                      return (
-                        <div key={imgIdx} className="aspect-square w-full flex items-center justify-center rounded-lg border border-dashed border-slate-200 dark:border-slate-850 bg-slate-50 dark:bg-zinc-950 text-slate-400">
-                          <Package className="size-4 opacity-50" />
-                        </div>
-                      );
-                    }
-                  })}
-                </div>
+                <span className="text-[9px] uppercase tracking-widest font-black text-slate-400">
+                  Imagen del comercial
+                </span>
+                <img
+                  src={
+                    createClient()
+                      .storage.from("Imagenes_Farmacia")
+                      .getPublicUrl(ventas.comercialSeleccionado.imagen_url).data.publicUrl
+                  }
+                  alt={ventas.comercialSeleccionado.nombre_comercial}
+                  onClick={() =>
+                    ventas.setImagenAmpliadaUrl(
+                      createClient()
+                        .storage.from("Imagenes_Farmacia")
+                        .getPublicUrl(ventas.comercialSeleccionado!.imagen_url!).data.publicUrl,
+                    )
+                  }
+                  className="aspect-square max-h-32 w-auto object-cover rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer"
+                />
               </div>
             </motion.div>
           )}
