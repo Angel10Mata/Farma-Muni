@@ -55,22 +55,31 @@ export const productoSugerenciaSchema = z.object({
   forma_farmaceutica: z.string(),
   presentacion: z.string(),
   precio_base: z.number(),
+  laboratorio_nombre: z.string().optional(),
+  catalogo_nombre: z.string().optional(),
+  generico_id: z.string().uuid().optional(),
+  laboratorio_id: z.string().uuid().optional(),
+  catalogo_id: z.string().uuid().optional(),
 });
 
 export type ProductoSugerencia = z.infer<typeof productoSugerenciaSchema>;
 
-export const PRODUCTO_WIZARD_PASOS = 4;
+export const PRODUCTO_WIZARD_PASOS = 5;
 
 export const PRODUCTO_WIZARD_PASOS_META = [
-  { titulo: "Identificación" },
-  { titulo: "Venta y control" },
-  { titulo: "Detalles" },
+  { titulo: "Catálogo" },
+  { titulo: "Genérico" },
+  { titulo: "Laboratorio" },
+  { titulo: "Comercial" },
   { titulo: "Primer lote" },
 ] as const;
 
-export const EDITAR_PRODUCTO_WIZARD_PASOS = 3;
+export const EDITAR_PRODUCTO_WIZARD_PASOS = 2;
 
-export const EDITAR_PRODUCTO_WIZARD_PASOS_META = PRODUCTO_WIZARD_PASOS_META.slice(0, 3);
+export const EDITAR_PRODUCTO_WIZARD_PASOS_META = [
+  { titulo: "Producto comercial" },
+  { titulo: "Genérico y lotes" },
+] as const;
 
 export const motivoInventarioSchema = z
   .string()
@@ -175,8 +184,6 @@ export const crearLoteManualSchema = z.object({
   numero_lote: z.string().trim().min(1, "El número de lote es requerido"),
   cantidad: z.number().positive("La cantidad debe ser mayor a 0"),
   precio_costo: z.number().nonnegative("El costo debe ser un número válido"),
-  precio_venta: z.number().nonnegative("El precio de venta debe ser un número válido"),
-  laboratorio: z.string().trim().optional().nullable(),
   fecha_vencimiento: z.string().trim().min(1, "La fecha de vencimiento es requerida"),
   ubicacion: z.string().trim().optional().nullable(),
 });
@@ -254,4 +261,10 @@ export interface Producto {
   activo: boolean;
   created_at?: string;
   imagen_url?: string | null;
+  generico_id?: string;
+  laboratorio_id?: string;
+  catalogo_id?: string;
+  catalogo_nombre?: string;
+  laboratorio_nombre?: string;
+  laboratorio?: string | null;
 }

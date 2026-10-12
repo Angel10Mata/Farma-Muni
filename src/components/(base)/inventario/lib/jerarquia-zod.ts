@@ -22,6 +22,13 @@ export const invCatalogoSchema = z.object({
 
 export type InvCatalogo = z.infer<typeof invCatalogoSchema>;
 
+export const invCatalogoResumenSchema = invCatalogoSchema.extend({
+  genericos: z.number(),
+  stock_vendible: z.number(),
+});
+
+export type InvCatalogoResumen = z.infer<typeof invCatalogoResumenSchema>;
+
 export const invLaboratorioSchema = z.object({
   id: z.string().uuid(),
   nombre: z.string(),
@@ -156,5 +163,26 @@ export const comercialInputSchema = z.object({
 });
 
 export type ComercialInput = z.infer<typeof comercialInputSchema>;
+
+export const inventarioJerarquiaFiltrosSchema = z.object({
+  catalogo_id: z.string().uuid().optional(),
+  generico_id: z.string().uuid().optional(),
+  laboratorio_id: z.string().uuid().optional(),
+  producto_id: z.string().uuid().optional(),
+});
+
+export type InventarioJerarquiaFiltros = z.infer<typeof inventarioJerarquiaFiltrosSchema>;
+
+export const jerarquiaWizardLoteSchema = z.object({
+  proveedor_id: z.string().uuid("Debe seleccionar un proveedor"),
+  codigo_barras: z.string().trim().min(1, "El código de barras es requerido"),
+  numero_lote: z.string().trim().min(1, "El número de lote es requerido"),
+  cantidad: z.number().positive("La cantidad debe ser mayor a 0"),
+  precio_costo: z.number().nonnegative("El costo debe ser un número válido"),
+  fecha_vencimiento: z.string().trim().min(1, "La fecha de vencimiento es requerida"),
+  ubicacion: z.string().trim().optional().nullable(),
+});
+
+export type JerarquiaWizardLoteInput = z.infer<typeof jerarquiaWizardLoteSchema>;
 
 export type { FormaFarmaceutica };

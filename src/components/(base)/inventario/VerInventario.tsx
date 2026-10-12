@@ -43,12 +43,23 @@ import {
 import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  useProductos,
   useLotes,
   useActivarProducto,
   useDesactivarProducto,
   useRegistrarBajaVencido,
+  useCatalogosResumenInventario,
+  useGenericosInventario,
+  useComercialesInventario,
 } from "./lib/hooks";
+import type { InventarioJerarquiaFiltros } from "./lib/jerarquia-zod";
+import {
+  filasDesdeCatalogos,
+  filasDesdeComerciales,
+  filasDesdeGenericos,
+  filasDesdeLaboratorio,
+  mapLoteAFilaInventario,
+  type FilaInventarioUi,
+} from "./lib/map-inventario-filas";
 import type { LoteInventario } from "./lib/zod";
 import {
   etiquetaEstadoVencimiento,
@@ -118,42 +129,17 @@ import {
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
-// Tipos de la pantalla
-interface Producto {
-  id: string;
-  codigo: string;
-  nombre: string;
-  nombre_generico?: string;
-  concentracion?: string;
-  forma_farmaceutica?: string;
-  presentacion?: string;
-  unidad_venta?: string;
-  requiere_receta?: boolean;
-  descripcion: string;
-  precio_base: number;
-  precio_venta?: number;
-  precio_costo?: number | null;
-  laboratorio?: string | null;
-  stock_actual: number;
-  stock_minimo: number;
-  activo: boolean;
-  imagen_url?: string | null;
+type Producto = FilaInventarioUi & {
   imagen_url_2?: string | null;
   imagen_url_3?: string | null;
-  fecha_vencimiento?: string | null;
-  numero_lote?: string | null;
-  ubicacion?: string | null;
   created_at?: string;
-  inv_proveedores?: {
-    nombre: string;
-  } | null;
-  producto_maestro_id?: string;
-}
+};
 
 function productoParaReporte(p: Producto): ProductoInventarioReporte {
   return {
     codigo: p.codigo,
     nombre: p.nombre,
+    catalogo_nombre: p.catalogo_nombre,
     nombre_generico: p.nombre_generico,
     concentracion: p.concentracion,
     forma_farmaceutica: p.forma_farmaceutica,
@@ -216,34 +202,7 @@ function idProductoCatalogo(producto: Producto) {
 }
 
 function mapLoteAFila(lote: LoteInventario): Producto {
-  const raw = lote.inv_productos;
-  const p = Array.isArray(raw) ? raw[0] : raw;
-  const precioBase = p?.precio_base ?? 0;
-  const precioVenta = precioVentaEfectivoLote(lote.precio_venta, precioBase);
-  return {
-    id: lote.id,
-    producto_maestro_id: lote.producto_id,
-    codigo: lote.codigo_barras,
-    nombre: p?.nombre ?? "—",
-    nombre_generico: p?.nombre_generico ?? "",
-    concentracion: p?.concentracion ?? "",
-    forma_farmaceutica: p?.forma_farmaceutica ?? "otro",
-    presentacion: p?.presentacion ?? "",
-    unidad_venta: p?.unidad_venta ?? "unidad",
-    requiere_receta: p?.requiere_receta ?? false,
-    descripcion: "",
-    precio_base: precioBase,
-    precio_venta: precioVenta,
-    precio_costo: lote.precio_costo,
-    laboratorio: lote.laboratorio ?? null,
-    stock_actual: Number(lote.cantidad_actual) || 0,
-    stock_minimo: p?.stock_minimo ?? 0,
-    activo: lote.activo && (p?.activo ?? true),
-    fecha_vencimiento: lote.fecha_vencimiento ?? null,
-    numero_lote: lote.numero_lote ?? null,
-    ubicacion: lote.ubicacion ?? null,
-    inv_proveedores: lote.inv_proveedores ?? null,
-  };
+  return mapLoteAFilaInventario(lote);
 }
 
 function lotesPorProductoId(lotes: LoteInventario[], productoId: string): LoteInventario[] {
@@ -269,13 +228,14 @@ function mapLaboratorioCatalogoPorProducto(lotes: LoteInventario[]): Map<string,
   return result;
 }
 
-type VistaInventario = "lotes" | "generico" | "laboratorio" | "comercial";
+type VistaInventario = "catalogo" | "generico" | "laboratorio" | "comercial" | "lotes";
 
 function esVistaCatalogo(vista: VistaInventario): boolean {
   return vista !== "lotes";
 }
 
 function campoBusquedaPorVista(vista: VistaInventario) {
+  if (vista === "catalogo") return "catalogo" as const;
   if (vista === "generico") return "generico" as const;
   if (vista === "laboratorio") return "laboratorio" as const;
   if (vista === "comercial") return "comercial" as const;
@@ -283,7 +243,8 @@ function campoBusquedaPorVista(vista: VistaInventario) {
 }
 
 function placeholderBusquedaInventario(vista: VistaInventario): string {
-  if (vista === "generico") return "Buscar por nombre genérico o código de barras...";
+  if (vista === "catalogo") return "Buscar por principio activo (catálogo)...";
+  if (vista === "generico") return "Buscar por genérico (concentración, forma)...";
   if (vista === "laboratorio") return "Buscar por laboratorio...";
   if (vista === "comercial") return "Buscar por nombre comercial o código de barras...";
   return "Buscar por nombre, genérico o código de barras...";
@@ -1191,11 +1152,38 @@ export function VerInventario() {
     useState<CategoriaVencimientoLote | null>(null);
   const [filtroEstado, setFiltroEstado] = useState<"todos" | "activos" | "inactivos">("activos");
   const [filtroUbicacion, setFiltroUbicacion] = useState("");
-  const [vistaInventario, setVistaInventario] = useState<VistaInventario>("generico");
+  const [vistaInventario, setVistaInventario] = useState<VistaInventario>("catalogo");
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
 
-  const { data: productosCatalogo = [], isLoading: isLoadingCatalogo, refetch: refetchProductos } = useProductos();
+  const filtrosJerarquia: InventarioJerarquiaFiltros = {
+    catalogo_id: searchParams.get("catalogo_id") || undefined,
+    generico_id: searchParams.get("generico_id") || undefined,
+    laboratorio_id: searchParams.get("laboratorio_id") || undefined,
+    producto_id: searchParams.get("producto_id") || undefined,
+  };
+
+  const { data: catalogosResumen = [], isLoading: isLoadingCatalogos, refetch: refetchCatalogos } =
+    useCatalogosResumenInventario();
+  const { data: genericos = [], isLoading: isLoadingGenericos, refetch: refetchGenericos } =
+    useGenericosInventario(
+      filtrosJerarquia.catalogo_id
+        ? { catalogo_id: filtrosJerarquia.catalogo_id }
+        : undefined,
+    );
+  const { data: comerciales = [], isLoading: isLoadingComerciales, refetch: refetchComerciales } =
+    useComercialesInventario({
+      catalogo_id: filtrosJerarquia.catalogo_id,
+      generico_id: filtrosJerarquia.generico_id,
+      laboratorio_id: filtrosJerarquia.laboratorio_id,
+      producto_id: filtrosJerarquia.producto_id,
+    });
   const { data: lotes = [], isLoading: isLoadingLotes, refetch: refetchLotes } = useLotes();
+
+  const refetchProductos = () => {
+    void refetchCatalogos();
+    void refetchGenericos();
+    void refetchComerciales();
+  };
 
   const lotesProductoDetalle = useMemo(() => {
     if (!productoSeleccionado) return [];
@@ -1213,25 +1201,62 @@ export function VerInventario() {
     [lotes],
   );
 
-  const productosCatalogoConUbicacion = useMemo(
+  const lotesFiltradosJerarquia = useMemo(() => {
+    const all = lotes as LoteInventario[];
+    return all.filter((l) => {
+      if (filtrosJerarquia.producto_id && l.producto_id !== filtrosJerarquia.producto_id) {
+        return false;
+      }
+      if (!filtrosJerarquia.generico_id && !filtrosJerarquia.catalogo_id && !filtrosJerarquia.laboratorio_id) {
+        return true;
+      }
+      const com = comerciales.find((c) => c.producto_id === l.producto_id);
+      if (!com) return false;
+      if (filtrosJerarquia.laboratorio_id && com.laboratorio_id !== filtrosJerarquia.laboratorio_id) {
+        return false;
+      }
+      if (filtrosJerarquia.generico_id && com.generico_id !== filtrosJerarquia.generico_id) {
+        return false;
+      }
+      if (filtrosJerarquia.catalogo_id && com.catalogo_id !== filtrosJerarquia.catalogo_id) {
+        return false;
+      }
+      return true;
+    });
+  }, [lotes, comerciales, filtrosJerarquia]);
+
+  const filasJerarquia = useMemo(() => {
+    if (vistaInventario === "catalogo") return filasDesdeCatalogos(catalogosResumen);
+    if (vistaInventario === "generico") return filasDesdeGenericos(genericos);
+    if (vistaInventario === "laboratorio") return filasDesdeLaboratorio(comerciales);
+    if (vistaInventario === "comercial") return filasDesdeComerciales(comerciales);
+    return lotesFiltradosJerarquia.map(mapLoteAFila);
+  }, [vistaInventario, catalogosResumen, genericos, comerciales, lotesFiltradosJerarquia]);
+
+  const productosConUbicacion = useMemo(
     () =>
-      productosCatalogo.map((p) => {
-        const row = p as Producto;
-        const idCat = row.id;
+      filasJerarquia.map((row) => {
+        const idCat = row.producto_maestro_id ?? row.id;
         return {
           ...row,
           ubicacion: ubicacionesPorProductoId.get(idCat) ?? row.ubicacion ?? null,
-          laboratorio: laboratorioPorProductoId.get(idCat) ?? row.laboratorio ?? null,
+          laboratorio:
+            row.laboratorio ?? laboratorioPorProductoId.get(idCat) ?? row.laboratorio ?? null,
         };
       }),
-    [productosCatalogo, ubicacionesPorProductoId, laboratorioPorProductoId],
+    [filasJerarquia, ubicacionesPorProductoId, laboratorioPorProductoId],
   );
 
-  const isLoading = vistaInventario === "lotes" ? isLoadingLotes : isLoadingCatalogo;
-  const productos =
+  const isLoading =
     vistaInventario === "lotes"
-      ? (lotes as LoteInventario[]).map(mapLoteAFila)
-      : productosCatalogoConUbicacion;
+      ? isLoadingLotes || isLoadingComerciales
+      : vistaInventario === "catalogo"
+        ? isLoadingCatalogos
+        : vistaInventario === "generico"
+          ? isLoadingGenericos
+          : isLoadingComerciales;
+
+  const productos = productosConUbicacion;
   const { mutateAsync: desactivarProductoAsync, isPending: isDesactivando } =
     useDesactivarProducto();
   const { mutateAsync: activarProductoAsync } = useActivarProducto();
@@ -1297,11 +1322,34 @@ export function VerInventario() {
     setCurrentPage(1);
   };
 
+  const aplicarNavegacionJerarquia = (
+    vista: VistaInventario,
+    parcial?: Partial<InventarioJerarquiaFiltros>,
+  ) => {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("vista", vista);
+    const merged = { ...filtrosJerarquia, ...parcial };
+    const setOrDelete = (key: string, value?: string) => {
+      if (value) params.set(key, value);
+      else params.delete(key);
+    };
+    setOrDelete("catalogo_id", merged.catalogo_id);
+    setOrDelete("generico_id", merged.generico_id);
+    setOrDelete("laboratorio_id", merged.laboratorio_id);
+    setOrDelete("producto_id", merged.producto_id);
+    setVistaInventario(vista);
+    setProductoSeleccionado(null);
+    setCurrentPage(1);
+    router.replace(`/farmamuni/inventario?${params.toString()}`);
+  };
+
   useEffect(() => {
     const vista = searchParams.get("vista");
     if (vista === "lotes") {
       setVistaInventario("lotes");
-    } else if (vista === "catalogo" || vista === "generico") {
+    } else if (vista === "catalogo") {
+      setVistaInventario("catalogo");
+    } else if (vista === "generico") {
       setVistaInventario("generico");
     } else if (vista === "laboratorio") {
       setVistaInventario("laboratorio");
@@ -1405,7 +1453,11 @@ export function VerInventario() {
       campoBusquedaPorVista(vistaInventario),
     );
 
-    const matchesStock = !filtroStockBajo || p.stock_actual <= p.stock_minimo;
+    const matchesStock =
+      !filtroStockBajo ||
+      (vistaInventario === "generico"
+        ? Boolean(p.bajo_minimo)
+        : p.stock_actual <= p.stock_minimo);
 
     let matchesExpiring = true;
     if (filtroProximoVencer) {
@@ -1639,15 +1691,13 @@ export function VerInventario() {
             ariaLabel="Vista de inventario"
             value={vistaInventario}
             options={[
-              { id: "lotes", label: "Ingresos" },
+              { id: "catalogo", label: "Catálogo" },
               { id: "generico", label: "Genérico" },
               { id: "laboratorio", label: "Laboratorio" },
               { id: "comercial", label: "Comercial" },
             ]}
             onChange={(id) => {
-              setVistaInventario(id);
-              setProductoSeleccionado(null);
-              setCurrentPage(1);
+              aplicarNavegacionJerarquia(id as VistaInventario);
               if (id !== "lotes") {
                 setFiltroProximoVencer(false);
                 setFiltroVencidos(false);
@@ -1656,13 +1706,17 @@ export function VerInventario() {
             className="w-full sm:w-auto min-w-0 max-w-full overflow-x-auto"
           />
           <SigetActionButton
-            label={esVistaCatalogo(vistaInventario) ? "Producto" : "Lote"}
+            label={vistaInventario === "lotes" ? "Lote" : "Producto"}
             accentColor={sigetAccent.crear}
             morphFrom={esVistaCatalogo(vistaInventario) ? PlusNode : BoxNode}
             morphTo={esVistaCatalogo(vistaInventario) ? UserPlus : PackageNode}
-            onClick={esVistaCatalogo(vistaInventario) ? handleNuevoProducto : handleNuevoLote}
+            onClick={
+              vistaInventario === "lotes" || filtrosJerarquia.producto_id
+                ? handleNuevoLote
+                : handleNuevoProducto
+            }
             ariaLabel={
-              esVistaCatalogo(vistaInventario) ? "Nuevo producto" : "Nuevo lote"
+              vistaInventario === "lotes" ? "Nuevo lote" : "Nuevo producto"
             }
             className="w-full sm:w-auto shrink-0"
           />
@@ -1676,6 +1730,54 @@ export function VerInventario() {
         )}
       >
         <div className="flex flex-col gap-2">
+          {(filtrosJerarquia.catalogo_id ||
+            filtrosJerarquia.generico_id ||
+            filtrosJerarquia.laboratorio_id ||
+            filtrosJerarquia.producto_id) && (
+            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]">
+              <span>Filtros:</span>
+              <button
+                type="button"
+                className="rounded-lg border border-[#8DA78E]/40 px-2 py-1 hover:bg-[#8DA78E]/10"
+                onClick={() =>
+                  aplicarNavegacionJerarquia("catalogo", {
+                    catalogo_id: undefined,
+                    generico_id: undefined,
+                    laboratorio_id: undefined,
+                    producto_id: undefined,
+                  })
+                }
+              >
+                Limpiar
+              </button>
+              {filtrosJerarquia.catalogo_id ? (
+                <button
+                  type="button"
+                  className="rounded-lg bg-[#8DA78E]/15 px-2 py-1"
+                  onClick={() => aplicarNavegacionJerarquia("generico")}
+                >
+                  Genéricos
+                </button>
+              ) : null}
+              {filtrosJerarquia.generico_id || filtrosJerarquia.catalogo_id ? (
+                <button
+                  type="button"
+                  className="rounded-lg bg-[#8DA78E]/15 px-2 py-1"
+                  onClick={() => aplicarNavegacionJerarquia("comercial")}
+                >
+                  Comerciales
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="rounded-lg bg-[#8DA78E]/15 px-2 py-1"
+                onClick={() => aplicarNavegacionJerarquia("lotes")}
+              >
+                Lotes
+              </button>
+            </div>
+          )}
+
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
             <input
@@ -1962,6 +2064,35 @@ export function VerInventario() {
                           onClick={() => {
                             setProductoSeleccionado(isSelected ? null : p);
                           }}
+                          onDoubleClick={() => {
+                            if (vistaInventario === "catalogo" && p.catalogo_id) {
+                              aplicarNavegacionJerarquia("generico", {
+                                catalogo_id: p.catalogo_id,
+                              });
+                              return;
+                            }
+                            if (vistaInventario === "generico" && p.generico_id) {
+                              aplicarNavegacionJerarquia("comercial", {
+                                catalogo_id: p.catalogo_id,
+                                generico_id: p.generico_id,
+                              });
+                              return;
+                            }
+                            if (vistaInventario === "laboratorio" && p.laboratorio_id) {
+                              aplicarNavegacionJerarquia("comercial", {
+                                laboratorio_id: p.laboratorio_id,
+                              });
+                              return;
+                            }
+                            if (vistaInventario === "comercial" && p.producto_maestro_id) {
+                              aplicarNavegacionJerarquia("lotes", {
+                                catalogo_id: p.catalogo_id,
+                                generico_id: p.generico_id,
+                                laboratorio_id: p.laboratorio_id,
+                                producto_id: p.producto_maestro_id,
+                              });
+                            }
+                          }}
                           className={cn(
                             "hover:bg-[#8DA78E]/10 dark:hover:bg-[#A3BEB0]/15 transition-all cursor-pointer",
                             isSelected && "bg-[#8DA78E]/20 dark:bg-[#8DA78E]/25",
@@ -2230,7 +2361,6 @@ export function VerInventario() {
           <CrearLoteManual
             open
             producto={loteManualProducto}
-            precioVentaInicial={String(loteManualProducto.precio_base || "")}
             onClose={() => setLoteManualProducto(null)}
             onSuccess={() => {
               setLoteManualProducto(null);

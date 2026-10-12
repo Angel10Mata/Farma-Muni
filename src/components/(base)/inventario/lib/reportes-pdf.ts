@@ -21,6 +21,7 @@ import {
 export type ProductoInventarioReporte = {
   codigo: string;
   nombre: string;
+  catalogo_nombre?: string | null;
   nombre_generico?: string | null;
   concentracion?: string | null;
   forma_farmaceutica?: string | null;

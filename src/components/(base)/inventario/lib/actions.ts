@@ -4,10 +4,13 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import {
   claveProductoUnico,
+  comercialAProductoEdicion,
+  comercialAProductoSugerencia,
   nombreGenericoListoParaDuplicado,
   MIN_CARACTERES_BUSQUEDA_PRODUCTO,
   normalizarTextoBusquedaProducto,
 } from "./helpers";
+import { buscarComercialesPorNombre, obtenerComercial } from "./jerarquia-actions";
 import { productoSugerenciaSchema, type ProductoSugerencia } from "./zod";
 import { activarProductoCatalogoPorNuevoLote } from "./sync-producto-catalogo";
 import {
@@ -71,19 +74,50 @@ function normalizarFechaLote(fecha: string) {
   return trimmed;
 }
 
-const LOTE_DUPLICATE_MSG = "Ya existe un lote con ese código de barras y número de lote";
+const LOTE_DUPLICATE_MSG = "Ya existe un lote con ese código de barras";
 
-function mapLoteDbError(error: { code?: string; message?: string }) {
+async function detalleCodigoBarrasDuplicado(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  codigoBarras: string,
+): Promise<string> {
+  const codigo = codigoBarras.trim();
+  const { data, error } = await supabase
+    .from("inv_lotes")
+    .select("numero_lote, inv_productos(nombre)")
+    .eq("codigo_barras", codigo)
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) {
+    return LOTE_DUPLICATE_MSG;
+  }
+
+  const rawProd = data.inv_productos;
+  const prod = Array.isArray(rawProd) ? rawProd[0] : rawProd;
+  const nombreComercial = (prod as { nombre?: string } | null)?.nombre?.trim() || "otro producto";
+  const numeroLote = String(data.numero_lote ?? "").trim() || "—";
+  return `El código de barras ya pertenece a ${nombreComercial}, lote ${numeroLote}.`;
+}
+
+async function mapLoteDbError(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  error: { code?: string; message?: string },
+  codigoBarras?: string,
+) {
   const msg = error.message ?? "";
   if (
     error.code === "23505" ||
     msg.includes("inv_lotes_codigo_lote_unique") ||
     msg.includes("inv_lotes_codigo_barras_unique")
   ) {
+    const detail =
+      codigoBarras && msg.includes("codigo_barras")
+        ? await detalleCodigoBarrasDuplicado(supabase, codigoBarras)
+        : LOTE_DUPLICATE_MSG;
     return {
       success: false as const,
       code: "DUPLICATE" as const,
-      detail: LOTE_DUPLICATE_MSG,
+      detail,
     };
   }
   return { success: false as const, code: "INTERNAL" as const };
@@ -137,7 +171,6 @@ export async function buscarProductosSimilares(texto: string) {
   try {
     const guard = await requireInventario();
     if (!guard.ok) return { code: guard.code };
-    const { supabase } = guard;
 
     const term = texto.trim();
     if (term.length < MIN_CARACTERES_BUSQUEDA_PRODUCTO) {
@@ -145,23 +178,20 @@ export async function buscarProductosSimilares(texto: string) {
     }
 
     const needle = normalizarTextoBusquedaProducto(term);
-
-    const { data, error } = await supabase
-      .from("inv_productos")
-      .select(PRODUCTO_SUGERENCIA_SELECT)
-      .order("nombre_generico", { ascending: true })
-      .limit(500);
-
-    if (error) return { code: "INTERNAL" as const };
+    const res = await buscarComercialesPorNombre(term, {
+      incluirInactivosYAgotados: true,
+      limite: 80,
+    });
+    if (!("success" in res) || !res.success) return { code: "INTERNAL" as const };
 
     const resultados: ProductoSugerencia[] = [];
-    for (const row of data ?? []) {
-      const item = mapFilaProductoSugerencia(row as Record<string, unknown>);
-      if (!item) continue;
-      const ng = normalizarTextoBusquedaProducto(item.nombre_generico);
-      const n = normalizarTextoBusquedaProducto(item.nombre);
-      if (!ng.includes(needle) && !n.includes(needle)) continue;
-      resultados.push(item);
+    for (const item of res.data) {
+      const sugerencia = comercialAProductoSugerencia(item);
+      const ng = normalizarTextoBusquedaProducto(sugerencia.nombre_generico);
+      const n = normalizarTextoBusquedaProducto(sugerencia.nombre);
+      const cat = normalizarTextoBusquedaProducto(sugerencia.catalogo_nombre ?? "");
+      if (!ng.includes(needle) && !n.includes(needle) && !cat.includes(needle)) continue;
+      resultados.push(sugerencia);
       if (resultados.length >= 8) break;
     }
 
@@ -195,16 +225,38 @@ function esErrorProductoUnico(error: { code?: string; message?: string }) {
 export async function obtenerProductos() {
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return { code: "UNAUTHORIZED" as const };
 
-    const { data, error } = await supabase
-      .from("inv_productos")
-      .select("*")
-      .order("nombre", { ascending: true });
+    const { listarComercialesInventario } = await import("./jerarquia-actions");
+    const res = await listarComercialesInventario();
+    if (!("success" in res) || !res.success) return { code: "INTERNAL" as const };
 
-    if (error) return { code: "INTERNAL" as const };
-    return { success: true as const, data: data ?? [] };
+    const data = res.data.map((c) => ({
+      id: c.producto_id,
+      nombre: c.nombre_comercial,
+      nombre_generico: c.generico_nombre,
+      concentracion: c.concentracion,
+      forma_farmaceutica: c.forma_farmaceutica,
+      presentacion: c.presentacion,
+      unidad_venta: c.unidad_venta,
+      requiere_receta: c.requiere_receta,
+      descripcion: c.descripcion ?? "",
+      precio_base: c.precio_venta,
+      stock_actual: c.stock_vendible,
+      stock_minimo: c.stock_minimo,
+      activo: c.activo,
+      imagen_url: c.imagen_url ?? null,
+      generico_id: c.generico_id,
+      laboratorio_id: c.laboratorio_id,
+      catalogo_id: c.catalogo_id,
+      catalogo_nombre: c.catalogo_nombre,
+      laboratorio: c.laboratorio_nombre,
+    }));
+
+    return { success: true as const, data };
   } catch {
     return { code: "INTERNAL" as const };
   }
@@ -212,18 +264,9 @@ export async function obtenerProductos() {
 
 export async function obtenerProducto(id: string) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
-
-    const { data, error } = await supabase
-      .from("inv_productos")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error) return { code: "NOT_FOUND" as const };
-    return { success: true as const, data };
+    const res = await obtenerComercial(id);
+    if (!("success" in res) || !res.success) return { code: "NOT_FOUND" as const };
+    return { success: true as const, data: comercialAProductoEdicion(res.data) };
   } catch {
     return { code: "INTERNAL" as const };
   }
@@ -388,20 +431,20 @@ export async function crearLoteManual(input: unknown) {
     const { error } = await supabase.from("inv_lotes").insert({
       producto_id: parsed.data.producto_id,
       proveedor_id: parsed.data.proveedor_id,
-      laboratorio: parsed.data.laboratorio?.trim() || null,
+      laboratorio: null,
       compra_detalle_id: null,
       codigo_barras: parsed.data.codigo_barras.trim(),
       numero_lote: parsed.data.numero_lote.trim(),
       cantidad_inicial: parsed.data.cantidad,
       cantidad_actual: parsed.data.cantidad,
       precio_costo: parsed.data.precio_costo,
-      precio_venta: parsed.data.precio_venta,
+      precio_venta: null,
       fecha_vencimiento: normalizarFechaLote(parsed.data.fecha_vencimiento),
       ubicacion: parsed.data.ubicacion?.trim() || null,
       activo: true,
     });
 
-    if (error) return mapLoteDbError(error);
+    if (error) return await mapLoteDbError(supabase, error, parsed.data.codigo_barras);
 
     try {
       await activarProductoCatalogoPorNuevoLote(supabase, parsed.data.producto_id);

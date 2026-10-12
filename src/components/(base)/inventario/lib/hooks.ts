@@ -30,6 +30,25 @@ import {
   devolverLoteAProveedor,
   type ObtenerKardexResult,
 } from "./actions";
+import {
+  guardarCatalogo,
+  guardarComercial,
+  guardarGenerico,
+  guardarLaboratorio,
+  listarCatalogos,
+  listarCatalogosResumen,
+  listarComercialesInventario,
+  listarGenericosInventario,
+  listarLaboratorios,
+  obtenerComercial,
+} from "./jerarquia-actions";
+import type {
+  CatalogoInput,
+  ComercialInput,
+  GenericoInput,
+  InventarioJerarquiaFiltros,
+  LaboratorioInput,
+} from "./jerarquia-zod";
 import { demoKardexMovimientos } from "@/lib/demo/fixtures";
 import {
   type AjustarConteoInput,
@@ -143,6 +162,224 @@ export function useLotes() {
   });
 }
 
+const JERARQUIA_STALE = 1000 * 60 * 3;
+
+export function useCatalogosInventario() {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["inventario", "catalogos"], isDemoMode),
+    queryFn: async () => {
+      if (isDemoMode) return [];
+      const res = await listarCatalogos();
+      if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    staleTime: JERARQUIA_STALE,
+  });
+}
+
+export function useCatalogosResumenInventario() {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["inventario", "catalogos-resumen"], isDemoMode),
+    queryFn: async () => {
+      if (isDemoMode) return [];
+      const res = await listarCatalogosResumen();
+      if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    staleTime: JERARQUIA_STALE,
+  });
+}
+
+export function useGenericosInventario(filtros?: InventarioJerarquiaFiltros) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(
+      [
+        "inventario",
+        "genericos",
+        filtros?.catalogo_id,
+        filtros?.generico_id,
+      ],
+      isDemoMode,
+    ),
+    queryFn: async () => {
+      if (isDemoMode) return [];
+      const res = await listarGenericosInventario(filtros);
+      if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    staleTime: JERARQUIA_STALE,
+  });
+}
+
+export function useLaboratoriosInventario() {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["inventario", "laboratorios"], isDemoMode),
+    queryFn: async () => {
+      if (isDemoMode) return [];
+      const res = await listarLaboratorios();
+      if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    staleTime: JERARQUIA_STALE,
+  });
+}
+
+export function useComercialesInventario(filtros?: InventarioJerarquiaFiltros) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(
+      [
+        "inventario",
+        "comerciales",
+        filtros?.catalogo_id,
+        filtros?.generico_id,
+        filtros?.laboratorio_id,
+        filtros?.producto_id,
+      ],
+      isDemoMode,
+    ),
+    queryFn: async () => {
+      if (isDemoMode) {
+        return DEMO_PRODUCTOS.map((p) => ({
+          producto_id: p.id,
+          nombre_comercial: p.nombre,
+          presentacion: p.presentacion,
+          precio_venta: p.precio_base,
+          activo: p.activo,
+          generico_id: p.id,
+          generico_nombre: p.nombre_generico,
+          requiere_receta: p.requiere_receta,
+          catalogo_id: p.id,
+          catalogo_nombre: p.nombre_generico.split(" ")[0] ?? p.nombre_generico,
+          laboratorio_id: p.id,
+          laboratorio_nombre: "Demo Lab",
+          stock_vendible: p.stock_actual,
+          proximo_vencimiento: null,
+          lotes_vendibles: 1,
+          concentracion: p.concentracion,
+          forma_farmaceutica: p.forma_farmaceutica,
+          unidad_venta: p.unidad_venta,
+          stock_minimo: p.stock_minimo,
+          generico_activo: true,
+        }));
+      }
+      const res = await listarComercialesInventario(filtros);
+      if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    staleTime: JERARQUIA_STALE,
+  });
+}
+
+export function useComercialInventario(productoId: string | null) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: demoQueryKey(["inventario", "comercial", productoId], isDemoMode),
+    queryFn: async () => {
+      if (!productoId) return null;
+      if (isDemoMode) {
+        const p = DEMO_PRODUCTOS.find((d) => d.id === productoId);
+        return p ?? null;
+      }
+      const res = await obtenerComercial(productoId);
+      if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
+      return res.data;
+    },
+    enabled: !!productoId,
+    staleTime: JERARQUIA_STALE,
+  });
+}
+
+function invalidateJerarquiaInventario(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: ["productos"] });
+  queryClient.invalidateQueries({ queryKey: ["inventario", "catalogos"] });
+  queryClient.invalidateQueries({ queryKey: ["inventario", "catalogos-resumen"] });
+  queryClient.invalidateQueries({ queryKey: ["inventario", "genericos"] });
+  queryClient.invalidateQueries({ queryKey: ["inventario", "laboratorios"] });
+  queryClient.invalidateQueries({ queryKey: ["inventario", "comerciales"] });
+  queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
+}
+
+export function useGuardarCatalogoInventario() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: CatalogoInput }) => {
+      assertWritableDemo(isDemoMode);
+      const res = await guardarCatalogo(id, data);
+      if (!("success" in res) || !res.success) {
+        const code = "code" in res ? res.code : "ERROR";
+        const err = new Error(code) as Error & { detail?: string };
+        if ("detail" in res && res.detail) err.detail = res.detail;
+        throw err;
+      }
+      return res;
+    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
+  });
+}
+
+export function useGuardarGenericoInventario() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: GenericoInput }) => {
+      assertWritableDemo(isDemoMode);
+      const res = await guardarGenerico(id, data);
+      if (!("success" in res) || !res.success) {
+        const code = "code" in res ? res.code : "ERROR";
+        const err = new Error(code) as Error & { detail?: string };
+        if ("detail" in res && res.detail) err.detail = res.detail;
+        throw err;
+      }
+      return res;
+    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
+  });
+}
+
+export function useGuardarLaboratorioInventario() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: LaboratorioInput }) => {
+      assertWritableDemo(isDemoMode);
+      const res = await guardarLaboratorio(id, data);
+      if (!("success" in res) || !res.success) {
+        const code = "code" in res ? res.code : "ERROR";
+        const err = new Error(code) as Error & { detail?: string };
+        if ("detail" in res && res.detail) err.detail = res.detail;
+        throw err;
+      }
+      return res;
+    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
+  });
+}
+
+export function useGuardarComercialInventario() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ id, data }: { id?: string; data: ComercialInput }) => {
+      assertWritableDemo(isDemoMode);
+      const res = await guardarComercial(id, data);
+      if (!("success" in res) || !res.success) {
+        const code = "code" in res ? res.code : "ERROR";
+        const err = new Error(code) as Error & { detail?: string };
+        if ("detail" in res && res.detail) err.detail = res.detail;
+        throw err;
+      }
+      return res;
+    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
+  });
+}
+
 export function useProductos() {
   const { isDemoMode } = useDemoMode();
   return useQuery({
@@ -155,7 +392,7 @@ export function useProductos() {
           if (!res.success) throw new Error(res.code);
           return res.data;
         },
-        DEMO_PRODUCTOS,
+        DEMO_PRODUCTOS as Awaited<ReturnType<typeof obtenerProductos>>["data"],
       ),
     staleTime: 1000 * 60 * 3,
   });
@@ -282,10 +519,7 @@ export function useCrearLoteManual() {
       }
       return res;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["productos"] });
-      queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
-    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
   });
 }
 
@@ -406,9 +640,7 @@ export function useDesactivarProducto() {
       if (!res.success) throw new Error(res.code);
       return res;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["productos"] });
-    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
     onError: (error: Error) => {
       toast.error(error.message);
     },
@@ -425,9 +657,7 @@ export function useActivarProducto() {
       if (!res.success) throw new Error(res.code);
       return res;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["productos"] });
-    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
     onError: (error: Error) => {
       toast.error(error.message);
     },

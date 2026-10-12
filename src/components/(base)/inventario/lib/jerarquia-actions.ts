@@ -16,6 +16,7 @@ import {
   DUPLICATE_LABORATORIO_MSG,
   genericoInputSchema,
   invCatalogoSchema,
+  invCatalogoResumenSchema,
   invGenericoSchema,
   invLaboratorioSchema,
   laboratorioInputSchema,
@@ -24,8 +25,10 @@ import {
   type ComercialInput,
   type GenericoInput,
   type InvCatalogo,
+  type InvCatalogoResumen,
   type InvGenerico,
   type InvLaboratorio,
+  type InventarioJerarquiaFiltros,
   type LaboratorioInput,
   type ProductoComercial,
 } from "./jerarquia-zod";
@@ -210,6 +213,80 @@ export async function listarCatalogos() {
   }
 }
 
+export async function listarCatalogosResumen() {
+  try {
+    const auth = await requireLecturaInventario();
+    if (!auth.ok) return { code: auth.code };
+
+    const [catRes, genRes] = await Promise.all([
+      auth.supabase
+        .from("inv_catalogos")
+        .select("id, nombre, descripcion, activo, created_at")
+        .order("nombre", { ascending: true }),
+      auth.supabase.from("v_inv_genericos").select(V_INV_GENERICOS_SELECT),
+    ]);
+
+    if (catRes.error || genRes.error) return { code: "INTERNAL" as const };
+
+    const agg = new Map<string, { genericos: number; stock_vendible: number }>();
+    for (const row of genRes.data ?? []) {
+      const catalogoId = String(row.catalogo_id);
+      const prev = agg.get(catalogoId) ?? { genericos: 0, stock_vendible: 0 };
+      prev.genericos += 1;
+      prev.stock_vendible += Number(row.stock_vendible) || 0;
+      agg.set(catalogoId, prev);
+    }
+
+    const items: InvCatalogoResumen[] = [];
+    for (const row of catRes.data ?? []) {
+      const base = mapFilaCatalogo(row as Record<string, unknown>);
+      if (!base) continue;
+      const stats = agg.get(base.id) ?? { genericos: 0, stock_vendible: 0 };
+      const parsed = invCatalogoResumenSchema.safeParse({
+        ...base,
+        genericos: stats.genericos,
+        stock_vendible: stats.stock_vendible,
+      });
+      if (parsed.success) items.push(parsed.data);
+    }
+
+    return { success: true as const, data: items };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function listarGenericosInventario(filtros?: InventarioJerarquiaFiltros) {
+  try {
+    const auth = await requireLecturaInventario();
+    if (!auth.ok) return { code: auth.code };
+
+    let query = auth.supabase
+      .from("v_inv_genericos")
+      .select(V_INV_GENERICOS_SELECT)
+      .order("generico_nombre", { ascending: true });
+
+    if (filtros?.catalogo_id) {
+      query = query.eq("catalogo_id", filtros.catalogo_id);
+    }
+    if (filtros?.generico_id) {
+      query = query.eq("generico_id", filtros.generico_id);
+    }
+
+    const { data, error } = await query;
+    if (error) return { code: "INTERNAL" as const };
+
+    const items: InvGenerico[] = [];
+    for (const row of data ?? []) {
+      const item = mapFilaGenerico(row as Record<string, unknown>);
+      if (item) items.push(item);
+    }
+    return { success: true as const, data: items };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
 export async function listarGenericosPorCatalogo(catalogoId: string) {
   try {
     const auth = await requireLecturaInventario();
@@ -252,6 +329,55 @@ export async function listarLaboratorios() {
       if (item) items.push(item);
     }
     return { success: true as const, data: items };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function listarComercialesInventario(filtros?: InventarioJerarquiaFiltros) {
+  try {
+    const auth = await requireLecturaInventario();
+    if (!auth.ok) return { code: auth.code };
+
+    let query = auth.supabase
+      .from("v_inv_comerciales")
+      .select(V_INV_COMERCIALES_SELECT)
+      .order("nombre_comercial", { ascending: true });
+
+    if (filtros?.catalogo_id) query = query.eq("catalogo_id", filtros.catalogo_id);
+    if (filtros?.generico_id) query = query.eq("generico_id", filtros.generico_id);
+    if (filtros?.laboratorio_id) query = query.eq("laboratorio_id", filtros.laboratorio_id);
+    if (filtros?.producto_id) query = query.eq("producto_id", filtros.producto_id);
+
+    const { data, error } = await query;
+    if (error) return { code: "INTERNAL" as const };
+
+    const items: ProductoComercial[] = [];
+    for (const row of data ?? []) {
+      const item = mapFilaComercial(row as Record<string, unknown>);
+      if (item) items.push(item);
+    }
+    return { success: true as const, data: items };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function obtenerComercial(productoId: string) {
+  try {
+    const auth = await requireLecturaInventario();
+    if (!auth.ok) return { code: auth.code };
+
+    const { data, error } = await auth.supabase
+      .from("v_inv_comerciales")
+      .select(V_INV_COMERCIALES_SELECT)
+      .eq("producto_id", productoId)
+      .maybeSingle();
+
+    if (error || !data) return { code: "NOT_FOUND" as const };
+    const item = mapFilaComercial(data as Record<string, unknown>);
+    if (!item) return { code: "NOT_FOUND" as const };
+    return { success: true as const, data: item };
   } catch {
     return { code: "INTERNAL" as const };
   }
@@ -319,7 +445,11 @@ export async function buscarComercialesPorNombre(
       const item = mapFilaComercial(row as Record<string, unknown>);
       if (!item) continue;
       const nombreNorm = normalizarTextoBusquedaProducto(item.nombre_comercial);
-      if (!nombreNorm.includes(needle)) continue;
+      const genericoNorm = normalizarTextoBusquedaProducto(item.generico_nombre);
+      const catalogoNorm = normalizarTextoBusquedaProducto(item.catalogo_nombre);
+      if (!nombreNorm.includes(needle) && !genericoNorm.includes(needle) && !catalogoNorm.includes(needle)) {
+        continue;
+      }
       if (!incluirTodos) {
         if (!item.activo || item.stock_vendible <= 0) continue;
       }

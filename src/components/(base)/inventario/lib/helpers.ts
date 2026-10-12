@@ -2,7 +2,8 @@ import {
   categoriaVencimientoLote,
   diasRestantesVencimientoGt,
 } from "@/lib/vencimientos-gt";
-import { FORMAS_FARMACEUTICAS } from "./zod";
+import type { ProductoComercial } from "./jerarquia-zod";
+import { FORMAS_FARMACEUTICAS, type Producto, type ProductoSugerencia } from "./zod";
 
 export type CamposTituloProducto = {
   nombre: string;
@@ -41,7 +42,55 @@ export function nombreComercialSiDistinto(p: CamposTituloProducto): string | nul
   return comercial;
 }
 
-export type BusquedaInventarioCampo = "todos" | "generico" | "laboratorio" | "comercial";
+export type BusquedaInventarioCampo =
+  | "todos"
+  | "catalogo"
+  | "generico"
+  | "laboratorio"
+  | "comercial";
+
+export function comercialAProductoSugerencia(c: ProductoComercial): ProductoSugerencia {
+  return {
+    id: c.producto_id,
+    nombre: c.nombre_comercial,
+    nombre_generico: c.generico_nombre,
+    concentracion: c.concentracion,
+    forma_farmaceutica: String(c.forma_farmaceutica),
+    presentacion: c.presentacion,
+    precio_base: c.precio_venta,
+    laboratorio_nombre: c.laboratorio_nombre,
+    catalogo_nombre: c.catalogo_nombre,
+    generico_id: c.generico_id,
+    laboratorio_id: c.laboratorio_id,
+    catalogo_id: c.catalogo_id,
+  };
+}
+
+export function comercialAProductoEdicion(c: ProductoComercial): Producto {
+  return {
+    id: c.producto_id,
+    nombre: c.nombre_comercial,
+    nombre_generico: c.generico_nombre,
+    concentracion: c.concentracion,
+    forma_farmaceutica: c.forma_farmaceutica,
+    presentacion: c.presentacion,
+    unidad_venta: c.unidad_venta,
+    requiere_receta: c.requiere_receta,
+    descripcion: c.descripcion ?? "",
+    precio_base: c.precio_venta,
+    stock_actual: c.stock_vendible,
+    stock_minimo: c.stock_minimo,
+    activo: c.activo,
+    imagen_url: c.imagen_url ?? null,
+    generico_id: c.generico_id,
+    laboratorio_id: c.laboratorio_id,
+    catalogo_id: c.catalogo_id,
+    catalogo_nombre: c.catalogo_nombre,
+    laboratorio_nombre: c.laboratorio_nombre,
+    laboratorio: c.laboratorio_nombre,
+    created_at: c.created_at,
+  };
+}
 
 export function productoCoincideBusquedaInventario(
   p: {
@@ -55,6 +104,13 @@ export function productoCoincideBusquedaInventario(
 ): boolean {
   const q = busqueda.trim().toLowerCase();
   if (!q) return true;
+  if (campo === "catalogo") {
+    const catalogo =
+      (p as { catalogo_nombre?: string | null }).catalogo_nombre ||
+      (p.nombre_generico || "").split(" ")[0] ||
+      "";
+    return catalogo.toLowerCase().includes(q) || (p.nombre || "").toLowerCase().includes(q);
+  }
   if (campo === "generico") {
     return (
       (p.nombre_generico || "").toLowerCase().includes(q) ||

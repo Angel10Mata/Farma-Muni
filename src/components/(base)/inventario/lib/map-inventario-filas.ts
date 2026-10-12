@@ -1,0 +1,167 @@
+import type { InvCatalogoResumen, InvGenerico, ProductoComercial } from "./jerarquia-zod";
+import type { LoteInventario } from "./zod";
+import { precioVentaEfectivoLote } from "./helpers";
+
+export type FilaInventarioUi = {
+  id: string;
+  producto_maestro_id?: string;
+  codigo: string;
+  nombre: string;
+  nombre_generico?: string;
+  catalogo_nombre?: string;
+  concentracion?: string;
+  forma_farmaceutica?: string;
+  presentacion?: string;
+  unidad_venta?: string;
+  requiere_receta?: boolean;
+  descripcion: string;
+  precio_base: number;
+  precio_venta?: number;
+  precio_costo?: number | null;
+  laboratorio?: string | null;
+  stock_actual: number;
+  stock_minimo: number;
+  activo: boolean;
+  imagen_url?: string | null;
+  fecha_vencimiento?: string | null;
+  numero_lote?: string | null;
+  ubicacion?: string | null;
+  genericos_count?: number;
+  comerciales_count?: number;
+  bajo_minimo?: boolean;
+  catalogo_id?: string;
+  generico_id?: string;
+  laboratorio_id?: string;
+  inv_proveedores?: { nombre: string } | null;
+};
+
+export function filasDesdeCatalogos(items: InvCatalogoResumen[]): FilaInventarioUi[] {
+  return items.map((c) => ({
+    id: c.id,
+    catalogo_id: c.id,
+    codigo: "",
+    nombre: c.nombre,
+    nombre_generico: c.nombre,
+    catalogo_nombre: c.nombre,
+    descripcion: c.descripcion ?? "",
+    precio_base: 0,
+    stock_actual: c.stock_vendible,
+    stock_minimo: 0,
+    activo: c.activo,
+    genericos_count: c.genericos,
+  }));
+}
+
+export function filasDesdeGenericos(items: InvGenerico[]): FilaInventarioUi[] {
+  return items.map((g) => ({
+    id: g.generico_id,
+    generico_id: g.generico_id,
+    catalogo_id: g.catalogo_id,
+    catalogo_nombre: g.catalogo_nombre,
+    codigo: "",
+    nombre: g.generico_nombre,
+    nombre_generico: g.generico_nombre,
+    concentracion: g.concentracion,
+    forma_farmaceutica: g.forma_farmaceutica,
+    descripcion: "",
+    precio_base: g.precio_desde ?? 0,
+    stock_actual: g.stock_vendible,
+    stock_minimo: g.stock_minimo,
+    activo: g.activo,
+    requiere_receta: g.requiere_receta,
+    bajo_minimo: g.bajo_minimo,
+    comerciales_count: g.comerciales,
+  }));
+}
+
+export function filasDesdeComerciales(items: ProductoComercial[]): FilaInventarioUi[] {
+  return items.map((c) => ({
+    id: c.producto_id,
+    producto_maestro_id: c.producto_id,
+    catalogo_id: c.catalogo_id,
+    generico_id: c.generico_id,
+    laboratorio_id: c.laboratorio_id,
+    codigo: "",
+    nombre: c.nombre_comercial,
+    nombre_generico: c.generico_nombre,
+    catalogo_nombre: c.catalogo_nombre,
+    concentracion: c.concentracion,
+    forma_farmaceutica: c.forma_farmaceutica,
+    presentacion: c.presentacion,
+    unidad_venta: c.unidad_venta,
+    requiere_receta: c.requiere_receta,
+    descripcion: c.descripcion ?? "",
+    precio_base: c.precio_venta,
+    precio_venta: c.precio_venta,
+    laboratorio: c.laboratorio_nombre,
+    stock_actual: c.stock_vendible,
+    stock_minimo: c.stock_minimo,
+    activo: c.activo,
+    imagen_url: c.imagen_url ?? null,
+    fecha_vencimiento: c.proximo_vencimiento,
+    bajo_minimo: c.stock_vendible <= c.stock_minimo,
+  }));
+}
+
+export function filasDesdeLaboratorio(comerciales: ProductoComercial[]): FilaInventarioUi[] {
+  const porLab = new Map<string, ProductoComercial[]>();
+  for (const c of comerciales) {
+    const list = porLab.get(c.laboratorio_id) ?? [];
+    list.push(c);
+    porLab.set(c.laboratorio_id, list);
+  }
+
+  const filas: FilaInventarioUi[] = [];
+  for (const [, list] of porLab) {
+    const first = list[0];
+    const stock = list.reduce((s, x) => s + x.stock_vendible, 0);
+    filas.push({
+      id: first.laboratorio_id,
+      laboratorio_id: first.laboratorio_id,
+      catalogo_id: first.catalogo_id,
+      generico_id: first.generico_id,
+      codigo: "",
+      nombre: first.laboratorio_nombre,
+      nombre_generico: first.laboratorio_nombre,
+      laboratorio: first.laboratorio_nombre,
+      descripcion: list.map((x) => x.nombre_comercial).join(" · "),
+      precio_base: 0,
+      stock_actual: stock,
+      stock_minimo: 0,
+      activo: list.some((x) => x.activo),
+      comerciales_count: list.length,
+    });
+  }
+  return filas.sort((a, b) => (a.laboratorio || "").localeCompare(b.laboratorio || "", "es"));
+}
+
+export function mapLoteAFilaInventario(lote: LoteInventario): FilaInventarioUi {
+  const raw = lote.inv_productos;
+  const p = Array.isArray(raw) ? raw[0] : raw;
+  const precioBase = p?.precio_base ?? 0;
+  const precioVenta = precioVentaEfectivoLote(lote.precio_venta, precioBase);
+  return {
+    id: lote.id,
+    producto_maestro_id: lote.producto_id,
+    codigo: lote.codigo_barras,
+    nombre: p?.nombre ?? "—",
+    nombre_generico: p?.nombre_generico ?? "",
+    concentracion: p?.concentracion ?? "",
+    forma_farmaceutica: p?.forma_farmaceutica ?? "otro",
+    presentacion: p?.presentacion ?? "",
+    unidad_venta: p?.unidad_venta ?? "unidad",
+    requiere_receta: p?.requiere_receta ?? false,
+    descripcion: "",
+    precio_base: precioBase,
+    precio_venta: precioVenta,
+    precio_costo: lote.precio_costo,
+    laboratorio: lote.laboratorio ?? null,
+    stock_actual: Number(lote.cantidad_actual) || 0,
+    stock_minimo: p?.stock_minimo ?? 0,
+    activo: lote.activo && (p?.activo ?? true),
+    fecha_vencimiento: lote.fecha_vencimiento ?? null,
+    numero_lote: lote.numero_lote ?? null,
+    ubicacion: lote.ubicacion ?? null,
+    inv_proveedores: lote.inv_proveedores ?? null,
+  };
+}

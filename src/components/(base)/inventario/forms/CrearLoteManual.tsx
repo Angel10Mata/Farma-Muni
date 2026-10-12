@@ -31,7 +31,6 @@ import { lineaSugerenciaProductoCatalogo } from "../lib/helpers";
 interface CrearLoteManualProps {
   open: boolean;
   producto: ProductoSugerencia;
-  precioVentaInicial?: string;
   onClose: () => void;
   onSuccess: () => void;
 }
@@ -39,17 +38,14 @@ interface CrearLoteManualProps {
 export function CrearLoteManual({
   open,
   producto,
-  precioVentaInicial,
   onClose,
   onSuccess,
 }: CrearLoteManualProps) {
   const [proveedorLoteId, setProveedorLoteId] = useState("");
-  const [laboratorioLote, setLaboratorioLote] = useState("");
   const [codigoBarras, setCodigoBarras] = useState("");
   const [numeroLote, setNumeroLote] = useState("");
   const [cantidadLote, setCantidadLote] = useState("");
   const [precioCostoLote, setPrecioCostoLote] = useState("");
-  const [precioVentaLote, setPrecioVentaLote] = useState("");
   const [fechaVencimientoLote, setFechaVencimientoLote] = useState("");
   const [ubicacionLote, setUbicacionLote] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -60,24 +56,19 @@ export function CrearLoteManual({
   useEffect(() => {
     if (!open) return;
     setProveedorLoteId("");
-    setLaboratorioLote("");
     setCodigoBarras("");
     setNumeroLote("");
     setCantidadLote("");
     setFechaVencimientoLote("");
     setUbicacionLote("");
     setFieldErrors({});
-    const precio =
-      precioVentaInicial?.trim() ||
-      (producto.precio_base > 0 ? String(producto.precio_base) : "");
-    setPrecioVentaLote(precio);
-    const costoNum = parseFloat(precio);
-    if (!Number.isNaN(costoNum) && costoNum > 0) {
-      setPrecioCostoLote(String(Math.round(costoNum * 0.65 * 100) / 100));
+    const precio = producto.precio_base > 0 ? producto.precio_base : 0;
+    if (precio > 0) {
+      setPrecioCostoLote(String(Math.round(precio * 0.65 * 100) / 100));
     } else {
       setPrecioCostoLote("");
     }
-  }, [open, producto.id, producto.precio_base, precioVentaInicial]);
+  }, [open, producto.id, producto.precio_base]);
 
   const aplicarErrores = (error: ZodError) => {
     const next: Record<string, string> = {};
@@ -97,8 +88,6 @@ export function CrearLoteManual({
       numero_lote: numeroLote.trim(),
       cantidad: parseFloat(cantidadLote),
       precio_costo: parseFloat(precioCostoLote),
-      precio_venta: parseFloat(precioVentaLote),
-      laboratorio: laboratorioLote.trim() || null,
       fecha_vencimiento: fechaIso ?? "",
       ubicacion: ubicacionLote.trim() || null,
     });
@@ -130,8 +119,6 @@ export function CrearLoteManual({
         numero_lote: parsed.data.numero_lote,
         cantidad: parsed.data.cantidad,
         precio_costo: parsed.data.precio_costo,
-        precio_venta: parsed.data.precio_venta,
-        laboratorio: parsed.data.laboratorio,
         fecha_vencimiento: fechaIso,
         ubicacion: parsed.data.ubicacion,
       });
@@ -163,39 +150,26 @@ export function CrearLoteManual({
           </p>
 
           <div className="space-y-4">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <ModalField>
-                <ModalLabel htmlFor="lote-manual-proveedor">Proveedor *</ModalLabel>
-                <ModalSelect
-                  id="lote-manual-proveedor"
-                  value={proveedorLoteId}
-                  onChange={(e) => setProveedorLoteId(e.target.value)}
-                  className={cn(
-                    !proveedorLoteId && "text-zinc-500 dark:text-zinc-400",
-                  )}
-                  required
-                >
-                  <option value="">Seleccionar proveedor…</option>
-                  {proveedores.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre}
-                    </option>
-                  ))}
-                </ModalSelect>
-                {fieldErrors.proveedor_id ? (
-                  <p className="text-xs font-bold text-red-500">{fieldErrors.proveedor_id}</p>
-                ) : null}
-              </ModalField>
-
-              <ModalField>
-                <ModalLabel htmlFor="lote-manual-laboratorio">Laboratorio</ModalLabel>
-                <ModalInput
-                  id="lote-manual-laboratorio"
-                  value={laboratorioLote}
-                  onChange={(e) => setLaboratorioLote(e.target.value)}
-                />
-              </ModalField>
-            </div>
+            <ModalField>
+              <ModalLabel htmlFor="lote-manual-proveedor">Proveedor *</ModalLabel>
+              <ModalSelect
+                id="lote-manual-proveedor"
+                value={proveedorLoteId}
+                onChange={(e) => setProveedorLoteId(e.target.value)}
+                className={cn(!proveedorLoteId && "text-zinc-500 dark:text-zinc-400")}
+                required
+              >
+                <option value="">Seleccionar proveedor…</option>
+                {proveedores.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre}
+                  </option>
+                ))}
+              </ModalSelect>
+              {fieldErrors.proveedor_id ? (
+                <p className="text-xs font-bold text-red-500">{fieldErrors.proveedor_id}</p>
+              ) : null}
+            </ModalField>
 
             <ModalField>
               <ModalLabel htmlFor="lote-manual-codigo">Código de barras *</ModalLabel>
@@ -241,39 +215,24 @@ export function CrearLoteManual({
               </ModalField>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <ModalField>
-                <ModalLabel htmlFor="lote-manual-costo">Costo unitario *</ModalLabel>
-                <ModalInput
-                  id="lote-manual-costo"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={precioCostoLote}
-                  onChange={(e) => setPrecioCostoLote(e.target.value)}
-                  required
-                />
-                {fieldErrors.precio_costo ? (
-                  <p className="text-xs font-bold text-red-500">{fieldErrors.precio_costo}</p>
-                ) : null}
-              </ModalField>
-
-              <ModalField>
-                <ModalLabel htmlFor="lote-manual-precio-venta">Precio de venta *</ModalLabel>
-                <ModalInput
-                  id="lote-manual-precio-venta"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={precioVentaLote}
-                  onChange={(e) => setPrecioVentaLote(e.target.value)}
-                  required
-                />
-                {fieldErrors.precio_venta ? (
-                  <p className="text-xs font-bold text-red-500">{fieldErrors.precio_venta}</p>
-                ) : null}
-              </ModalField>
-            </div>
+            <ModalField>
+              <ModalLabel htmlFor="lote-manual-costo">Costo unitario *</ModalLabel>
+              <ModalInput
+                id="lote-manual-costo"
+                type="number"
+                step="0.01"
+                min="0"
+                value={precioCostoLote}
+                onChange={(e) => setPrecioCostoLote(e.target.value)}
+                required
+              />
+              {fieldErrors.precio_costo ? (
+                <p className="text-xs font-bold text-red-500">{fieldErrors.precio_costo}</p>
+              ) : null}
+              <p className="text-[11px] text-zinc-500">
+                El precio de venta se toma del producto comercial ({producto.precio_base}).
+              </p>
+            </ModalField>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ModalField>
