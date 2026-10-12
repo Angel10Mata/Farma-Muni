@@ -3,8 +3,12 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "react-toastify";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import {
+  DEMO_CATALOGOS,
+  DEMO_COMERCIALES_INVENTARIO,
+  DEMO_GENERICOS_INVENTARIO,
+  DEMO_LABORATORIOS,
+  DEMO_LOTES_INVENTARIO,
   DEMO_PRODUCTOS,
-  DEMO_PROVEEDORES,
   DEMO_UBICACIONES,
 } from "@/lib/demo/fixtures";
 import {
@@ -120,39 +124,7 @@ export function useLotes() {
     queryKey: demoQueryKey(["inventario", "lotes"], isDemoMode),
     queryFn: async () => {
       if (isDemoMode) {
-        return DEMO_PRODUCTOS.map((p, i) => {
-          const prov = DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length];
-          return {
-          id: `demo-lote-${p.id}`,
-          producto_id: p.id,
-          codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
-          numero_lote: `L-${2400 + i}`,
-          cantidad_inicial: p.stock_actual,
-          cantidad_actual: p.stock_actual,
-          precio_costo: Math.round(p.precio_base * 0.65 * 100) / 100,
-          precio_venta: p.precio_base,
-          proveedor_id: prov.id,
-          laboratorio: prov.nombre,
-          fecha_vencimiento: `2026-${String((i % 12) + 1).padStart(2, "0")}-28`,
-          ubicacion: "Demo",
-          activo: p.activo,
-          inv_proveedores: { nombre: prov.nombre },
-          inv_productos: {
-            id: p.id,
-            nombre: p.nombre,
-            nombre_generico: p.nombre_generico,
-            concentracion: p.concentracion,
-            forma_farmaceutica: p.forma_farmaceutica,
-            presentacion: p.presentacion,
-            unidad_venta: p.unidad_venta,
-            requiere_receta: p.requiere_receta,
-            precio_base: p.precio_base,
-            stock_minimo: p.stock_minimo,
-            stock_actual: p.stock_actual,
-            activo: p.activo,
-          },
-        };
-        });
+        return DEMO_LOTES_INVENTARIO;
       }
       const res = await obtenerLotes();
       if (!res.success) throw new Error(res.code);
@@ -169,7 +141,7 @@ export function useCatalogosInventario() {
   return useQuery({
     queryKey: demoQueryKey(["inventario", "catalogos"], isDemoMode),
     queryFn: async () => {
-      if (isDemoMode) return [];
+      if (isDemoMode) return DEMO_CATALOGOS;
       const res = await listarCatalogos();
       if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
       return res.data;
@@ -205,7 +177,16 @@ export function useGenericosInventario(filtros?: InventarioJerarquiaFiltros) {
       isDemoMode,
     ),
     queryFn: async () => {
-      if (isDemoMode) return [];
+      if (isDemoMode) {
+        let rows = DEMO_GENERICOS_INVENTARIO;
+        if (filtros?.catalogo_id) {
+          rows = rows.filter((g) => g.catalogo_id === filtros.catalogo_id);
+        }
+        if (filtros?.generico_id) {
+          rows = rows.filter((g) => g.generico_id === filtros.generico_id);
+        }
+        return rows;
+      }
       const res = await listarGenericosInventario(filtros);
       if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
       return res.data;
@@ -219,7 +200,7 @@ export function useLaboratoriosInventario() {
   return useQuery({
     queryKey: demoQueryKey(["inventario", "laboratorios"], isDemoMode),
     queryFn: async () => {
-      if (isDemoMode) return [];
+      if (isDemoMode) return DEMO_LABORATORIOS;
       const res = await listarLaboratorios();
       if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");
       return res.data;
@@ -244,28 +225,20 @@ export function useComercialesInventario(filtros?: InventarioJerarquiaFiltros) {
     ),
     queryFn: async () => {
       if (isDemoMode) {
-        return DEMO_PRODUCTOS.map((p) => ({
-          producto_id: p.id,
-          nombre_comercial: p.nombre,
-          presentacion: p.presentacion,
-          precio_venta: p.precio_base,
-          activo: p.activo,
-          generico_id: p.id,
-          generico_nombre: p.nombre_generico,
-          requiere_receta: p.requiere_receta,
-          catalogo_id: p.id,
-          catalogo_nombre: p.nombre_generico.split(" ")[0] ?? p.nombre_generico,
-          laboratorio_id: p.id,
-          laboratorio_nombre: "Demo Lab",
-          stock_vendible: p.stock_actual,
-          proximo_vencimiento: null,
-          lotes_vendibles: 1,
-          concentracion: p.concentracion,
-          forma_farmaceutica: p.forma_farmaceutica,
-          unidad_venta: p.unidad_venta,
-          stock_minimo: p.stock_minimo,
-          generico_activo: true,
-        }));
+        let rows = DEMO_COMERCIALES_INVENTARIO;
+        if (filtros?.catalogo_id) {
+          rows = rows.filter((c) => c.catalogo_id === filtros.catalogo_id);
+        }
+        if (filtros?.generico_id) {
+          rows = rows.filter((c) => c.generico_id === filtros.generico_id);
+        }
+        if (filtros?.laboratorio_id) {
+          rows = rows.filter((c) => c.laboratorio_id === filtros.laboratorio_id);
+        }
+        if (filtros?.producto_id) {
+          rows = rows.filter((c) => c.producto_id === filtros.producto_id);
+        }
+        return rows;
       }
       const res = await listarComercialesInventario(filtros);
       if (!("success" in res) || !res.success) throw new Error(res.code ?? "ERROR");

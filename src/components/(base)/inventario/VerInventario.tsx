@@ -65,6 +65,7 @@ import {
   etiquetaEstadoVencimiento,
   isProductoProximoAVencer,
   isProductoVencido,
+  laboratorioNombreDesdeLote,
   nombreComercialSiDistinto,
   precioVentaEfectivoLote,
   productoCoincideBusquedaInventario,
@@ -215,7 +216,7 @@ function mapLaboratorioCatalogoPorProducto(lotes: LoteInventario[]): Map<string,
   const porProducto = new Map<string, Set<string>>();
   for (const lote of lotes) {
     if (!lote.activo) continue;
-    const lab = lote.laboratorio?.trim();
+    const lab = laboratorioNombreDesdeLote(lote)?.trim();
     if (!lab) continue;
     const set = porProducto.get(lote.producto_id) ?? new Set<string>();
     set.add(lab);
@@ -733,13 +734,15 @@ function ProductoDetalle({
                                 Lote {lote.numero_lote || "—"}
                               </p>
                               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                                {lote.laboratorio ? `Lab: ${lote.laboratorio}` : "Sin laboratorio"}
+                                {laboratorioNombreDesdeLote(lote)
+                                  ? `Lab: ${laboratorioNombreDesdeLote(lote)}`
+                                  : "Sin laboratorio"}
                                 {lote.inv_proveedores?.nombre
                                   ? ` · Prov: ${lote.inv_proveedores.nombre}`
                                   : ""}
                               </p>
                               <p className="text-[10px] font-bold text-[#8DA78E] dark:text-[#A3BEB0]">
-                                Venta {fmtQ(precioVentaEfectivoLote(lote.precio_venta, producto.precio_base))}
+                                Venta {fmtQ(precioVentaEfectivoLote(undefined, producto.precio_base))}
                                 {" · "}
                                 Costo {fmtQ(Number(lote.precio_costo) || 0)}
                               </p>

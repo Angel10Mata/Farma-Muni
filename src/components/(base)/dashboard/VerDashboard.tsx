@@ -302,10 +302,13 @@ export function VerDashboard() {
     }
     const fetchLowStock = async () => {
       const supabase = createClient();
-      const { data, error } = await supabase.from("inv_productos").select("stock_actual, stock_minimo");
+      const { data, error } = await supabase
+        .from("v_inv_genericos")
+        .select("generico_id")
+        .eq("activo", true)
+        .eq("bajo_minimo", true);
       if (data) {
-        const count = data.filter((p: { stock_actual: number; stock_minimo: number }) => p.stock_actual <= p.stock_minimo).length;
-        setLowStockCount(count);
+        setLowStockCount(data.length);
       } else if (error) {
         console.error("Error fetching low stock:", error);
       }

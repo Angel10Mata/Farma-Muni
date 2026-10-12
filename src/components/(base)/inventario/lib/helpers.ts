@@ -135,13 +135,89 @@ export function productoCoincideBusquedaInventario(
 }
 
 export function precioVentaEfectivoLote(
-  precioVenta: number | null | undefined,
+  _precioVentaLoteLegacy: number | null | undefined,
   precioBase: number,
 ): number {
-  if (precioVenta != null && !Number.isNaN(Number(precioVenta))) {
-    return Number(precioVenta);
+  return Number(precioBase) || 0;
+}
+
+type InvGenericoLoteJoin = {
+  concentracion?: string | null;
+  forma_farmaceutica?: string | null;
+  requiere_receta?: boolean | null;
+  unidad_venta?: string | null;
+  stock_minimo?: number | null;
+  inv_catalogos?: { nombre?: string | null } | { nombre?: string | null }[] | null;
+};
+
+type InvProductoLoteJoin = {
+  id: string;
+  nombre: string;
+  presentacion?: string | null;
+  precio_base?: number | null;
+  activo?: boolean | null;
+  stock_actual?: number | null;
+  inv_laboratorios?: { nombre?: string | null } | { nombre?: string | null }[] | null;
+  inv_genericos?: InvGenericoLoteJoin | InvGenericoLoteJoin[] | null;
+};
+
+function firstJoin<T>(value: T | T[] | null | undefined): T | null {
+  if (value == null) return null;
+  return Array.isArray(value) ? (value[0] ?? null) : value;
+}
+
+export function jerarquiaDesdeProductoLote(
+  raw: InvProductoLoteJoin | InvProductoLoteJoin[] | null | undefined,
+) {
+  const p = firstJoin(raw);
+  if (!p) {
+    return {
+      nombre_generico: "",
+      concentracion: "",
+      forma_farmaceutica: "otro" as const,
+      unidad_venta: "unidad",
+      requiere_receta: false,
+      stock_minimo: 0,
+      laboratorio: null as string | null,
+      precio_base: 0,
+      nombre: "—",
+      presentacion: "",
+      activo: true,
+    };
   }
-  return precioBase;
+  const gen = firstJoin(p.inv_genericos);
+  const cat = firstJoin(gen?.inv_catalogos);
+  const lab = firstJoin(p.inv_laboratorios);
+  const catalogoNombre = (cat?.nombre ?? "").trim();
+  const concentracion = (gen?.concentracion ?? "").trim();
+  const forma = (gen?.forma_farmaceutica ?? "otro").toString();
+  const genericoNombre = [catalogoNombre, concentracion, forma]
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+  return {
+    nombre_generico: genericoNombre,
+    concentracion,
+    forma_farmaceutica: forma,
+    unidad_venta: (gen?.unidad_venta ?? "unidad").toString(),
+    requiere_receta: Boolean(gen?.requiere_receta),
+    stock_minimo: Number(gen?.stock_minimo) || 0,
+    laboratorio: (lab?.nombre ?? null) as string | null,
+    precio_base: Number(p.precio_base) || 0,
+    nombre: p.nombre,
+    presentacion: (p.presentacion ?? "").toString(),
+    activo: Boolean(p.activo ?? true),
+    stock_actual: Number(p.stock_actual) || 0,
+  };
+}
+
+export function laboratorioNombreDesdeLote(lote: {
+  inv_productos?: InvProductoLoteJoin | InvProductoLoteJoin[] | null;
+}): string | null {
+  const p = firstJoin(lote.inv_productos);
+  const lab = firstJoin(p?.inv_laboratorios);
+  const nombre = (lab?.nombre ?? "").trim();
+  return nombre || null;
 }
 
 // Fechas de vencimiento

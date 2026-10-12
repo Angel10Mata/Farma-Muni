@@ -736,20 +736,30 @@ export async function crearVenta(params: {
     const venta = { id: ventaRow.id, numero_recibo: ventaRow.numero_recibo ?? null };
 
     const productoIdsVendidos = [...new Set(items.map((i) => i.producto_id))];
+    const genericosNotificados = new Set<string>();
     for (const productoId of productoIdsVendidos) {
-      const { data: prod } = await supabase
-        .from("inv_productos")
-        .select("nombre, stock_actual, stock_minimo")
-        .eq("id", productoId)
-        .single();
+      const { data: comercial } = await supabase
+        .from("v_inv_comerciales")
+        .select("generico_id, nombre_comercial")
+        .eq("producto_id", productoId)
+        .maybeSingle();
+      const genericoId = comercial?.generico_id as string | undefined;
+      if (!genericoId || genericosNotificados.has(genericoId)) continue;
 
-      const nuevoStock = Number(prod?.stock_actual) || 0;
+      const { data: generico } = await supabase
+        .from("v_inv_genericos")
+        .select("generico_nombre, stock_vendible, stock_minimo, bajo_minimo")
+        .eq("generico_id", genericoId)
+        .maybeSingle();
 
-      if (prod && nuevoStock <= prod.stock_minimo) {
+      if (generico?.bajo_minimo) {
+        genericosNotificados.add(genericoId);
+        const stock = Number(generico.stock_vendible) || 0;
+        const minimo = Number(generico.stock_minimo) || 0;
         await sendPushNotification(
           {
             title: "⚠️ Alerta de Inventario",
-            body: `El producto "${prod.nombre}" ha llegado a su stock mínimo (${nuevoStock} unidades restantes).`,
+            body: `El genérico "${generico.generico_nombre}" está bajo el mínimo (${stock} vendibles, mínimo ${minimo}).`,
             url: "/farmamuni/inventario",
           },
           ["all"],

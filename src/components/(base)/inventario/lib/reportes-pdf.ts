@@ -94,7 +94,7 @@ export function descargarReporteVencimientos(productos: ProductoInventarioReport
       const dias = diasRestantesVencimiento(p.fecha_vencimiento);
       const diasStr =
         dias === null ? "—" : dias < 0 ? `${Math.abs(dias)} vencido` : `${dias}`;
-      const precioVenta = precioVentaEfectivoLote(p.precio_venta, p.precio_base);
+      const precioVenta = precioVentaEfectivoLote(undefined, p.precio_base);
       return [
         p.codigo || "—",
         tituloProductoFarmacia(p),
@@ -138,7 +138,7 @@ export function descargarReporteGestion(productos: ProductoInventarioReporte[]) 
   const valorVentaEst = activos.reduce(
     (s, p) =>
       s +
-      p.stock_actual * precioVentaEfectivoLote(p.precio_venta, p.precio_base),
+      p.stock_actual * precioVentaEfectivoLote(undefined, p.precio_base),
     0,
   );
   const valorCostoEst = activos.reduce(

@@ -1,6 +1,6 @@
 import type { InvCatalogoResumen, InvGenerico, ProductoComercial } from "./jerarquia-zod";
 import type { LoteInventario } from "./zod";
-import { precioVentaEfectivoLote } from "./helpers";
+import { jerarquiaDesdeProductoLote, precioVentaEfectivoLote } from "./helpers";
 
 export type FilaInventarioUi = {
   id: string;
@@ -136,29 +136,27 @@ export function filasDesdeLaboratorio(comerciales: ProductoComercial[]): FilaInv
 }
 
 export function mapLoteAFilaInventario(lote: LoteInventario): FilaInventarioUi {
-  const raw = lote.inv_productos;
-  const p = Array.isArray(raw) ? raw[0] : raw;
-  const precioBase = p?.precio_base ?? 0;
-  const precioVenta = precioVentaEfectivoLote(lote.precio_venta, precioBase);
+  const jer = jerarquiaDesdeProductoLote(lote.inv_productos);
+  const precioVenta = precioVentaEfectivoLote(undefined, jer.precio_base);
   return {
     id: lote.id,
     producto_maestro_id: lote.producto_id,
     codigo: lote.codigo_barras,
-    nombre: p?.nombre ?? "—",
-    nombre_generico: p?.nombre_generico ?? "",
-    concentracion: p?.concentracion ?? "",
-    forma_farmaceutica: p?.forma_farmaceutica ?? "otro",
-    presentacion: p?.presentacion ?? "",
-    unidad_venta: p?.unidad_venta ?? "unidad",
-    requiere_receta: p?.requiere_receta ?? false,
+    nombre: jer.nombre,
+    nombre_generico: jer.nombre_generico,
+    concentracion: jer.concentracion,
+    forma_farmaceutica: jer.forma_farmaceutica,
+    presentacion: jer.presentacion,
+    unidad_venta: jer.unidad_venta,
+    requiere_receta: jer.requiere_receta,
     descripcion: "",
-    precio_base: precioBase,
+    precio_base: jer.precio_base,
     precio_venta: precioVenta,
     precio_costo: lote.precio_costo,
-    laboratorio: lote.laboratorio ?? null,
+    laboratorio: jer.laboratorio,
     stock_actual: Number(lote.cantidad_actual) || 0,
-    stock_minimo: p?.stock_minimo ?? 0,
-    activo: lote.activo && (p?.activo ?? true),
+    stock_minimo: jer.stock_minimo,
+    activo: lote.activo && jer.activo,
     fecha_vencimiento: lote.fecha_vencimiento ?? null,
     numero_lote: lote.numero_lote ?? null,
     ubicacion: lote.ubicacion ?? null,
