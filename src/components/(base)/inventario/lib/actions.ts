@@ -257,7 +257,9 @@ export async function obtenerProductos() {
 export async function obtenerProducto(id: string) {
   try {
     const res = await obtenerComercial(id);
-    if (!("success" in res) || !res.success) return { code: "NOT_FOUND" as const };
+    if (!("success" in res) || !res.success) {
+      return { code: res.code === "UNAUTHORIZED" ? "UNAUTHORIZED" as const : "NOT_FOUND" as const };
+    }
     return { success: true as const, data: comercialAProductoEdicion(res.data) };
   } catch {
     return { code: "INTERNAL" as const };

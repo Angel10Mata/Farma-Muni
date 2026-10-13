@@ -606,6 +606,45 @@ export function CrearJerarquia({ isOpen = true, onClose, onSuccess }: CrearJerar
 
           {wizardStep === 2 ? (
             <div className="space-y-5">
+              {puedeElegirComercialExistente ? (
+                <ModalField>
+                  <ModalLabel>¿Comercial nuevo o existente?</ModalLabel>
+                  <SigetNuevoExistenteToggle
+                    compact
+                    ariaLabel="Producto comercial nuevo o existente"
+                    modoNuevo={modoComercialNuevo}
+                    onModoNuevoChange={(nuevo) => {
+                      setModoComercialNuevo(nuevo);
+                      if (!nuevo) {
+                        const c = comercialesDelGenerico.find(
+                          (x) => x.producto_id === comercialExistenteId,
+                        );
+                        aplicarComercialExistente(c ?? comercialesDelGenerico[0]);
+                      } else {
+                        setComercialExistenteId("");
+                        setNombreComercial("");
+                        setPresentacion("");
+                        setPrecioVenta("");
+                        setLaboratorioId("");
+                        setProveedorLoteId("");
+                      }
+                      limpiarErrores([
+                        "nombre_comercial",
+                        "presentacion",
+                        "precio_venta",
+                        "laboratorio",
+                      ]);
+                    }}
+                  />
+                  {!modoComercialNuevo && comercialExistenteId ? (
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                      Producto existente: en el paso 3 solo registrarás el lote (no se duplica el
+                      comercial).
+                    </p>
+                  ) : null}
+                </ModalField>
+              ) : null}
+
               <section className="space-y-4">
                 <p className={WIZARD_SECCION_TITULO}>Laboratorio</p>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -661,64 +700,24 @@ export function CrearJerarquia({ isOpen = true, onClose, onSuccess }: CrearJerar
                 ) : null}
                 <ModalField>
                   <ModalLabel htmlFor="com-nombre">Nombre comercial *</ModalLabel>
-                  {puedeElegirComercialExistente ? (
-                    <div className="space-y-2">
-                      <SigetNuevoExistenteToggle
-                        compact
-                        ariaLabel="Producto comercial nuevo o existente"
-                        modoNuevo={modoComercialNuevo}
-                        onModoNuevoChange={(nuevo) => {
-                          setModoComercialNuevo(nuevo);
-                          if (!nuevo) {
-                            const c = comercialesDelGenerico.find(
-                              (x) => x.producto_id === comercialExistenteId,
-                            );
-                            aplicarComercialExistente(c ?? comercialesDelGenerico[0]);
-                          } else {
-                            setComercialExistenteId("");
-                            setNombreComercial("");
-                            setPresentacion("");
-                            setPrecioVenta("");
-                            setLaboratorioId("");
-                            setProveedorLoteId("");
-                          }
-                          limpiarErrores([
-                            "nombre_comercial",
-                            "presentacion",
-                            "precio_venta",
-                            "laboratorio",
-                          ]);
-                        }}
-                      />
-                      {modoComercialNuevo ? (
-                        <ModalInput
-                          id="com-nombre"
-                          value={nombreComercial}
-                          onChange={(e) => {
-                            setNombreComercial(e.target.value);
-                            limpiarErrores(["nombre_comercial"]);
-                          }}
-                        />
-                      ) : (
-                        <ModalSelect
-                          id="com-nombre"
-                          value={comercialExistenteId}
-                          onChange={(e) => {
-                            const row = comercialesDelGenerico.find(
-                              (c) => c.producto_id === e.target.value,
-                            );
-                            if (row) aplicarComercialExistente(row);
-                          }}
-                        >
-                          <option value="">Seleccionar…</option>
-                          {comercialesDelGenerico.map((c) => (
-                            <option key={c.producto_id} value={c.producto_id}>
-                              {c.nombre_comercial} · {c.laboratorio_nombre} · {c.presentacion}
-                            </option>
-                          ))}
-                        </ModalSelect>
-                      )}
-                    </div>
+                  {puedeElegirComercialExistente && !modoComercialNuevo ? (
+                    <ModalSelect
+                      id="com-nombre"
+                      value={comercialExistenteId}
+                      onChange={(e) => {
+                        const row = comercialesDelGenerico.find(
+                          (c) => c.producto_id === e.target.value,
+                        );
+                        if (row) aplicarComercialExistente(row);
+                      }}
+                    >
+                      <option value="">Seleccionar…</option>
+                      {comercialesDelGenerico.map((c) => (
+                        <option key={c.producto_id} value={c.producto_id}>
+                          {c.nombre_comercial} · {c.laboratorio_nombre} · {c.presentacion}
+                        </option>
+                      ))}
+                    </ModalSelect>
                   ) : (
                     <ModalInput
                       id="com-nombre"
@@ -729,12 +728,6 @@ export function CrearJerarquia({ isOpen = true, onClose, onSuccess }: CrearJerar
                       }}
                     />
                   )}
-                  {!modoComercialNuevo && comercialExistenteId ? (
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      Producto existente: en el paso 3 solo registrarás el lote (no se duplica el
-                      comercial).
-                    </p>
-                  ) : null}
                   {fieldErrors.nombre_comercial ? (
                     <p className="text-xs font-bold text-red-500">{fieldErrors.nombre_comercial}</p>
                   ) : null}

@@ -110,6 +110,38 @@ export function esFilaAgregadaLaboratorio(row: FilaInventarioUi): boolean {
   );
 }
 
+export function esFilaAgregadaCatalogo(row: FilaInventarioUi): boolean {
+  return Boolean(row.catalogo_id && row.id === row.catalogo_id && !row.generico_id);
+}
+
+export function esFilaAgregadaGenerico(row: FilaInventarioUi): boolean {
+  return Boolean(row.generico_id && row.id === row.generico_id && !row.producto_maestro_id);
+}
+
+/** UUID de `inv_productos` / `v_inv_comerciales.producto_id` para editar o listar lotes. */
+export function idProductoComercialParaEdicion(row: {
+  id: string;
+  producto_maestro_id?: string;
+  catalogo_id?: string;
+  generico_id?: string;
+  laboratorio_id?: string;
+  comerciales_count?: number;
+  numero_lote?: string | null;
+}): string | null {
+  if (row.producto_maestro_id) return row.producto_maestro_id;
+  if (row.catalogo_id && row.id === row.catalogo_id) return null;
+  if (row.generico_id && row.id === row.generico_id) return null;
+  if (
+    row.laboratorio_id &&
+    row.id === row.laboratorio_id &&
+    (row.comerciales_count ?? 0) > 0
+  ) {
+    return null;
+  }
+  if (row.numero_lote != null) return null;
+  return row.id;
+}
+
 export function filasDesdeLaboratorio(comerciales: ProductoComercial[]): FilaInventarioUi[] {
   const porLab = new Map<string, ProductoComercial[]>();
   for (const c of comerciales) {

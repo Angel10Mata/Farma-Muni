@@ -11,6 +11,8 @@ import {
   Truck,
   Box,
   Building2,
+  BookOpen,
+  FlaskConical,
   X,
   FileText,
   BarChart3,
@@ -57,12 +59,15 @@ import {
   filasDesdeCatalogos,
   filasDesdeComerciales,
   filasDesdeGenericos,
+  esFilaAgregadaCatalogo,
+  esFilaAgregadaGenerico,
   esFilaAgregadaLaboratorio,
   filasDesdeLaboratorio,
+  idProductoComercialParaEdicion,
   mapLoteAFilaInventario,
   type FilaInventarioUi,
 } from "./lib/map-inventario-filas";
-import type { ProductoComercial } from "./lib/jerarquia-zod";
+import type { InvGenerico, ProductoComercial } from "./lib/jerarquia-zod";
 import type { LoteInventario } from "./lib/zod";
 import {
   etiquetaEstadoVencimiento,
@@ -168,28 +173,40 @@ function ProductoFarmaciaTitulo({
   className,
   tituloClassName,
   comercialClassName,
+  comercialPrimero = false,
 }: {
   producto: Producto;
   className?: string;
   tituloClassName?: string;
   comercialClassName?: string;
+  comercialPrimero?: boolean;
 }) {
   const comercial = nombreComercialSiDistinto(producto);
+  const lineaFarmacia = tituloProductoFarmacia(producto);
+  const estiloTitulo = cn("font-semibold leading-snug", tituloClassName);
+  const estiloComercial = cn(
+    "mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400",
+    comercialClassName,
+  );
+  const estiloSecundario = cn(
+    "mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400",
+    comercialClassName,
+  );
+  const estiloPrincipal = cn("font-semibold leading-snug", tituloClassName);
+
   return (
     <div className={className}>
-      <p className={cn("font-semibold leading-snug", tituloClassName)}>
-        {tituloProductoFarmacia(producto)}
-      </p>
-      {comercial ? (
-        <p
-          className={cn(
-            "mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400",
-            comercialClassName,
-          )}
-        >
-          {comercial}
-        </p>
+      {comercialPrimero && comercial ? (
+        <p className={estiloPrincipal}>{comercial}</p>
       ) : null}
+      {comercialPrimero ? (
+        <p className={cn(estiloSecundario, comercial ? undefined : estiloPrincipal)}>
+          {lineaFarmacia}
+        </p>
+      ) : (
+        <p className={estiloTitulo}>{lineaFarmacia}</p>
+      )}
+      {!comercialPrimero && comercial ? <p className={estiloComercial}>{comercial}</p> : null}
       {producto.requiere_receta ? (
         <span
           className="mt-1 inline-flex rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-800 dark:text-amber-300"
@@ -199,10 +216,6 @@ function ProductoFarmaciaTitulo({
       ) : null}
     </div>
   );
-}
-
-function idProductoCatalogo(producto: Producto) {
-  return producto.producto_maestro_id ?? producto.id;
 }
 
 function mapLoteAFila(lote: LoteInventario): Producto {
@@ -363,6 +376,7 @@ function ProductoAccionesMenu({
   onEdit,
   onDesactivar,
   onActivar,
+  mostrarEditar = true,
 }: {
   activo: boolean;
   showBaja: boolean;
@@ -370,6 +384,7 @@ function ProductoAccionesMenu({
   onEdit: () => void;
   onDesactivar: () => void;
   onActivar: () => void;
+  mostrarEditar?: boolean;
 }) {
   return (
     <DropdownMenu>
@@ -395,13 +410,15 @@ function ProductoAccionesMenu({
             Baja por vencimiento
           </DropdownMenuItem>
         ) : null}
-        <DropdownMenuItem
-          className="cursor-pointer rounded-lg text-xs font-bold text-zinc-700 focus:bg-zinc-100 focus:text-zinc-700 data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-700 dark:text-zinc-200 dark:focus:bg-zinc-800 dark:focus:text-zinc-200 dark:data-[highlighted]:bg-zinc-800 dark:data-[highlighted]:text-zinc-200 [&_svg]:text-current"
-          onSelect={() => onEdit()}
-        >
-          <PencilIcon className="size-3.5" />
-          Editar
-        </DropdownMenuItem>
+        {mostrarEditar ? (
+          <DropdownMenuItem
+            className="cursor-pointer rounded-lg text-xs font-bold text-zinc-700 focus:bg-zinc-100 focus:text-zinc-700 data-[highlighted]:bg-zinc-100 data-[highlighted]:text-zinc-700 dark:text-zinc-200 dark:focus:bg-zinc-800 dark:focus:text-zinc-200 dark:data-[highlighted]:bg-zinc-800 dark:data-[highlighted]:text-zinc-200 [&_svg]:text-current"
+            onSelect={() => onEdit()}
+          >
+            <PencilIcon className="size-3.5" />
+            Editar
+          </DropdownMenuItem>
+        ) : null}
         {activo ? (
           <DropdownMenuItem
             className="cursor-pointer rounded-lg text-xs font-bold text-amber-700 focus:bg-amber-50 focus:text-amber-700 data-[highlighted]:bg-amber-50 data-[highlighted]:text-amber-700 dark:text-amber-400 dark:focus:bg-amber-950/40 dark:focus:text-amber-400 dark:data-[highlighted]:bg-amber-950/40 dark:data-[highlighted]:text-amber-400 [&_svg]:text-current"
@@ -435,6 +452,7 @@ function ProductoCard({
   destacarStock,
   destacarProximo,
   destacarVencido,
+  mostrarEditar = true,
 }: {
   producto: Producto;
   onClick: () => void;
@@ -445,6 +463,7 @@ function ProductoCard({
   destacarStock?: boolean;
   destacarProximo?: boolean;
   destacarVencido?: boolean;
+  mostrarEditar?: boolean;
 }) {
   const isLowStock = producto.stock_actual <= producto.stock_minimo;
   const imagenes = [producto.imagen_url, producto.imagen_url_2, producto.imagen_url_3].filter(Boolean);
@@ -569,6 +588,7 @@ function ProductoCard({
               activo={producto.activo}
               showBaja={isVencido && !!onBaja}
               onBaja={() => onBaja?.()}
+              mostrarEditar={mostrarEditar}
               onEdit={onEdit}
               onDesactivar={onDesactivar}
               onActivar={onActivar}
@@ -586,11 +606,13 @@ function ProductoDetalle({
   lotesProducto,
   onClose,
   onEditClick,
+  puedeEditar,
 }: {
   producto: Producto;
   lotesProducto: LoteInventario[];
   onClose: () => void;
   onEditClick: () => void;
+  puedeEditar: boolean;
 }) {
   const isLowStock = producto.stock_actual <= producto.stock_minimo;
   const detalleLabelClass =
@@ -617,8 +639,9 @@ function ProductoDetalle({
               <p className={detalleLabelClass}>Producto</p>
               <ProductoFarmaciaTitulo
                 producto={producto}
+                comercialPrimero
                 tituloClassName="text-xl font-black text-slate-900 dark:text-white md:text-2xl"
-                comercialClassName="mt-1 text-base font-semibold text-slate-600 dark:text-slate-300 md:text-lg"
+                comercialClassName="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400 md:text-base"
               />
             </div>
           </div>
@@ -827,15 +850,366 @@ function ProductoDetalle({
         </div>
       </div>
 
-      <div className="flex shrink-0 justify-end gap-3 border-t border-zinc-200 bg-[#F5F5F1] px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900 md:px-8">
-        <SigetActionButton
-          label="Editar"
-          accentColor={sigetAccent.editar}
-          morphFrom={PencilNode}
-          morphTo={SquarePenNode}
-          onClick={onEditClick}
-          className="w-auto shrink-0 flex-1 sm:flex-initial"
-        />
+      {puedeEditar ? (
+        <div className="flex shrink-0 justify-end gap-3 border-t border-zinc-200 bg-[#F5F5F1] px-6 py-4 dark:border-zinc-800 dark:bg-zinc-900 md:px-8">
+          <SigetActionButton
+            label="Editar"
+            accentColor={sigetAccent.editar}
+            morphFrom={PencilNode}
+            morphTo={SquarePenNode}
+            onClick={onEditClick}
+            className="w-auto shrink-0 flex-1 sm:flex-initial"
+          />
+        </div>
+      ) : null}
+    </motion.div>
+  );
+}
+
+function tituloGenericoInventario(g: InvGenerico): string {
+  return [g.concentracion, g.forma_farmaceutica].filter(Boolean).join(" · ");
+}
+
+function tituloGenericoDesdeFila(p: Producto): string {
+  return [p.concentracion, p.forma_farmaceutica].filter(Boolean).join(" · ");
+}
+
+function CatalogoDetalle({
+  catalogo,
+  genericos,
+  onClose,
+  onVerGenerico,
+}: {
+  catalogo: Producto;
+  genericos: InvGenerico[];
+  onClose: () => void;
+  onVerGenerico: (g: InvGenerico) => void;
+}) {
+  const detalleLabelClass =
+    "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
+  const detalleFieldClass =
+    "rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2.5 text-sm text-slate-800 dark:border-[#A3BEB0]/15 dark:bg-zinc-900/40 dark:text-slate-100";
+  const stockTotal = genericos.reduce((s, g) => s + g.stock_vendible, 0);
+  const comercialesTotal = genericos.reduce((s, g) => s + g.comerciales, 0);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 24 }}
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-left animate-fade-in dark:bg-zinc-800"
+    >
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
+              <BookOpen className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className={detalleLabelClass}>Catálogo</p>
+              <p className="text-xl font-black text-slate-900 dark:text-white md:text-2xl">
+                {catalogo.nombre}
+              </p>
+              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                Principio activo
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="cursor-pointer px-2 text-xl font-bold leading-none text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="space-y-2">
+          <h4 className={detalleLabelClass}>Descripción</h4>
+          <p className={cn(detalleFieldClass, "text-sm leading-relaxed text-slate-600 dark:text-slate-300")}>
+            {catalogo.descripcion?.trim()
+              ? catalogo.descripcion
+              : "Sin descripción registrada para este catálogo."}
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Genéricos</span>
+            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+              {genericos.length}
+            </span>
+          </div>
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Comerciales</span>
+            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+              {fmtNum(comercialesTotal)}
+            </span>
+          </div>
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Stock vendible</span>
+            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+              {fmtNum(stockTotal)}
+            </span>
+          </div>
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Estado</span>
+            <span
+              className={cn(
+                "text-sm font-bold uppercase",
+                catalogo.activo ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-red-500",
+              )}
+            >
+              {catalogo.activo ? "Activo" : "Inactivo"}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h4 className={detalleLabelClass}>Genéricos del catálogo</h4>
+          {genericos.length === 0 ? (
+            <p className={detalleFieldClass}>
+              No hay genéricos registrados bajo este principio activo.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[#C1D1C5]/25 overflow-hidden rounded-xl border border-[#C1D1C5]/30 dark:divide-[#A3BEB0]/15 dark:border-[#A3BEB0]/15">
+              {genericos.map((g) => {
+                const isLow = g.bajo_minimo || g.stock_vendible <= g.stock_minimo;
+                return (
+                  <li
+                    key={g.generico_id}
+                    className="flex flex-col gap-3 bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
+                        {tituloGenericoInventario(g)}
+                      </p>
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        {g.comerciales} comercial{g.comerciales === 1 ? "" : "es"}
+                        {g.requiere_receta ? " · Requiere receta" : ""}
+                        {g.precio_desde != null ? ` · Desde ${fmtQ(g.precio_desde)}` : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Stock</p>
+                        <p
+                          className={cn(
+                            "text-sm font-black tabular-nums",
+                            isLow ? "text-red-500" : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                          )}
+                        >
+                          {fmtNum(g.stock_vendible)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Mínimo</p>
+                        <p className="text-sm font-black tabular-nums text-slate-600 dark:text-slate-300">
+                          {fmtNum(g.stock_minimo)}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-md px-2 py-0.5 text-[9px] font-black uppercase",
+                          g.activo
+                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
+                            : "bg-red-500/10 text-red-600 dark:text-red-400",
+                        )}
+                      >
+                        {g.activo ? "Activo" : "Inactivo"}
+                      </span>
+                      <SigetActionButton
+                        label="Ver"
+                        ariaLabel="Ver productos comerciales del genérico"
+                        accentColor={sigetAccent.crear}
+                        morphFrom={PlusNode}
+                        morphTo={PackageNode}
+                        onClick={() => onVerGenerico(g)}
+                        className="w-auto shrink-0"
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
+function GenericoDetalle({
+  generico,
+  comerciales,
+  onClose,
+  onEditProducto,
+  onVerLotes,
+}: {
+  generico: Producto;
+  comerciales: ProductoComercial[];
+  onClose: () => void;
+  onEditProducto: (productoId: string) => void;
+  onVerLotes: (c: ProductoComercial) => void;
+}) {
+  const detalleLabelClass =
+    "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
+  const detalleFieldClass =
+    "rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2.5 text-sm text-slate-800 dark:border-[#A3BEB0]/15 dark:bg-zinc-900/40 dark:text-slate-100";
+  const stockTotal = comerciales.reduce((s, c) => s + c.stock_vendible, 0);
+  const titulo = tituloGenericoDesdeFila(generico);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 24 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: 24 }}
+      className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-left animate-fade-in dark:bg-zinc-800"
+    >
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+        <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
+          <div className="flex min-w-0 items-start gap-3">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
+              <FlaskConical className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
+            </div>
+            <div className="min-w-0 space-y-1">
+              <p className={detalleLabelClass}>Genérico</p>
+              <p className="text-xl font-black text-slate-900 dark:text-white md:text-2xl">
+                {titulo || generico.nombre}
+              </p>
+              {generico.catalogo_nombre || generico.nombre_generico ? (
+                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                  Catálogo: {generico.catalogo_nombre || generico.nombre_generico}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="cursor-pointer px-2 text-xl font-bold leading-none text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Comerciales</span>
+            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+              {comerciales.length}
+            </span>
+          </div>
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Stock vendible</span>
+            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+              {fmtNum(stockTotal)}
+            </span>
+          </div>
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Stock mínimo</span>
+            <span className="text-lg font-black tabular-nums text-slate-700 dark:text-slate-200">
+              {fmtNum(generico.stock_minimo)}
+            </span>
+          </div>
+          <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
+            <span className={detalleLabelClass}>Estado</span>
+            <span
+              className={cn(
+                "text-sm font-bold uppercase",
+                generico.activo ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-red-500",
+              )}
+            >
+              {generico.activo ? "Activo" : "Inactivo"}
+              {generico.requiere_receta ? " · Receta" : ""}
+            </span>
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <h4 className={detalleLabelClass}>Productos comerciales</h4>
+          {comerciales.length === 0 ? (
+            <p className={detalleFieldClass}>
+              No hay productos comerciales registrados para este genérico.
+            </p>
+          ) : (
+            <ul className="divide-y divide-[#C1D1C5]/25 overflow-hidden rounded-xl border border-[#C1D1C5]/30 dark:divide-[#A3BEB0]/15 dark:border-[#A3BEB0]/15">
+              {comerciales.map((c) => {
+                const fila = filasDesdeComerciales([c])[0];
+                const productoUi = { ...fila } as Producto;
+                const isLow = c.stock_vendible <= c.stock_minimo;
+                return (
+                  <li
+                    key={c.producto_id}
+                    className="flex flex-col gap-3 bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <ProductoFarmaciaTitulo
+                        producto={productoUi}
+                        comercialPrimero
+                        tituloClassName="text-sm font-bold text-slate-900 dark:text-slate-100"
+                        comercialClassName="text-xs font-medium text-slate-500 dark:text-slate-400"
+                      />
+                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                        {c.laboratorio_nombre}
+                        {c.presentacion ? ` · ${c.presentacion}` : ""}
+                        {c.proximo_vencimiento
+                          ? ` · Próx. vence ${new Date(c.proximo_vencimiento).toLocaleDateString("es-GT")}`
+                          : ""}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Stock</p>
+                        <p
+                          className={cn(
+                            "text-sm font-black tabular-nums",
+                            isLow ? "text-red-500" : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                          )}
+                        >
+                          {fmtNum(c.stock_vendible)}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-bold uppercase text-slate-500">Precio</p>
+                        <p className="text-sm font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                          {fmtQ(c.precio_venta)}
+                        </p>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-md px-2 py-0.5 text-[9px] font-black uppercase",
+                          c.activo
+                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
+                            : "bg-red-500/10 text-red-600 dark:text-red-400",
+                        )}
+                      >
+                        {c.activo ? "Activo" : "Inactivo"}
+                      </span>
+                      <SigetActionButton
+                        label="Lotes"
+                        ariaLabel="Ver lotes del producto comercial"
+                        accentColor={sigetAccent.crear}
+                        morphFrom={BoxNode}
+                        morphTo={PackageNode}
+                        onClick={() => onVerLotes(c)}
+                        className="w-auto shrink-0"
+                      />
+                      <SigetActionButton
+                        label="Editar"
+                        accentColor={sigetAccent.editar}
+                        morphFrom={PencilNode}
+                        morphTo={SquarePenNode}
+                        onClick={() => onEditProducto(c.producto_id)}
+                        className="w-auto shrink-0"
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
     </motion.div>
   );
@@ -933,8 +1307,9 @@ function LaboratorioDetalle({
                     <div className="min-w-0 flex-1">
                       <ProductoFarmaciaTitulo
                         producto={productoUi}
+                        comercialPrimero
                         tituloClassName="text-sm font-bold text-slate-900 dark:text-slate-100"
-                        comercialClassName="text-xs text-slate-500 dark:text-slate-400"
+                        comercialClassName="text-xs font-medium text-slate-500 dark:text-slate-400"
                       />
                       <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
                         {c.presentacion}
@@ -1369,6 +1744,34 @@ export function VerInventario() {
       esFilaAgregadaLaboratorio(productoSeleccionado),
   );
 
+  const detalleEsCatalogo = Boolean(
+    productoSeleccionado &&
+      vistaInventario === "catalogo" &&
+      esFilaAgregadaCatalogo(productoSeleccionado),
+  );
+
+  const genericosCatalogoDetalle = useMemo(() => {
+    const catId = productoSeleccionado?.catalogo_id;
+    if (!catId || !detalleEsCatalogo) return [];
+    return genericos
+      .filter((g) => g.catalogo_id === catId)
+      .sort((a, b) => tituloGenericoInventario(a).localeCompare(tituloGenericoInventario(b), "es"));
+  }, [productoSeleccionado?.catalogo_id, detalleEsCatalogo, genericos]);
+
+  const detalleEsGenerico = Boolean(
+    productoSeleccionado &&
+      vistaInventario === "generico" &&
+      esFilaAgregadaGenerico(productoSeleccionado),
+  );
+
+  const comercialesGenericoDetalle = useMemo(() => {
+    const genId = productoSeleccionado?.generico_id;
+    if (!genId || !detalleEsGenerico) return [];
+    return comerciales
+      .filter((c) => c.generico_id === genId)
+      .sort((a, b) => a.nombre_comercial.localeCompare(b.nombre_comercial, "es"));
+  }, [productoSeleccionado?.generico_id, detalleEsGenerico, comerciales]);
+
   const comercialesLaboratorioDetalle = useMemo(() => {
     const labId = productoSeleccionado?.laboratorio_id;
     if (!labId || !detalleEsLaboratorio) return [];
@@ -1392,12 +1795,24 @@ export function VerInventario() {
   ]);
 
   const lotesProductoDetalle = useMemo(() => {
-    if (!productoSeleccionado || detalleEsLaboratorio) return [];
-    return lotesPorProductoId(
-      lotes as LoteInventario[],
-      idProductoCatalogo(productoSeleccionado),
-    );
-  }, [productoSeleccionado, lotes, detalleEsLaboratorio]);
+    if (
+      !productoSeleccionado ||
+      detalleEsLaboratorio ||
+      detalleEsCatalogo ||
+      detalleEsGenerico
+    ) {
+      return [];
+    }
+    const productoId = idProductoComercialParaEdicion(productoSeleccionado);
+    if (!productoId) return [];
+    return lotesPorProductoId(lotes as LoteInventario[], productoId);
+  }, [
+    productoSeleccionado,
+    lotes,
+    detalleEsLaboratorio,
+    detalleEsCatalogo,
+    detalleEsGenerico,
+  ]);
 
   const lotesFiltradosJerarquia = useMemo(() => {
     const all = lotes as LoteInventario[];
@@ -1739,6 +2154,27 @@ export function VerInventario() {
     setLoteManualProducto(producto);
   };
 
+  const irAEditarProducto = (p: Producto, cerrarDetalle = true) => {
+    const id = idProductoComercialParaEdicion(p);
+    if (!id) {
+      toast.warn(
+        "Para editar, usa la vista Comercial o abre un lote y elige el producto de venta.",
+      );
+      return;
+    }
+    if (cerrarDetalle) setProductoSeleccionado(null);
+    router.push(`/farmamuni/inventario/editar/${id}`);
+  };
+
+  const solicitarDesactivarProducto = (p: Producto) => {
+    const id = idProductoComercialParaEdicion(p);
+    if (!id) {
+      toast.warn("Solo puedes desactivar un producto comercial, no un resumen de catálogo.");
+      return;
+    }
+    handleDesactivarProducto({ ...p, id });
+  };
+
   const handleDesactivarProducto = (producto: Producto) => {
     setShowDesactivarModal(producto);
   };
@@ -1757,8 +2193,13 @@ export function VerInventario() {
   };
 
   const handleActivarProducto = async (producto: Producto) => {
+    const id = idProductoComercialParaEdicion(producto);
+    if (!id) {
+      toast.warn("Solo puedes activar un producto comercial, no un resumen de catálogo.");
+      return;
+    }
     try {
-      await activarProductoAsync(producto.id);
+      await activarProductoAsync(id);
       toast.success(`${producto.nombre} está activo nuevamente.`);
       if (productoSeleccionado?.id === producto.id) {
         setProductoSeleccionado({ ...producto, activo: true });
@@ -2179,11 +2620,9 @@ export function VerInventario() {
                     onClick={() => {
                       setProductoSeleccionado(p);
                     }}
-                    onEdit={() => {
-                      setProductoSeleccionado(null);
-                      router.push("/farmamuni/inventario/editar/" + idProductoCatalogo(p));
-                    }}
-                    onDesactivar={() => handleDesactivarProducto({ ...p, id: idProductoCatalogo(p) })}
+                    mostrarEditar={idProductoComercialParaEdicion(p) !== null}
+                    onEdit={() => irAEditarProducto(p)}
+                    onDesactivar={() => solicitarDesactivarProducto(p)}
                     onActivar={() => handleActivarProducto(p)}
                     onBaja={() => handleBajaVencido(p)}
                   />
@@ -2409,19 +2848,8 @@ export function VerInventario() {
                                   onConteo={() => abrirOperacionLote(p, "conteo")}
                                   onBaja={() => abrirOperacionLote(p, "baja")}
                                   onDevolucion={() => abrirOperacionLote(p, "devolucion")}
-                                  onEdit={() => {
-                                    setProductoSeleccionado(null);
-                                    router.push(
-                                      "/farmamuni/inventario/editar/" +
-                                        idProductoCatalogo(p),
-                                    );
-                                  }}
-                                  onDesactivar={() =>
-                                    handleDesactivarProducto({
-                                      ...p,
-                                      id: idProductoCatalogo(p),
-                                    })
-                                  }
+                                  onEdit={() => irAEditarProducto(p)}
+                                  onDesactivar={() => solicitarDesactivarProducto(p)}
                                   onActivar={() => handleActivarProducto(p)}
                                 />
                               ) : (
@@ -2429,19 +2857,9 @@ export function VerInventario() {
                                   activo={p.activo}
                                   showBaja={isVencido}
                                   onBaja={() => handleBajaVencido(p)}
-                                  onEdit={() => {
-                                    setProductoSeleccionado(null);
-                                    router.push(
-                                      "/farmamuni/inventario/editar/" +
-                                        idProductoCatalogo(p),
-                                    );
-                                  }}
-                                  onDesactivar={() =>
-                                    handleDesactivarProducto({
-                                      ...p,
-                                      id: idProductoCatalogo(p),
-                                    })
-                                  }
+                                  mostrarEditar={idProductoComercialParaEdicion(p) !== null}
+                                  onEdit={() => irAEditarProducto(p)}
+                                  onDesactivar={() => solicitarDesactivarProducto(p)}
                                   onActivar={() => handleActivarProducto(p)}
                                 />
                               )}
@@ -2612,16 +3030,47 @@ export function VerInventario() {
                         router.push(`/farmamuni/inventario/editar/${productoId}`);
                       }}
                     />
+                  ) : detalleEsCatalogo ? (
+                    <CatalogoDetalle
+                      catalogo={productoSeleccionado}
+                      genericos={genericosCatalogoDetalle}
+                      onClose={() => setProductoSeleccionado(null)}
+                      onVerGenerico={(g) => {
+                        aplicarNavegacionJerarquia("comercial", {
+                          catalogo_id: g.catalogo_id,
+                          generico_id: g.generico_id,
+                          laboratorio_id: undefined,
+                          producto_id: undefined,
+                        });
+                      }}
+                    />
+                  ) : detalleEsGenerico ? (
+                    <GenericoDetalle
+                      generico={productoSeleccionado}
+                      comerciales={comercialesGenericoDetalle}
+                      onClose={() => setProductoSeleccionado(null)}
+                      onEditProducto={(productoId) => {
+                        setProductoSeleccionado(null);
+                        router.push(`/farmamuni/inventario/editar/${productoId}`);
+                      }}
+                      onVerLotes={(c) => {
+                        aplicarNavegacionJerarquia("lotes", {
+                          catalogo_id: c.catalogo_id,
+                          generico_id: c.generico_id,
+                          laboratorio_id: c.laboratorio_id,
+                          producto_id: c.producto_id,
+                        });
+                      }}
+                    />
                   ) : (
                     <ProductoDetalle
                       producto={productoSeleccionado}
                       lotesProducto={lotesProductoDetalle}
                       onClose={() => setProductoSeleccionado(null)}
-                      onEditClick={() => {
-                        const id = idProductoCatalogo(productoSeleccionado);
-                        setProductoSeleccionado(null);
-                        router.push(`/farmamuni/inventario/editar/${id}`);
-                      }}
+                      puedeEditar={
+                        idProductoComercialParaEdicion(productoSeleccionado) !== null
+                      }
+                      onEditClick={() => irAEditarProducto(productoSeleccionado, false)}
                     />
                   )}
                 </div>
