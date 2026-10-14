@@ -26,6 +26,7 @@ import { cn, fmtNum } from "@/lib/utils";
 import { inventarioPageShellClass, moduleControlsShellClass } from "@/lib/module-layout";
 import { formatFechaHoraTablaGt, fechaCalendarioGt } from "@/lib/fechas-gt";
 import { InventarioSubnav } from "./InventarioSubnav";
+import { etiquetaLaboratorioComercial } from "./lib/helpers";
 import { useKardex, useProductos, useLotes } from "./lib/hooks";
 import { obtenerKardex } from "./lib/actions";
 import { demoKardexMovimientos } from "@/lib/demo/fixtures";
@@ -371,11 +372,9 @@ export function VerKardex() {
                         </td>
                         <td className={moduleTableCellClass}>
                           {f.lote_numero ?? "—"}
-                          {f.lote_laboratorio ? (
-                            <span className="block text-[10px] text-slate-500">
-                              {f.lote_laboratorio}
-                            </span>
-                          ) : null}
+                          <span className="block text-[10px] text-slate-500">
+                            {etiquetaLaboratorioComercial(f.lote_laboratorio)}
+                          </span>
                         </td>
                         <td className={moduleTableCellClass}>
                           {etiquetaTipoMovimientoKardex(f.tipo)}

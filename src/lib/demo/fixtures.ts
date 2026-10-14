@@ -162,8 +162,8 @@ type DemoJerarquia = {
     requiere_receta: boolean;
     catalogo_id: string;
     catalogo_nombre: string;
-    laboratorio_id: string;
-    laboratorio_nombre: string;
+    laboratorio_id: string | null;
+    laboratorio_nombre: string | null;
     stock_vendible: number;
     proximo_vencimiento: string | null;
     lotes_vendibles: number;
@@ -207,6 +207,7 @@ function buildDemoJerarquia(): DemoJerarquia {
 
     const genKey = `${catalogo.id}|${farmacia.concentracion}|${farmacia.forma_farmaceutica}`;
     const lab = laboratorios[i % laboratorios.length];
+    const sinLaboratorioComercial = i === 0;
     const prov = DEMO_PROVEEDORES[p.provIdx ?? i % DEMO_PROVEEDORES.length];
     const genericoNombre = `${catalogo.nombre} ${farmacia.concentracion} ${farmacia.forma_farmaceutica}`.trim();
     const requiereReceta = RECETA_CODIGOS.has(p.codigo);
@@ -258,8 +259,8 @@ function buildDemoJerarquia(): DemoJerarquia {
       requiere_receta: requiereReceta,
       catalogo_id: catalogo.id,
       catalogo_nombre: catalogo.nombre,
-      laboratorio_id: lab.id,
-      laboratorio_nombre: lab.nombre,
+      laboratorio_id: sinLaboratorioComercial ? null : lab.id,
+      laboratorio_nombre: sinLaboratorioComercial ? null : lab.nombre,
       stock_vendible: p.stock,
       proximo_vencimiento: `2026-${String((i % 12) + 1).padStart(2, "0")}-28`,
       lotes_vendibles: p.stock > 0 ? 1 : 0,
@@ -288,11 +289,11 @@ function buildDemoJerarquia(): DemoJerarquia {
       created_at: daysAgo(30 - (i % 25)),
       imagen_url: null,
       generico_id: generico.generico_id,
-      laboratorio_id: lab.id,
+      laboratorio_id: sinLaboratorioComercial ? undefined : lab.id,
       catalogo_id: catalogo.id,
       catalogo_nombre: catalogo.nombre,
-      laboratorio_nombre: lab.nombre,
-      laboratorio: lab.nombre,
+      laboratorio_nombre: sinLaboratorioComercial ? undefined : lab.nombre,
+      laboratorio: sinLaboratorioComercial ? undefined : lab.nombre,
     });
 
     lotes.push({
@@ -315,7 +316,7 @@ function buildDemoJerarquia(): DemoJerarquia {
         precio_base: p.precio,
         stock_actual: p.stock,
         activo: true,
-        inv_laboratorios: { nombre: lab.nombre },
+        inv_laboratorios: sinLaboratorioComercial ? null : { nombre: lab.nombre },
         inv_genericos: {
           concentracion: farmacia.concentracion,
           forma_farmaceutica: farmacia.forma_farmaceutica,
@@ -702,7 +703,7 @@ export const DEMO_KARDEX_MOVIMIENTOS: KardexFila[] = DEMO_PRODUCTOS.slice(0, 8).
         producto_concentracion: p.concentracion,
         lote_id: loteId,
         lote_numero: `L-${2400 + i}`,
-        lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? DEMO_LABORATORIOS[i % DEMO_LABORATORIOS.length]?.nombre ?? null,
+        lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? null,
         lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
         usuario_id: null,
         usuario_nombre: "Usuario demo",
@@ -723,7 +724,7 @@ export const DEMO_KARDEX_MOVIMIENTOS: KardexFila[] = DEMO_PRODUCTOS.slice(0, 8).
         producto_concentracion: p.concentracion,
         lote_id: loteId,
         lote_numero: `L-${2400 + i}`,
-        lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? DEMO_LABORATORIOS[i % DEMO_LABORATORIOS.length]?.nombre ?? null,
+        lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? null,
         lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
         usuario_id: null,
         usuario_nombre: "Usuario demo",
@@ -746,7 +747,7 @@ export const DEMO_KARDEX_MOVIMIENTOS: KardexFila[] = DEMO_PRODUCTOS.slice(0, 8).
               producto_concentracion: p.concentracion,
               lote_id: loteId,
               lote_numero: `L-${2400 + i}`,
-              lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? DEMO_LABORATORIOS[i % DEMO_LABORATORIOS.length]?.nombre ?? null,
+              lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? null,
               lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
               usuario_id: null,
               usuario_nombre: "Usuario demo",

@@ -89,7 +89,7 @@ export function comercialAProductoSugerencia(c: ProductoComercial): ProductoSuge
     forma_farmaceutica: String(c.forma_farmaceutica),
     presentacion: c.presentacion,
     precio_base: c.precio_venta,
-    laboratorio_nombre: c.laboratorio_nombre,
+    laboratorio_nombre: c.laboratorio_nombre ?? undefined,
     catalogo_nombre: c.catalogo_nombre,
     generico_id: c.generico_id,
     laboratorio_id: c.laboratorio_id,
@@ -114,11 +114,11 @@ export function comercialAProductoEdicion(c: ProductoComercial): Producto {
     activo: c.activo,
     imagen_url: c.imagen_url ?? null,
     generico_id: c.generico_id,
-    laboratorio_id: c.laboratorio_id,
+    laboratorio_id: c.laboratorio_id ?? undefined,
     catalogo_id: c.catalogo_id,
     catalogo_nombre: c.catalogo_nombre,
-    laboratorio_nombre: c.laboratorio_nombre,
-    laboratorio: c.laboratorio_nombre,
+    laboratorio_nombre: c.laboratorio_nombre ?? undefined,
+    laboratorio: etiquetaLaboratorioComercial(c.laboratorio_nombre),
     created_at: c.created_at,
   };
 }
@@ -415,8 +415,27 @@ export function productoFarmaciaDesdeLegacy(
   return { nombre_generico, concentracion, forma_farmaceutica, presentacion };
 }
 
+export const FILTRO_LABORATORIO_SIN_ASIGNAR = "00000000-0000-0000-0000-000000000000";
+
+export const ETIQUETA_LABORATORIO_SIN_ASIGNAR = "Sin asignar";
+
+export function etiquetaLaboratorioComercial(nombre: string | null | undefined): string {
+  const t = (nombre ?? "").trim();
+  return t.length > 0 ? t : ETIQUETA_LABORATORIO_SIN_ASIGNAR;
+}
+
 export function esLaboratorioPlaceholder(nombre: string): boolean {
   return normalizarTextoBusquedaProducto(nombre) === "sin laboratorio";
+}
+
+export function inventarioAlertaStockBajo(fila: {
+  stock_actual: number;
+  stock_minimo: number;
+  bajo_minimo?: boolean;
+}): boolean {
+  if (fila.stock_minimo <= 0) return false;
+  if (fila.bajo_minimo !== undefined) return fila.bajo_minimo;
+  return fila.stock_actual <= fila.stock_minimo;
 }
 
 export function laboratoriosParaSeleccionComercial<

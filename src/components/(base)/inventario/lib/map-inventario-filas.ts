@@ -1,6 +1,12 @@
 import type { InvCatalogoResumen, InvGenerico, ProductoComercial } from "./jerarquia-zod";
 import type { LoteInventario } from "./zod";
-import { jerarquiaDesdeProductoLote, precioVentaEfectivoLote } from "./helpers";
+import {
+  ETIQUETA_LABORATORIO_SIN_ASIGNAR,
+  FILTRO_LABORATORIO_SIN_ASIGNAR,
+  etiquetaLaboratorioComercial,
+  jerarquiaDesdeProductoLote,
+  precioVentaEfectivoLote,
+} from "./helpers";
 
 export type FilaInventarioUi = {
   id: string;
@@ -81,7 +87,7 @@ export function filasDesdeComerciales(items: ProductoComercial[]): FilaInventari
     producto_maestro_id: c.producto_id,
     catalogo_id: c.catalogo_id,
     generico_id: c.generico_id,
-    laboratorio_id: c.laboratorio_id,
+    laboratorio_id: c.laboratorio_id ?? undefined,
     codigo: "",
     nombre: c.nombre_comercial,
     nombre_generico: c.generico_nombre,
@@ -94,19 +100,20 @@ export function filasDesdeComerciales(items: ProductoComercial[]): FilaInventari
     descripcion: c.descripcion ?? "",
     precio_base: c.precio_venta,
     precio_venta: c.precio_venta,
-    laboratorio: c.laboratorio_nombre,
+    laboratorio: etiquetaLaboratorioComercial(c.laboratorio_nombre),
     stock_actual: c.stock_vendible,
     stock_minimo: c.stock_minimo,
     activo: c.activo,
     imagen_url: c.imagen_url ?? null,
     fecha_vencimiento: c.proximo_vencimiento,
-    bajo_minimo: c.stock_vendible <= c.stock_minimo,
+    bajo_minimo: c.stock_minimo > 0 && c.stock_vendible <= c.stock_minimo,
   }));
 }
 
 export function esFilaAgregadaLaboratorio(row: FilaInventarioUi): boolean {
   return Boolean(
-    row.laboratorio_id && row.id === row.laboratorio_id && (row.comerciales_count ?? 0) > 0,
+    (row.comerciales_count ?? 0) > 0 &&
+      (row.id === row.laboratorio_id || row.id === FILTRO_LABORATORIO_SIN_ASIGNAR),
   );
 }
 
@@ -132,8 +139,7 @@ export function idProductoComercialParaEdicion(row: {
   if (row.catalogo_id && row.id === row.catalogo_id) return null;
   if (row.generico_id && row.id === row.generico_id) return null;
   if (
-    row.laboratorio_id &&
-    row.id === row.laboratorio_id &&
+    (row.id === row.laboratorio_id || row.id === FILTRO_LABORATORIO_SIN_ASIGNAR) &&
     (row.comerciales_count ?? 0) > 0
   ) {
     return null;
@@ -145,24 +151,29 @@ export function idProductoComercialParaEdicion(row: {
 export function filasDesdeLaboratorio(comerciales: ProductoComercial[]): FilaInventarioUi[] {
   const porLab = new Map<string, ProductoComercial[]>();
   for (const c of comerciales) {
-    const list = porLab.get(c.laboratorio_id) ?? [];
+    const key = c.laboratorio_id ?? FILTRO_LABORATORIO_SIN_ASIGNAR;
+    const list = porLab.get(key) ?? [];
     list.push(c);
-    porLab.set(c.laboratorio_id, list);
+    porLab.set(key, list);
   }
 
   const filas: FilaInventarioUi[] = [];
-  for (const [, list] of porLab) {
+  for (const [labKey, list] of porLab) {
     const first = list[0];
     const stock = list.reduce((s, x) => s + x.stock_vendible, 0);
+    const sinAsignar = labKey === FILTRO_LABORATORIO_SIN_ASIGNAR;
+    const labNombre = sinAsignar
+      ? ETIQUETA_LABORATORIO_SIN_ASIGNAR
+      : etiquetaLaboratorioComercial(first.laboratorio_nombre);
     filas.push({
-      id: first.laboratorio_id,
-      laboratorio_id: first.laboratorio_id,
+      id: sinAsignar ? FILTRO_LABORATORIO_SIN_ASIGNAR : first.laboratorio_id!,
+      laboratorio_id: sinAsignar ? undefined : first.laboratorio_id ?? undefined,
       catalogo_id: first.catalogo_id,
       generico_id: first.generico_id,
       codigo: "",
-      nombre: first.laboratorio_nombre,
-      nombre_generico: first.laboratorio_nombre,
-      laboratorio: first.laboratorio_nombre,
+      nombre: labNombre,
+      nombre_generico: labNombre,
+      laboratorio: labNombre,
       descripcion: list.map((x) => x.nombre_comercial).join(" · "),
       precio_base: 0,
       stock_actual: stock,
@@ -192,7 +203,7 @@ export function mapLoteAFilaInventario(lote: LoteInventario): FilaInventarioUi {
     precio_base: jer.precio_base,
     precio_venta: precioVenta,
     precio_costo: lote.precio_costo,
-    laboratorio: jer.laboratorio,
+    laboratorio: etiquetaLaboratorioComercial(jer.laboratorio),
     stock_actual: Number(lote.cantidad_actual) || 0,
     stock_minimo: jer.stock_minimo,
     activo: lote.activo && jer.activo,

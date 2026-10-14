@@ -4,6 +4,7 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingCart, Trash2, Plus, Minus, Package, AlertTriangle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
+import { etiquetaLaboratorioComercial } from "@/components/(base)/inventario/lib/helpers";
 import { fmtQ } from "@/lib/utils";
 import { useVentas } from "./ContextoVentas";
 import { toast } from "@/components/ui/general-modal";
@@ -148,7 +149,8 @@ export function BarraCarritoVentas() {
                             {item.generico.generico_nombre}
                           </p>
                           <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                            Lab: {item.comercial.laboratorio_nombre} · {item.comercial.presentacion}
+                            Lab: {etiquetaLaboratorioComercial(item.comercial.laboratorio_nombre)} ·{" "}
+                            {item.comercial.presentacion}
                           </p>
                           {item.codigo_barras_lote ? (
                             <p className="text-[10px] text-slate-400 truncate">

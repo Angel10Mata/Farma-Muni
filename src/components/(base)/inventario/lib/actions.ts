@@ -6,6 +6,7 @@ import {
   claveProductoUnico,
   comercialAProductoEdicion,
   comercialAProductoSugerencia,
+  etiquetaLaboratorioComercial,
   nombreGenericoListoParaDuplicado,
   MIN_CARACTERES_BUSQUEDA_PRODUCTO,
   normalizarTextoBusquedaProducto,
@@ -132,8 +133,9 @@ async function encontrarProductoPorNombreGenerico(
       catalogo_nombre: String(row.catalogo_nombre ?? ""),
       catalogo_id: String(row.catalogo_id),
       generico_id: String(row.generico_id),
-      laboratorio_id: String(row.laboratorio_id),
-      laboratorio_nombre: String(row.laboratorio_nombre ?? ""),
+      laboratorio_id: row.laboratorio_id != null ? String(row.laboratorio_id) : null,
+      laboratorio_nombre:
+        row.laboratorio_nombre != null ? String(row.laboratorio_nombre) : null,
       imagen_url: null,
       activo: true,
       requiere_receta: false,
@@ -245,7 +247,7 @@ export async function obtenerProductos() {
       laboratorio_id: c.laboratorio_id,
       catalogo_id: c.catalogo_id,
       catalogo_nombre: c.catalogo_nombre,
-      laboratorio: c.laboratorio_nombre,
+      laboratorio: etiquetaLaboratorioComercial(c.laboratorio_nombre),
     }));
 
     return { success: true as const, data };

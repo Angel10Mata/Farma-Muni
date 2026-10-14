@@ -77,7 +77,7 @@ export function LaboratorioProveedorCrearFields({
 
       <ModalField>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <ModalLabel htmlFor="lab-prov-select">Proveedor *</ModalLabel>
+          <ModalLabel htmlFor="lab-prov-select">Proveedor (opcional)</ModalLabel>
           <button
             type="button"
             className="text-xs font-bold text-[#2c5f9b] underline dark:text-[#6f9fd4]"
@@ -138,7 +138,7 @@ export function LaboratorioProveedorCrearFields({
             value={proveedorId}
             onChange={(e) => onProveedorIdChange(e.target.value)}
           >
-            <option value="">Seleccionar proveedor…</option>
+            <option value="">Sin proveedor</option>
             {proveedores.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.nombre}
@@ -225,19 +225,18 @@ export function useLaboratorioProveedorCrearMutations() {
       }
     }
 
-    if (!params.proveedorId) {
-      throw new Error("VALIDATION");
-    }
-
     try {
       const res = await guardarLaboratorio({
         data: {
           nombre,
           activo: true,
-          proveedor_id: params.proveedorId,
+          proveedor_id: params.proveedorId ? params.proveedorId : null,
         },
       });
-      return { laboratorioId: res.id, proveedorId: params.proveedorId };
+      return {
+        laboratorioId: res.id,
+        proveedorId: params.proveedorId || "",
+      };
     } catch (err) {
       const e = err as Error & { detail?: string };
       throw new Error(modalActionMessage(e.message, e.detail ?? "No se pudo crear."));

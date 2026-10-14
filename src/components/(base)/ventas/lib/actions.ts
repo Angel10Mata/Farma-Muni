@@ -66,7 +66,10 @@ function mapFilaComercialVenta(row: Record<string, unknown>): ComercialVenta {
     producto_id: String(row.producto_id),
     nombre_comercial: String(row.nombre_comercial ?? ""),
     presentacion: String(row.presentacion ?? ""),
-    laboratorio_nombre: String(row.laboratorio_nombre ?? ""),
+    laboratorio_nombre:
+      row.laboratorio_nombre != null && String(row.laboratorio_nombre).trim() !== ""
+        ? String(row.laboratorio_nombre)
+        : null,
     precio_venta: Number(row.precio_venta) || 0,
     generico_id: String(row.generico_id),
     stock_vendible: Number(row.stock_vendible) || 0,

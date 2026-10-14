@@ -58,7 +58,7 @@ export const productoSugerenciaSchema = z.object({
   laboratorio_nombre: z.string().optional(),
   catalogo_nombre: z.string().optional(),
   generico_id: z.string().uuid().optional(),
-  laboratorio_id: z.string().uuid().optional(),
+  laboratorio_id: z.string().uuid().nullable().optional(),
   catalogo_id: z.string().uuid().optional(),
 });
 
@@ -67,7 +67,7 @@ export type ProductoSugerencia = z.infer<typeof productoSugerenciaSchema>;
 export const PRODUCTO_WIZARD_PASOS = 3;
 
 export const PRODUCTO_WIZARD_PASOS_META = [
-  { titulo: "Catálogo y genérico" },
+  { titulo: "Artículo base" },
   { titulo: "Comercial" },
   { titulo: "Primer lote" },
 ] as const;

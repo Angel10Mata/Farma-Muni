@@ -2,6 +2,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fmtNum, fmtQ } from "@/lib/utils";
 import {
+  etiquetaLaboratorioComercial,
   nombreComercialSiDistinto,
   tituloProductoFarmacia,
 } from "./lib/helpers";
@@ -52,7 +53,7 @@ export const exportarPDF = (productos: ProductoInventarioReporte[], vistaLotes =
         titulo,
         p.nombre_generico || "—",
         p.presentacion || "—",
-        p.laboratorio || "—",
+        etiquetaLaboratorioComercial(p.laboratorio),
         p.proveedor_nombre || "—",
         fmtQ(p.precio_venta ?? p.precio_base),
         fmtQ(Number(p.precio_costo) || 0),

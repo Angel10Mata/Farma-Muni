@@ -55,6 +55,9 @@ interface ComprasContextProps {
   actualizarPrecioVenta: boolean;
   setActualizarPrecioVenta: (val: boolean) => void;
 
+  laboratorioAsignarCompraId: string;
+  setLaboratorioAsignarCompraId: (val: string) => void;
+
   estadoPago: "Pendiente" | "Pagado";
   setEstadoPago: (val: "Pendiente" | "Pagado") => void;
   numeroFactura: string;
@@ -101,6 +104,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const [ubicacionLote, setUbicacionLote] = useState("");
   const [precioVentaEditado, setPrecioVentaEditado] = useState<number | "">("");
   const [actualizarPrecioVenta, setActualizarPrecioVenta] = useState(false);
+  const [laboratorioAsignarCompraId, setLaboratorioAsignarCompraId] = useState("");
 
   const [estadoPago, setEstadoPago] = useState<"Pendiente" | "Pagado">("Pagado");
   const [numeroFactura, setNumeroFactura] = useState("");
@@ -139,6 +143,7 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
     setActualizarPrecioVenta(false);
     setComercialSeleccionado(null);
     setComercialBusqueda("");
+    setLaboratorioAsignarCompraId("");
   };
 
   return (
@@ -190,6 +195,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         setPrecioVentaEditado,
         actualizarPrecioVenta,
         setActualizarPrecioVenta,
+        laboratorioAsignarCompraId,
+        setLaboratorioAsignarCompraId,
         estadoPago,
         setEstadoPago,
         numeroFactura,

@@ -6,6 +6,7 @@ import { requireInventario, requireRole } from "@/lib/auth-guards";
 
 const COMERCIAL_WRITE_ROLES = ["super", "admin", "inventario", "proveedores"] as const;
 import {
+  FILTRO_LABORATORIO_SIN_ASIGNAR,
   MIN_CARACTERES_BUSQUEDA_PRODUCTO,
   normalizarTextoBusquedaProducto,
 } from "./helpers";
@@ -214,56 +215,17 @@ function claveGenericoUnica(input: {
 
 function claveComercialUnica(input: {
   generico_id: string;
-  laboratorio_id: string;
+  laboratorio_id: string | null | undefined;
   nombre_comercial: string;
   presentacion: string;
 }): string {
+  const labKey = input.laboratorio_id ?? FILTRO_LABORATORIO_SIN_ASIGNAR;
   return [
     input.generico_id,
-    input.laboratorio_id,
+    labKey,
     normalizarTextoBusquedaProducto(input.nombre_comercial),
     normalizarTextoBusquedaProducto(input.presentacion),
   ].join("|");
-}
-
-type LegacyInvProductoCampos = {
-  nombre_generico: string;
-  concentracion: string;
-  forma_farmaceutica: string;
-  requiere_receta: boolean;
-  unidad_venta: string;
-  stock_minimo: number;
-};
-
-async function legacyCamposInvProductoDesdeGenerico(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  genericoId: string,
-): Promise<LegacyInvProductoCampos | null> {
-  const { data, error } = await supabase
-    .from("inv_genericos")
-    .select(
-      "concentracion, forma_farmaceutica, requiere_receta, unidad_venta, stock_minimo, inv_catalogos(nombre)",
-    )
-    .eq("id", genericoId)
-    .maybeSingle();
-
-  if (error || !data) return null;
-
-  const catalogoRaw = data.inv_catalogos as { nombre: string } | { nombre: string }[] | null;
-  const catalogoNombre = Array.isArray(catalogoRaw)
-    ? catalogoRaw[0]?.nombre
-    : catalogoRaw?.nombre;
-  const nombreGenerico = catalogoNombre?.trim();
-  if (!nombreGenerico) return null;
-
-  return {
-    nombre_generico: nombreGenerico,
-    concentracion: String(data.concentracion).trim(),
-    forma_farmaceutica: String(data.forma_farmaceutica).trim(),
-    requiere_receta: Boolean(data.requiere_receta),
-    unidad_venta: String(data.unidad_venta || "unidad").trim() || "unidad",
-    stock_minimo: Number(data.stock_minimo) || 0,
-  };
 }
 
 export async function listarCatalogos() {
@@ -422,7 +384,11 @@ export async function listarComercialesInventario(filtros?: InventarioJerarquiaF
 
     if (filtros?.catalogo_id) query = query.eq("catalogo_id", filtros.catalogo_id);
     if (filtros?.generico_id) query = query.eq("generico_id", filtros.generico_id);
-    if (filtros?.laboratorio_id) query = query.eq("laboratorio_id", filtros.laboratorio_id);
+    if (filtros?.laboratorio_id === FILTRO_LABORATORIO_SIN_ASIGNAR) {
+      query = query.is("laboratorio_id", null);
+    } else if (filtros?.laboratorio_id) {
+      query = query.eq("laboratorio_id", filtros.laboratorio_id);
+    }
     if (filtros?.producto_id) query = query.eq("producto_id", filtros.producto_id);
 
     const { data, error } = await query;
@@ -784,10 +750,6 @@ export async function guardarLaboratorio(id: string | undefined, input: Laborato
       : laboratorioCreateInputSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
 
-    if (id && (parsed.data.proveedor_id === undefined || parsed.data.proveedor_id === null)) {
-      return { code: "VALIDATION" as const };
-    }
-
     const nombre = parsed.data.nombre.trim();
     const needle = normalizarTextoBusquedaProducto(nombre);
     const { data: existentes } = await supabase.from("inv_laboratorios").select("id, nombre");
@@ -804,7 +766,7 @@ export async function guardarLaboratorio(id: string | undefined, input: Laborato
     };
     if (!id) {
       payload.proveedor_id = parsed.data.proveedor_id ?? null;
-    } else if (parsed.data.proveedor_id) {
+    } else if (parsed.data.proveedor_id !== undefined) {
       payload.proveedor_id = parsed.data.proveedor_id;
     }
 
@@ -833,6 +795,42 @@ export async function guardarLaboratorio(id: string | undefined, input: Laborato
   }
 }
 
+export async function asignarLaboratorioComercial(
+  productoId: string,
+  laboratorioId: string | null,
+) {
+  try {
+    const guard = await requireRole([...COMERCIAL_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
+
+    if (!productoId) return { code: "VALIDATION" as const };
+
+    if (laboratorioId) {
+      const { data: lab, error: labErr } = await supabase
+        .from("inv_laboratorios")
+        .select("id")
+        .eq("id", laboratorioId)
+        .maybeSingle();
+      if (labErr || !lab) {
+        return { code: "VALIDATION" as const, detail: "Laboratorio no encontrado." };
+      }
+    }
+
+    const { error } = await supabase
+      .from("inv_productos")
+      .update({ laboratorio_id: laboratorioId })
+      .eq("id", productoId);
+
+    if (error) return mapJerarquiaDbError(error);
+    revalidatePath(INVENTARIO_PATH);
+    revalidatePath(PROVEEDORES_PATH);
+    return { success: true as const };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
 export async function guardarComercial(id: string | undefined, input: ComercialInput) {
   try {
     const guard = await requireRole([...COMERCIAL_WRITE_ROLES]);
@@ -842,19 +840,24 @@ export async function guardarComercial(id: string | undefined, input: ComercialI
     const parsed = comercialInputSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
 
-    const claveNueva = claveComercialUnica(parsed.data);
+    const laboratorioId = parsed.data.laboratorio_id ?? null;
+    const claveNueva = claveComercialUnica({
+      generico_id: parsed.data.generico_id,
+      laboratorio_id: laboratorioId,
+      nombre_comercial: parsed.data.nombre_comercial,
+      presentacion: parsed.data.presentacion,
+    });
     const { data: delMismoGenerico } = await supabase
       .from("inv_productos")
       .select("id, generico_id, laboratorio_id, nombre, presentacion")
-      .eq("generico_id", parsed.data.generico_id)
-      .not("laboratorio_id", "is", null);
+      .eq("generico_id", parsed.data.generico_id);
 
     for (const row of delMismoGenerico ?? []) {
       if (id && row.id === id) continue;
       if (
         claveComercialUnica({
           generico_id: String(row.generico_id),
-          laboratorio_id: String(row.laboratorio_id),
+          laboratorio_id: row.laboratorio_id as string | null,
           nombre_comercial: String(row.nombre),
           presentacion: String(row.presentacion),
         }) === claveNueva
@@ -863,24 +866,15 @@ export async function guardarComercial(id: string | undefined, input: ComercialI
       }
     }
 
-    const legacyCampos = await legacyCamposInvProductoDesdeGenerico(
-      supabase,
-      parsed.data.generico_id,
-    );
-    if (!legacyCampos) {
-      return { code: "VALIDATION" as const, detail: "No se encontró el genérico seleccionado." };
-    }
-
     const payload = {
       generico_id: parsed.data.generico_id,
-      laboratorio_id: parsed.data.laboratorio_id,
+      laboratorio_id: laboratorioId,
       nombre: parsed.data.nombre_comercial.trim(),
       presentacion: parsed.data.presentacion.trim(),
       precio_base: parsed.data.precio_venta,
       activo: parsed.data.activo,
       descripcion: parsed.data.descripcion?.trim() || null,
       imagen_url: parsed.data.imagen_url ?? null,
-      ...legacyCampos,
     };
 
     if (id) {

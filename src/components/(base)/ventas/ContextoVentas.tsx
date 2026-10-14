@@ -440,7 +440,7 @@ export function VentasProvider({
             stock_lote: a.stock_lote,
             precio_costo_lote: a.precio_costo,
             precio_venta_referencia: comercial.precio_venta,
-            laboratorio_nombre: comercial.laboratorio_nombre,
+            laboratorio_nombre: comercial.laboratorio_nombre ?? undefined,
             cantidad: a.cantidad,
             precio_aplicado: comercial.precio_venta,
             subtotal: a.cantidad * comercial.precio_venta,

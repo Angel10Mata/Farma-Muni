@@ -17,15 +17,15 @@ do $$
 declare
   n int;
 begin
-  select count(*) into n from public.inv_productos where generico_id is null or laboratorio_id is null;
+  select count(*) into n from public.inv_productos where generico_id is null;
   if n > 0 then
-    raise exception 'Hay % productos sin genérico o laboratorio. Asígnalos antes de la limpieza.', n;
+    raise exception 'Hay % productos sin genérico. Asígnalos antes de la limpieza.', n;
   end if;
 end $$;
 
+-- El laboratorio es opcional (se asigna después), por eso NO se exige NOT NULL.
 alter table public.inv_productos
-  alter column generico_id    set not null,
-  alter column laboratorio_id set not null;
+  alter column generico_id set not null;
 
 -- Datos que ahora viven en el genérico
 alter table public.inv_productos

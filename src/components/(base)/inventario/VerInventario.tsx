@@ -78,7 +78,16 @@ import {
   precioVentaEfectivoLote,
   productoCoincideBusquedaInventario,
   tituloProductoFarmacia,
+  inventarioAlertaStockBajo,
+  etiquetaLaboratorioComercial,
+  FILTRO_LABORATORIO_SIN_ASIGNAR,
 } from "./lib/helpers";
+import {
+  CrearCatalogo,
+  CrearComercial,
+  CrearGenerico,
+  CrearLaboratorio,
+} from "./forms/Crear";
 import {
   descargarReporteGestion,
   descargarReporteVencimientos,
@@ -159,7 +168,7 @@ function productoParaReporte(p: Producto): ProductoInventarioReporte {
     precio_base: p.precio_base,
     precio_venta: p.precio_venta,
     precio_costo: p.precio_costo,
-    laboratorio: p.laboratorio,
+    laboratorio: etiquetaLaboratorioComercial(p.laboratorio),
     proveedor_nombre: p.inv_proveedores?.nombre ?? null,
     activo: p.activo,
     fecha_vencimiento: p.fecha_vencimiento,
@@ -537,11 +546,9 @@ function ProductoCard({
               {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
             </p>
           )}
-          {producto.laboratorio ? (
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase truncate">
-              Lab: {producto.laboratorio}
-            </p>
-          ) : null}
+          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase truncate">
+            Lab: {etiquetaLaboratorioComercial(producto.laboratorio)}
+          </p>
           {producto.laboratorio_proveedor_nombre ? (
             <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase truncate">
               Prov. lab: {producto.laboratorio_proveedor_nombre}
@@ -765,9 +772,8 @@ function ProductoDetalle({
                                 Lote {lote.numero_lote || "—"}
                               </p>
                               <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                                {laboratorioNombreDesdeLote(lote)
-                                  ? `Lab: ${laboratorioNombreDesdeLote(lote)}`
-                                  : "Sin laboratorio"}
+                                Lab:{" "}
+                                {etiquetaLaboratorioComercial(laboratorioNombreDesdeLote(lote))}
                                 {lote.inv_proveedores?.nombre
                                   ? ` · Prov: ${lote.inv_proveedores.nombre}`
                                   : ""}
@@ -1151,7 +1157,7 @@ function GenericoDetalle({
                         comercialClassName="text-xs font-medium text-slate-500 dark:text-slate-400"
                       />
                       <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {c.laboratorio_nombre}
+                        {etiquetaLaboratorioComercial(c.laboratorio_nombre)}
                         {c.presentacion ? ` · ${c.presentacion}` : ""}
                         {c.proximo_vencimiento
                           ? ` · Próx. vence ${new Date(c.proximo_vencimiento).toLocaleDateString("es-GT")}`
@@ -1250,7 +1256,7 @@ function LaboratorioDetalle({
             <div className="min-w-0 space-y-1">
               <p className={detalleLabelClass}>Laboratorio</p>
               <p className="text-xl font-black text-slate-900 dark:text-white md:text-2xl">
-                {laboratorio.laboratorio || laboratorio.nombre}
+                {etiquetaLaboratorioComercial(laboratorio.laboratorio || laboratorio.nombre)}
               </p>
               {proveedorNombre ? (
                 <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -1773,12 +1779,23 @@ export function VerInventario() {
   }, [productoSeleccionado?.generico_id, detalleEsGenerico, comerciales]);
 
   const comercialesLaboratorioDetalle = useMemo(() => {
-    const labId = productoSeleccionado?.laboratorio_id;
-    if (!labId || !detalleEsLaboratorio) return [];
+    if (!detalleEsLaboratorio || !productoSeleccionado) return [];
+    if (productoSeleccionado.id === FILTRO_LABORATORIO_SIN_ASIGNAR) {
+      return comerciales
+        .filter((c) => c.laboratorio_id == null)
+        .sort((a, b) => a.nombre_comercial.localeCompare(b.nombre_comercial, "es"));
+    }
+    const labId = productoSeleccionado.laboratorio_id;
+    if (!labId) return [];
     return comerciales
       .filter((c) => c.laboratorio_id === labId)
       .sort((a, b) => a.nombre_comercial.localeCompare(b.nombre_comercial, "es"));
-  }, [productoSeleccionado?.laboratorio_id, detalleEsLaboratorio, comerciales]);
+  }, [
+    productoSeleccionado?.id,
+    productoSeleccionado?.laboratorio_id,
+    detalleEsLaboratorio,
+    comerciales,
+  ]);
 
   const proveedorLaboratorioDetalle = useMemo(() => {
     const labId = productoSeleccionado?.laboratorio_id;
@@ -1825,7 +1842,12 @@ export function VerInventario() {
       }
       const com = comerciales.find((c) => c.producto_id === l.producto_id);
       if (!com) return false;
-      if (filtrosJerarquia.laboratorio_id && com.laboratorio_id !== filtrosJerarquia.laboratorio_id) {
+      if (filtrosJerarquia.laboratorio_id === FILTRO_LABORATORIO_SIN_ASIGNAR) {
+        if (com.laboratorio_id != null) return false;
+      } else if (
+        filtrosJerarquia.laboratorio_id &&
+        com.laboratorio_id !== filtrosJerarquia.laboratorio_id
+      ) {
         return false;
       }
       if (filtrosJerarquia.generico_id && com.generico_id !== filtrosJerarquia.generico_id) {
@@ -1853,8 +1875,9 @@ export function VerInventario() {
         return {
           ...row,
           ubicacion: ubicacionesPorProductoId.get(idCat) ?? row.ubicacion ?? null,
-          laboratorio:
-            row.laboratorio ?? laboratorioPorProductoId.get(idCat) ?? row.laboratorio ?? null,
+          laboratorio: etiquetaLaboratorioComercial(
+            row.laboratorio ?? laboratorioPorProductoId.get(idCat) ?? null,
+          ),
           laboratorio_proveedor_nombre: row.laboratorio_id
             ? proveedorPorLaboratorioId.get(row.laboratorio_id) ?? null
             : null,
@@ -1887,6 +1910,10 @@ export function VerInventario() {
     modo: "conteo" | "baja" | "devolucion";
   } | null>(null);
   const [mostrarBajoStock, setMostrarBajoStock] = useState(false);
+  const [modalCrearJerarquia, setModalCrearJerarquia] = useState<
+    null | "catalogo" | "generico" | "laboratorio" | "comercial"
+  >(null);
+  const [catalogoParaGenerico, setCatalogoParaGenerico] = useState<string | undefined>();
 
   const abrirOperacionLote = (
     producto: Producto,
@@ -2069,11 +2096,7 @@ export function VerInventario() {
       campoBusquedaPorVista(vistaInventario),
     );
 
-    const matchesStock =
-      !filtroStockBajo ||
-      (vistaInventario === "generico"
-        ? Boolean(p.bajo_minimo)
-        : p.stock_actual <= p.stock_minimo);
+    const matchesStock = !filtroStockBajo || inventarioAlertaStockBajo(p);
 
     let matchesExpiring = true;
     if (filtroProximoVencer) {
@@ -2114,7 +2137,10 @@ export function VerInventario() {
     const bLow = b.stock_actual <= b.stock_minimo ? 0 : 1;
     if (aLow !== bLow) return aLow - bLow;
     if (vistaInventario === "laboratorio") {
-      return (a.laboratorio || "—").localeCompare(b.laboratorio || "—", "es");
+      return etiquetaLaboratorioComercial(a.laboratorio).localeCompare(
+        etiquetaLaboratorioComercial(b.laboratorio),
+        "es",
+      );
     }
     if (vistaInventario === "comercial") {
       return (a.nombre || "").localeCompare(b.nombre || "", "es");
@@ -2139,9 +2165,30 @@ export function VerInventario() {
 
   const inventarioTableColumnCount = esVistaCatalogo(vistaInventario) ? 6 : 10;
 
-  const handleNuevoProducto = () => {
-    router.push("/farmamuni/inventario/nuevo");
+  const handleNuevoJerarquia = () => {
+    if (vistaInventario === "lotes" || filtrosJerarquia.producto_id) {
+      handleNuevoLote();
+      return;
+    }
+    if (vistaInventario === "catalogo") setModalCrearJerarquia("catalogo");
+    else if (vistaInventario === "generico") setModalCrearJerarquia("generico");
+    else if (vistaInventario === "laboratorio") setModalCrearJerarquia("laboratorio");
+    else if (vistaInventario === "comercial") setModalCrearJerarquia("comercial");
+    else handleNuevoLote();
   };
+
+  const etiquetaBotonNuevo =
+    vistaInventario === "lotes" || filtrosJerarquia.producto_id
+      ? "Lote"
+      : vistaInventario === "catalogo"
+        ? "Catálogo"
+        : vistaInventario === "generico"
+          ? "Genérico"
+          : vistaInventario === "laboratorio"
+            ? "Laboratorio"
+            : vistaInventario === "comercial"
+              ? "Comercial"
+              : "Producto";
 
   const handleNuevoLote = () => {
     setBusquedaProductoLote("");
@@ -2348,18 +2395,12 @@ export function VerInventario() {
             className="w-full sm:w-auto min-w-0 max-w-full overflow-x-auto"
           />
           <SigetActionButton
-            label={vistaInventario === "lotes" ? "Lote" : "Producto"}
+            label={etiquetaBotonNuevo}
             accentColor={sigetAccent.crear}
             morphFrom={esVistaCatalogo(vistaInventario) ? PlusNode : BoxNode}
             morphTo={esVistaCatalogo(vistaInventario) ? UserPlus : PackageNode}
-            onClick={
-              vistaInventario === "lotes" || filtrosJerarquia.producto_id
-                ? handleNuevoLote
-                : handleNuevoProducto
-            }
-            ariaLabel={
-              vistaInventario === "lotes" ? "Nuevo lote" : "Nuevo producto"
-            }
+            onClick={handleNuevoJerarquia}
+            ariaLabel={`Nuevo ${etiquetaBotonNuevo.toLowerCase()}`}
             className="w-full sm:w-auto shrink-0"
           />
         </div>
@@ -2721,9 +2762,12 @@ export function VerInventario() {
                               });
                               return;
                             }
-                            if (vistaInventario === "laboratorio" && p.laboratorio_id) {
+                            if (vistaInventario === "laboratorio") {
                               aplicarNavegacionJerarquia("comercial", {
-                                laboratorio_id: p.laboratorio_id,
+                                laboratorio_id:
+                                  p.id === FILTRO_LABORATORIO_SIN_ASIGNAR
+                                    ? FILTRO_LABORATORIO_SIN_ASIGNAR
+                                    : p.laboratorio_id,
                               });
                               return;
                             }
@@ -2763,7 +2807,7 @@ export function VerInventario() {
                           {vistaInventario === "lotes" ? (
                             <>
                               <td className="px-5 py-3.5 text-sm text-slate-600 dark:text-slate-300 max-w-[120px] truncate">
-                                {p.laboratorio || "—"}
+                                {etiquetaLaboratorioComercial(p.laboratorio)}
                               </td>
                               <td className="px-5 py-3.5 text-sm font-semibold text-slate-500 dark:text-slate-400 max-w-[130px] truncate">
                                 {p.inv_proveedores?.nombre || "—"}
@@ -2996,6 +3040,43 @@ export function VerInventario() {
             }}
           />
         ) : null}
+
+        {modalCrearJerarquia === "catalogo" ? (
+          <CrearCatalogo
+            isOpen
+            onClose={() => setModalCrearJerarquia(null)}
+            onSuccess={() => void refetchProductos()}
+            onAgregarGenerico={(catalogoId) => {
+              setCatalogoParaGenerico(catalogoId);
+              setModalCrearJerarquia("generico");
+            }}
+          />
+        ) : null}
+        {modalCrearJerarquia === "generico" ? (
+          <CrearGenerico
+            isOpen
+            catalogoIdInicial={catalogoParaGenerico}
+            onClose={() => {
+              setModalCrearJerarquia(null);
+              setCatalogoParaGenerico(undefined);
+            }}
+            onSuccess={() => void refetchProductos()}
+          />
+        ) : null}
+        {modalCrearJerarquia === "laboratorio" ? (
+          <CrearLaboratorio
+            isOpen
+            onClose={() => setModalCrearJerarquia(null)}
+            onSuccess={() => void refetchProductos()}
+          />
+        ) : null}
+        {modalCrearJerarquia === "comercial" ? (
+          <CrearComercial
+            isOpen
+            onClose={() => setModalCrearJerarquia(null)}
+            onSuccess={() => void refetchProductos()}
+          />
+        ) : null}
       </div>
 
       <AnimatePresence>
@@ -3057,7 +3138,7 @@ export function VerInventario() {
                         aplicarNavegacionJerarquia("lotes", {
                           catalogo_id: c.catalogo_id,
                           generico_id: c.generico_id,
-                          laboratorio_id: c.laboratorio_id,
+                          laboratorio_id: c.laboratorio_id ?? undefined,
                           producto_id: c.producto_id,
                         });
                       }}

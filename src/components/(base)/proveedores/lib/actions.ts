@@ -186,8 +186,9 @@ export async function obtenerProveedoresYProductos() {
         generico_nombre: String(row.generico_nombre ?? ""),
         concentracion: String(row.concentracion ?? ""),
         forma_farmaceutica: String(row.forma_farmaceutica ?? ""),
-        laboratorio_id: String(row.laboratorio_id),
-        laboratorio_nombre: String(row.laboratorio_nombre ?? ""),
+        laboratorio_id: row.laboratorio_id != null ? String(row.laboratorio_id) : null,
+        laboratorio_nombre:
+          row.laboratorio_nombre != null ? String(row.laboratorio_nombre) : null,
         stock_vendible: Number(row.stock_vendible) || 0,
         ultimo_proveedor_id: ultimoProveedorPorProducto.get(productoId) ?? null,
       };

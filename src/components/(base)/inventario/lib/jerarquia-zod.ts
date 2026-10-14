@@ -91,8 +91,8 @@ export const productoComercialSchema = z.object({
   requiere_receta: z.boolean(),
   catalogo_id: z.string().uuid(),
   catalogo_nombre: z.string(),
-  laboratorio_id: z.string().uuid(),
-  laboratorio_nombre: z.string(),
+  laboratorio_id: z.string().uuid().nullable(),
+  laboratorio_nombre: z.string().nullable(),
   stock_vendible: z.number(),
   proximo_vencimiento: z.string().nullable(),
   lotes_vendibles: z.number(),
@@ -154,19 +154,11 @@ export const laboratorioInputSchema = z.object({
 
 export type LaboratorioInput = z.infer<typeof laboratorioInputSchema>;
 
-export const laboratorioCreateInputSchema = laboratorioInputSchema.extend({
-  proveedor_id: z.string().uuid("Debe seleccionar un proveedor"),
-});
+export const laboratorioCreateInputSchema = laboratorioInputSchema;
 
 export type LaboratorioCreateInput = z.infer<typeof laboratorioCreateInputSchema>;
 
-export const laboratorioUpdateInputSchema = laboratorioInputSchema.extend({
-  proveedor_id: z
-    .string()
-    .uuid("Debe seleccionar un proveedor")
-    .nullable()
-    .optional(),
-});
+export const laboratorioUpdateInputSchema = laboratorioInputSchema;
 
 export type LaboratorioUpdateInput = z.infer<typeof laboratorioUpdateInputSchema>;
 
@@ -190,7 +182,7 @@ export type CrearProveedorYLaboratorioInput = z.infer<
 
 export const comercialInputSchema = z.object({
   generico_id: z.string().uuid("Debe seleccionar un genérico"),
-  laboratorio_id: z.string().uuid("Debe seleccionar un laboratorio"),
+  laboratorio_id: z.string().uuid().nullable().optional(),
   nombre_comercial: z.string().trim().min(1, "El nombre comercial es requerido"),
   presentacion: z.string().trim().min(1, "La presentación es requerida"),
   precio_venta: z.number().nonnegative("El precio debe ser un número no negativo"),

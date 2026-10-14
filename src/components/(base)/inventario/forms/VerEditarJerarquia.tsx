@@ -22,6 +22,8 @@ import {
   useGuardarGenericoInventario,
   useLaboratoriosInventario,
 } from "../lib/hooks";
+import { laboratoriosParaSeleccionComercial } from "../lib/helpers";
+import { CrearLaboratorio } from "./CrearLaboratorio";
 import {
   EDITAR_PRODUCTO_WIZARD_PASOS,
   EDITAR_PRODUCTO_WIZARD_PASOS_META,
@@ -49,6 +51,8 @@ export function EditarJerarquia({
   const [presentacion, setPresentacion] = useState(producto.presentacion);
   const [precioVenta, setPrecioVenta] = useState(String(producto.precio_base ?? 0));
   const [activo, setActivo] = useState(producto.activo);
+  const [laboratorioId, setLaboratorioId] = useState(producto.laboratorio_id ?? "");
+  const [modalLab, setModalLab] = useState(false);
 
   const [concentracion, setConcentracion] = useState(producto.concentracion);
   const [formaFarmaceutica, setFormaFarmaceutica] = useState<FormaFarmaceutica>(
@@ -63,7 +67,7 @@ export function EditarJerarquia({
     useGuardarGenericoInventario();
   const { data: laboratorios = [] } = useLaboratoriosInventario();
 
-  const laboratorioVinculado = laboratorios.find((l) => l.id === producto.laboratorio_id);
+  const laboratoriosSelect = laboratoriosParaSeleccionComercial(laboratorios);
 
   const isBusy = guardandoComercial || guardandoGenerico;
 
@@ -73,8 +77,8 @@ export function EditarJerarquia({
   };
 
   const guardarPasoComercial = async () => {
-    if (!producto.generico_id || !producto.laboratorio_id) {
-      toast.error("Faltan datos de jerarquía en el producto.");
+    if (!producto.generico_id) {
+      toast.error("Falta el genérico del producto.");
       return false;
     }
     const precio = parseFloat(precioVenta);
@@ -86,7 +90,7 @@ export function EditarJerarquia({
       id: producto.id,
       data: {
         generico_id: producto.generico_id,
-        laboratorio_id: producto.laboratorio_id,
+        laboratorio_id: laboratorioId ? laboratorioId : null,
         nombre_comercial: nombreComercial.trim(),
         presentacion: presentacion.trim(),
         precio_venta: precio,
@@ -143,6 +147,7 @@ export function EditarJerarquia({
   };
 
   return (
+    <>
     <ModalShell
       isOpen={isOpen}
       onClose={handleClose}
@@ -222,14 +227,30 @@ export function EditarJerarquia({
                 </button>
               </label>
             </ModalField>
-            {laboratorioVinculado ? (
-              <p className="text-xs text-zinc-500">
-                Laboratorio: <span className="font-bold">{laboratorioVinculado.nombre}</span>
-                {laboratorioVinculado.proveedor_nombre
-                  ? ` · Proveedor del lab: ${laboratorioVinculado.proveedor_nombre}`
-                  : " · Sin proveedor asignado al laboratorio"}
-              </p>
-            ) : null}
+            <ModalField>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <ModalLabel htmlFor="edit-com-lab">Laboratorio</ModalLabel>
+                <button
+                  type="button"
+                  className="text-xs font-bold text-[#2c5f9b] underline dark:text-[#6f9fd4]"
+                  onClick={() => setModalLab(true)}
+                >
+                  Crear laboratorio
+                </button>
+              </div>
+              <ModalSelect
+                id="edit-com-lab"
+                value={laboratorioId}
+                onChange={(e) => setLaboratorioId(e.target.value)}
+              >
+                <option value="">Sin asignar</option>
+                {laboratoriosSelect.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.nombre}
+                  </option>
+                ))}
+              </ModalSelect>
+            </ModalField>
             <p className="text-xs text-zinc-500">
               Los lotes se editan desde Inventario → vista Lotes (código, vencimiento, costo,
               ubicación). No incluyen laboratorio ni precio de venta.
@@ -350,6 +371,14 @@ export function EditarJerarquia({
         </ModalFooter>
       </ModalForm>
     </ModalShell>
+    {modalLab ? (
+      <CrearLaboratorio
+        isOpen
+        onClose={() => setModalLab(false)}
+        onSuccess={() => setModalLab(false)}
+      />
+    ) : null}
+    </>
   );
 }
 

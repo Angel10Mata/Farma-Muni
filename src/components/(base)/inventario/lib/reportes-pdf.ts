@@ -12,6 +12,7 @@ import type { KardexFila } from "./zod";
 import {
   diasRestantesVencimiento,
   etiquetaEstadoVencimiento,
+  etiquetaLaboratorioComercial,
   isProductoProximoAVencer,
   isProductoVencido,
   precioVentaEfectivoLote,
@@ -100,7 +101,7 @@ export function descargarReporteVencimientos(productos: ProductoInventarioReport
         tituloProductoFarmacia(p),
         p.nombre_generico || "—",
         p.presentacion || "—",
-        p.laboratorio || "—",
+        etiquetaLaboratorioComercial(p.laboratorio),
         p.proveedor_nombre || "—",
         fmtQ(precioVenta),
         p.numero_lote || "—",
@@ -235,7 +236,9 @@ export function descargarReporteKardex(
       return [
         formatFechaHoraGt(f.created_at),
         productoTitulo,
-        [f.lote_numero, f.lote_laboratorio].filter(Boolean).join(" · ") || "—",
+        [f.lote_numero, etiquetaLaboratorioComercial(f.lote_laboratorio)]
+          .filter((x) => x != null && String(x).trim() !== "")
+          .join(" · ") || "—",
         etiquetaTipoMovimientoKardex(f.tipo),
         entrada != null ? fmtNum(entrada) : "—",
         salida != null ? fmtNum(salida) : "—",

@@ -1,4 +1,5 @@
 import { cn, fmtQ } from "@/lib/utils";
+import { etiquetaLaboratorioComercial } from "@/components/(base)/inventario/lib/helpers";
 import {
   codigoReciboVenta,
   formatFechaRecibo,
@@ -199,7 +200,11 @@ export function mapCarritoToReciboItems(carrito: {
   subtotal: number;
   precio_aplicado: number;
   generico: { generico_nombre: string; concentracion: string; forma_farmaceutica: string };
-  comercial: { nombre_comercial: string; laboratorio_nombre: string; presentacion: string };
+  comercial: {
+    nombre_comercial: string;
+    laboratorio_nombre: string | null;
+    presentacion: string;
+  };
   codigo_barras_lote?: string;
   numero_lote?: string | null;
 }[]): ReciboVentaItem[] {
@@ -209,7 +214,7 @@ export function mapCarritoToReciboItems(carrito: {
       `${i.generico.concentracion} ${i.generico.forma_farmaceutica}`.trim(),
     descripcion: [
       `Marca: ${i.comercial.nombre_comercial}`,
-      `Lab: ${i.comercial.laboratorio_nombre}`,
+      `Lab: ${etiquetaLaboratorioComercial(i.comercial.laboratorio_nombre)}`,
       `Pres: ${i.comercial.presentacion}`,
       i.codigo_barras_lote ? `Barras: ${i.codigo_barras_lote}` : "",
       i.numero_lote ? `Lote: ${i.numero_lote}` : "",

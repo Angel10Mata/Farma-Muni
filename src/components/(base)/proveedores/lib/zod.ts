@@ -21,14 +21,15 @@ export const ComercialCompraSchema = z.object({
   generico_nombre: z.string(),
   concentracion: z.string(),
   forma_farmaceutica: z.string(),
-  laboratorio_id: z.string(),
-  laboratorio_nombre: z.string(),
+  laboratorio_id: z.string().nullable(),
+  laboratorio_nombre: z.string().nullable(),
   stock_vendible: z.number(),
   ultimo_proveedor_id: z.string().nullable().optional(),
 });
 
 export const ItemCarritoCompraSchema = z.object({
   comercial: ComercialCompraSchema,
+  asignar_laboratorio_id: z.string().uuid().optional(),
   codigo_barras: z.string().min(1, "Código de barras obligatorio"),
   numero_lote: z.string().min(1, "Número de lote obligatorio"),
   fecha_vencimiento: z.string().min(1, "Fecha de vencimiento obligatoria"),

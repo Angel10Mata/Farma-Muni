@@ -12,6 +12,13 @@ import { ComercialCompra, Proveedor } from "./lib/zod";
 import { fmtQ } from "@/lib/utils";
 import { verificarCodigoBarrasEnCompra } from "./lib/actions";
 import { NuevoComercialCompraModal } from "./modals/NuevoComercialCompraModal";
+import {
+  etiquetaLaboratorioComercial,
+  laboratoriosParaSeleccionComercial,
+  ordenarLaboratoriosProveedorPrimero,
+} from "@/components/(base)/inventario/lib/helpers";
+import { useLaboratoriosInventario } from "@/components/(base)/inventario/lib/hooks";
+import { CrearLaboratorio } from "@/components/(base)/inventario/forms/CrearLaboratorio";
 
 interface ComprasProductSectionProps {
   comerciales: ComercialCompra[];
@@ -29,7 +36,14 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
   const prodDropdownRef = useRef<HTMLDivElement>(null);
   const codigoBarrasRef = useRef<HTMLInputElement>(null);
   const [modalComercialOpen, setModalComercialOpen] = useState(false);
+  const [modalLabOpen, setModalLabOpen] = useState(false);
   const [verificandoBarras, setVerificandoBarras] = useState(false);
+  const { data: laboratorios = [] } = useLaboratoriosInventario();
+  const proveedorCompra = context.proveedorSeleccionado;
+  const laboratoriosOrdenados = useMemo(() => {
+    const base = laboratoriosParaSeleccionComercial(laboratorios);
+    return ordenarLaboratoriosProveedorPrimero(base, proveedorCompra?.id);
+  }, [laboratorios, proveedorCompra?.id]);
 
   const catalogoComerciales = useMemo(
     () => [...comerciales, ...context.comercialesExtra],
@@ -69,6 +83,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
     context.setActualizarPrecioVenta(false);
     context.setCostoSeleccionado(Math.round(c.precio_venta * 0.65 * 100) / 100);
     context.setMostrarSugerenciasComercial(false);
+    context.setLaboratorioAsignarCompraId("");
     autoSeleccionarProveedor(c);
     requestAnimationFrame(() => codigoBarrasRef.current?.focus());
   };
@@ -138,8 +153,15 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
       toast.warn("El costo unitario es mayor que el precio de venta del comercial.");
     }
 
+    const com = context.comercialSeleccionado;
+    const asignarLab =
+      !com.laboratorio_id && context.laboratorioAsignarCompraId
+        ? context.laboratorioAsignarCompraId
+        : undefined;
+
     const agregado = context.agregarAlCarrito({
-      comercial: context.comercialSeleccionado,
+      comercial: com,
+      asignar_laboratorio_id: asignarLab,
       codigo_barras: codigo,
       numero_lote: numeroLote,
       fecha_vencimiento: fechaVenc,
@@ -298,8 +320,36 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             <div>
               <p className="font-bold text-slate-500 uppercase text-[10px]">Laboratorio</p>
               <p className="text-slate-900 dark:text-white">
-                {context.comercialSeleccionado.laboratorio_nombre}
+                {etiquetaLaboratorioComercial(context.comercialSeleccionado.laboratorio_nombre)}
               </p>
+              {!context.comercialSeleccionado.laboratorio_id ? (
+                <div className="mt-2 space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-slate-500">
+                    Asignar laboratorio (opcional)
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={context.laboratorioAsignarCompraId}
+                      onChange={(e) => context.setLaboratorioAsignarCompraId(e.target.value)}
+                      className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+                    >
+                      <option value="">Sin asignar</option>
+                      {laboratoriosOrdenados.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="text-[10px] font-bold text-[#2c5f9b] underline"
+                      onClick={() => setModalLabOpen(true)}
+                    >
+                      Nuevo
+                    </button>
+                  </div>
+                </div>
+              ) : null}
             </div>
             <div>
               <p className="font-bold text-slate-500 uppercase text-[10px]">Presentación</p>
@@ -531,6 +581,14 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           seleccionarComercial(c);
         }}
       />
+      {modalLabOpen ? (
+        <CrearLaboratorio
+          isOpen
+          proveedorIdPreseleccionado={proveedorCompra?.id ?? null}
+          onClose={() => setModalLabOpen(false)}
+          onSuccess={() => setModalLabOpen(false)}
+        />
+      ) : null}
     </>
   );
 }

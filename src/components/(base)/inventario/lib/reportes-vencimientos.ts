@@ -10,7 +10,11 @@ import {
   type CategoriaVencimientoLote,
 } from "@/lib/vencimientos-gt";
 import { fmtNum, fmtQ } from "@/lib/utils";
-import { tituloProductoFarmacia, type CamposTituloProducto } from "./helpers";
+import {
+  etiquetaLaboratorioComercial,
+  tituloProductoFarmacia,
+  type CamposTituloProducto,
+} from "./helpers";
 
 export type FilaReporteVencimientoLote = CamposTituloProducto & {
   codigo?: string;
@@ -53,7 +57,7 @@ export function filasReporteDesdeInventario(
         presentacion: p.presentacion,
         codigo: p.codigo,
         numero_lote: p.numero_lote,
-        laboratorio: p.laboratorio,
+        laboratorio: etiquetaLaboratorioComercial(p.laboratorio),
         proveedor_nombre: p.proveedor_nombre,
         existencia,
         fecha_vencimiento: p.fecha_vencimiento,
@@ -110,7 +114,7 @@ export function descargarReporteLotesVencidosPorVencer(filas: FilaReporteVencimi
         return [
           tituloProductoFarmacia(f),
           f.numero_lote || "—",
-          f.laboratorio || "—",
+          etiquetaLaboratorioComercial(f.laboratorio),
           f.proveedor_nombre || "—",
           fmtNum(f.existencia),
           f.fecha_vencimiento

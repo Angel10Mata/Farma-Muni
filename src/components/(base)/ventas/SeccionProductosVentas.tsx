@@ -9,6 +9,7 @@ import { ComercialVenta, GenericoVenta, Cliente } from "./lib/zod";
 import { useVentas } from "./ContextoVentas";
 import { toast } from "@/components/ui/general-modal";
 import { buscarLotePorCodigoBarras } from "./lib/actions";
+import { etiquetaLaboratorioComercial } from "@/components/(base)/inventario/lib/helpers";
 import {
   comercialesDelGenerico,
   etiquetaPrecioComercial,
@@ -351,7 +352,8 @@ export function SeccionProductosVentas({
                   >
                     <p className="font-bold text-slate-900 dark:text-white">{c.nombre_comercial}</p>
                     <p className="text-[10px] text-slate-500">
-                      {c.laboratorio_nombre} · {c.presentacion} · {etiquetaPrecioComercial(c)} · Stock:{" "}
+                      {etiquetaLaboratorioComercial(c.laboratorio_nombre)} · {c.presentacion} ·{" "}
+                      {etiquetaPrecioComercial(c)} · Stock:{" "}
                       {c.stock_vendible}
                     </p>
                   </button>

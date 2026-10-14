@@ -87,10 +87,6 @@ export function NuevoComercialCompraModal({
       toast.warn("Selecciona un genérico.");
       return;
     }
-    if (!laboratorioId) {
-      toast.warn("Selecciona un laboratorio. Si falta uno, créalo en el detalle del proveedor.");
-      return;
-    }
     if (!nombreComercial.trim() || !presentacion.trim()) {
       toast.warn("Nombre comercial y presentación son obligatorios.");
       return;
@@ -105,7 +101,7 @@ export function NuevoComercialCompraModal({
       res = await guardarComercial({
         data: {
           generico_id: genericoId,
-          laboratorio_id: laboratorioId,
+          laboratorio_id: laboratorioId ? laboratorioId : null,
           nombre_comercial: nombreComercial.trim(),
           presentacion: presentacion.trim(),
           precio_venta: precio,
@@ -119,7 +115,7 @@ export function NuevoComercialCompraModal({
     }
 
     const id = res.id;
-    const labNombre = laboratorioSeleccionado?.nombre ?? "";
+    const labNombre = laboratorioId ? (laboratorioSeleccionado?.nombre ?? null) : null;
     if (!id || !genericoSeleccionado || !catalogoSeleccionado) {
       toast.success("Producto comercial creado.");
       reset();
@@ -139,7 +135,7 @@ export function NuevoComercialCompraModal({
       generico_nombre: genericoSeleccionado.generico_nombre,
       concentracion: genericoSeleccionado.concentracion,
       forma_farmaceutica: String(genericoSeleccionado.forma_farmaceutica),
-      laboratorio_id: laboratorioId,
+      laboratorio_id: laboratorioId || null,
       laboratorio_nombre: labNombre,
       stock_vendible: 0,
       ultimo_proveedor_id: null,
@@ -210,7 +206,7 @@ export function NuevoComercialCompraModal({
             value={laboratorioId}
             onChange={(e) => setLaboratorioId(e.target.value)}
           >
-            <option value="">Seleccionar…</option>
+            <option value="">Sin asignar</option>
             {laboratoriosOrdenados.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.proveedor_id === proveedorCompra?.id ? "★ " : ""}

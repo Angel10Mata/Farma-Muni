@@ -9,7 +9,7 @@ import {
   esLoteActivoConExistencia,
   type CategoriaVencimientoLote,
 } from "@/lib/vencimientos-gt";
-import { tituloProductoFarmacia } from "./helpers";
+import { etiquetaLaboratorioComercial, tituloProductoFarmacia } from "./helpers";
 import type { FilaReporteVencimientoLote } from "./reportes-vencimientos";
 
 function filasPorCategoria(
@@ -59,7 +59,7 @@ export async function descargarReporteVencimientosLotesExcel(
       ws.addRow([
         tituloProductoFarmacia(f),
         f.numero_lote || "—",
-        f.laboratorio || "—",
+        etiquetaLaboratorioComercial(f.laboratorio),
         f.proveedor_nombre || "—",
         f.existencia,
         f.fecha_vencimiento

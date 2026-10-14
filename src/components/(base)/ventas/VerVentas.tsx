@@ -247,7 +247,7 @@ function VerVentasInner({
             laboratorio_nombre:
               (Array.isArray(d.inv_productos?.inv_laboratorios)
                 ? d.inv_productos?.inv_laboratorios[0]?.nombre
-                : d.inv_productos?.inv_laboratorios?.nombre) || "",
+                : d.inv_productos?.inv_laboratorios?.nombre) || null,
             precio_venta: d.precio_aplicado,
             generico_id: d.inv_productos?.generico_id || "",
             stock_vendible: d.cantidad,

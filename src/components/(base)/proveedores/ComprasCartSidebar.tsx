@@ -12,6 +12,7 @@ import { useCompras } from "./ComprasContext";
 import { Proveedor } from "./lib/zod";
 import { fmtQ, getSwalThemeOpts } from "@/lib/utils";
 import { useCrearCompra } from "./lib/hooks";
+import { useAsignarLaboratorioComercial } from "@/components/(base)/inventario/lib/hooks";
 import type { ItemCompraInput } from "./lib/zod";
 import { ModalFechaInput, ModalField, ModalInput, ModalLabel } from "@/components/ui/general-modal";
 
@@ -26,6 +27,7 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
   const context = useCompras();
   const provDropdownRef = useRef<HTMLDivElement>(null);
   const { mutateAsync: crearCompraAsync } = useCrearCompra();
+  const { mutateAsync: asignarLaboratorioAsync } = useAsignarLaboratorioComercial();
 
   const totalCarrito = context.carrito.reduce((sum, i) => sum + i.subtotal, 0);
 
@@ -83,6 +85,16 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
 
     context.setIsProcesando(true);
     try {
+      const asignaciones = new Map<string, string>();
+      for (const item of context.carrito) {
+        if (item.asignar_laboratorio_id && !item.comercial.laboratorio_id) {
+          asignaciones.set(item.comercial.id, item.asignar_laboratorio_id);
+        }
+      }
+      for (const [productoId, laboratorioId] of asignaciones) {
+        await asignarLaboratorioAsync({ productoId, laboratorioId });
+      }
+
       const itemsFormatted: ItemCompraInput[] = context.carrito.map((i) => ({
         producto_id: i.comercial.id,
         codigo_barras: i.codigo_barras,

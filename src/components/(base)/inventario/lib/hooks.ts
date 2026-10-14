@@ -36,6 +36,7 @@ import {
 } from "./actions";
 import {
   guardarCatalogo,
+  asignarLaboratorioComercial,
   guardarComercial,
   guardarGenerico,
   crearProveedorYLaboratorio,
@@ -67,6 +68,7 @@ import {
 } from "./zod";
 import {
   claveProductoUnico,
+  FILTRO_LABORATORIO_SIN_ASIGNAR,
   MIN_CARACTERES_BUSQUEDA_PRODUCTO,
   normalizarTextoBusquedaProducto,
 } from "./helpers";
@@ -260,7 +262,9 @@ export function useComercialesInventario(
         if (filtros?.generico_id) {
           rows = rows.filter((c) => c.generico_id === filtros.generico_id);
         }
-        if (filtros?.laboratorio_id) {
+        if (filtros?.laboratorio_id === FILTRO_LABORATORIO_SIN_ASIGNAR) {
+          rows = rows.filter((c) => c.laboratorio_id == null);
+        } else if (filtros?.laboratorio_id) {
           rows = rows.filter((c) => c.laboratorio_id === filtros.laboratorio_id);
         }
         if (filtros?.producto_id) {
@@ -393,6 +397,31 @@ export function useCrearProveedorYLaboratorio() {
     mutationFn: async (input: Parameters<typeof crearProveedorYLaboratorio>[0]) => {
       assertWritableDemo(isDemoMode);
       const res = await crearProveedorYLaboratorio(input);
+      if (!("success" in res) || !res.success) {
+        const code = "code" in res ? res.code : "ERROR";
+        const err = new Error(code) as Error & { detail?: string };
+        if ("detail" in res && res.detail) err.detail = res.detail;
+        throw err;
+      }
+      return res;
+    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
+  });
+}
+
+export function useAsignarLaboratorioComercial() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      productoId,
+      laboratorioId,
+    }: {
+      productoId: string;
+      laboratorioId: string | null;
+    }) => {
+      assertWritableDemo(isDemoMode);
+      const res = await asignarLaboratorioComercial(productoId, laboratorioId);
       if (!("success" in res) || !res.success) {
         const code = "code" in res ? res.code : "ERROR";
         const err = new Error(code) as Error & { detail?: string };
