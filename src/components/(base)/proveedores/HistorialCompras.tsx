@@ -671,10 +671,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                           <td className="px-5 py-3.5 font-bold">
                             {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
                           </td>
-                          <td className="px-5 py-3.5 font-mono text-xs">
+                          <td className="px-5 py-3.5 font-mono">
                             {c.numero_factura?.trim() || "—"}
                           </td>
-                          <td className="px-5 py-3.5 whitespace-nowrap text-xs">
+                          <td className="px-5 py-3.5 whitespace-nowrap">
                             {formatearFechaCompraGt(c.fecha_vencimiento_pago)}
                           </td>
                           <td className="px-5 py-3.5 whitespace-nowrap">

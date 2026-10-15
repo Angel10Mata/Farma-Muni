@@ -45,7 +45,7 @@ export function modulePillSwitchTabBtnClass(
 
 export function moduleFilterTabUnderlineClass(active: boolean) {
   return cn(
-    "shrink-0 px-3 sm:px-4 py-2 text-xs font-black uppercase tracking-wider text-center border-b-2 cursor-pointer whitespace-nowrap text-[#8DA78E] dark:text-[#A3BEB0]",
+    "shrink-0 px-3 sm:px-4 py-2 text-sm font-black uppercase tracking-wider text-center border-b-2 cursor-pointer whitespace-nowrap text-[#8DA78E] dark:text-[#A3BEB0]",
     active
       ? "border-[#8DA78E] dark:border-[#A3BEB0]"
       : "border-transparent opacity-75 hover:opacity-100",

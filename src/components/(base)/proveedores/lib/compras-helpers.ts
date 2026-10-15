@@ -1,5 +1,35 @@
 import type { Compra } from "./zod";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
+import {
+  etiquetaFormaFarmaceutica,
+  normalizarTextoBusquedaProducto,
+} from "@/components/(base)/inventario/lib/helpers";
+
+export type LineaGenericaCompraCampos = {
+  catalogo_nombre: string;
+  concentracion: string;
+  forma_farmaceutica: string;
+};
+
+function fragmentoYaEnLinea(linea: string, fragmento: string): boolean {
+  const f = fragmento.trim();
+  if (!f) return true;
+  const t = normalizarTextoBusquedaProducto(linea);
+  const n = normalizarTextoBusquedaProducto(f);
+  return t.includes(n);
+}
+
+export function lineaGenericaCompraDisplay(c: LineaGenericaCompraCampos): string {
+  const catalogo = c.catalogo_nombre.trim();
+  const conc = c.concentracion.trim();
+  const forma = etiquetaFormaFarmaceutica(c.forma_farmaceutica) || c.forma_farmaceutica.trim();
+  const base =
+    conc && !fragmentoYaEnLinea(catalogo, conc) ? `${catalogo} ${conc}`.trim() : catalogo;
+  if (forma && !fragmentoYaEnLinea(base, forma)) {
+    return `${base} · ${forma}`;
+  }
+  return base;
+}
 
 export const FACTURA_DUPLICATE_MSG =
   "Esa factura ya fue registrada para este proveedor.";

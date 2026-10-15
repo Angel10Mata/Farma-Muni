@@ -77,10 +77,10 @@ export const moduleTableDesktopWrapListClass = cn(
 
 export const moduleTableDesktopScrollClass = "overflow-x-auto";
 
-export const moduleTableClass = "w-full text-left text-xs border-collapse";
+export const moduleTableClass = "w-full text-left text-sm border-collapse";
 
 export const moduleTableHeadRowClass =
-  "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700";
+  "bg-zinc-50 dark:bg-zinc-800/50 text-zinc-500 text-sm font-black uppercase tracking-wider border-b border-zinc-200 dark:border-zinc-700";
 
 export const moduleTableHeadCellClass = "px-5 py-3.5";
 
@@ -93,7 +93,7 @@ export const moduleTableRowClass =
 export const moduleTableCellClass = "px-5 py-3.5";
 
 export const moduleTableEmptyCellClass =
-  "text-center py-14 text-zinc-400 font-bold";
+  "text-center py-14 text-sm text-zinc-400 font-bold";
 
 export const moduleTableFooterClass =
   "flex flex-col sm:flex-row items-center justify-between gap-4 pt-4 mt-2 border-t border-zinc-200 dark:border-zinc-800 text-zinc-600 dark:text-zinc-400";

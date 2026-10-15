@@ -39,22 +39,31 @@ export function tituloProductoFarmacia(p: CamposTituloProducto): string {
   const pres = (p.presentacion || "").trim();
 
   if (!pres && nombreGenerico && conc) {
-    const lineaCatalogoConc = `${nombreGenerico} ${conc}`.trim();
+    const lineaConConcDuplicada = `${nombreGenerico} ${conc}`.trim();
+    const tituloBase = fragmentoYaEnTitulo(nombreGenerico, conc)
+      ? nombreGenerico
+      : lineaConConcDuplicada;
+    const conForma = (base: string) => {
+      if (forma && !fragmentoYaEnTitulo(base, forma)) {
+        return `${base} · ${forma}`;
+      }
+      return base;
+    };
     if (
       nombre &&
       normalizarTextoBusquedaProducto(nombre) ===
-        normalizarTextoBusquedaProducto(lineaCatalogoConc)
+        normalizarTextoBusquedaProducto(lineaConConcDuplicada)
     ) {
-      return lineaCatalogoConc;
+      return conForma(tituloBase);
     }
     if (
       nombre &&
       fragmentoYaEnTitulo(nombre, conc) &&
       fragmentoYaEnTitulo(nombre, nombreGenerico)
     ) {
-      return nombre;
+      return conForma(nombre);
     }
-    return lineaCatalogoConc;
+    return conForma(tituloBase);
   }
 
   const generico = nombreGenerico || nombre || "—";

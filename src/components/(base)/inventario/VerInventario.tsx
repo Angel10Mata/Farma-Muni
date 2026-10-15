@@ -43,6 +43,7 @@ import {
   modulePillSwitchShellClass,
 } from "@/components/ui/module-pill-switch";
 import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
+import { moduleFilterTabUnderlineClass } from "@/components/ui/module-pill-switch";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useLotes,
@@ -192,7 +193,7 @@ function ProductoFarmaciaTitulo({
   const lineaGenerica = lineaGenericaProductoFarmacia(producto);
   const estiloTitulo = cn("font-semibold leading-snug", tituloClassName);
   const estiloSecundario = cn(
-    "mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400",
+    "mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400",
     comercialClassName,
   );
   const estiloPrincipal = cn("font-semibold leading-snug", tituloClassName);
@@ -443,6 +444,9 @@ function ProductoAccionesMenu({
   );
 }
 
+const inventarioTableCellTextoMultilineaClass =
+  "block whitespace-normal break-words leading-snug line-clamp-2";
+
 // Tarjeta de producto
 function ProductoCard({
   producto,
@@ -543,17 +547,32 @@ function ProductoCard({
               {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
             </p>
           )}
-          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase truncate">
-            Lab: {etiquetaLaboratorioComercial(producto.laboratorio)}
+          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">
+            <span className="block text-slate-500 dark:text-slate-500 normal-case font-semibold">
+              Lab
+            </span>
+            <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
+              {etiquetaLaboratorioComercial(producto.laboratorio)}
+            </span>
           </p>
           {producto.laboratorio_proveedor_nombre ? (
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase truncate">
-              Prov. lab: {producto.laboratorio_proveedor_nombre}
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">
+              <span className="block text-slate-500 dark:text-slate-500 normal-case font-semibold">
+                Prov. lab
+              </span>
+              <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
+                {producto.laboratorio_proveedor_nombre}
+              </span>
             </p>
           ) : null}
           {producto.inv_proveedores?.nombre ? (
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase truncate">
-              Prov: {producto.inv_proveedores.nombre}
+            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">
+              <span className="block text-slate-500 dark:text-slate-500 normal-case font-semibold">
+                Prov
+              </span>
+              <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
+                {producto.inv_proveedores.nombre}
+              </span>
             </p>
           ) : null}
           {producto.ubicacion && producto.ubicacion !== "Sin asignar" && (
@@ -1359,18 +1378,11 @@ function LaboratorioDetalle({
   );
 }
 
-function inventarioTabUnderlineClass(active: boolean) {
-  return cn(
-    "shrink-0 px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-center border-b-2 cursor-pointer whitespace-nowrap text-[#8DA78E] dark:text-[#A3BEB0]",
-    active ? "border-[#8DA78E] dark:border-[#A3BEB0]" : "border-transparent opacity-75 hover:opacity-100",
-  );
-}
-
-const inventarioLotesHeadCellClass =
-  "px-3 py-2.5 text-[10px] whitespace-nowrap tracking-wide";
+const inventarioLotesHeadCellClass = "px-3 py-2.5 whitespace-nowrap tracking-wide";
 
 const inventarioTableHeadCellClass = cn(moduleTableHeadCellClass, "text-center");
 const inventarioTableBodyCellCenterClass = "px-5 py-3.5 text-center align-middle";
+const inventarioTableBodyCellLeftClass = "px-5 py-3.5 text-left align-middle";
 
 const VencimientoFilterSelect = ({
   selectedCategoria,
@@ -2489,7 +2501,7 @@ export function VerInventario() {
                 <button
                   type="button"
                   onClick={() => resetFiltrosAlerta(filtroStockBajo ? null : "stock")}
-                  className={inventarioTabUnderlineClass(filtroStockBajo)}
+                  className={moduleFilterTabUnderlineClass(filtroStockBajo)}
                 >
                   Stock bajo
                 </button>
@@ -2684,23 +2696,32 @@ export function VerInventario() {
                       className={cn(
                         inventarioTableHeadCellClass,
                         vistaInventario === "lotes" && inventarioLotesHeadCellClass,
+                        vistaInventario === "lotes" && "text-left",
                       )}
                     >
                       Producto
                     </th>
                     {vistaInventario === "laboratorio" ? (
-                      <th className={inventarioTableHeadCellClass}>Proveedor del lab</th>
+                      <th className={cn(inventarioTableHeadCellClass, "text-left")}>Proveedor del lab</th>
                     ) : null}
                     {vistaInventario === "lotes" ? (
                       <>
                         <th
-                          className={cn(inventarioTableHeadCellClass, inventarioLotesHeadCellClass)}
+                          className={cn(
+                            inventarioTableHeadCellClass,
+                            inventarioLotesHeadCellClass,
+                            "text-left",
+                          )}
                           title="Laboratorio"
                         >
                           Lab.
                         </th>
                         <th
-                          className={cn(inventarioTableHeadCellClass, inventarioLotesHeadCellClass)}
+                          className={cn(
+                            inventarioTableHeadCellClass,
+                            inventarioLotesHeadCellClass,
+                            "text-left",
+                          )}
                           title="Proveedor"
                         >
                           Prov.
@@ -2779,7 +2800,7 @@ export function VerInventario() {
                           <tr key={`separator-${p.id}`} className="bg-[#C1D1C5]/20 dark:bg-zinc-800/40 pointer-events-none">
                             <td
                               colSpan={inventarioTableColumnCount}
-                              className="px-5 py-2 text-center text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]"
+                              className="px-5 py-2 text-center text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]"
                             >
                               — Stock Normal —
                             </td>
@@ -2835,30 +2856,36 @@ export function VerInventario() {
                           {vistaInventario === "laboratorio" ? (
                             <td
                               className={cn(
-                                inventarioTableBodyCellCenterClass,
-                                "text-sm text-slate-600 dark:text-slate-300 max-w-[140px] truncate",
+                                inventarioTableBodyCellLeftClass,
+                                "text-sm text-slate-600 dark:text-slate-300 max-w-[140px]",
                               )}
                             >
-                              {p.laboratorio_proveedor_nombre || "—"}
+                              <span className={inventarioTableCellTextoMultilineaClass}>
+                                {p.laboratorio_proveedor_nombre || "—"}
+                              </span>
                             </td>
                           ) : null}
                           {vistaInventario === "lotes" ? (
                             <>
                               <td
                                 className={cn(
-                                  inventarioTableBodyCellCenterClass,
-                                  "text-sm text-slate-600 dark:text-slate-300 max-w-[120px] truncate",
+                                  inventarioTableBodyCellLeftClass,
+                                  "text-sm text-slate-600 dark:text-slate-300 max-w-[120px]",
                                 )}
                               >
-                                {etiquetaLaboratorioComercial(p.laboratorio)}
+                                <span className={inventarioTableCellTextoMultilineaClass}>
+                                  {etiquetaLaboratorioComercial(p.laboratorio)}
+                                </span>
                               </td>
                               <td
                                 className={cn(
-                                  inventarioTableBodyCellCenterClass,
-                                  "text-sm font-semibold text-slate-500 dark:text-slate-400 max-w-[130px] truncate",
+                                  inventarioTableBodyCellLeftClass,
+                                  "text-sm font-semibold text-slate-500 dark:text-slate-400 max-w-[130px]",
                                 )}
                               >
-                                {p.inv_proveedores?.nombre || "—"}
+                                <span className={inventarioTableCellTextoMultilineaClass}>
+                                  {p.inv_proveedores?.nombre || "—"}
+                                </span>
                               </td>
                               <td
                                 className={cn(
@@ -2896,7 +2923,7 @@ export function VerInventario() {
                                     <span className="text-slate-400">—</span>
                                   )}
                                   {p.numero_lote ? (
-                                    <span className="text-[10px] text-slate-500">Lote: {p.numero_lote}</span>
+                                    <span className="text-xs text-slate-500">Lote: {p.numero_lote}</span>
                                   ) : null}
                                 </div>
                               </td>
@@ -2915,7 +2942,7 @@ export function VerInventario() {
                                 {fmtNum(p.stock_actual)}
                               </span>
                               {resaltarStock ? (
-                                <span className="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 text-[9px] font-bold uppercase tracking-wide">
+                                <span className="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 text-xs font-bold uppercase tracking-wide">
                                   Stock Bajo
                                 </span>
                               ) : null}
@@ -2924,7 +2951,7 @@ export function VerInventario() {
                           <td className={inventarioTableBodyCellCenterClass}>
                             <span
                               className={cn(
-                                "inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                "inline-flex px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
                                 p.activo
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                                   : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",

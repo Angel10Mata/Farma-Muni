@@ -155,7 +155,7 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                           vencido && "bg-red-50/60 dark:bg-red-950/20",
                         )}
                       >
-                        <td className="px-5 py-3.5 font-mono text-xs font-bold text-slate-900 dark:text-white whitespace-nowrap">
+                        <td className="px-5 py-3.5 font-mono font-bold text-slate-900 dark:text-white whitespace-nowrap">
                           {c.numero_factura?.trim() || `#${obtenerCodigoCompra(c.id)}`}
                         </td>
                         <td className="px-5 py-3.5 text-slate-500 whitespace-nowrap">
@@ -164,7 +164,7 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                         <td className="px-5 py-3.5 font-bold">
                           {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
                         </td>
-                        <td className="px-5 py-3.5 whitespace-nowrap text-xs">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           {formatearFechaCompraGt(c.fecha_vencimiento_pago)}
                         </td>
                         <td className="px-5 py-3.5 text-right font-black text-slate-600 dark:text-slate-400 whitespace-nowrap">

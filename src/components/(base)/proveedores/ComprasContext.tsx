@@ -3,6 +3,18 @@
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { ItemCarritoCompra, Proveedor, ComercialCompra } from "./lib/zod";
 
+export type NuevoComercialCompraPreset = {
+  generico_id: string;
+  catalogo_id: string;
+  catalogo_nombre: string;
+  generico_nombre: string;
+  concentracion: string;
+  forma_farmaceutica: string;
+  nombreComercialInicial: string;
+  presentacionInicial: string;
+  precioVentaInicial: number;
+};
+
 interface ComprasContextProps {
   activeTab: "compras" | "historial" | "proveedores" | "cuentas_por_pagar";
   setActiveTab: (tab: "compras" | "historial" | "proveedores" | "cuentas_por_pagar") => void;
@@ -37,6 +49,8 @@ interface ComprasContextProps {
   setMostrarSugerenciasComercial: (val: boolean) => void;
   comercialesExtra: ComercialCompra[];
   setComercialesExtra: React.Dispatch<React.SetStateAction<ComercialCompra[]>>;
+  nuevoComercialPreset: NuevoComercialCompraPreset | null;
+  setNuevoComercialPreset: React.Dispatch<React.SetStateAction<NuevoComercialCompraPreset | null>>;
 
   cantSeleccionada: number | "";
   setCantSeleccionada: (val: number | "") => void;
@@ -95,6 +109,9 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
   const [comercialBusqueda, setComercialBusqueda] = useState("");
   const [mostrarSugerenciasComercial, setMostrarSugerenciasComercial] = useState(false);
   const [comercialesExtra, setComercialesExtra] = useState<ComercialCompra[]>([]);
+  const [nuevoComercialPreset, setNuevoComercialPreset] = useState<NuevoComercialCompraPreset | null>(
+    null,
+  );
 
   const [cantSeleccionada, setCantSeleccionada] = useState<number | "">(1);
   const [costoSeleccionado, setCostoSeleccionado] = useState<number | "">("");
@@ -179,6 +196,8 @@ export function ComprasProvider({ children }: { children: ReactNode }) {
         setMostrarSugerenciasComercial,
         comercialesExtra,
         setComercialesExtra,
+        nuevoComercialPreset,
+        setNuevoComercialPreset,
         cantSeleccionada,
         setCantSeleccionada,
         costoSeleccionado,
