@@ -98,16 +98,13 @@ import {
   filasReporteDesdeInventario,
 } from "./lib/reportes-vencimientos";
 import { descargarReporteVencimientosLotesExcel } from "./lib/export-reporte-vencimientos-xlsx";
-import { InsigniaVencimientoLote } from "./InsigniaVencimientoLote";
 import {
   CATEGORIAS_VENCIMIENTO_LOTE,
   ETIQUETAS_CATEGORIA_VENCIMIENTO,
   categoriaVencimientoLote,
-  contarLotesPorCategoriaVencimiento,
   esLoteActivoConExistencia,
   parseCategoriaVencimientoQuery,
   type CategoriaVencimientoLote,
-  type ConteoVencimientoLotes,
 } from "@/lib/vencimientos-gt";
 import { exportarPDF } from "./utils";
 import {
@@ -461,6 +458,7 @@ function ProductoCard({
   destacarStock,
   destacarProximo,
   destacarVencido,
+  destacarEnfoque,
   mostrarEditar = true,
 }: {
   producto: Producto;
@@ -472,6 +470,7 @@ function ProductoCard({
   destacarStock?: boolean;
   destacarProximo?: boolean;
   destacarVencido?: boolean;
+  destacarEnfoque?: boolean;
   mostrarEditar?: boolean;
 }) {
   const isLowStock = producto.stock_actual <= producto.stock_minimo;
@@ -490,13 +489,15 @@ function ProductoCard({
       onClick={onClick}
       className={cn(
         "group relative border rounded-xl p-2.5 cursor-pointer hover:border-[#8DA78E] dark:hover:border-[#A3BEB0]/60 flex gap-3 items-center min-h-[96px]",
-        destacarVencido && isVencido
-          ? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-400 dark:border-rose-800/50"
-          : destacarProximo && isExpiringSoon
-            ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30"
-            : destacarStock && isLowStock
-              ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/30"
-              : "bg-[#F5F5F1] dark:bg-[#525D53]/10 border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20",
+        destacarEnfoque
+          ? "bg-[#8DA78E]/15 border-[#8DA78E] ring-2 ring-[#8DA78E]/35 dark:bg-[#8DA78E]/20 dark:border-[#A3BEB0] dark:ring-[#A3BEB0]/30"
+          : destacarVencido && isVencido
+            ? "bg-rose-50/60 dark:bg-rose-950/30 border-rose-400 dark:border-rose-800/50"
+            : destacarProximo && isExpiringSoon
+              ? "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/30"
+              : destacarStock && isLowStock
+                ? "bg-rose-50/50 dark:bg-rose-950/20 border-rose-300 dark:border-rose-800/30"
+                : "bg-[#F5F5F1] dark:bg-[#525D53]/10 border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20",
       )}
     >
       {/* Thumbnail Left */}
@@ -1226,13 +1227,11 @@ function LaboratorioDetalle({
   comerciales,
   proveedorNombre,
   onClose,
-  onEditProducto,
 }: {
   laboratorio: Producto;
   comerciales: ProductoComercial[];
   proveedorNombre: string | null;
   onClose: () => void;
-  onEditProducto: (productoId: string) => void;
 }) {
   const detalleLabelClass =
     "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
@@ -1352,14 +1351,6 @@ function LaboratorioDetalle({
                       >
                         {c.activo ? "Activo" : "Inactivo"}
                       </span>
-                      <SigetActionButton
-                        label="Editar"
-                        accentColor={sigetAccent.editar}
-                        morphFrom={PencilNode}
-                        morphTo={SquarePenNode}
-                        onClick={() => onEditProducto(c.producto_id)}
-                        className="w-auto shrink-0"
-                      />
                     </div>
                   </li>
                 );
@@ -1371,6 +1362,149 @@ function LaboratorioDetalle({
     </motion.div>
   );
 }
+
+function inventarioTabUnderlineClass(active: boolean) {
+  return cn(
+    "shrink-0 px-2 py-1.5 text-[10px] font-black uppercase tracking-wide text-center border-b-2 cursor-pointer whitespace-nowrap text-[#8DA78E] dark:text-[#A3BEB0]",
+    active ? "border-[#8DA78E] dark:border-[#A3BEB0]" : "border-transparent opacity-75 hover:opacity-100",
+  );
+}
+
+const inventarioLotesHeadCellClass =
+  "px-3 py-2.5 text-[10px] whitespace-nowrap tracking-wide";
+
+const inventarioTableHeadCellClass = cn(moduleTableHeadCellClass, "text-center");
+const inventarioTableBodyCellCenterClass = "px-5 py-3.5 text-center align-middle";
+
+const VencimientoFilterSelect = ({
+  selectedCategoria,
+  onSelectCategoria,
+}: {
+  selectedCategoria: CategoriaVencimientoLote | null;
+  onSelectCategoria: (cat: CategoriaVencimientoLote | null) => void;
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const etiquetaSeleccion = selectedCategoria
+    ? ETIQUETAS_CATEGORIA_VENCIMIENTO[selectedCategoria]
+    : "Todas las categorías";
+
+  return (
+    <div className="relative shrink-0" ref={dropdownRef}>
+      <button
+        type="button"
+        aria-label="Vencimiento por lote"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((open) => !open)}
+        className={cn(
+          "flex h-[44px] min-w-[12rem] max-w-[min(100%,16rem)] items-center gap-2 rounded-xl border px-3 py-2.5 text-[11px] font-bold shadow-xs transition-all select-none md:text-xs",
+          selectedCategoria
+            ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:border-[#A3BEB0]/40 dark:bg-[#8DA78E]/20 dark:text-[#A3BEB0]"
+            : "border-slate-200 bg-white text-slate-700 hover:border-[#8DA78E] dark:border-slate-700/60 dark:bg-zinc-900/60 dark:text-slate-300 dark:hover:border-[#A3BEB0]/50",
+        )}
+      >
+        <CalendarX className="size-3.5 shrink-0 text-[#8DA78E] dark:text-[#A3BEB0]" />
+        <span className="min-w-0 flex-1 truncate text-left">{etiquetaSeleccion}</span>
+        {selectedCategoria ? (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelectCategoria(null);
+              setIsOpen(false);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                e.stopPropagation();
+                onSelectCategoria(null);
+                setIsOpen(false);
+              }
+            }}
+            className="shrink-0 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-red-500/15 hover:text-red-500"
+            title="Limpiar filtro"
+          >
+            <X className="size-3" />
+          </span>
+        ) : (
+          <ChevronDown
+            className={cn(
+              "size-3 shrink-0 text-slate-400 transition-transform duration-200",
+              isOpen && "rotate-180",
+            )}
+          />
+        )}
+      </button>
+
+      <AnimatePresence>
+        {isOpen ? (
+          <motion.div
+            initial={{ opacity: 0, y: -4, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.98 }}
+            transition={{ duration: 0.15 }}
+            className="absolute left-0 top-full z-[200] mt-2 w-64 max-w-[min(16rem,calc(100vw-2rem))] origin-top-left rounded-2xl border border-slate-200/80 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800/80 dark:bg-zinc-900"
+          >
+            <div className="mb-1 flex items-center justify-between border-b border-slate-100 px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-slate-800/80 dark:text-slate-500">
+              <span>Vencimiento</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                onSelectCategoria(null);
+                setIsOpen(false);
+              }}
+              className={cn(
+                "my-0.5 flex w-full cursor-pointer items-center justify-between rounded-xl px-3 py-2 text-xs font-bold transition-all",
+                selectedCategoria === null
+                  ? "bg-[#8DA78E] text-white shadow-sm"
+                  : "text-slate-700 hover:bg-[#8DA78E]/10 hover:text-[#8DA78E] dark:text-slate-200 dark:hover:bg-[#8DA78E]/15",
+              )}
+            >
+              <span className="flex items-center gap-2">
+                <CalendarX className="size-3.5 shrink-0 opacity-80" />
+                Todas las categorías
+              </span>
+            </button>
+            {CATEGORIAS_VENCIMIENTO_LOTE.map((cat) => {
+              const activa = selectedCategoria === cat;
+              return (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => {
+                    onSelectCategoria(cat);
+                    setIsOpen(false);
+                  }}
+                  className={cn(
+                    "my-0.5 flex w-full cursor-pointer items-center rounded-xl px-3 py-2 text-left text-xs font-bold transition-all",
+                    activa
+                      ? "bg-[#8DA78E] text-white shadow-sm"
+                      : "text-slate-700 hover:bg-[#8DA78E]/10 hover:text-[#8DA78E] dark:text-slate-200 dark:hover:bg-[#8DA78E]/15",
+                  )}
+                >
+                  {ETIQUETAS_CATEGORIA_VENCIMIENTO[cat]}
+                </button>
+              );
+            })}
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+};
 
 // Filtro por ubicación
 const LocationFilterDropdown = ({
@@ -1519,165 +1653,31 @@ const LocationFilterDropdown = ({
   );
 };
 
-const VencimientoFilterDropdown = ({
-  selectedCategoria,
-  onSelectCategoria,
-  conteo,
-}: {
-  selectedCategoria: CategoriaVencimientoLote | null;
-  onSelectCategoria: (cat: CategoriaVencimientoLote | null) => void;
-  conteo: ConteoVencimientoLotes;
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const totalLotes = useMemo(
-    () => CATEGORIAS_VENCIMIENTO_LOTE.reduce((sum, cat) => sum + conteo[cat], 0),
-    [conteo],
-  );
-
-  const labelSeleccion = selectedCategoria
-    ? ETIQUETAS_CATEGORIA_VENCIMIENTO[selectedCategoria]
-    : "Todas las categorías";
-
-  return (
-    <div className="relative shrink-0" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "px-3 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-2 cursor-pointer h-[44px] shadow-xs select-none",
-          selectedCategoria
-            ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:text-[#A3BEB0] dark:bg-[#8DA78E]/20"
-            : "border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-slate-700 dark:text-slate-300 hover:border-[#8DA78E]",
-        )}
-      >
-        <CalendarX className="size-3.5 text-[#8DA78E] shrink-0" />
-        <span className="truncate max-w-[140px] md:max-w-[170px]">{labelSeleccion}</span>
-
-        {selectedCategoria ? (
-          <span className="flex items-center gap-1.5 ml-1">
-            <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#8DA78E] text-white">
-              {conteo[selectedCategoria]}
-            </span>
-            <span
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelectCategoria(null);
-              }}
-              className="p-0.5 rounded-full hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors"
-              title="Limpiar filtro"
-            >
-              <X className="size-3" />
-            </span>
-          </span>
-        ) : (
-          <ChevronDown
-            className={cn(
-              "size-3 text-slate-400 shrink-0 transition-transform duration-200",
-              isOpen && "rotate-180",
-            )}
-          />
-        )}
-      </button>
-
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, y: -4, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -4, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className="absolute left-0 top-full z-[200] mt-2 w-64 max-w-[min(16rem,calc(100vw-2rem))] rounded-2xl border border-slate-200/80 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800/80 dark:bg-zinc-900 max-h-72 overflow-y-auto custom-scrollbar origin-top-left"
-          >
-            <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
-              <span>Vencimiento por lote</span>
-              <span className="text-[#8DA78E] font-bold">{totalLotes} lotes</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                onSelectCategoria(null);
-                setIsOpen(false);
-              }}
-              className={cn(
-                "w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer my-0.5",
-                selectedCategoria === null
-                  ? "bg-[#8DA78E] text-white shadow-sm"
-                  : "text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/10 hover:text-[#8DA78E]",
-              )}
-            >
-              <div className="flex items-center gap-2">
-                <CalendarX className="size-3.5 opacity-80 shrink-0" />
-                <span>Todas las categorías</span>
-              </div>
-              <span
-                className={cn(
-                  "px-2 py-0.5 text-[10px] rounded-full font-extrabold",
-                  selectedCategoria === null
-                    ? "bg-white/20 text-white"
-                    : "bg-slate-100 dark:bg-zinc-900 text-slate-500",
-                )}
-              >
-                {totalLotes}
-              </span>
-            </button>
-
-            {CATEGORIAS_VENCIMIENTO_LOTE.map((cat) => {
-              const isSelected = selectedCategoria === cat;
-              const count = conteo[cat];
-              return (
-                <button
-                  key={cat}
-                  type="button"
-                  onClick={() => {
-                    onSelectCategoria(cat);
-                    setIsOpen(false);
-                  }}
-                  className={cn(
-                    "w-full px-3 py-2 rounded-xl text-xs font-bold transition-all flex items-center justify-between cursor-pointer my-0.5 text-left",
-                    isSelected
-                      ? "bg-[#8DA78E] text-white shadow-sm"
-                      : "text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/10 hover:text-[#8DA78E]",
-                  )}
-                >
-                  <span className="truncate pr-2">{ETIQUETAS_CATEGORIA_VENCIMIENTO[cat]}</span>
-                  <span
-                    className={cn(
-                      "px-2 py-0.5 text-[10px] rounded-full font-extrabold shrink-0",
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : "bg-slate-100 dark:bg-zinc-900 text-slate-500",
-                    )}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+type InventarioResaltado = {
+  generico_id?: string;
+  producto_id?: string;
 };
 
-function inventarioTabUnderlineClass(active: boolean) {
-  return cn(
-    "flex-1 min-w-0 py-2 text-xs font-black uppercase tracking-wider text-center border-b-2 cursor-pointer text-[#8DA78E] dark:text-[#A3BEB0]",
-    active ? "border-[#8DA78E] dark:border-[#A3BEB0]" : "border-transparent opacity-75 hover:opacity-100",
-  );
+const JERARQUIA_SIN_FILTRO_URL: InventarioJerarquiaFiltros = {
+  catalogo_id: undefined,
+  generico_id: undefined,
+  laboratorio_id: undefined,
+  producto_id: undefined,
+};
+
+function filaCoincideInventarioResaltado(
+  fila: { id: string; generico_id?: string; producto_maestro_id?: string },
+  vista: VistaInventario,
+  resaltado: InventarioResaltado,
+): boolean {
+  if (vista === "comercial" && resaltado.generico_id) {
+    return fila.generico_id === resaltado.generico_id;
+  }
+  if (resaltado.producto_id) {
+    const pid = fila.producto_maestro_id ?? fila.id;
+    return pid === resaltado.producto_id;
+  }
+  return false;
 }
 
 // Pantalla de inventario
@@ -1696,6 +1696,11 @@ export function VerInventario() {
   const [filtroUbicacion, setFiltroUbicacion] = useState("");
   const [vistaInventario, setVistaInventario] = useState<VistaInventario>("catalogo");
   const [productoSeleccionado, setProductoSeleccionado] = useState<Producto | null>(null);
+  const [inventarioResaltado, setInventarioResaltado] = useState<InventarioResaltado | null>(
+    null,
+  );
+  const inventarioScrollFilaIdRef = useRef<string | null>(null);
+  const inventarioResaltadoPaginaRef = useRef<string | null>(null);
 
   const filtrosJerarquia: InventarioJerarquiaFiltros = {
     catalogo_id: searchParams.get("catalogo_id") || undefined,
@@ -1980,6 +1985,9 @@ export function VerInventario() {
     setOrDelete("generico_id", merged.generico_id);
     setOrDelete("laboratorio_id", merged.laboratorio_id);
     setOrDelete("producto_id", merged.producto_id);
+    if (vista !== "lotes") {
+      params.delete("vencimiento");
+    }
     setVistaInventario(vista);
     setProductoSeleccionado(null);
     setCurrentPage(1);
@@ -2019,23 +2027,6 @@ export function VerInventario() {
     else params.delete("vencimiento");
     router.replace(`/farmamuni/inventario?${params.toString()}`);
   };
-
-  const conteoVencimientoLotes = useMemo(() => {
-    if (vistaInventario !== "lotes") return null;
-    const campos = (lotes as LoteInventario[])
-      .filter((l) =>
-        esLoteActivoConExistencia({
-          activo: l.activo,
-          cantidad_actual: Number(l.cantidad_actual) || 0,
-        }),
-      )
-      .map((l) => ({
-        activo: l.activo,
-        cantidad_actual: Number(l.cantidad_actual) || 0,
-        fecha_vencimiento: l.fecha_vencimiento,
-      }));
-    return contarLotesPorCategoriaVencimiento(campos);
-  }, [lotes, vistaInventario]);
 
   // Lógica de Escáner de Código de Barras
   useEffect(() => {
@@ -2163,7 +2154,43 @@ export function VerInventario() {
     activePage * pageSize
   );
 
-  const inventarioTableColumnCount = esVistaCatalogo(vistaInventario) ? 6 : 10;
+  useEffect(() => {
+    if (!inventarioResaltado) {
+      inventarioScrollFilaIdRef.current = null;
+      inventarioResaltadoPaginaRef.current = null;
+      return;
+    }
+    const token = `${vistaInventario}:${JSON.stringify(inventarioResaltado)}`;
+    if (inventarioResaltadoPaginaRef.current === token) return;
+    const idx = productosFiltrados.findIndex((p) =>
+      filaCoincideInventarioResaltado(p, vistaInventario, inventarioResaltado),
+    );
+    if (idx < 0) return;
+    inventarioResaltadoPaginaRef.current = token;
+    inventarioScrollFilaIdRef.current = productosFiltrados[idx].id;
+    setCurrentPage(Math.floor(idx / pageSize) + 1);
+  }, [inventarioResaltado, vistaInventario, productosFiltrados, pageSize]);
+
+  useEffect(() => {
+    const filaId = inventarioScrollFilaIdRef.current;
+    if (!filaId || !inventarioResaltado) return;
+    if (!productosPaginados.some((p) => p.id === filaId)) return;
+    inventarioScrollFilaIdRef.current = null;
+    requestAnimationFrame(() => {
+      document.getElementById(`inventario-fila-${filaId}`)?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    });
+  }, [productosPaginados, inventarioResaltado]);
+
+  const inventarioTableColumnCount =
+    vistaInventario === "lotes"
+      ? 10
+      : vistaInventario === "laboratorio"
+        ? 6
+        : 5;
+  const inventarioPermiteEditarProducto = vistaInventario !== "laboratorio";
 
   const handleNuevoJerarquia = () => {
     if (vistaInventario === "lotes" || filtrosJerarquia.producto_id) {
@@ -2376,24 +2403,6 @@ export function VerInventario() {
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
           <InventarioSubnav />
-          <ModuleFilterUnderlineTabs
-            ariaLabel="Vista de inventario"
-            value={vistaInventario}
-            options={[
-              { id: "catalogo", label: "Catálogo" },
-              { id: "generico", label: "Genérico" },
-              { id: "laboratorio", label: "Laboratorio" },
-              { id: "comercial", label: "Comercial" },
-            ]}
-            onChange={(id) => {
-              aplicarNavegacionJerarquia(id as VistaInventario);
-              if (id !== "lotes") {
-                setFiltroProximoVencer(false);
-                setFiltroVencidos(false);
-              }
-            }}
-            className="w-full sm:w-auto min-w-0 max-w-full overflow-x-auto"
-          />
           <SigetActionButton
             label={etiquetaBotonNuevo}
             accentColor={sigetAccent.crear}
@@ -2406,6 +2415,35 @@ export function VerInventario() {
         </div>
       </div>
 
+      <div className="flex w-full shrink-0 justify-center overflow-x-auto">
+        <ModuleFilterUnderlineTabs
+          ariaLabel="Vista de inventario"
+          value={vistaInventario}
+          options={[
+            { id: "catalogo", label: "Catálogo" },
+            { id: "generico", label: "Genérico" },
+            { id: "laboratorio", label: "Laboratorio" },
+            { id: "comercial", label: "Comercial" },
+            { id: "lotes", label: "Lotes" },
+          ]}
+          onChange={(id) => {
+            if (id === vistaInventario) return;
+            setInventarioResaltado(null);
+            if (id === "lotes") {
+              aplicarNavegacionJerarquia("lotes", JERARQUIA_SIN_FILTRO_URL);
+            } else {
+              aplicarNavegacionJerarquia(id as VistaInventario);
+              setFiltroCategoriaVencimiento(null);
+            }
+            if (id !== "lotes") {
+              setFiltroProximoVencer(false);
+              setFiltroVencidos(false);
+            }
+          }}
+          className="min-w-0 max-w-full"
+        />
+      </div>
+
       <section
         className={cn(
           moduleControlsShellClass,
@@ -2413,54 +2451,6 @@ export function VerInventario() {
         )}
       >
         <div className="flex flex-col gap-2">
-          {(filtrosJerarquia.catalogo_id ||
-            filtrosJerarquia.generico_id ||
-            filtrosJerarquia.laboratorio_id ||
-            filtrosJerarquia.producto_id) && (
-            <div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]">
-              <span>Filtros:</span>
-              <button
-                type="button"
-                className="rounded-lg border border-[#8DA78E]/40 px-2 py-1 hover:bg-[#8DA78E]/10"
-                onClick={() =>
-                  aplicarNavegacionJerarquia("catalogo", {
-                    catalogo_id: undefined,
-                    generico_id: undefined,
-                    laboratorio_id: undefined,
-                    producto_id: undefined,
-                  })
-                }
-              >
-                Limpiar
-              </button>
-              {filtrosJerarquia.catalogo_id ? (
-                <button
-                  type="button"
-                  className="rounded-lg bg-[#8DA78E]/15 px-2 py-1"
-                  onClick={() => aplicarNavegacionJerarquia("generico")}
-                >
-                  Genéricos
-                </button>
-              ) : null}
-              {filtrosJerarquia.generico_id || filtrosJerarquia.catalogo_id ? (
-                <button
-                  type="button"
-                  className="rounded-lg bg-[#8DA78E]/15 px-2 py-1"
-                  onClick={() => aplicarNavegacionJerarquia("comercial")}
-                >
-                  Comerciales
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className="rounded-lg bg-[#8DA78E]/15 px-2 py-1"
-                onClick={() => aplicarNavegacionJerarquia("lotes")}
-              >
-                Lotes
-              </button>
-            </div>
-          )}
-
           <div className="relative w-full">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
             <input
@@ -2488,17 +2478,16 @@ export function VerInventario() {
                   products={productos}
                 />
               ) : null}
-              {vistaInventario === "lotes" && conteoVencimientoLotes ? (
-                <VencimientoFilterDropdown
+              {vistaInventario === "lotes" ? (
+                <VencimientoFilterSelect
                   selectedCategoria={filtroCategoriaVencimiento}
                   onSelectCategoria={(cat) => {
                     aplicarFiltroCategoriaVencimiento(cat);
                     setCurrentPage(1);
                   }}
-                  conteo={conteoVencimientoLotes}
                 />
               ) : null}
-              <div className="flex w-full min-w-0 max-w-lg border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 select-none">
+              <div className="flex w-fit max-w-full shrink-0 border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 select-none">
                 <button
                   type="button"
                   onClick={() => resetFiltrosAlerta(filtroStockBajo ? null : "stock")}
@@ -2646,9 +2635,13 @@ export function VerInventario() {
                 </div>
               ) : (
                 productosPaginados.map((p) => (
+                  <div key={p.id} id={`inventario-fila-${p.id}`}>
                   <ProductoCard
-                    key={p.id}
                     producto={p}
+                    destacarEnfoque={
+                      inventarioResaltado !== null &&
+                      filaCoincideInventarioResaltado(p, vistaInventario, inventarioResaltado)
+                    }
                     destacarStock={filtroStockBajo && p.stock_actual <= p.stock_minimo}
                     destacarProximo={
                       filtroProximoVencer && isProductoProximoAVencer(p.fecha_vencimiento)
@@ -2661,12 +2654,16 @@ export function VerInventario() {
                     onClick={() => {
                       setProductoSeleccionado(p);
                     }}
-                    mostrarEditar={idProductoComercialParaEdicion(p) !== null}
+                    mostrarEditar={
+                      inventarioPermiteEditarProducto &&
+                      idProductoComercialParaEdicion(p) !== null
+                    }
                     onEdit={() => irAEditarProducto(p)}
                     onDesactivar={() => solicitarDesactivarProducto(p)}
                     onActivar={() => handleActivarProducto(p)}
                     onBaja={() => handleBajaVencido(p)}
                   />
+                  </div>
                 ))
               )}
             </div>
@@ -2678,28 +2675,87 @@ export function VerInventario() {
                 <thead>
                   <tr className={moduleTableHeadRowClass}>
                     {vistaInventario === "lotes" ? (
-                      <th className={moduleTableHeadCellClass}>Código</th>
+                      <th
+                        className={cn(inventarioTableHeadCellClass, inventarioLotesHeadCellClass)}
+                        title="Código de barras"
+                      >
+                        Cód.
+                      </th>
                     ) : null}
-                    <th className={moduleTableHeadCellClass}>Producto</th>
+                    <th
+                      className={cn(
+                        inventarioTableHeadCellClass,
+                        vistaInventario === "lotes" && inventarioLotesHeadCellClass,
+                      )}
+                    >
+                      Producto
+                    </th>
                     {vistaInventario === "laboratorio" ? (
-                      <th className={moduleTableHeadCellClass}>Proveedor del lab</th>
+                      <th className={inventarioTableHeadCellClass}>Proveedor del lab</th>
                     ) : null}
                     {vistaInventario === "lotes" ? (
                       <>
-                        <th className={moduleTableHeadCellClass}>Laboratorio</th>
-                        <th className={moduleTableHeadCellClass}>Proveedor</th>
-                        <th className={cn(moduleTableHeadCellClass, "text-right")}>P. venta</th>
-                        <th className={cn(moduleTableHeadCellClass, "text-right")}>Costo</th>
-                        <th className={moduleTableHeadCellClass}>Venc./Lote</th>
+                        <th
+                          className={cn(inventarioTableHeadCellClass, inventarioLotesHeadCellClass)}
+                          title="Laboratorio"
+                        >
+                          Lab.
+                        </th>
+                        <th
+                          className={cn(inventarioTableHeadCellClass, inventarioLotesHeadCellClass)}
+                          title="Proveedor"
+                        >
+                          Prov.
+                        </th>
+                        <th
+                          className={cn(inventarioTableHeadCellClass, inventarioLotesHeadCellClass)}
+                          title="Precio de venta"
+                        >
+                          Venta
+                        </th>
+                        <th
+                          className={cn(inventarioTableHeadCellClass, inventarioLotesHeadCellClass)}
+                          title="Precio de costo"
+                        >
+                          Costo
+                        </th>
+                        <th
+                          className={cn(inventarioTableHeadCellClass, inventarioLotesHeadCellClass)}
+                          title="Vencimiento y número de lote"
+                        >
+                          Venc.
+                        </th>
                       </>
                     ) : null}
-                    <th className={moduleTableHeadCellClass}>Ubicación</th>
-                    <th className={moduleTableHeadCellClass}>Existencias</th>
-                    <th className={moduleTableHeadCellClass}>Estado</th>
+                    <th
+                      className={cn(
+                        inventarioTableHeadCellClass,
+                        vistaInventario === "lotes" && inventarioLotesHeadCellClass,
+                      )}
+                      title={vistaInventario === "lotes" ? "Existencias" : undefined}
+                    >
+                      {vistaInventario === "lotes" ? "Exist." : "Existencias"}
+                    </th>
+                    <th
+                      className={cn(
+                        inventarioTableHeadCellClass,
+                        vistaInventario === "lotes" && inventarioLotesHeadCellClass,
+                      )}
+                    >
+                      Estado
+                    </th>
                     {esVistaCatalogo(vistaInventario) ? (
-                      <th className={cn(moduleTableHeadCellClass, "text-right")}>P. sugerido</th>
+                      <th className={inventarioTableHeadCellClass}>P. sugerido</th>
                     ) : null}
-                    <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
+                    <th
+                      className={cn(
+                        inventarioTableHeadCellClass,
+                        vistaInventario === "lotes" && inventarioLotesHeadCellClass,
+                      )}
+                      title={vistaInventario === "lotes" ? "Acciones" : undefined}
+                    >
+                      {vistaInventario === "lotes" ? "Acc." : "Acciones"}
+                    </th>
                   </tr>
                 </thead>
                 <tbody className={moduleTableBodyClass}>
@@ -2741,48 +2797,22 @@ export function VerInventario() {
                         filtroProximoVencer && isExpiringSoon && !resaltarVencido;
                       const resaltarStock =
                         filtroStockBajo && isLowStock && !resaltarVencido && !resaltarProximo;
+                      const resaltarEnfoque =
+                        inventarioResaltado !== null &&
+                        filaCoincideInventarioResaltado(p, vistaInventario, inventarioResaltado);
 
                       acc.push(
                         <tr
                           key={p.id}
+                          id={`inventario-fila-${p.id}`}
                           onClick={() => {
                             setProductoSeleccionado(isSelected ? null : p);
-                          }}
-                          onDoubleClick={() => {
-                            if (vistaInventario === "catalogo" && p.catalogo_id) {
-                              aplicarNavegacionJerarquia("generico", {
-                                catalogo_id: p.catalogo_id,
-                              });
-                              return;
-                            }
-                            if (vistaInventario === "generico" && p.generico_id) {
-                              aplicarNavegacionJerarquia("comercial", {
-                                catalogo_id: p.catalogo_id,
-                                generico_id: p.generico_id,
-                              });
-                              return;
-                            }
-                            if (vistaInventario === "laboratorio") {
-                              aplicarNavegacionJerarquia("comercial", {
-                                laboratorio_id:
-                                  p.id === FILTRO_LABORATORIO_SIN_ASIGNAR
-                                    ? FILTRO_LABORATORIO_SIN_ASIGNAR
-                                    : p.laboratorio_id,
-                              });
-                              return;
-                            }
-                            if (vistaInventario === "comercial" && p.producto_maestro_id) {
-                              aplicarNavegacionJerarquia("lotes", {
-                                catalogo_id: p.catalogo_id,
-                                generico_id: p.generico_id,
-                                laboratorio_id: p.laboratorio_id,
-                                producto_id: p.producto_maestro_id,
-                              });
-                            }
                           }}
                           className={cn(
                             "hover:bg-[#8DA78E]/10 dark:hover:bg-[#A3BEB0]/15 transition-all cursor-pointer",
                             isSelected && "bg-[#8DA78E]/20 dark:bg-[#8DA78E]/25",
+                            resaltarEnfoque &&
+                              "bg-[#8DA78E]/15 ring-2 ring-inset ring-[#8DA78E]/40 dark:bg-[#8DA78E]/20 dark:ring-[#A3BEB0]/35",
                             resaltarVencido &&
                               "bg-rose-500/10 text-rose-800 dark:bg-rose-500/10 dark:text-rose-300 animate-pulse",
                             resaltarStock &&
@@ -2792,34 +2822,64 @@ export function VerInventario() {
                           )}
                         >
                           {vistaInventario === "lotes" ? (
-                            <td className="px-5 py-3.5 font-semibold text-slate-700 dark:text-slate-300">
+                            <td
+                              className={cn(
+                                inventarioTableBodyCellCenterClass,
+                                "font-semibold text-slate-700 dark:text-slate-300",
+                              )}
+                            >
                               {p.codigo || "Sin Código"}
                             </td>
                           ) : null}
-                          <td className="px-5 py-3.5 min-w-[200px]">
+                          <td className="px-5 py-3.5 min-w-[200px] text-left">
                             <ProductoFarmaciaTitulo producto={p} />
                           </td>
                           {vistaInventario === "laboratorio" ? (
-                            <td className="px-5 py-3.5 text-sm text-slate-600 dark:text-slate-300 max-w-[140px] truncate">
+                            <td
+                              className={cn(
+                                inventarioTableBodyCellCenterClass,
+                                "text-sm text-slate-600 dark:text-slate-300 max-w-[140px] truncate",
+                              )}
+                            >
                               {p.laboratorio_proveedor_nombre || "—"}
                             </td>
                           ) : null}
                           {vistaInventario === "lotes" ? (
                             <>
-                              <td className="px-5 py-3.5 text-sm text-slate-600 dark:text-slate-300 max-w-[120px] truncate">
+                              <td
+                                className={cn(
+                                  inventarioTableBodyCellCenterClass,
+                                  "text-sm text-slate-600 dark:text-slate-300 max-w-[120px] truncate",
+                                )}
+                              >
                                 {etiquetaLaboratorioComercial(p.laboratorio)}
                               </td>
-                              <td className="px-5 py-3.5 text-sm font-semibold text-slate-500 dark:text-slate-400 max-w-[130px] truncate">
+                              <td
+                                className={cn(
+                                  inventarioTableBodyCellCenterClass,
+                                  "text-sm font-semibold text-slate-500 dark:text-slate-400 max-w-[130px] truncate",
+                                )}
+                              >
                                 {p.inv_proveedores?.nombre || "—"}
                               </td>
-                              <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0]">
+                              <td
+                                className={cn(
+                                  inventarioTableBodyCellCenterClass,
+                                  "font-black text-[#8DA78E] dark:text-[#A3BEB0]",
+                                )}
+                              >
                                 {fmtQ(p.precio_venta ?? p.precio_base)}
                               </td>
-                              <td className="px-5 py-3.5 text-right font-semibold text-slate-600 dark:text-slate-300">
+                              <td
+                                className={cn(
+                                  inventarioTableBodyCellCenterClass,
+                                  "font-semibold text-slate-600 dark:text-slate-300",
+                                )}
+                              >
                                 {fmtQ(Number(p.precio_costo) || 0)}
                               </td>
-                              <td className="px-5 py-3.5">
-                                <div className="flex flex-col">
+                              <td className={inventarioTableBodyCellCenterClass}>
+                                <div className="flex flex-col items-center">
                                   {p.fecha_vencimiento ? (
                                     <span
                                       className={cn(
@@ -2840,51 +2900,55 @@ export function VerInventario() {
                                   {p.numero_lote ? (
                                     <span className="text-[10px] text-slate-500">Lote: {p.numero_lote}</span>
                                   ) : null}
-                                  {vistaInventario === "lotes" ? (
-                                    <InsigniaVencimientoLote
-                                      fechaVencimiento={p.fecha_vencimiento}
-                                      className="mt-1"
-                                    />
-                                  ) : null}
                                 </div>
                               </td>
                             </>
                           ) : null}
-                          <td className="px-5 py-3.5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-xs font-bold bg-slate-100/80 dark:bg-zinc-900/80 text-slate-700 dark:text-slate-300 border border-slate-200/60 dark:border-slate-800/80 shadow-2xs max-w-[150px]">
-                              <Box className="size-3 text-[#8DA78E] shrink-0" />
-                              <span className="truncate">{p.ubicacion || "Sin asignar"}</span>
-                            </span>
+                          <td className={inventarioTableBodyCellCenterClass}>
+                            <div className="flex flex-col items-center gap-0.5">
+                              <span
+                                className={cn(
+                                  "font-semibold",
+                                  resaltarStock
+                                    ? "font-bold text-red-500 dark:text-red-400"
+                                    : "text-slate-700 dark:text-slate-300",
+                                )}
+                              >
+                                {fmtNum(p.stock_actual)}
+                              </span>
+                              {resaltarStock ? (
+                                <span className="px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 text-[9px] font-bold uppercase tracking-wide">
+                                  Stock Bajo
+                                </span>
+                              ) : null}
+                            </div>
                           </td>
-                          <td className="px-5 py-3.5">
+                          <td className={inventarioTableBodyCellCenterClass}>
                             <span
                               className={cn(
-                                "font-semibold",
-                                resaltarStock ? "font-bold text-red-500 dark:text-red-400" : "text-slate-700 dark:text-slate-300",
+                                "inline-flex px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                                p.activo
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                  : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
                               )}
                             >
-                              {fmtNum(p.stock_actual)}
-                            </span>
-                            {resaltarStock ? (
-                              <span className="ml-1.5 px-1.5 py-0.5 rounded bg-red-50 dark:bg-red-950/20 text-red-700 dark:text-red-400 text-[9px] font-bold uppercase tracking-wide">
-                                Stock Bajo
-                              </span>
-                            ) : null}
-                          </td>
-                          <td className="px-5 py-3.5">
-                            <span className={cn(
-                              "px-2 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
-                              p.activo ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
-                            )}>
                               {p.activo ? "Activo" : "Inactivo"}
                             </span>
                           </td>
                           {esVistaCatalogo(vistaInventario) ? (
-                            <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0]">
+                            <td
+                              className={cn(
+                                inventarioTableBodyCellCenterClass,
+                                "font-black text-[#8DA78E] dark:text-[#A3BEB0]",
+                              )}
+                            >
                               {fmtQ(p.precio_base)}
                             </td>
                           ) : null}
-                          <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
+                          <td
+                            className={inventarioTableBodyCellCenterClass}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             <div className="flex items-center justify-center">
                               {vistaInventario === "lotes" && puedeOperarLotes ? (
                                 <LoteInventarioAccionesMenu
@@ -2901,7 +2965,10 @@ export function VerInventario() {
                                   activo={p.activo}
                                   showBaja={isVencido}
                                   onBaja={() => handleBajaVencido(p)}
-                                  mostrarEditar={idProductoComercialParaEdicion(p) !== null}
+                                  mostrarEditar={
+                                    inventarioPermiteEditarProducto &&
+                                    idProductoComercialParaEdicion(p) !== null
+                                  }
                                   onEdit={() => irAEditarProducto(p)}
                                   onDesactivar={() => solicitarDesactivarProducto(p)}
                                   onActivar={() => handleActivarProducto(p)}
@@ -3106,10 +3173,6 @@ export function VerInventario() {
                       comerciales={comercialesLaboratorioDetalle}
                       proveedorNombre={proveedorLaboratorioDetalle}
                       onClose={() => setProductoSeleccionado(null)}
-                      onEditProducto={(productoId) => {
-                        setProductoSeleccionado(null);
-                        router.push(`/farmamuni/inventario/editar/${productoId}`);
-                      }}
                     />
                   ) : detalleEsCatalogo ? (
                     <CatalogoDetalle
@@ -3117,12 +3180,8 @@ export function VerInventario() {
                       genericos={genericosCatalogoDetalle}
                       onClose={() => setProductoSeleccionado(null)}
                       onVerGenerico={(g) => {
-                        aplicarNavegacionJerarquia("comercial", {
-                          catalogo_id: g.catalogo_id,
-                          generico_id: g.generico_id,
-                          laboratorio_id: undefined,
-                          producto_id: undefined,
-                        });
+                        setInventarioResaltado({ generico_id: g.generico_id });
+                        aplicarNavegacionJerarquia("comercial", JERARQUIA_SIN_FILTRO_URL);
                       }}
                     />
                   ) : detalleEsGenerico ? (
@@ -3135,12 +3194,8 @@ export function VerInventario() {
                         router.push(`/farmamuni/inventario/editar/${productoId}`);
                       }}
                       onVerLotes={(c) => {
-                        aplicarNavegacionJerarquia("lotes", {
-                          catalogo_id: c.catalogo_id,
-                          generico_id: c.generico_id,
-                          laboratorio_id: c.laboratorio_id ?? undefined,
-                          producto_id: c.producto_id,
-                        });
+                        setInventarioResaltado({ producto_id: c.producto_id });
+                        aplicarNavegacionJerarquia("lotes", JERARQUIA_SIN_FILTRO_URL);
                       }}
                     />
                   ) : (

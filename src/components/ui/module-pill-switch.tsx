@@ -26,7 +26,7 @@ export function modulePillSwitchBtnClass(
 
 export const modulePillSwitchTabShellClass = cn(
   modulePillSwitchShellClass,
-  "w-full max-w-md sm:max-w-[14rem]",
+  "w-full max-w-md sm:max-w-[17rem]",
 );
 
 export function modulePillSwitchTabBtnClass(
@@ -36,7 +36,7 @@ export function modulePillSwitchTabBtnClass(
   const grow = options?.grow !== false;
   return cn(
     grow ? "flex-1 min-w-0" : "shrink-0",
-    "py-2.5 px-2 sm:px-3 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer whitespace-nowrap text-center",
+    "py-2.5 px-2 sm:px-3 text-xs sm:text-sm font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer whitespace-nowrap text-center",
     active
       ? "bg-white text-[#2c5f9b] shadow-sm dark:bg-zinc-800 dark:text-[#6f9fd4]"
       : "text-[#8DA78E] hover:bg-white/60 dark:text-[#A3BEB0] dark:hover:bg-zinc-800/50",
