@@ -13,6 +13,7 @@ export type FilaInventarioUi = {
   producto_maestro_id?: string;
   codigo: string;
   nombre: string;
+  nombre_comercial?: string;
   nombre_generico?: string;
   catalogo_nombre?: string;
   concentracion?: string;
@@ -90,6 +91,7 @@ export function filasDesdeComerciales(items: ProductoComercial[]): FilaInventari
     laboratorio_id: c.laboratorio_id ?? undefined,
     codigo: "",
     nombre: c.nombre_comercial,
+    nombre_comercial: c.nombre_comercial,
     nombre_generico: c.generico_nombre,
     catalogo_nombre: c.catalogo_nombre,
     concentracion: c.concentracion,
@@ -193,6 +195,7 @@ export function mapLoteAFilaInventario(lote: LoteInventario): FilaInventarioUi {
     producto_maestro_id: lote.producto_id,
     codigo: lote.codigo_barras,
     nombre: jer.nombre,
+    nombre_comercial: jer.nombre,
     nombre_generico: jer.nombre_generico,
     concentracion: jer.concentracion,
     forma_farmaceutica: jer.forma_farmaceutica,

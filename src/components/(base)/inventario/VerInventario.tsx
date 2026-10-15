@@ -74,6 +74,7 @@ import {
   isProductoProximoAVencer,
   isProductoVencido,
   laboratorioNombreDesdeLote,
+  lineaGenericaProductoFarmacia,
   nombreComercialSiDistinto,
   precioVentaEfectivoLote,
   productoCoincideBusquedaInventario,
@@ -179,7 +180,7 @@ function ProductoFarmaciaTitulo({
   className,
   tituloClassName,
   comercialClassName,
-  comercialPrimero = false,
+  comercialPrimero = true,
 }: {
   producto: Producto;
   className?: string;
@@ -188,31 +189,26 @@ function ProductoFarmaciaTitulo({
   comercialPrimero?: boolean;
 }) {
   const comercial = nombreComercialSiDistinto(producto);
-  const lineaFarmacia = tituloProductoFarmacia(producto);
+  const lineaGenerica = lineaGenericaProductoFarmacia(producto);
   const estiloTitulo = cn("font-semibold leading-snug", tituloClassName);
-  const estiloComercial = cn(
-    "mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400",
-    comercialClassName,
-  );
   const estiloSecundario = cn(
     "mt-0.5 text-[10px] font-medium text-slate-500 dark:text-slate-400",
     comercialClassName,
   );
   const estiloPrincipal = cn("font-semibold leading-snug", tituloClassName);
 
+  const mostrarComercialPrimero = comercialPrimero && comercial;
+
   return (
     <div className={className}>
-      {comercialPrimero && comercial ? (
-        <p className={estiloPrincipal}>{comercial}</p>
-      ) : null}
-      {comercialPrimero ? (
-        <p className={cn(estiloSecundario, comercial ? undefined : estiloPrincipal)}>
-          {lineaFarmacia}
-        </p>
-      ) : (
-        <p className={estiloTitulo}>{lineaFarmacia}</p>
-      )}
-      {!comercialPrimero && comercial ? <p className={estiloComercial}>{comercial}</p> : null}
+      {mostrarComercialPrimero ? <p className={estiloPrincipal}>{comercial}</p> : null}
+      <p
+        className={cn(
+          mostrarComercialPrimero ? estiloSecundario : estiloTitulo,
+        )}
+      >
+        {lineaGenerica}
+      </p>
       {producto.requiere_receta ? (
         <span
           className="mt-1 inline-flex rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-800 dark:text-amber-300"
@@ -2189,7 +2185,9 @@ export function VerInventario() {
       ? 10
       : vistaInventario === "laboratorio"
         ? 6
-        : 5;
+        : vistaInventario === "catalogo"
+          ? 4
+          : 5;
   const inventarioPermiteEditarProducto = vistaInventario !== "laboratorio";
 
   const handleNuevoJerarquia = () => {
@@ -2744,7 +2742,7 @@ export function VerInventario() {
                     >
                       Estado
                     </th>
-                    {esVistaCatalogo(vistaInventario) ? (
+                    {vistaInventario !== "lotes" && vistaInventario !== "catalogo" ? (
                       <th className={inventarioTableHeadCellClass}>P. sugerido</th>
                     ) : null}
                     <th
@@ -2935,14 +2933,14 @@ export function VerInventario() {
                               {p.activo ? "Activo" : "Inactivo"}
                             </span>
                           </td>
-                          {esVistaCatalogo(vistaInventario) ? (
+                          {vistaInventario !== "lotes" && vistaInventario !== "catalogo" ? (
                             <td
                               className={cn(
                                 inventarioTableBodyCellCenterClass,
                                 "font-black text-[#8DA78E] dark:text-[#A3BEB0]",
                               )}
                             >
-                              {fmtQ(p.precio_base)}
+                              {fmtQ(p.precio_venta ?? p.precio_base)}
                             </td>
                           ) : null}
                           <td

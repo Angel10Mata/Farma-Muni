@@ -7,6 +7,7 @@ import { FORMAS_FARMACEUTICAS, type Producto, type ProductoSugerencia } from "./
 
 export type CamposTituloProducto = {
   nombre: string;
+  nombre_comercial?: string | null;
   nombre_generico?: string | null;
   concentracion?: string | null;
   forma_farmaceutica?: string | null;
@@ -65,12 +66,24 @@ export function tituloProductoFarmacia(p: CamposTituloProducto): string {
   return suffix.length > 0 ? `${tituloBase} · ${suffix.join(" · ")}` : tituloBase;
 }
 
-export function nombreComercialSiDistinto(p: CamposTituloProducto): string | null {
-  const comercial = (p.nombre || "").trim();
-  const generico = (p.nombre_generico || "").trim().toLowerCase();
-  if (!comercial) return null;
-  if (!generico || comercial.toLowerCase() === generico) return null;
-  return comercial;
+export function lineaGenericaProductoFarmacia(p: CamposTituloProducto): string {
+  return tituloProductoFarmacia({
+    ...p,
+    nombre: "",
+    nombre_comercial: undefined,
+  });
+}
+
+export function nombreComercialSiDistinto(
+  p: CamposTituloProducto & { nombre_comercial?: string | null },
+): string | null {
+  const marca = (p.nombre_comercial ?? p.nombre ?? "").trim();
+  if (!marca) return null;
+  const lineaGenerica = lineaGenericaProductoFarmacia(p);
+  const normMarca = normalizarTextoBusquedaProducto(marca);
+  if (normMarca === normalizarTextoBusquedaProducto(lineaGenerica)) return null;
+  if (normMarca === normalizarTextoBusquedaProducto(tituloProductoFarmacia(p))) return null;
+  return marca;
 }
 
 export type BusquedaInventarioCampo =
