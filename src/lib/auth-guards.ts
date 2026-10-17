@@ -55,7 +55,7 @@ export async function requireFinanzas(): Promise<AuthGuardResult> {
 }
 
 export async function requireVentas(): Promise<AuthGuardResult> {
-  return requireRole(["super", "admin", "ventas"]);
+  return requireRole(["super", "admin", "ventas", "user"]);
 }
 
 export async function requireAdminOrSelf(targetUserId: string): Promise<AuthGuardResult> {

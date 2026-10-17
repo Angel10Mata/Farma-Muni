@@ -29,8 +29,9 @@ export async function obtenerClientes() {
 
     const { data: ventasData } = await supabase
       .from("ventas")
-      .select("id, cliente_id, total, tipo_venta, created_at")
-      .not("cliente_id", "is", null);
+      .select("id, cliente_id, total, tipo_venta, created_at, estado")
+      .not("cliente_id", "is", null)
+      .or("estado.is.null,estado.eq.activa");
 
     const { data: cuentasPendientes } = await supabase.rpc("fin_cuentas_por_cobrar");
 
@@ -86,9 +87,13 @@ export async function obtenerVentasCliente(clienteId: string) {
 
     const { data, error } = await supabase
       .from("ventas")
-      .select("id, created_at, tipo_venta, total, observaciones, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)")
+      .select(
+        "id, created_at, tipo_venta, total, observaciones, estado, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
+      )
       .eq("cliente_id", clienteId)
-      .order("created_at", { ascending: false });
+      .or("estado.is.null,estado.eq.activa")
+      .order("created_at", { ascending: false })
+      .limit(5000);
 
     if (error) return { code: "INTERNAL" as const };
 

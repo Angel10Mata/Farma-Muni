@@ -306,11 +306,11 @@ input[type=number] {
 :root {
   --toastify-color-success: #10b981;
   --toastify-color-error: #ef4444;
-  --toastify-color-warning: #f59e0b;
+  --toastify-color-warning: #e8e4dc;
   --toastify-toast-shadow: none;
   --toastify-toast-bd-radius: 0.75rem;
   --toastify-z-index: 10000;
-  --toastify-text-color-warning: #1c1917;
+  --toastify-text-color-warning: #57534e;
 }
 
 .Toastify__toast {
@@ -320,9 +320,20 @@ input[type=number] {
 
 .Toastify__toast--warning {
   color: var(--toastify-text-color-warning);
+  border: 1px solid #d6d3d1;
+  font-weight: 600;
 }
 .Toastify__toast--warning svg {
-  fill: var(--toastify-text-color-warning);
+  fill: #78716c;
+}
+
+.dark .Toastify__toast--warning {
+  background: #3f3f46 !important;
+  color: #d6d3d1 !important;
+  border-color: #52525b;
+}
+.dark .Toastify__toast--warning svg {
+  fill: #a8a29e;
 }
 
 .scrollbar-hidden {

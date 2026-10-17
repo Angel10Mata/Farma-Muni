@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Truck } from "lucide-react";
+import { toast } from "react-toastify";
+import { modalActionMessage } from "@/components/ui/general-modal";
 import { cn } from "@/lib/utils";
 import {
   modulePillSwitchBtnClass,
@@ -16,7 +18,7 @@ import { HistorialCompras } from "./HistorialCompras";
 import { CuentasPorPagar } from "./CuentasPorPagar";
 import { CatalogoProveedores } from "./CatalogoProveedores";
 import { CrearProveedor } from "./forms/Crear";
-import { useProveedoresYProductos, useHistorialCompras } from "./lib/hooks";
+import { useHistorialCompras, useProveedores, useProveedoresYProductos } from "./lib/hooks";
 // Tabs
 const COMPRAS_TABS = [
   { id: "ingresar_compra" as const, label: "Registrar" },
@@ -34,17 +36,62 @@ function VerProveedoresInner() {
 
   // Datos
   const { data: dataPP, isLoading: isLoadingPP, refetch: refetchPP } = useProveedoresYProductos();
+  const {
+    data: proveedoresCatalogo = [],
+    isLoading: isLoadingProveedoresCatalogo,
+    isError: isErrorProveedoresCatalogo,
+    error: errorProveedoresCatalogo,
+    isFetched: proveedoresCatalogoFetched,
+    refetch: refetchProveedoresCatalogo,
+  } = useProveedores();
   const comerciales = dataPP?.comerciales || [];
-  const proveedores = dataPP?.proveedores || [];
-  
+  const proveedoresCompra = useMemo(
+    () => (dataPP?.proveedores ?? []).filter((p) => p.activo !== false),
+    [dataPP?.proveedores],
+  );
+
   const { data: compras = [], isLoading: isLoadingCompras, refetch: refetchCompras } = useHistorialCompras();
 
   const cargarDatos = () => {
     refetchPP();
+    refetchProveedoresCatalogo();
     refetchCompras();
   };
 
-  const isLoading = isLoadingPP || isLoadingCompras;
+  const isLoading = isLoadingPP || isLoadingProveedoresCatalogo || isLoadingCompras;
+
+  const mensajeListaProveedores = useMemo(() => {
+    if (isErrorProveedoresCatalogo) {
+      const code =
+        errorProveedoresCatalogo instanceof Error
+          ? errorProveedoresCatalogo.message
+          : undefined;
+      return modalActionMessage(
+        code,
+        "No se pudo cargar el catálogo de proveedores. Revisa la conexión con Supabase.",
+      );
+    }
+    if (proveedoresCatalogoFetched && proveedoresCatalogo.length === 0) {
+      return (
+        "En Supabase Table Editor ves todos los registros; en la app solo los que tu usuario puede leer. " +
+        "Confirma en profiles que tu rol sea super, admin, inventario, proveedores, finanzas o ventas, " +
+        "y que Vercel use el mismo proyecto Supabase (.env)."
+      );
+    }
+    return null;
+  }, [
+    isErrorProveedoresCatalogo,
+    errorProveedoresCatalogo,
+    proveedoresCatalogoFetched,
+    proveedoresCatalogo,
+  ]);
+
+  useEffect(() => {
+    if (!isErrorProveedoresCatalogo) return;
+    const code =
+      errorProveedoresCatalogo instanceof Error ? errorProveedoresCatalogo.message : undefined;
+    toast.error(modalActionMessage(code, "No se pudieron cargar los proveedores."));
+  }, [isErrorProveedoresCatalogo, errorProveedoresCatalogo]);
 
   if (isLoading) {
     return (
@@ -121,7 +168,7 @@ function VerProveedoresInner() {
         {activeTab === "ingresar_compra" && (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start flex-1 min-h-0 h-full">
             <div className="lg:col-span-8 flex flex-col gap-4 h-full min-h-0 overflow-y-auto pb-2 pr-1">
-              <ComprasProductSection comerciales={comerciales} proveedores={proveedores} />
+              <ComprasProductSection comerciales={comerciales} proveedores={proveedoresCompra} />
             </div>
             <div className="lg:col-span-4 h-full flex flex-col gap-4">
               <ComprasCartSidebar cargarDatos={cargarDatos} />
@@ -137,7 +184,8 @@ function VerProveedoresInner() {
         {/* TAB 3: CATÁLOGO DE PROVEEDORES */}
         {activeTab === "proveedores" && (
           <CatalogoProveedores
-            proveedores={proveedores}
+            proveedores={proveedoresCatalogo}
+            mensajeListaVacia={mensajeListaProveedores}
             cargarDatos={cargarDatos}
             setIsCrearOpen={setIsCrearOpen}
           />

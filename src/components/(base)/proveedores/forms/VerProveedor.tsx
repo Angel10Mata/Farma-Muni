@@ -41,6 +41,7 @@ import { puedeEliminarProveedor } from "../lib/proveedores-permissions";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { ProveedorLaboratoriosSection } from "../ProveedorLaboratoriosSection";
 import { useComprasProveedor } from "../lib/hooks";
+import type { Proveedor } from "../lib/zod";
 import { cn, fmtQ } from "@/lib/utils";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import {
@@ -55,16 +56,6 @@ import {
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 
 // Tipos
-interface Proveedor {
-  id: string;
-  nombre: string;
-  descripcion?: string | null;
-  nit?: string | null;
-  telefono?: string | null;
-  correo?: string | null;
-  activo?: boolean;
-}
-
 interface CompraProveedor {
   id: string;
   created_at: string;
@@ -442,7 +433,9 @@ function ProveedorDetallePanel({
           </>
         )}
 
-        <ProveedorLaboratoriosSection proveedor={proveedor} />
+        <ProveedorLaboratoriosSection
+          proveedor={{ ...proveedor, activo: proveedor.activo ?? true }}
+        />
       </div>
 
       <div className="flex shrink-0 justify-end gap-3 border-t border-zinc-200 bg-[#F5F5F1] p-4 dark:border-zinc-800 dark:bg-zinc-900 md:p-6 md:pt-4">

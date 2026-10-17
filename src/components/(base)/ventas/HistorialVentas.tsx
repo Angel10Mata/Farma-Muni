@@ -56,6 +56,7 @@ import {
 } from "@/components/ui/module-table";
 
 interface HistorialVentasProps {
+  mostrarInformesAdmin?: boolean;
   onPrint: (venta: any, detalles: any) => void;
   onShareWhatsApp: (venta: any) => void;
 }
@@ -98,7 +99,11 @@ function formatCustomDate(dateString: string) {
   return `${weekDay} ${day}/${month}/${year} | ${formattedHour}:${minutes} ${ampm}`;
 }
 
-export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasProps) {
+export function HistorialVentas({
+  mostrarInformesAdmin = true,
+  onPrint,
+  onShareWhatsApp,
+}: HistorialVentasProps) {
   const { data: historialData = [], isLoading } = useHistorialVentas();
   const { isDemoMode } = useDemoMode();
   const { user } = useUserContext();
@@ -282,27 +287,31 @@ export function HistorialVentas({ onPrint, onShareWhatsApp }: HistorialVentasPro
               />
             </div>
             <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
-              <SigetActionButton
-                label="Recetas"
-                accentColor={sigetAccent.editar}
-                morphFrom={FileDown}
-                morphTo={FileDown}
-                morphOnHover={false}
-                onClick={() => void exportarVentasReceta()}
-                disabled={exportandoReceta || isLoading || isDemoMode}
-                className="w-auto shrink-0"
-              />
-              <SigetActionButton
-                label="Informe"
-                accentColor={sigetAccent.excel}
-                morphFrom={DownloadNode}
-                morphTo={FileDown}
-                onClick={() => void exportarInformeVentasMes()}
-                disabled={exportandoInforme || isLoading}
-                ariaBusy={exportandoInforme}
-                ariaLabel="Descargar informe PDF de ventas del mes"
-                className="w-auto shrink-0"
-              />
+              {mostrarInformesAdmin ? (
+                <>
+                  <SigetActionButton
+                    label="Recetas"
+                    accentColor={sigetAccent.editar}
+                    morphFrom={FileDown}
+                    morphTo={FileDown}
+                    morphOnHover={false}
+                    onClick={() => void exportarVentasReceta()}
+                    disabled={exportandoReceta || isLoading || isDemoMode}
+                    className="w-auto shrink-0"
+                  />
+                  <SigetActionButton
+                    label="Informe"
+                    accentColor={sigetAccent.excel}
+                    morphFrom={DownloadNode}
+                    morphTo={FileDown}
+                    onClick={() => void exportarInformeVentasMes()}
+                    disabled={exportandoInforme || isLoading}
+                    ariaBusy={exportandoInforme}
+                    ariaLabel="Descargar informe PDF de ventas del mes"
+                    className="w-auto shrink-0"
+                  />
+                </>
+              ) : null}
               <ModuleFilterUnderlineTabs
                 ariaLabel="Tipo de pago"
                 value={tipoPagoSwitch}

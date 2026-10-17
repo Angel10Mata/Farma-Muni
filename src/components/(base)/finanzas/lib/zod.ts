@@ -120,6 +120,8 @@ export interface CuentaPorCobrar {
   total: number;
   total_cobrado: number;
   saldo_pendiente: number;
+  fecha_vencimiento_credito?: string | null;
+  dias_restantes?: number;
 }
 
 export interface CuentaPorPagar {

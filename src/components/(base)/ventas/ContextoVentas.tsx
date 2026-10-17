@@ -27,7 +27,11 @@ import {
 } from "./lib/helpers";
 import { mapCarritoToReciboItems } from "./ReciboVenta";
 import type { LoteAsignadoVenta } from "./lib/lotes-venta";
-import { useEstadoSolicitudRebaja } from "./lib/hooks";
+import {
+  refrescarQueriesRebajaVentas,
+  useEstadoSolicitudRebaja,
+} from "./lib/hooks";
+import { useQueryClient } from "@tanstack/react-query";
 import { getSwalThemeOpts } from "@/lib/utils";
 import {
   categoriaVencimientoLote,
@@ -112,9 +116,11 @@ interface VentasContextType {
     },
   ) => Promise<void>;
   handleAjustarCantidad: (index: number, delta: number) => void;
+  handleAjustarCantidadGrupo: (indices: number[], delta: number) => void;
   handleEliminarDelCarrito: (index: number) => void;
+  handleEliminarGrupoCarrito: (indices: number[]) => void;
   handleFinalizarVenta: () => void;
-  ejecutarCobro: () => void;
+  ejecutarCobro: (solicitudRebajaAprobadaId?: string) => Promise<void>;
   totalCarrito: number;
 
   // Rebajas (espera de admin)
@@ -223,6 +229,11 @@ export function VentasProvider({
   const [showModalAutorizacionRebaja, setShowModalAutorizacionRebaja] = useState(false);
   const [isValidandoAutorizacionRebaja, setIsValidandoAutorizacionRebaja] = useState(false);
   const carritoSnapshotRef = useRef<string>("");
+  const cobroPendienteTrasRebajaRef = useRef(false);
+  const ejecutarCobroRef = useRef<
+    ((solicitudRebajaAprobadaId?: string) => Promise<void>) | null
+  >(null);
+  const queryClient = useQueryClient();
 
   const limpiarFlujoRebaja = () => {
     setSolicitudRebajaId(null);
@@ -230,6 +241,7 @@ export function VentasProvider({
     setRebajaAutorizada(false);
     setShowModalAutorizacionRebaja(false);
     carritoSnapshotRef.current = "";
+    cobroPendienteTrasRebajaRef.current = false;
   };
 
   const confirmarRebajaConAdmin = async (usuario: string, clave: string) => {
@@ -247,9 +259,9 @@ export function VentasProvider({
       if (!res.success) {
         throw new Error(res.error);
       }
+      await refrescarQueriesRebajaVentas(queryClient, solicitudRebajaId);
       if (esperandoAutorizacionRebaja) {
         setRebajaAutorizada(true);
-        toast.success("Rebaja autorizada. Pulsa Cobrar de nuevo para registrar la venta.");
       } else {
         toast.success("Rebaja autorizada para el vendedor.");
       }
@@ -285,7 +297,6 @@ export function VentasProvider({
     if (solicitudRebajaRemota.estado === "aprobada" && !rebajaAutorizada) {
       setRebajaAutorizada(true);
       setShowModalAutorizacionRebaja(false);
-      toast.success("Rebaja autorizada. Pulsa Cobrar de nuevo para registrar la venta.");
     }
     if (solicitudRebajaRemota.estado === "rechazada") {
       const motivo =
@@ -514,6 +525,81 @@ export function VentasProvider({
     }
   };
 
+  const handleEliminarGrupoCarrito = async (indices: number[]) => {
+    if (indices.length === 0) return;
+    const item = carrito[indices[0]];
+    if (!item) return;
+    const confirm = await Swal.fire({
+      title: "¿Eliminar del carrito?",
+      text: `¿Deseas eliminar "${item.comercial.nombre_comercial}" de la venta?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonText: "Sí, eliminar",
+      cancelButtonText: "Cancelar",
+      ...getSwalThemeOpts(),
+    });
+
+    if (confirm.isConfirmed) {
+      const quitar = new Set(indices);
+      setCarrito(carrito.filter((_, idx) => !quitar.has(idx)));
+    }
+  };
+
+  const handleAjustarCantidadGrupo = (indices: number[], delta: number) => {
+    if (indices.length === 0 || delta === 0) return;
+
+    if (indices.length === 1 && delta !== 0) {
+      handleAjustarCantidad(indices[0], delta);
+      return;
+    }
+
+    const ordenados = [...indices].sort((a, b) => a - b);
+
+    if (delta > 0) {
+      for (const idx of ordenados) {
+        const item = carrito[idx];
+        if (!item) continue;
+        const stockMax = item.stock_lote ?? item.comercial.stock_vendible;
+        if (item.cantidad < stockMax) {
+          handleAjustarCantidad(idx, 1);
+          return;
+        }
+      }
+      const ref = carrito[ordenados[0]];
+      if (ref) {
+        void handleAgregarAlCarrito(ref.comercial, ref.generico, 1);
+      }
+      return;
+    }
+
+    let porQuitar = -delta;
+    setCarrito((prev) => {
+      const actualizados = new Map<number, ItemCarrito | null>();
+      for (let k = ordenados.length - 1; k >= 0 && porQuitar > 0; k--) {
+        const idx = ordenados[k];
+        const item = prev[idx];
+        if (!item) continue;
+        const restar = Math.min(porQuitar, item.cantidad);
+        porQuitar -= restar;
+        const nuevaCant = item.cantidad - restar;
+        if (nuevaCant <= 0) {
+          actualizados.set(idx, null);
+        } else {
+          actualizados.set(idx, {
+            ...item,
+            cantidad: nuevaCant,
+            subtotal: nuevaCant * item.precio_aplicado,
+          });
+        }
+      }
+      return prev.flatMap((item, idx) => {
+        if (!actualizados.has(idx)) return [item];
+        const next = actualizados.get(idx);
+        return next ? [next] : [];
+      });
+    });
+  };
+
   const handleFinalizarVenta = async () => {
     if (carrito.length === 0) {
       toast.warn("Agrega productos a la venta antes de cobrar.");
@@ -575,7 +661,13 @@ export function VentasProvider({
     setShowUbicacionModal(true);
   };
 
-  const ejecutarCobro = async () => {
+  const ejecutarCobro = async (solicitudRebajaAprobadaId?: string) => {
+    const solicitudIdAprobada =
+      typeof solicitudRebajaAprobadaId === "string" &&
+      solicitudRebajaAprobadaId.trim().length > 0
+        ? solicitudRebajaAprobadaId.trim()
+        : undefined;
+
     setShowUbicacionModal(false);
     setIsProcesandoVenta(true);
     try {
@@ -596,8 +688,11 @@ export function VentasProvider({
       const requiereAutorizacionRemota =
         hasModifiedPrices && !omiteAutorizacionRebaja && !isDemoMode;
 
+      const rebajaListaParaCobro =
+        !!solicitudIdAprobada || (rebajaAutorizada && !!solicitudRebajaId);
+
       if (requiereAutorizacionRemota) {
-        if (esperandoAutorizacionRebaja && !rebajaAutorizada) {
+        if (esperandoAutorizacionRebaja && !rebajaListaParaCobro) {
           toast.warn(
             "Sigue en espera de confirmación administrativa. Un admin debe autorizar la rebaja.",
           );
@@ -605,7 +700,7 @@ export function VentasProvider({
           return;
         }
 
-        if (!rebajaAutorizada) {
+        if (!rebajaListaParaCobro) {
           const payload = buildSolicitudRebajaPayload({
             carrito,
             cliente_id: clienteSeleccionado?.id ?? null,
@@ -620,6 +715,8 @@ export function VentasProvider({
           setSolicitudRebajaId(res.solicitud_id);
           setEsperandoAutorizacionRebaja(true);
           setRebajaAutorizada(false);
+          await refrescarQueriesRebajaVentas(queryClient, res.solicitud_id);
+          cobroPendienteTrasRebajaRef.current = true;
           carritoSnapshotRef.current = JSON.stringify(
             carrito.map((i) => ({
               id: i.comercial.producto_id,
@@ -703,8 +800,9 @@ export function VentasProvider({
         total: totalCarrito,
         observaciones: observaciones.trim() || null,
         items: itemsFormatted,
-        solicitud_rebaja_id:
-          rebajaAutorizada && solicitudRebajaId ? solicitudRebajaId : undefined,
+        solicitud_rebaja_id: rebajaListaParaCobro
+          ? solicitudIdAprobada ?? solicitudRebajaId ?? undefined
+          : undefined,
         credito_autorizado_por:
           tipoVenta === "Crédito" &&
           creditoVencido?.vencido &&
@@ -768,6 +866,21 @@ export function VentasProvider({
     }
   };
 
+  ejecutarCobroRef.current = ejecutarCobro;
+
+  useEffect(() => {
+    if (
+      !rebajaAutorizada ||
+      !cobroPendienteTrasRebajaRef.current ||
+      !solicitudRebajaId
+    ) {
+      return;
+    }
+    cobroPendienteTrasRebajaRef.current = false;
+    toast.success("Rebaja autorizada. Registrando la venta…");
+    void ejecutarCobroRef.current?.(solicitudRebajaId);
+  }, [rebajaAutorizada, solicitudRebajaId]);
+
   return (
     <VentasContext.Provider value={{
       activeTab, setActiveTab,
@@ -798,7 +911,9 @@ export function VentasProvider({
       reciboModalData, setReciboModalData,
       handleAgregarAlCarrito,
       handleAjustarCantidad,
+      handleAjustarCantidadGrupo,
       handleEliminarDelCarrito,
+      handleEliminarGrupoCarrito,
       handleFinalizarVenta,
       ejecutarCobro,
       totalCarrito,

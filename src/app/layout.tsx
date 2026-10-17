@@ -13,6 +13,7 @@ import OfflineBanner from "@/components/OfflineBanner";
 import ObsToastContainer from "@/components/(base)/layout/ObsToastContainer";
 import { AuthSessionRecovery } from "@/components/(base)/providers/AuthSessionRecovery";
 import { isStaleRefreshTokenError } from "@/lib/supabase-session";
+import { APP_LOGO_PATH } from "@/lib/app-config";
 
 // Fuentes y metadatos de la app
 
@@ -46,8 +47,8 @@ export const metadata: Metadata = {
     title: "FarmaMuni",
   },
   icons: {
-    icon: "/farmamuni/logo.png",
-    apple: "/farmamuni/logo.png",
+    icon: APP_LOGO_PATH,
+    apple: APP_LOGO_PATH,
   },
 };
 

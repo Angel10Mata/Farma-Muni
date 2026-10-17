@@ -1,4 +1,5 @@
 import { MetadataRoute } from "next";
+import { APP_LOGO_PATH } from "@/lib/app-config";
 
 // App instalable (PWA)
 export default function manifest(): MetadataRoute.Manifest {
@@ -14,15 +15,15 @@ export default function manifest(): MetadataRoute.Manifest {
     theme_color: "#000000",
     icons: [
       {
-        src: "/farmamuni/logo.png",
+        src: APP_LOGO_PATH,
         sizes: "64x64 192x192 512x512",
-        type: "image/png",
+        type: "image/webp",
         purpose: "any",
       },
       {
-        src: "/farmamuni/logo.png",
+        src: APP_LOGO_PATH,
         sizes: "64x64 192x192 512x512",
-        type: "image/png",
+        type: "image/webp",
         purpose: "maskable",
       },
     ],

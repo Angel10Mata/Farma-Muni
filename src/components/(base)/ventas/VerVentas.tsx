@@ -7,6 +7,7 @@ import { Receipt, Package, AlertTriangle } from "lucide-react";
 import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, FileDown as FileDownNode, MessageCircle as MessageCircleNode, Printer as PrinterNode, X as XNode } from "lucide";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { APP_LOGO_PATH } from "@/lib/app-config";
 import { fmtQ } from "@/lib/utils";
 import { CrearCliente } from "@/components/(base)/clientes/forms/Crear";
 import { anularVenta, validarCredencialesAdmin } from "./lib/actions";
@@ -52,7 +53,8 @@ function VerVentasInner({
   refetchDatos: RefetchVentasDatos;
 }) {
   const { effectiveRole, realRole } = useUserContext();
-  const puedeVerHistorial = ["admin", "super"].includes(effectiveRole);
+  const puedeVerHistorial = ["admin", "super", "user"].includes(effectiveRole);
+  const historialAdministracion = ["admin", "super"].includes(effectiveRole);
   const { isDemoMode } = useDemoMode();
   const ventas = useVentas();
   const searchParams = useSearchParams();
@@ -365,9 +367,10 @@ function VerVentasInner({
       let currentY = 6;
 
       // Cargar e insertar Logo
-      const logoBase64 = await getBase64ImageFromUrl("/farmamuni/logo.png");
+      const logoBase64 = await getBase64ImageFromUrl(APP_LOGO_PATH);
       if (logoBase64) {
-        doc.addImage(logoBase64, "PNG", 33, currentY, 14, 14);
+        const logoFormat = logoBase64.includes("image/webp") ? "WEBP" : "PNG";
+        doc.addImage(logoBase64, logoFormat, 33, currentY, 14, 14);
         currentY += 17;
       } else {
         currentY += 4;
@@ -625,7 +628,7 @@ function VerVentasInner({
                 accentColor={sigetAccent.guardar}
                 morphFrom={CircleDollarSignNode}
                 morphTo={CheckNode}
-                onClick={ventas.ejecutarCobro}
+                onClick={() => void ventas.ejecutarCobro()}
                 disabled={ventas.isProcesandoVenta}
                 ariaBusy={ventas.isProcesandoVenta}
                 className="w-auto shrink-0"
@@ -787,6 +790,7 @@ function VerVentasInner({
         </div>
       ) : (
         <HistorialVentas
+          mostrarInformesAdmin={historialAdministracion}
           onPrint={(v, details) => handleImprimirVenta(v, details)}
           onShareWhatsApp={(v) => handleShareWhatsAppDirectly(v)}
         />

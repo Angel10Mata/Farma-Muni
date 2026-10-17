@@ -17,7 +17,8 @@ import { BreadcrumbNav } from "@/components/ui/breadcrumb-nav";
 import Menu from "./Menu";
 import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
 import { createPortal } from "react-dom";
-import AnimacionLogoKore from "@/components/(Kore)/logo/AnimacionLogoKore";
+import { LogoMuniFullscreen } from "@/components/(base)/layout/LogoMuniFullscreen";
+import { APP_LOGO_PATH } from "@/lib/app-config";
 
 // COMPONENTE PRINCIPAL
 
@@ -62,12 +63,12 @@ export default function EncabezadoApp() {
                 className="flex flex-row items-center shrink-0 group gap-1 md:gap-1.5 cursor-pointer"
               >
                 <motion.img 
-                  src="/farmamuni/logo.png"
+                  src={APP_LOGO_PATH}
                   alt="FarmaMuni"
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="h-16 md:h-20 w-16 md:w-20 object-contain transition-transform duration-300 group-hover:scale-105 origin-left"
+                  className="h-11 w-11 md:h-12 md:w-12 object-contain transition-transform duration-300 group-hover:scale-105 origin-left"
                 />
                 <motion.span
                   initial={{ opacity: 0, x: -10 }}
@@ -186,7 +187,7 @@ export default function EncabezadoApp() {
       <Menu isOpen={isOpen} setIsOpen={setIsOpen} user={user} />
 
       {mounted && createPortal(
-        <AnimacionLogoKore isOpen={isFullScreen} onClose={() => setIsFullScreen(false)} />,
+        <LogoMuniFullscreen isOpen={isFullScreen} onClose={() => setIsFullScreen(false)} />,
         document.body
       )}
     </>

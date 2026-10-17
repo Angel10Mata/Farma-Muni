@@ -47,6 +47,12 @@ import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { DEMO_CUENTAS_COBRAR } from "@/lib/demo/fixtures";
 import type { CuentaPorCobrar } from "@/components/(base)/finanzas/lib/zod";
+import { PLAZO_CREDITO_DIAS } from "./lib/creditos-reporte-helpers";
+
+function diasRestantesMostrar(c: CreditoResumen): number {
+  if (typeof c.dias_restantes === "number") return c.dias_restantes;
+  return PLAZO_CREDITO_DIAS - c.dias_atraso;
+}
 
 export function VerCreditos() {
   // Estado listado y pestañas
@@ -74,7 +80,7 @@ export function VerCreditos() {
     if (!isLoading && creditos.length > 0 && !hasNotified) {
       const porVencerOCaducados = creditos.filter(c => {
         if (c.saldo_pendiente <= 0) return false;
-        const diasRestantes = 30 - c.dias_atraso;
+        const diasRestantes = diasRestantesMostrar(c);
         return diasRestantes <= 7;
       });
 
@@ -355,7 +361,7 @@ export function VerCreditos() {
                         <td className="px-5 py-4 text-center">
                           {c.saldo_pendiente > 0 ? (
                             (() => {
-                              const diasRestantes = 30 - c.dias_atraso;
+                              const diasRestantes = diasRestantesMostrar(c);
                               if (diasRestantes < 0) {
                                 return <span className="text-rose-500 font-bold bg-rose-100 dark:bg-rose-900/30 px-2.5 py-1 rounded-md text-[11px] uppercase tracking-wider">Vencido</span>;
                               }

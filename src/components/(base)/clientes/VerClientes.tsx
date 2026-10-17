@@ -176,7 +176,12 @@ function ClienteDetalle({
         <h4 className="mb-2.5 text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Estadísticas</h4>
         <div className="grid grid-cols-3 gap-2.5">
           {[
-            { icon: ShoppingBag, label: "Total Compras", value: cliente.totalCompras, color: "text-[#8DA78E] dark:text-[#A3BEB0]" },
+            {
+              icon: ShoppingBag,
+              label: "Total Compras",
+              value: loadingVentas ? cliente.totalCompras : ventas.length,
+              color: "text-[#8DA78E] dark:text-[#A3BEB0]",
+            },
             { icon: TrendingUp, label: "Pendiente", value: `${cliente.creditosPendientes || 0} créditos`, color: "text-rose-500" },
             { icon: Calendar, label: "Última Compra", value: cliente.ultimaCompra ? (() => { const parts = cliente.ultimaCompra.split("T")[0].split("-"); return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).toLocaleDateString("es-GT"); })() : "Sin compras", color: "text-[#8DA78E] dark:text-[#A3BEB0]" },
           ].map(({ icon: Icon, label, value, color }) => (
@@ -293,6 +298,8 @@ function HistorialComprasPanel({
   }, [ventas, tipoFiltroFecha, fechaDia, activeMonth, activeYear, selectedWeekIndex, fechaRangoDesde, fechaRangoHasta]);
 
   const chartData = useMemo(() => {
+    const fuente = ventasFiltradas;
+
     if (tipoFiltroFecha === "dia") {
       const parts = fechaDia.split("-").map(Number);
       if (parts.length < 3) return [];
@@ -302,7 +309,7 @@ function HistorialComprasPanel({
       const data = [];
       for (let i = 1; i <= daysInMonth; i++) {
         const dayStr = `${year}-${String(month).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
-        const total = ventas
+        const total = fuente
           .filter(v => v.created_at.split("T")[0] === dayStr)
           .reduce((acc, curr) => acc + curr.total, 0);
         data.push({
@@ -312,21 +319,38 @@ function HistorialComprasPanel({
       }
       return data;
     } else if (tipoFiltroFecha === "semana") {
+      const year = activeYear;
+      const month = activeMonth + 1;
+      let desde: string;
+      let hasta: string;
+      if (selectedWeekIndex !== -1) {
+        const semanas = obtenerSemanasDelMes(activeMonth, activeYear);
+        const semanaSeleccionada = semanas[selectedWeekIndex];
+        if (!semanaSeleccionada) return [];
+        desde = semanaSeleccionada.desde;
+        hasta = semanaSeleccionada.hasta;
+      } else {
+        const daysInMonth = new Date(year, month, 0).getDate();
+        desde = `${year}-${String(month).padStart(2, "0")}-01`;
+        hasta = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+      }
       const data = [];
-      for (let i = 0; i < 12; i++) {
-        const monthDate = new Date(activeYear, i, 1);
-        const monthName = monthDate.toLocaleDateString("es-GT", { month: "short" });
-        const monthStr = String(i + 1).padStart(2, "0");
+      const start = new Date(`${desde}T00:00:00`);
+      const end = new Date(`${hasta}T00:00:00`);
+      const current = new Date(start);
+      while (current <= end) {
+        const y = current.getFullYear();
+        const m = String(current.getMonth() + 1).padStart(2, "0");
+        const d = String(current.getDate()).padStart(2, "0");
+        const dayStr = `${y}-${m}-${d}`;
         const total = ventas
-          .filter(v => {
-            const [vy, vm] = v.created_at.split("T")[0].split("-");
-            return vy === String(activeYear) && vm === monthStr;
-          })
+          .filter(v => v.created_at.split("T")[0] === dayStr)
           .reduce((acc, curr) => acc + curr.total, 0);
         data.push({
-          fecha: monthName.charAt(0).toUpperCase() + monthName.slice(1),
-          total
+          fecha: current.toLocaleDateString("es-GT", { month: "short", day: "numeric" }),
+          total,
         });
+        current.setDate(current.getDate() + 1);
       }
       return data;
     } else if (tipoFiltroFecha === "rango") {
@@ -344,7 +368,7 @@ function HistorialComprasPanel({
         const m = String(current.getMonth() + 1).padStart(2, "0");
         const d = String(current.getDate()).padStart(2, "0");
         const dayStr = `${y}-${m}-${d}`;
-        const total = ventas
+        const total = fuente
           .filter(v => v.created_at.split("T")[0] === dayStr)
           .reduce((acc, curr) => acc + curr.total, 0);
 
@@ -358,7 +382,17 @@ function HistorialComprasPanel({
       return data;
     }
     return [];
-  }, [ventas, tipoFiltroFecha, fechaDia, activeYear, fechaRangoDesde, fechaRangoHasta]);
+  }, [
+    ventas,
+    ventasFiltradas,
+    tipoFiltroFecha,
+    fechaDia,
+    activeMonth,
+    activeYear,
+    selectedWeekIndex,
+    fechaRangoDesde,
+    fechaRangoHasta,
+  ]);
 
   return (
       <motion.div
@@ -573,7 +607,9 @@ function HistorialComprasPanel({
             </ResponsiveContainer>
           </div>
           <div className="mt-8 space-y-2">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0] mb-3">Detalle de Compras</h4>
+            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0] mb-3">
+              Detalle de Compras ({ventasFiltradas.length} de {ventas.length})
+            </h4>
             {ventasFiltradas.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
                 <ShoppingBag className="size-12 mb-3 opacity-20" />

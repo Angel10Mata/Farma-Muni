@@ -10,6 +10,7 @@ export const CreditoResumenSchema = z.object({
   saldo_pendiente: z.number().min(0),
   estado: z.enum(["Al día", "Atrasado", "Solventado"]),
   dias_atraso: z.number().min(0),
+  dias_restantes: z.number().optional(),
   credito_vencido: z.boolean().optional(),
   monto_credito_vencido: z.number().min(0).optional(),
 });
@@ -23,6 +24,7 @@ export const VentaCreditoDetalleSchema = z.object({
   tipo_venta: z.string(),
   total: z.number().nullable(),
   observaciones: z.string().nullable(),
+  fecha_credito_vencimiento: z.string().nullable().optional(),
   fin_transacciones: z.array(
     z.object({
       id: z.string().uuid(),

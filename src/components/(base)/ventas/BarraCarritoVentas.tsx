@@ -4,15 +4,16 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ShoppingCart, Trash2, Plus, Minus, Package, AlertTriangle } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
-import { etiquetaLaboratorioComercial } from "@/components/(base)/inventario/lib/helpers";
 import { fmtQ } from "@/lib/utils";
 import { useVentas } from "./ContextoVentas";
+import { agruparLineasCarritoVenta } from "./lib/helpers";
 import { toast } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, Save as SaveNode, X as XNode } from "lucide";
 
 export function BarraCarritoVentas() {
   const ventas = useVentas();
+  const lineasCarrito = agruparLineasCarritoVenta(ventas.carrito);
 
   // Carrito, total y cobro
   return (
@@ -20,14 +21,14 @@ export function BarraCarritoVentas() {
       <motion.div
         animate={{ scale: ventas.animateCart ? [1, 1.02, 1] : 1 }}
         transition={{ duration: 0.3 }}
-        className="bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 rounded-3xl p-5 shadow-xs flex flex-col gap-4 min-h-[380px] h-auto"
+        className="bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/40 dark:border-[#A3BEB0]/10 rounded-3xl p-5 shadow-xs flex flex-col gap-4 min-h-[380px] h-auto font-sans"
       >
         <div className="flex items-center justify-between border-b border-[#C1D1C5]/30 pb-2">
           <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
             <ShoppingCart className="size-4 text-[#8DA78E]" /> Venta
           </h2>
           <span className="bg-[#8DA78E]/10 text-[#8DA78E] dark:text-[#A3BEB0] text-xs font-bold px-2 py-0.5 rounded-full">
-            {ventas.carrito.length} Producto(s)
+            {lineasCarrito.length} Producto(s)
           </span>
         </div>
 
@@ -47,15 +48,25 @@ export function BarraCarritoVentas() {
                 </p>
               </motion.div>
             ) : (
-              ventas.carrito.map((item, idx) => (
-                <motion.div
-                  key={`${item.lote_id ?? "sin-lote"}-${item.comercial.producto_id}-${idx}`}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  className="bg-[#F5F5F1] dark:bg-zinc-900/60 border border-[#C1D1C5]/20 dark:border-zinc-800 rounded-xl p-3 flex flex-col gap-2.5 text-left"
+              lineasCarrito.map((grupo) => {
+                const idx = grupo.indices[0];
+                const item = ventas.carrito[idx] ?? grupo.item;
+                const editando =
+                  ventas.editingCartItemIndex !== null &&
+                  grupo.indices.includes(ventas.editingCartItemIndex);
+                const stockMaxGrupo = grupo.indices.reduce((max, i) => {
+                  const fila = ventas.carrito[i];
+                  if (!fila) return max;
+                  const cap = fila.stock_lote ?? fila.comercial.stock_vendible;
+                  return max + cap;
+                }, 0);
+
+                return (
+                <div
+                  key={grupo.key}
+                  className="bg-[#F5F5F1] dark:bg-zinc-900/60 border border-[#C1D1C5]/20 dark:border-zinc-800 rounded-xl p-3.5 flex flex-col gap-2.5 text-left"
                 >
-                  {ventas.editingCartItemIndex === idx ? (
+                  {editando ? (
                     <div className="flex flex-col gap-2.5 w-full">
                       <h4 className="text-sm font-black text-slate-800 dark:text-white truncate">
                         Editar: {item.comercial.nombre_comercial}
@@ -104,17 +115,24 @@ export function BarraCarritoVentas() {
                               toast.warn("Ingresa un precio y una cantidad válidos.");
                               return;
                             }
-                            const stockMax = item.stock_lote ?? item.comercial.stock_vendible;
-                            if (newQty > stockMax) {
-                              toast.warn(`Solo hay ${stockMax} unidades en este lote.`);
+                            if (newQty > stockMaxGrupo) {
+                              toast.warn(`Solo hay ${stockMaxGrupo} unidades disponibles.`);
                               return;
                             }
-                            ventas.setCarrito(prev => prev.map((it, i) => i === idx ? {
-                              ...it,
-                              cantidad: newQty,
-                              precio_aplicado: newPrice,
-                              subtotal: newQty * newPrice
-                            } : it));
+                            if (grupo.indices.length === 1) {
+                              ventas.setCarrito((prev) =>
+                                prev.map((it, i) =>
+                                  i === idx
+                                    ? {
+                                        ...it,
+                                        cantidad: newQty,
+                                        precio_aplicado: newPrice,
+                                        subtotal: newQty * newPrice,
+                                      }
+                                    : it,
+                                ),
+                              );
+                            }
                             ventas.setEditingCartItemIndex(null);
                           }}
                           className="w-auto shrink-0"
@@ -140,55 +158,49 @@ export function BarraCarritoVentas() {
 
                         <div className="flex-1 min-w-0">
                           <h4
-                            className="text-xs font-bold text-slate-900 dark:text-white truncate"
+                            className="text-sm font-bold leading-snug text-slate-900 dark:text-white truncate"
                             title={item.comercial.nombre_comercial}
                           >
                             {item.comercial.nombre_comercial}
                           </h4>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
+                          <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-300 truncate mt-0.5">
                             {item.generico.generico_nombre}
                           </p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                            Lab: {etiquetaLaboratorioComercial(item.comercial.laboratorio_nombre)} ·{" "}
-                            {item.comercial.presentacion}
-                          </p>
-                          {item.codigo_barras_lote ? (
-                            <p className="text-[10px] text-slate-400 truncate">
-                              Barras: {item.codigo_barras_lote}
-                              {item.numero_lote ? ` · Lote ${item.numero_lote}` : ""}
-                            </p>
-                          ) : null}
-                          <div className="flex items-center text-[10px] text-slate-500 dark:text-slate-400 font-medium gap-1 mt-1">
-                            <span>Unitario: Q</span>
-                            <div className="flex items-center border border-slate-200 dark:border-slate-800 rounded bg-white dark:bg-zinc-900 px-1 py-0.5 transition-colors focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500">
+                          <div className="flex items-center text-xs text-slate-600 dark:text-slate-300 font-medium gap-1.5 mt-1.5">
+                            <span>Unitario:</span>
+                            <div className="flex items-center border border-slate-200 dark:border-slate-800 rounded-md bg-white dark:bg-zinc-900 px-1.5 py-0.5 focus-within:border-[#8DA78E] focus-within:ring-1 focus-within:ring-[#8DA78E]">
                               <input
                                 type="number"
                                 step="0.01"
                                 min={0}
                                 value={
-                                  item.precio_aplicado === 0 ? "" : item.precio_aplicado
+                                  grupo.indices.every(
+                                    (i) => ventas.carrito[i]?.precio_aplicado === 0,
+                                  )
+                                    ? ""
+                                    : item.precio_aplicado
                                 }
                                 onChange={(e) => {
                                   const val = e.target.value;
                                   if (val === "") {
-                                    ventas.setCarrito(
-                                      ventas.carrito.map((it, i) =>
-                                        i === idx
-                                          ? {
-                                              ...it,
-                                              precio_aplicado: 0,
-                                              subtotal: 0,
-                                            }
-                                          : it,
-                                      ),
-                                    );
+                                  ventas.setCarrito(
+                                    ventas.carrito.map((it, i) =>
+                                      grupo.indices.includes(i)
+                                        ? {
+                                            ...it,
+                                            precio_aplicado: 0,
+                                            subtotal: 0,
+                                          }
+                                        : it,
+                                    ),
+                                  );
                                     return;
                                   }
                                   const num = parseFloat(val);
                                   if (isNaN(num) || num < 0) return;
                                   ventas.setCarrito(
                                     ventas.carrito.map((it, i) =>
-                                      i === idx
+                                      grupo.indices.includes(i)
                                         ? {
                                             ...it,
                                             precio_aplicado: num,
@@ -198,7 +210,7 @@ export function BarraCarritoVentas() {
                                     ),
                                   );
                                 }}
-                                className="w-20 min-w-[4rem] bg-transparent outline-none text-slate-900 dark:text-white font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 focus:ring-0 border-0"
+                                className="w-20 min-w-[4.5rem] bg-transparent text-sm outline-none text-slate-900 dark:text-white font-bold tabular-nums [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0 focus:ring-0 border-0"
                               />
                             </div>
                           </div>
@@ -210,16 +222,16 @@ export function BarraCarritoVentas() {
                         {/* Quantity Controls */}
                         <div className="flex items-center gap-1 border border-slate-200 dark:border-slate-800 rounded-md bg-white dark:bg-zinc-900 px-1 py-0.5 shrink-0">
                           <button
-                            onClick={() => ventas.handleAjustarCantidad(idx, -1)}
+                            onClick={() => ventas.handleAjustarCantidadGrupo(grupo.indices, -1)}
                             className="size-5 flex items-center justify-center hover:bg-slate-150 dark:hover:bg-zinc-800 text-slate-500 rounded cursor-pointer"
                           >
                             <Minus className="size-2.5" />
                           </button>
-                          <span className="w-6 text-center text-[11px] font-bold text-slate-900 dark:text-white">
-                            {item.cantidad}
+                          <span className="w-7 text-center text-sm font-bold tabular-nums text-slate-900 dark:text-white">
+                            {grupo.cantidadTotal}
                           </span>
                           <button
-                            onClick={() => ventas.handleAjustarCantidad(idx, 1)}
+                            onClick={() => ventas.handleAjustarCantidadGrupo(grupo.indices, 1)}
                             className="size-5 flex items-center justify-center hover:bg-slate-150 dark:hover:bg-zinc-800 text-slate-500 rounded cursor-pointer"
                           >
                             <Plus className="size-2.5" />
@@ -227,14 +239,14 @@ export function BarraCarritoVentas() {
                         </div>
 
                         {/* Subtotal */}
-                        <span className="text-xs font-black text-[#8DA78E] dark:text-[#A3BEB0] min-w-[75px] text-right shrink-0">
-                          {fmtQ(item.subtotal)}
+                        <span className="text-sm font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0] min-w-[5.5rem] text-right shrink-0">
+                          {fmtQ(grupo.subtotalTotal)}
                         </span>
 
                         {/* Action Buttons */}
                         <div className="flex items-center gap-1 shrink-0">
                           <button
-                            onClick={() => ventas.handleEliminarDelCarrito(idx)}
+                            onClick={() => ventas.handleEliminarGrupoCarrito(grupo.indices)}
                             className="text-slate-400 hover:text-red-500 transition-colors cursor-pointer p-1"
                             title="Eliminar item"
                           >
@@ -244,8 +256,9 @@ export function BarraCarritoVentas() {
                       </div>
                     </div>
                   )}
-                </motion.div>
-              ))
+                </div>
+              );
+              })
             )}
           </AnimatePresence>
         </div>
@@ -282,7 +295,7 @@ export function BarraCarritoVentas() {
               Rebaja en espera de confirmación
             </p>
             <p className="text-xs text-amber-900/80 dark:text-amber-100/80 mt-0.5">
-              Toca aquí para ver el estado · luego pulsa Cobrar de nuevo
+              Toca aquí para ver el estado · el cobro continúa al autorizar
             </p>
           </button>
         ) : null}

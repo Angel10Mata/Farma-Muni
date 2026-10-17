@@ -13,6 +13,10 @@ import {
 import { requireFinanzas } from "@/lib/auth-guards";
 import { MotivoModificacionVentaSchema } from "@/components/(base)/ventas/lib/zod";
 import { modalActionMessage } from "@/components/ui/modal-toast";
+import {
+  diasRestantesCredito,
+  fechaVenceCreditoDesdeVenta,
+} from "@/components/(base)/creditos/lib/creditos-reporte-helpers";
 
 // Utilidades internas
 const FINANZAS_PATH = "/farmamuni/finanzas";
@@ -83,7 +87,7 @@ async function listarCuentasPorCobrarFallback(
   const { data: ventas, error } = await supabase
     .from("ventas")
     .select(
-      "id, cliente_id, numero_recibo, created_at, total, estado, tipo_venta, ven_clientes(nombre)",
+      "id, cliente_id, numero_recibo, created_at, total, estado, tipo_venta, fecha_credito_vencimiento, ven_clientes(nombre)",
     )
     .not("cliente_id", "is", null);
 
@@ -126,6 +130,10 @@ async function listarCuentasPorCobrarFallback(
     if (saldo <= 0) continue;
 
     const cliente = v.ven_clientes as { nombre?: string } | null;
+    const fechaVence = fechaVenceCreditoDesdeVenta(
+      v.created_at as string,
+      v.fecha_credito_vencimiento as string | null | undefined,
+    );
     resultado.push({
       venta_id: v.id as string,
       cliente_id: v.cliente_id as string,
@@ -136,6 +144,11 @@ async function listarCuentasPorCobrarFallback(
       total,
       total_cobrado: totalCobrado,
       saldo_pendiente: saldo,
+      fecha_vencimiento_credito: fechaVence,
+      dias_restantes: diasRestantesCredito(
+        v.created_at as string,
+        v.fecha_credito_vencimiento as string | null | undefined,
+      ),
     });
   }
 

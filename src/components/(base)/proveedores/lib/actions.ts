@@ -78,7 +78,7 @@ export async function obtenerProveedores() {
       .select("*")
       .order("nombre", { ascending: true });
 
-    if (error) return { code: "INTERNAL" as const };
+    if (error) return mapDbError(error);
     return { success: true as const, data: data ?? [] };
   } catch {
     return { code: "INTERNAL" as const };
@@ -159,10 +159,9 @@ export async function obtenerProveedoresYProductos() {
     const { data: proveedores, error: provError } = await supabase
       .from("inv_proveedores")
       .select("*")
-      .eq("activo", true)
       .order("nombre", { ascending: true });
 
-    if (provError) return { code: "INTERNAL" as const };
+    if (provError) return mapDbError(provError);
 
     const { data: comercialesRaw, error: prodError } = await supabase
       .from("v_inv_comerciales")

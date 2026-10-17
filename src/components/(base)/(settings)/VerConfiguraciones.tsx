@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import { useAppSettings, useUpdateAppSettings } from "./hooks";
 import { Shield, Key, Loader2, Building2 } from "lucide-react";
-import LogoKore from "@/components/(Kore)/logo/LogoKore";
+import Image from "next/image";
+import { APP_LOGO_PATH, APP_NAME } from "@/lib/app-config";
 import { Card } from "@/components/ui/card";
 import { modulePageCenteredClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
@@ -79,7 +80,13 @@ export default function VerConfiguraciones() {
   return (
     <div className={modulePageCenteredClass}>
       <div className="w-full flex justify-center mb-4">
-        <LogoKore scale={0.7} backgroundEffect="none" />
+        <Image
+          src={APP_LOGO_PATH}
+          alt={APP_NAME}
+          width={160}
+          height={160}
+          className="h-28 w-28 object-contain md:h-32 md:w-32"
+        />
       </div>
 
       <div className="flex flex-col gap-1 w-full text-center items-center">

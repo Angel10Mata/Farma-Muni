@@ -12,6 +12,8 @@ import { AuroraText } from "@/components/ui/aurora-text";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { toast } from "react-toastify";
+import Image from "next/image";
+import { APP_LOGO_PATH, APP_NAME } from "@/lib/app-config";
 
 // Login
 export default function IniciarSesion() {
@@ -109,6 +111,14 @@ export default function IniciarSesion() {
       <div className="relative w-full max-w-md px-6 md:px-12 pb-12 z-10">
         <MagicCard className="rounded-3xl border border-[#C1D1C5]/40 dark:border-[#525D53]/50 bg-white/40 dark:bg-[#1a1d1a]/95 backdrop-blur-xl shadow-2xl overflow-visible!">
           <div className="flex flex-col items-center space-y-6 p-10 border-b border-border/50 text-center">
+            <Image
+              src={APP_LOGO_PATH}
+              alt={APP_NAME}
+              width={120}
+              height={120}
+              className="h-24 w-24 object-contain"
+              priority
+            />
             <div className="space-y-1">
               <h3 className="text-2xl font-black tracking-tight">
                 <AuroraText>Bienvenido de nuevo</AuroraText>

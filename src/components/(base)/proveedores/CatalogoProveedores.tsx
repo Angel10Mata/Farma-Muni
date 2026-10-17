@@ -42,12 +42,18 @@ import {
 // Props
 interface CatalogoProveedoresProps {
   proveedores: Proveedor[];
+  mensajeListaVacia?: string | null;
   cargarDatos: () => void;
   setIsCrearOpen: (open: boolean) => void;
 }
 
 // Proveedores
-export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }: CatalogoProveedoresProps) {
+export function CatalogoProveedores({
+  proveedores,
+  mensajeListaVacia = null,
+  cargarDatos,
+  setIsCrearOpen,
+}: CatalogoProveedoresProps) {
   // Estado
   const [proveedorBusqueda, setProveedorBusqueda] = useState("");
   const [proveedorSeleccionado, setProveedorSeleccionado] = useState<Proveedor | null>(null);
@@ -123,6 +129,13 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
     return (p.nombre || "").toLowerCase().includes(q) || (p.nit && p.nit.toLowerCase().includes(q));
   });
 
+  const sinResultadosBusqueda =
+    proveedores.length > 0 && proveedoresFiltrados.length === 0 && proveedorBusqueda.trim() !== "";
+  const textoListaVacia =
+    sinResultadosBusqueda
+      ? "Ningún proveedor coincide con la búsqueda."
+      : mensajeListaVacia ?? "No se encontraron proveedores";
+
   const totalPages = Math.ceil(proveedoresFiltrados.length / pageSize) || 1;
   const proveedoresPaginados = proveedoresFiltrados.slice(
     (currentPage - 1) * pageSize,
@@ -184,8 +197,8 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
                 <tbody className={moduleTableBodyClass}>
                   {proveedoresPaginados.length === 0 ? (
                     <tr>
-                      <td colSpan={6} className={moduleTableEmptyCellClass}>
-                        No se encontraron proveedores
+                      <td colSpan={6} className={cn(moduleTableEmptyCellClass, "max-w-md whitespace-normal")}>
+                        {textoListaVacia}
                       </td>
                     </tr>
                   ) : (
@@ -299,8 +312,8 @@ export function CatalogoProveedores({ proveedores, cargarDatos, setIsCrearOpen }
           {/* Mobile Cards */}
           <div className="md:hidden flex flex-col gap-3">
             {proveedoresPaginados.length === 0 ? (
-              <div className="py-10 text-center text-slate-400 font-bold text-sm bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-2xl">
-                No se encontraron proveedores
+              <div className="py-10 px-4 text-center text-slate-500 font-bold text-sm leading-relaxed bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-2xl">
+                {textoListaVacia}
               </div>
             ) : (
               proveedoresPaginados.map((p) => (

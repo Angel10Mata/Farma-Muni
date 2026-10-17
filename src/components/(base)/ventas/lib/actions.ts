@@ -695,6 +695,15 @@ export async function crearVenta(params: {
       }
     }
 
+    await assertRebajasAutorizadas(supabase, user.id, {
+      cliente_id: cliente_id || null,
+      tipo_venta,
+      total: params.total,
+      observaciones: observaciones || null,
+      items,
+      solicitud_rebaja_id,
+    });
+
     const pVenta: Record<string, unknown> = {
       cliente_id: cliente_id || null,
       usuario_id: user.id,
@@ -789,6 +798,31 @@ export async function crearVenta(params: {
   }
 }
 
+async function assertPuedeVerVentaEnHistorial(
+  supabase: SupabaseClient,
+  userId: string,
+  ventaId: string,
+  rol: string,
+) {
+  if (isAdminRole(rol)) return;
+
+  if (rol === "user") {
+    const { data, error } = await supabase
+      .from("ventas")
+      .select("usuario_id")
+      .eq("id", ventaId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!data || data.usuario_id !== userId) {
+      throw new Error("No tienes permiso para ver esta venta.");
+    }
+    return;
+  }
+
+  throw new Error("No tienes permiso para ver el historial de ventas.");
+}
+
 // Historial y detalle de ventas
 export async function obtenerHistorialVentas() {
   try {
@@ -801,15 +835,22 @@ export async function obtenerHistorialVentas() {
       throw new Error("Sesión no válida o expirada.");
     }
 
-    const rol = await obtenerRolUsuario(supabase, user.id);
-    if (rol !== "admin" && rol !== "super") {
+    const rol = await resolveUserRole(supabase, user);
+    const puedeHistorial = isAdminRole(rol) || rol === "user";
+    if (!puedeHistorial) {
       throw new Error("No tienes permiso para ver el historial de ventas.");
     }
 
-    const { data, error } = await supabase
+    let ventasQuery = supabase
       .from("ventas")
       .select("*, ven_clientes(nombre, nit)")
       .order("created_at", { ascending: false });
+
+    if (rol === "user") {
+      ventasQuery = ventasQuery.eq("usuario_id", user.id);
+    }
+
+    const { data, error } = await ventasQuery;
 
     if (error) throw new Error(error.message);
 
@@ -847,8 +888,11 @@ export async function obtenerHistorialVentas() {
         ? perfilesPorId[venta.anulada_por] ?? null
         : null,
     }));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en obtenerHistorialVentas:", error);
+    if (error instanceof Error && error.message.includes("permiso")) {
+      throw error;
+    }
     throw new Error("No se pudo obtener el historial de ventas.");
   }
 }
@@ -1180,6 +1224,16 @@ export async function obtenerReporteVentasReceta(
 export async function obtenerDetalleVenta(ventaId: string) {
   try {
     const supabase = await createClient();
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Sesión no válida o expirada.");
+    }
+
+    const rol = await resolveUserRole(supabase, user);
+    await assertPuedeVerVentaEnHistorial(supabase, user.id, ventaId, rol);
 
     const { data, error } = await supabase
       .from("ven_detalles")

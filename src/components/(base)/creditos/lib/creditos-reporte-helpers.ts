@@ -1,5 +1,10 @@
 import type { CuentaPorCobrar } from "@/components/(base)/finanzas/lib/zod";
 import { formatNumeroRecibo } from "@/components/(base)/ventas/lib/helpers";
+import {
+  fechaCalendarioGt,
+  normalizarFechaCalendario,
+} from "@/lib/fechas-gt";
+import { diasRestantesVencimientoGt } from "@/lib/vencimientos-gt";
 
 export const PLAZO_CREDITO_DIAS = 30;
 
@@ -24,13 +29,26 @@ export function etiquetaReciboCredito(cuenta: CuentaPorCobrar): string {
   return `${id.substring(0, 3)}-${id.substring(3, 6)}`;
 }
 
-export function diasRestantesCredito(fechaVenta: string): number {
-  const inicio = new Date(fechaVenta).getTime();
-  if (Number.isNaN(inicio)) return PLAZO_CREDITO_DIAS;
-  const diasTranscurridos = Math.floor(
-    (Date.now() - inicio) / (1000 * 60 * 60 * 24),
-  );
-  return PLAZO_CREDITO_DIAS - diasTranscurridos;
+export function fechaVenceCreditoDesdeVenta(
+  fechaVenta: string,
+  fechaVencimientoGuardada?: string | null,
+): string {
+  const guardada = normalizarFechaCalendario(fechaVencimientoGuardada);
+  if (guardada) return guardada;
+  const base =
+    normalizarFechaCalendario(fechaVenta) ||
+    fechaCalendarioGt(new Date(fechaVenta));
+  const d = new Date(`${base}T12:00:00`);
+  d.setDate(d.getDate() + PLAZO_CREDITO_DIAS);
+  return fechaCalendarioGt(d);
+}
+
+export function diasRestantesCredito(
+  fechaVenta: string,
+  fechaVencimiento?: string | null,
+): number {
+  const vence = fechaVenceCreditoDesdeVenta(fechaVenta, fechaVencimiento);
+  return diasRestantesVencimientoGt(vence);
 }
 
 export function estadoVencimientoCredito(
@@ -41,12 +59,12 @@ export function estadoVencimientoCredito(
   return "Al día";
 }
 
-export function fechaVenceCredito(fechaVenta: string): Date {
-  const base = new Date(fechaVenta);
-  if (Number.isNaN(base.getTime())) return new Date();
-  const vence = new Date(base);
-  vence.setDate(vence.getDate() + PLAZO_CREDITO_DIAS);
-  return vence;
+export function fechaVenceCredito(
+  fechaVenta: string,
+  fechaVencimiento?: string | null,
+): Date {
+  const iso = fechaVenceCreditoDesdeVenta(fechaVenta, fechaVencimiento);
+  return new Date(`${iso}T12:00:00`);
 }
 
 export function formatFechaCortaGt(fecha: string | Date): string {
@@ -65,8 +83,17 @@ export function enriquecerLineasCuentas(
   return cuentas
     .filter((c) => c.saldo_pendiente > 0)
     .map((c) => {
-      const dias = diasRestantesCredito(c.fecha_venta);
-      const vence = fechaVenceCredito(c.fecha_venta);
+      const dias =
+        typeof c.dias_restantes === "number"
+          ? c.dias_restantes
+          : diasRestantesCredito(
+              c.fecha_venta,
+              c.fecha_vencimiento_credito,
+            );
+      const vence = fechaVenceCredito(
+        c.fecha_venta,
+        c.fecha_vencimiento_credito,
+      );
       return {
         ...c,
         dias_restantes: dias,

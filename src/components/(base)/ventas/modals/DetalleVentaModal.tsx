@@ -17,6 +17,7 @@ import {
   toast,
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { useDetalleVenta, useAnularVenta, useEditarDetalleVenta, useEliminarDetalleVenta, useBitacoraVenta } from "../lib/hooks";
 import { codigoReciboVenta, resumenAccionBitacoraVenta } from "../lib/helpers";
 
@@ -30,9 +31,14 @@ interface DetalleVentaModalProps {
 }
 
 export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModalProps) {
+  const { effectiveRole } = useUserContext();
+  const puedeGestionarVenta = ["admin", "super"].includes(effectiveRole);
+
   // Datos de la venta
   const { data: detalles = [], isLoading } = useDetalleVenta(venta.id);
-  const { data: bitacora = [], isLoading: bitacoraLoading } = useBitacoraVenta(venta.id);
+  const { data: bitacora = [], isLoading: bitacoraLoading } = useBitacoraVenta(
+    puedeGestionarVenta ? venta.id : null,
+  );
   const { mutate: anularVenta, isPending: isAnulando } = useAnularVenta();
   const { mutate: editarDetalle, isPending: isEditando } = useEditarDetalleVenta();
   const { mutate: eliminarDetalle, isPending: isEliminando } = useEliminarDetalleVenta();
@@ -152,7 +158,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                   {venta.profiles?.nombre || "N/A"}
                 </span>
               </div>
-              {bitacora.length > 0 && (
+              {puedeGestionarVenta && bitacora.length > 0 && (
                 <div className="flex justify-between items-start gap-2 text-xs border-t border-zinc-100 dark:border-zinc-700 pt-2 mt-1">
                   <span className="text-zinc-500 font-semibold uppercase shrink-0">Última modificación:</span>
                   <span className="text-zinc-900 dark:text-white font-bold text-right leading-snug">
@@ -165,7 +171,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
               )}
             </div>
 
-            {(bitacoraLoading || bitacora.length > 0) && (
+            {puedeGestionarVenta && (bitacoraLoading || bitacora.length > 0) && (
               <div className="space-y-2">
                 <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
                   Quién modificó esta factura
@@ -334,37 +340,39 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
           </div>
 
           <div className="flex gap-3 p-4 md:p-6 pt-4 border-t border-zinc-200 dark:border-zinc-800 shrink-0 bg-[#F5F5F1] dark:bg-zinc-900">
-            <SigetActionButton
-              label="Anular"
-              accentColor={sigetAccent.quitar}
-              morphFrom={Trash2Node}
-              morphTo={TrashNode}
-              onClick={() =>
-                setPromptModal({
-                  isOpen: true,
-                  message:
-                    "Anular venta completa.\nRevertirá inventario y quedará registrado en bitácora.\n\nIngresa el motivo (obligatorio):",
-                  value: "",
-                  onConfirm: (motivo) => {
-                    if (!motivo.trim()) {
-                      toast.warn("El motivo es obligatorio.");
-                      return;
-                    }
-                    anularVenta(
-                      { ventaId: venta.id, motivo: motivo.trim() },
-                      {
-                        onSuccess: () => {
-                          setPromptModal((prev) => ({ ...prev, isOpen: false, value: "" }));
-                          onClose();
+            {puedeGestionarVenta ? (
+              <SigetActionButton
+                label="Anular"
+                accentColor={sigetAccent.quitar}
+                morphFrom={Trash2Node}
+                morphTo={TrashNode}
+                onClick={() =>
+                  setPromptModal({
+                    isOpen: true,
+                    message:
+                      "Anular venta completa.\nRevertirá inventario y quedará registrado en bitácora.\n\nIngresa el motivo (obligatorio):",
+                    value: "",
+                    onConfirm: (motivo) => {
+                      if (!motivo.trim()) {
+                        toast.warn("El motivo es obligatorio.");
+                        return;
+                      }
+                      anularVenta(
+                        { ventaId: venta.id, motivo: motivo.trim() },
+                        {
+                          onSuccess: () => {
+                            setPromptModal((prev) => ({ ...prev, isOpen: false, value: "" }));
+                            onClose();
+                          },
                         },
-                      },
-                    );
-                  },
-                })
-              }
-              disabled={isLoading || isAnulando}
-              className="w-full"
-            />
+                      );
+                    },
+                  })
+                }
+                disabled={isLoading || isAnulando}
+                className="w-full"
+              />
+            ) : null}
             <SigetActionButton
               label="Imprimir"
               accentColor={sigetAccent.guardar}

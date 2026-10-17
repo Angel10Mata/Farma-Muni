@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef } from "react";
+import React, { useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, Minus, Package, Check, ChevronDown, UserPlus, X, AlertTriangle, User } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
@@ -11,13 +11,13 @@ import { toast } from "@/components/ui/general-modal";
 import { buscarLotePorCodigoBarras } from "./lib/actions";
 import { etiquetaLaboratorioComercial } from "@/components/(base)/inventario/lib/helpers";
 import {
-  comercialesDelGenerico,
+  agruparComercialesVentaBusqueda,
+  buscarGenericoPorId,
   etiquetaPrecioComercial,
-  genericoCoincideBusquedaPos,
+  mensajeCreditoVencidoCliente,
 } from "./lib/helpers";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
-import { mensajeCreditoVencidoCliente } from "./lib/helpers";
 
 interface SeccionProductosVentasProps {
   genericos: GenericoVenta[];
@@ -49,15 +49,29 @@ export function SeccionProductosVentas({
     );
   });
 
-  const sugerenciasGenericos = genericos.filter((g) => {
-    if (!ventas.genericoBusqueda) return false;
-    if (g.stock_vendible <= 0) return false;
-    return genericoCoincideBusquedaPos(g, ventas.genericoBusqueda.trim());
-  });
+  const gruposComerciales = useMemo(
+    () => agruparComercialesVentaBusqueda(comerciales, genericos, ventas.genericoBusqueda),
+    [comerciales, genericos, ventas.genericoBusqueda],
+  );
 
-  const comercialesVisibles = ventas.genericoSeleccionado
-    ? comercialesDelGenerico(comerciales, ventas.genericoSeleccionado.generico_id)
-    : [];
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (prodDropdownRef.current && !prodDropdownRef.current.contains(event.target as Node)) {
+        ventas.setMostrarSugerenciasProd(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [ventas]);
+
+  const seleccionarComercialVenta = (c: ComercialVenta) => {
+    const g = buscarGenericoPorId(genericos, c.generico_id);
+    if (!g) return;
+    ventas.setGenericoSeleccionado(g);
+    ventas.setComercialSeleccionado(c);
+    ventas.setGenericoBusqueda(c.nombre_comercial);
+    ventas.setMostrarSugerenciasProd(false);
+  };
 
   // Panel de cliente y productos
   return (
@@ -237,12 +251,15 @@ export function SeccionProductosVentas({
           </div>
         )}
 
-        <div className="flex flex-col gap-1.5 w-full relative text-left" ref={prodDropdownRef}>
+        <div
+          className={`flex flex-col gap-1.5 w-full text-left ${ventas.mostrarSugerenciasProd ? "relative z-[60]" : ""}`}
+          ref={prodDropdownRef}
+        >
           <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
             Buscar genérico o escanear código de barras
           </label>
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400 pointer-events-none" />
             <input
               type="text"
               value={ventas.genericoBusqueda}
@@ -286,82 +303,68 @@ export function SeccionProductosVentas({
               placeholder="Genérico o código de barras del lote..."
               className="w-full pl-12 pr-4 h-[46px] border rounded-xl text-sm bg-white dark:bg-zinc-900 border-[#E5E9E5] dark:border-[#3D473F] text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors"
             />
-          </div>
 
-          <AnimatePresence>
-            {ventas.mostrarSugerenciasProd && sugerenciasGenericos.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className="absolute left-0 right-0 top-full mt-1 max-h-[280px] overflow-y-auto bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 text-left"
-              >
-                {sugerenciasGenericos.map((g) => {
-                  const isLow = g.bajo_minimo ?? g.stock_vendible <= g.stock_minimo;
-                  return (
-                    <button
-                      key={g.generico_id}
-                      type="button"
-                      onClick={() => {
-                        ventas.setGenericoSeleccionado(g);
-                        ventas.setComercialSeleccionado(null);
-                        ventas.setGenericoBusqueda(g.generico_nombre);
-                        ventas.setMostrarSugerenciasProd(false);
-                      }}
-                      className="w-full px-4 py-2.5 border-b border-slate-100 dark:border-slate-900 hover:bg-[#8DA78E]/10 dark:hover:bg-[#8DA78E]/20 text-left flex items-center justify-between text-xs cursor-pointer"
+            <AnimatePresence>
+              {ventas.mostrarSugerenciasProd ? (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="absolute left-0 right-0 top-full z-[70] mt-1 max-h-64 overflow-y-auto rounded-xl border border-slate-200 bg-white text-left opacity-100 shadow-xl dark:border-slate-800 dark:bg-zinc-950"
+                >
+                {gruposComerciales.length === 0 ? (
+                  <div className="px-4 py-3 text-sm text-slate-500">
+                    {ventas.genericoBusqueda.trim()
+                      ? "Sin coincidencias con stock disponible."
+                      : "No hay productos con stock para vender."}
+                  </div>
+                ) : (
+                  gruposComerciales.map((grupo) => (
+                    <div
+                      key={grupo.generico_id}
+                      className="border-b border-slate-100 dark:border-slate-900 last:border-b-0"
                     >
-                      <div>
-                        <p className="font-bold text-slate-950 dark:text-white">{g.generico_nombre}</p>
-                        <p className="text-[10px] text-slate-500">
-                          {g.catalogo_nombre} · Stock vendible: {g.stock_vendible}
-                          {g.requiere_receta ? " · Receta" : ""}
+                      <div className="px-4 py-3 bg-slate-50 dark:bg-zinc-900/80 border-b border-slate-100 dark:border-zinc-800">
+                        <p className="text-sm font-black leading-snug text-slate-800 dark:text-slate-200">
+                          {grupo.lineaGenerica}
+                        </p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                          Catálogo: {grupo.catalogo_nombre}
                         </p>
                       </div>
-                      <p
-                        className={`text-[9px] font-bold ${isLow ? "text-amber-500" : "text-slate-400"}`}
-                      >
-                        Mín: {g.stock_minimo}
-                      </p>
-                    </button>
-                  );
-                })}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {ventas.genericoSeleccionado && (
-          <div className="flex flex-col gap-2">
-            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
-              Productos comerciales
-            </label>
-            {comercialesVisibles.length === 0 ? (
-              <p className="text-xs text-slate-500">Sin comerciales con stock para este genérico.</p>
-            ) : (
-              <div className="max-h-48 overflow-y-auto rounded-xl border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-900">
-                {comercialesVisibles.map((c) => (
-                  <button
-                    key={c.producto_id}
-                    type="button"
-                    onClick={() => ventas.setComercialSeleccionado(c)}
-                    className={`w-full px-3 py-2 text-left text-xs hover:bg-[#8DA78E]/10 ${
-                      ventas.comercialSeleccionado?.producto_id === c.producto_id
-                        ? "bg-[#8DA78E]/15"
-                        : ""
-                    }`}
-                  >
-                    <p className="font-bold text-slate-900 dark:text-white">{c.nombre_comercial}</p>
-                    <p className="text-[10px] text-slate-500">
-                      {etiquetaLaboratorioComercial(c.laboratorio_nombre)} · {c.presentacion} ·{" "}
-                      {etiquetaPrecioComercial(c)} · Stock:{" "}
-                      {c.stock_vendible}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
+                      {grupo.marcas.map((c) => (
+                        <button
+                          key={c.producto_id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => seleccionarComercialVenta(c)}
+                          className="w-full pl-5 pr-4 py-2.5 border-b border-slate-50 dark:border-zinc-900/80 hover:bg-[#8DA78E]/10 dark:hover:bg-[#8DA78E]/20 text-left flex items-center justify-between gap-3 text-sm cursor-pointer"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-sm font-bold leading-snug text-slate-900 dark:text-white">
+                              {c.nombre_comercial}
+                            </p>
+                            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 mt-0.5">
+                              Laboratorio: {etiquetaLaboratorioComercial(c.laboratorio_nombre)}
+                              <span className="text-slate-400">
+                                {" "}
+                                · Stock vendible: {c.stock_vendible}
+                              </span>
+                            </p>
+                          </div>
+                          <span className="shrink-0 text-sm font-bold text-slate-600 tabular-nums dark:text-slate-300">
+                            {etiquetaPrecioComercial(c)}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ))
+                )}
+                </motion.div>
+              ) : null}
+            </AnimatePresence>
           </div>
-        )}
+        </div>
 
         {/* 4. Cantidad y Añadir */}
         <div className="flex items-end gap-3 w-full">

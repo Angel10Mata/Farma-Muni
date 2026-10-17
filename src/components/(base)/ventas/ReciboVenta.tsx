@@ -1,3 +1,4 @@
+import { APP_LOGO_PATH } from "@/lib/app-config";
 import { cn, fmtQ } from "@/lib/utils";
 import { etiquetaLaboratorioComercial } from "@/components/(base)/inventario/lib/helpers";
 import {
@@ -58,7 +59,7 @@ export function ReciboVenta({
       {/* Encabezado con Logo, Nombre y Dirección */}
       <div className="text-center pb-2 border-b border-black/30 mb-2">
         <img
-          src="/farmamuni/logo.png"
+          src={APP_LOGO_PATH}
           alt="Logo FarmaMuni"
           className="size-12 mx-auto object-contain mb-1"
         />

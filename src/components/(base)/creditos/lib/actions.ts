@@ -1,6 +1,12 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { fechaCalendarioGt } from "@/lib/fechas-gt";
+import { diasRestantesVencimientoGt } from "@/lib/vencimientos-gt";
+import {
+  PLAZO_CREDITO_DIAS,
+  fechaVenceCreditoDesdeVenta,
+} from "./creditos-reporte-helpers";
 
 import type { CreditoResumen, VentaCreditoDetalle } from "./zod";
 
@@ -17,17 +23,8 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
 
     if (cliError) throw new Error(cliError.message);
 
-    const { data: settingsRow } = await supabase
-      .from("app_settings")
-      .select("dias_credito")
-      .limit(1)
-      .maybeSingle();
-    const diasCreditoPlazo = Number(settingsRow?.dias_credito) || 30;
-
-    const hoyGt = new Date(
-      new Date().toLocaleString("en-US", { timeZone: "America/Guatemala" }),
-    );
-    hoyGt.setHours(0, 0, 0, 0);
+    const diasCreditoPlazo = PLAZO_CREDITO_DIAS;
+    const hoyCal = fechaCalendarioGt();
 
     const ventasData: Array<{
       id: string;
@@ -101,6 +98,7 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
           saldo_pendiente: 0,
           estado: "Solventado",
           dias_atraso: 0,
+          dias_restantes: diasCreditoPlazo,
           credito_vencido: false,
           monto_credito_vencido: 0,
         });
@@ -108,7 +106,6 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
     }
 
     if (ventasData) {
-      const now = new Date().getTime();
       ventasData.forEach((v: any) => {
         if (!v.cliente_id) return;
         const c = clientCreditosMap.get(v.cliente_id);
@@ -123,19 +120,25 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
         c.saldo_pendiente += saldoVenta;
 
         if (saldoVenta > 0) {
-          const dias = Math.floor((now - new Date(v.created_at).getTime()) / (1000 * 3600 * 24));
-          if (dias > c.dias_atraso) {
-             c.dias_atraso = dias;
+          const fechaVenceIso = fechaVenceCreditoDesdeVenta(
+            v.created_at,
+            v.fecha_credito_vencimiento,
+          );
+          const diasRestantes = diasRestantesVencimientoGt(fechaVenceIso, hoyCal);
+
+          if (
+            c.dias_restantes === undefined ||
+            diasRestantes < c.dias_restantes
+          ) {
+            c.dias_restantes = diasRestantes;
           }
 
-          const fechaVence = v.fecha_credito_vencimiento
-            ? new Date(`${v.fecha_credito_vencimiento}T12:00:00`)
-            : new Date(new Date(v.created_at).getTime());
-          if (!v.fecha_credito_vencimiento) {
-            fechaVence.setDate(fechaVence.getDate() + diasCreditoPlazo);
+          const diasTranscurridos = diasCreditoPlazo - diasRestantes;
+          if (diasTranscurridos > c.dias_atraso) {
+            c.dias_atraso = Math.max(0, diasTranscurridos);
           }
-          fechaVence.setHours(0, 0, 0, 0);
-          if (fechaVence < hoyGt) {
+
+          if (diasRestantes < 0) {
             c.credito_vencido = true;
             c.monto_credito_vencido =
               (c.monto_credito_vencido ?? 0) + saldoVenta;
@@ -150,7 +153,10 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
       if (c.total_consumido > 0) {
         if (c.saldo_pendiente <= 0) {
            c.estado = "Solventado";
-        } else if (c.credito_vencido || c.dias_atraso > diasCreditoPlazo) {
+        } else if (
+          c.credito_vencido ||
+          (c.dias_restantes ?? diasCreditoPlazo) < 0
+        ) {
            c.estado = "Atrasado";
         } else {
            c.estado = "Al día";
@@ -171,7 +177,9 @@ export async function obtenerDetalleCredito(clienteId: string): Promise<VentaCre
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("ventas")
-    .select("id, created_at, tipo_venta, total, estado, observaciones, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)")
+    .select(
+      "id, created_at, tipo_venta, total, estado, observaciones, fecha_credito_vencimiento, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
+    )
     .eq("cliente_id", clienteId)
     .eq("tipo_venta", "Crédito")
     .neq("estado", "anulada")

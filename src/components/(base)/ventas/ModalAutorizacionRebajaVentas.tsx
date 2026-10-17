@@ -126,8 +126,8 @@ export function ModalAutorizacionRebajaVentas() {
               Esperando confirmación administrativa
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
-              Se notificó a administración. No modifiques el carrito hasta que autoricen la rebaja.
-              Luego vuelve a pulsar <span className="font-bold">Cobrar</span>.
+              Se notificó a administración. No modifiques el carrito hasta que autoricen la rebaja;
+              el cobro continuará automáticamente.
             </p>
           </div>
           <ModalFooter>

@@ -11,6 +11,12 @@ import { cn, fmtQ } from "@/lib/utils";
 import type { CreditoResumen } from "../lib/zod";
 import { useDetalleCredito } from "../lib/hooks";
 import { RegistrarAbono } from "./RegistrarAbono";
+import {
+  diasRestantesCredito,
+  fechaVenceCreditoDesdeVenta,
+  formatFechaCortaGt,
+  PLAZO_CREDITO_DIAS,
+} from "../lib/creditos-reporte-helpers";
 
 interface CreditoDetalleProps {
   cliente: CreditoResumen;
@@ -129,6 +135,14 @@ export function VerDetalleCredito({
                 const totalAbonado = abonos.reduce((sum, t) => sum + Number(t.monto), 0);
                 const saldo = Math.max(0, (v.total || 0) - totalAbonado);
                 const isPagado = saldo <= 0;
+                const fechaVence = fechaVenceCreditoDesdeVenta(
+                  v.created_at,
+                  v.fecha_credito_vencimiento,
+                );
+                const diasRest = diasRestantesCredito(
+                  v.created_at,
+                  v.fecha_credito_vencimiento,
+                );
 
                 return (
                   <div
@@ -143,6 +157,24 @@ export function VerDetalleCredito({
                         <p className="text-[10px] text-zinc-500">
                           {new Date(v.created_at).toLocaleDateString("es-GT")}
                         </p>
+                        {!isPagado ? (
+                          <p
+                            className={cn(
+                              "text-[10px] font-bold mt-0.5",
+                              diasRest < 0
+                                ? "text-rose-500"
+                                : diasRest <= 7
+                                  ? "text-amber-600 dark:text-amber-400"
+                                  : "text-zinc-500",
+                            )}
+                          >
+                            Vence {formatFechaCortaGt(fechaVence)} ·{" "}
+                            {diasRest < 0
+                              ? `${Math.abs(diasRest)} d vencido`
+                              : `${diasRest} d restantes`}
+                            {" "}(plazo {PLAZO_CREDITO_DIAS} d)
+                          </p>
+                        ) : null}
                       </div>
                       <div className="text-right">
                         <span className="text-sm font-black text-zinc-800 dark:text-zinc-100">

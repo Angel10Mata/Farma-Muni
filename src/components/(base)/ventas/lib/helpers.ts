@@ -7,6 +7,19 @@ import type {
 } from "./zod";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import type { LoteAsignadoVenta } from "./lotes-venta";
+import {
+  etiquetaFormaFarmaceutica,
+  normalizarTextoBusquedaProducto,
+} from "@/components/(base)/inventario/lib/helpers";
+import { lineaGenericaCompraDisplay } from "@/components/(base)/proveedores/lib/compras-helpers";
+
+export type GrupoComercialVenta = {
+  generico_id: string;
+  lineaGenerica: string;
+  catalogo_nombre: string;
+  marcas: ComercialVenta[];
+  puntajeGenerico: number;
+};
 
 export function formatNumeroRecibo(numero: number | null | undefined): string {
   if (numero == null || Number.isNaN(Number(numero))) return "";
@@ -117,6 +130,110 @@ export function genericoCoincideBusquedaPos(generico: GenericoVenta, query: stri
   );
 }
 
+export function lineaGenericaVentaDisplay(generico: GenericoVenta): string {
+  return lineaGenericaCompraDisplay({
+    catalogo_nombre: generico.catalogo_nombre,
+    concentracion: generico.concentracion,
+    forma_farmaceutica: generico.forma_farmaceutica,
+  });
+}
+
+export function comercialVentaDisponible(comercial: ComercialVenta): boolean {
+  return comercial.activo && comercial.stock_vendible > 0;
+}
+
+export function comercialCoincideBusquedaVenta(
+  comercial: ComercialVenta,
+  generico: GenericoVenta | null,
+  busqueda: string,
+): boolean {
+  const needle = normalizarTextoBusquedaProducto(busqueda);
+  if (!needle) return true;
+  if (!generico) return false;
+  const forma = etiquetaFormaFarmaceutica(generico.forma_farmaceutica);
+  const haystack = [
+    generico.generico_nombre,
+    generico.catalogo_nombre,
+    generico.concentracion,
+    generico.forma_farmaceutica,
+    forma,
+    lineaGenericaVentaDisplay(generico),
+    comercial.nombre_comercial,
+    comercial.presentacion,
+    comercial.laboratorio_nombre ?? "",
+  ];
+  return haystack.some((t) => normalizarTextoBusquedaProducto(t).includes(needle));
+}
+
+function puntajeCoincidenciaGenericoVenta(
+  generico: GenericoVenta,
+  comercial: ComercialVenta,
+  busqueda: string,
+): number {
+  const needle = normalizarTextoBusquedaProducto(busqueda);
+  if (!needle) return 0;
+  let score = 0;
+  const forma = etiquetaFormaFarmaceutica(generico.forma_farmaceutica);
+  const camposGenerico = [
+    generico.generico_nombre,
+    generico.catalogo_nombre,
+    generico.concentracion,
+    generico.forma_farmaceutica,
+    forma,
+    lineaGenericaVentaDisplay(generico),
+  ];
+  for (const campo of camposGenerico) {
+    if (normalizarTextoBusquedaProducto(campo).includes(needle)) score += 10;
+  }
+  if (normalizarTextoBusquedaProducto(comercial.nombre_comercial).includes(needle)) score += 1;
+  if (normalizarTextoBusquedaProducto(comercial.laboratorio_nombre ?? "").includes(needle)) {
+    score += 1;
+  }
+  return score;
+}
+
+export function agruparComercialesVentaBusqueda(
+  comerciales: ComercialVenta[],
+  genericos: GenericoVenta[],
+  busqueda: string,
+): GrupoComercialVenta[] {
+  const porGenerico = new Map(genericos.map((g) => [g.generico_id, g]));
+  const q = busqueda.trim();
+  const disponibles = comerciales.filter(comercialVentaDisponible);
+  const matches = q
+    ? disponibles.filter((c) =>
+        comercialCoincideBusquedaVenta(c, porGenerico.get(c.generico_id) ?? null, q),
+      )
+    : disponibles;
+
+  const map = new Map<string, GrupoComercialVenta>();
+  for (const c of matches) {
+    const generico = porGenerico.get(c.generico_id);
+    if (!generico) continue;
+    let grupo = map.get(c.generico_id);
+    if (!grupo) {
+      grupo = {
+        generico_id: c.generico_id,
+        lineaGenerica: lineaGenericaVentaDisplay(generico),
+        catalogo_nombre: generico.catalogo_nombre,
+        marcas: [],
+        puntajeGenerico: 0,
+      };
+      map.set(c.generico_id, grupo);
+    }
+    grupo.marcas.push(c);
+    grupo.puntajeGenerico = Math.max(
+      grupo.puntajeGenerico,
+      puntajeCoincidenciaGenericoVenta(generico, c, q),
+    );
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    if (b.puntajeGenerico !== a.puntajeGenerico) return b.puntajeGenerico - a.puntajeGenerico;
+    return a.lineaGenerica.localeCompare(b.lineaGenerica, "es");
+  });
+}
+
 export function buscarGenericoPorId(genericos: GenericoVenta[], genericoId: string) {
   return genericos.find((g) => g.generico_id === genericoId) ?? null;
 }
@@ -125,6 +242,41 @@ export function comercialesDelGenerico(comerciales: ComercialVenta[], genericoId
   return comerciales.filter(
     (c) => c.generico_id === genericoId && c.activo && c.stock_vendible > 0,
   );
+}
+
+export type LineaCarritoVentaAgrupada = {
+  key: string;
+  indices: number[];
+  item: ItemCarrito;
+  cantidadTotal: number;
+  subtotalTotal: number;
+};
+
+export function agruparLineasCarritoVenta(carrito: ItemCarrito[]): LineaCarritoVentaAgrupada[] {
+  const orden: LineaCarritoVentaAgrupada[] = [];
+  const porClave = new Map<string, LineaCarritoVentaAgrupada>();
+
+  carrito.forEach((item, index) => {
+    const key = item.comercial.producto_id;
+    const existente = porClave.get(key);
+    if (existente) {
+      existente.indices.push(index);
+      existente.cantidadTotal += item.cantidad;
+      existente.subtotalTotal += item.subtotal;
+      return;
+    }
+    const linea: LineaCarritoVentaAgrupada = {
+      key,
+      indices: [index],
+      item,
+      cantidadTotal: item.cantidad,
+      subtotalTotal: item.subtotal,
+    };
+    porClave.set(key, linea);
+    orden.push(linea);
+  });
+
+  return orden;
 }
 
 export function demoAsignarLotes(
