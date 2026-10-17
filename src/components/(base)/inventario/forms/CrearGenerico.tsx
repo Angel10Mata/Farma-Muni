@@ -100,13 +100,13 @@ export function CrearGenerico({
           activo: true,
         },
       });
-      toast.success("Genérico registrado.");
+      toast.success("Producto registrado.");
       onSuccess();
       cerrar();
     } catch (err) {
       const message = err instanceof Error ? err.message : undefined;
       const detail = (err as Error & { detail?: string }).detail;
-      toast.error(actionErrorMessage({ error: message, detail }, "No se pudo guardar el genérico."));
+      toast.error(actionErrorMessage({ error: message, detail }, "No se pudo guardar el producto."));
     }
   };
 
@@ -118,7 +118,7 @@ export function CrearGenerico({
     <ModalShell
       isOpen={isOpen}
       onClose={cerrar}
-      title="Nuevo genérico"
+      title="Nuevo producto"
       subtitle="Catálogo + concentración + forma farmacéutica"
       maxWidth="max-w-lg"
     >
@@ -192,7 +192,7 @@ export function CrearGenerico({
             />
           </ModalField>
           <ModalField>
-            <ModalLabel htmlFor="gen-min">Stock mínimo</ModalLabel>
+            <ModalLabel htmlFor="gen-min">Existencia mínima</ModalLabel>
             <ModalInput
               id="gen-min"
               type="number"

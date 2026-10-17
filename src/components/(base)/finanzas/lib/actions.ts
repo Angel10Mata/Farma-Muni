@@ -11,6 +11,14 @@ import {
   type CuentaPorPagar,
 } from "./zod";
 import { requireFinanzas } from "@/lib/auth-guards";
+import { enLotes, traerTodo } from "@/lib/reportes/paginacion";
+import {
+  calcularRangoPeriodoAnterior,
+  construirReporteIngresosEgresos,
+  normalizarTipoMovimientoFinanza,
+  type ReferenciasFinanzas,
+  type ReporteIngresosEgresos,
+} from "./reporte-ingresos-egresos";
 import { MotivoModificacionVentaSchema } from "@/components/(base)/ventas/lib/zod";
 import { modalActionMessage } from "@/components/ui/modal-toast";
 import {
@@ -506,6 +514,142 @@ export async function obtenerCuentasPorCobrar(): Promise<CuentaPorCobrar[]> {
   } catch (error: unknown) {
     console.error("Error en obtenerCuentasPorCobrar:", error);
     throw new Error("No se pudieron cargar las cuentas por cobrar.");
+  }
+}
+
+async function listarMovimientosFinanzasRango(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  desde: string,
+  hasta: string,
+): Promise<TransaccionFinanciera[]> {
+  const filas = await traerTodo<TransaccionFinanciera>(async (from, to) => {
+    const { data, error } = await supabase
+      .from("fin_transacciones")
+      .select("*")
+      .gte("created_at", desde)
+      .lte("created_at", hasta)
+      .order("created_at", { ascending: true })
+      .range(from, to);
+    return { data, error };
+  });
+
+  return filas.map((row) => ({
+    ...row,
+    tipo_movimiento: normalizarTipoMovimientoFinanza(row.tipo_movimiento),
+  }));
+}
+
+async function cargarReferenciasFinanzas(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  movimientos: readonly TransaccionFinanciera[],
+): Promise<ReferenciasFinanzas> {
+  const ventaIds = [
+    ...new Set(
+      movimientos.map((m) => m.venta_id).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const compraIds = [
+    ...new Set(
+      movimientos.map((m) => m.compra_id).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const recibosPorVenta = new Map<string, string>();
+  const facturasPorCompra = new Map<string, string>();
+
+  for (const lote of enLotes(ventaIds)) {
+    const { data, error } = await supabase
+      .from("ventas")
+      .select("id, numero_recibo")
+      .in("id", lote);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      const id = row.id as string;
+      const recibo = row.numero_recibo != null ? String(row.numero_recibo) : "";
+      if (recibo) recibosPorVenta.set(id, recibo);
+    }
+  }
+
+  for (const lote of enLotes(compraIds)) {
+    const { data, error } = await supabase
+      .from("inv_compras")
+      .select("id, numero_factura")
+      .in("id", lote);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      const id = row.id as string;
+      const factura = (row.numero_factura as string | null)?.trim();
+      if (factura) facturasPorCompra.set(id, factura);
+    }
+  }
+
+  return { recibosPorVenta, facturasPorCompra };
+}
+
+export async function obtenerReporteIngresosEgresos(
+  desde: string,
+  hasta: string,
+): Promise<
+  | { success: true; data: ReporteIngresosEgresos }
+  | { success: false; error: string }
+> {
+  try {
+    if (!desde || !hasta) {
+      return { success: false, error: "Selecciona un período válido." };
+    }
+
+    const guard = await requireFinanzas();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error:
+          guard.code === "UNAUTHORIZED"
+            ? "Sesión no válida o expirada."
+            : "No tienes permiso para exportar este informe.",
+      };
+    }
+
+    const { supabase, user } = guard;
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("nombre")
+      .eq("id", user.id)
+      .maybeSingle();
+    const generadoPor = perfil?.nombre?.trim() || "Usuario";
+
+    const anterior = calcularRangoPeriodoAnterior(desde, hasta);
+    if (!anterior) {
+      return { success: false, error: "No se pudo calcular el período anterior." };
+    }
+
+    const [movimientos, movimientosAnterior] = await Promise.all([
+      listarMovimientosFinanzasRango(supabase, desde, hasta),
+      listarMovimientosFinanzasRango(supabase, anterior.desde, anterior.hasta),
+    ]);
+
+    const referencias = await cargarReferenciasFinanzas(
+      supabase,
+      [...movimientos, ...movimientosAnterior],
+    );
+
+    const data = construirReporteIngresosEgresos({
+      movimientos,
+      movimientosAnterior,
+      desde,
+      hasta,
+      desdeAnterior: anterior.desde,
+      hastaAnterior: anterior.hasta,
+      referencias,
+      generadoPor,
+    });
+
+    return { success: true, data };
+  } catch (error: unknown) {
+    console.error("Error en obtenerReporteIngresosEgresos:", error);
+    return {
+      success: false,
+      error: toErrorMessage(error, "No se pudo generar el informe de ingresos y egresos."),
+    };
   }
 }
 

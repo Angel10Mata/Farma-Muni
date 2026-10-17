@@ -1,9 +1,16 @@
 "use client";
 
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { ModalShell } from "@/components/ui/general-modal";
+import { Download as DownloadNode, FileDown } from "lucide";
+import { ModalShell, ModalFooter } from "@/components/ui/general-modal";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { toast } from "react-toastify";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
 import { Compra } from "../lib/zod";
 import { fmtQ } from "@/lib/utils";
+import { obtenerDetalleCompra } from "../lib/actions";
+import { descargarReporteCompraDetallePdf } from "../lib/export-reporte-compra-detalle-pdf";
 import {
   compraPagoVencido,
   formatearFechaCompraGt,
@@ -57,12 +64,36 @@ export function CompraDetalleModal({
   isLoadingDetalles,
   detallesDeCompra,
 }: CompraDetalleModalProps) {
+  const [exportandoPdf, setExportandoPdf] = useState(false);
+
   if (!compra) return null;
 
   const abonos = totalPagadoCompra(compra.fin_transacciones);
   const isPaid = abonos >= compra.total;
   const pagos = pagosProveedor(compra.fin_transacciones);
   const pagoVencido = compraPagoVencido(compra);
+
+  const exportarPdf = async () => {
+    setExportandoPdf(true);
+    try {
+      const res = await obtenerDetalleCompra(compra.id);
+      if (!("success" in res) || !res.success) {
+        toast.error("No se pudo cargar el detalle de la compra.");
+        return;
+      }
+      const meta = await construirMetaInforme("Usuario");
+      descargarReporteCompraDetallePdf(
+        compra,
+        res.data as CompraDetalleModalProps["detallesDeCompra"],
+        meta,
+      );
+      toast.success("PDF generado.");
+    } catch {
+      toast.error("No se pudo generar el PDF.");
+    } finally {
+      setExportandoPdf(false);
+    }
+  };
 
   return (
     <ModalShell
@@ -213,6 +244,19 @@ export function CompraDetalleModal({
           </span>
         </div>
       </div>
+
+      <ModalFooter>
+        <SigetActionButton
+          label="Exportar"
+          accentColor={sigetAccent.excel}
+          morphFrom={DownloadNode}
+          morphTo={FileDown}
+          onClick={() => void exportarPdf()}
+          disabled={exportandoPdf || isLoadingDetalles}
+          ariaBusy={exportandoPdf}
+          className="w-auto shrink-0"
+        />
+      </ModalFooter>
     </ModalShell>
   );
 }

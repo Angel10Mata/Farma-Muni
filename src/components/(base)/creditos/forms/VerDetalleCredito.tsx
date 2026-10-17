@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import { toast } from "react-toastify";
 import { Download as DownloadNode, FileDown, Plus as PlusNode, CirclePlus } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { ModalFooter, ModalShell } from "@/components/ui/general-modal";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
 import { cn, fmtQ } from "@/lib/utils";
+import { codigoReciboVenta } from "@/components/(base)/ventas/lib/helpers";
 import type { CreditoResumen } from "../lib/zod";
 import { useDetalleCredito } from "../lib/hooks";
 import { RegistrarAbono } from "./RegistrarAbono";
@@ -17,6 +17,7 @@ import {
   formatFechaCortaGt,
   PLAZO_CREDITO_DIAS,
 } from "../lib/creditos-reporte-helpers";
+import { descargarEstadoCuentaClientePdf } from "../lib/export-estado-cuenta-cliente-pdf";
 
 interface CreditoDetalleProps {
   cliente: CreditoResumen;
@@ -29,71 +30,20 @@ export function VerDetalleCredito({
   onClose,
   onUpdate,
 }: CreditoDetalleProps) {
-  // Query y modal de abono
   const { data: ventas = [], isLoading } = useDetalleCredito(cliente.cliente_id);
   const [abonoModalData, setAbonoModalData] = useState<{ ventaId: string; saldo: number } | null>(null);
+  const [exportando, setExportando] = useState(false);
 
-  // Exportar estado de cuenta
-  const handleExportarPDF = () => {
+  const handleExportarPDF = async () => {
+    setExportando(true);
     try {
-      const doc = new jsPDF();
-      doc.text(`Estado de Cuenta: ${cliente.nombre}`, 14, 15);
-      doc.setFontSize(10);
-      doc.text(`NIT: ${cliente.nit}`, 14, 22);
-      doc.text(`Fecha de Emisión: ${new Date().toLocaleDateString("es-GT")}`, 14, 27);
-
-      const tableData: string[][] = [];
-      let saldoAcumulado = 0;
-
-      const cronologico = [...ventas].sort(
-        (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-      );
-
-      cronologico.forEach((v) => {
-        const fecha = new Date(v.created_at).toLocaleDateString("es-GT");
-        saldoAcumulado += v.total || 0;
-        tableData.push([
-          fecha,
-          `Compra Crédito #${v.id.substring(0, 6).toUpperCase()}`,
-          `${fmtQ(v.total || 0)}`,
-          "-",
-          `${fmtQ(saldoAcumulado)}`,
-        ]);
-
-        const abonos =
-          v.fin_transacciones?.filter(
-            (t) => t.categoria === "abono_cliente" || t.categoria === "venta",
-          ) || [];
-        abonos.sort(
-          (a, b) =>
-            new Date(a.fecha_movimiento).getTime() - new Date(b.fecha_movimiento).getTime(),
-        );
-
-        abonos.forEach((a) => {
-          const fechaAb = new Date(a.fecha_movimiento).toLocaleDateString("es-GT");
-          saldoAcumulado -= a.monto;
-          tableData.push([
-            fechaAb,
-            "Abono",
-            "-",
-            `${fmtQ(a.monto)}`,
-            `${fmtQ(Math.max(0, saldoAcumulado))}`,
-          ]);
-        });
-      });
-
-      autoTable(doc, {
-        head: [["Fecha", "Descripción", "Cargo", "Abono", "Saldo"]],
-        body: tableData,
-        startY: 35,
-        theme: "striped",
-        headStyles: { fillColor: [141, 167, 142], textColor: [245, 245, 241], fontStyle: "bold" },
-      });
-
-      doc.save(`EstadoCuenta_${cliente.nombre.replace(/\s+/g, "_")}.pdf`);
+      const meta = await construirMetaInforme("Usuario");
+      descargarEstadoCuentaClientePdf(cliente, ventas, meta);
       toast.success("PDF exportado correctamente.");
     } catch {
       toast.error("No se pudo generar el archivo PDF.");
+    } finally {
+      setExportando(false);
     }
   };
 
@@ -135,6 +85,10 @@ export function VerDetalleCredito({
                 const totalAbonado = abonos.reduce((sum, t) => sum + Number(t.monto), 0);
                 const saldo = Math.max(0, (v.total || 0) - totalAbonado);
                 const isPagado = saldo <= 0;
+                const recibo = codigoReciboVenta({
+                  id: v.id,
+                  numero_recibo: v.numero_recibo ?? null,
+                });
                 const fechaVence = fechaVenceCreditoDesdeVenta(
                   v.created_at,
                   v.fecha_credito_vencimiento,
@@ -152,7 +106,7 @@ export function VerDetalleCredito({
                     <div className="p-3 border-b border-zinc-100 dark:border-zinc-700 flex justify-between items-start">
                       <div>
                         <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                          Compra #{v.id.substring(0, 6).toUpperCase()}
+                          Recibo {recibo}
                         </span>
                         <p className="text-[10px] text-zinc-500">
                           {new Date(v.created_at).toLocaleDateString("es-GT")}
@@ -232,7 +186,9 @@ export function VerDetalleCredito({
             accentColor={sigetAccent.excel}
             morphFrom={DownloadNode}
             morphTo={FileDown}
-            onClick={handleExportarPDF}
+            onClick={() => void handleExportarPDF()}
+            disabled={exportando || isLoading}
+            ariaBusy={exportando}
             className="w-auto shrink-0"
           />
         </ModalFooter>

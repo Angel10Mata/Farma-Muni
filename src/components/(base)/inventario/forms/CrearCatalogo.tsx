@@ -56,10 +56,10 @@ export function CrearCatalogo({
       if (onAgregarGenerico && id) {
         const follow = await Swal.fire({
           title: "¿Agregar concentración y forma?",
-          text: "Opcional: define el genérico ahora o más tarde desde Inventario → Genérico.",
+          text: "Opcional: define el producto ahora o más tarde desde Inventario → Producto.",
           icon: "question",
           showCancelButton: true,
-          confirmButtonText: "Sí, agregar genérico",
+          confirmButtonText: "Sí, agregar producto",
           cancelButtonText: "Cerrar",
           ...getSwalThemeOpts(),
         });

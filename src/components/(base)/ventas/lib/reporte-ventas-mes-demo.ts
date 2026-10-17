@@ -23,10 +23,21 @@ export function construirReporteVentasMesDemo(year: number, month: number) {
   );
   const detalles = DEMO_VENTA_DETALLE.filter((d) => activasIds.has(d.venta_id));
 
+  const detallesReporte = detalles.map((d) => ({
+    venta_id: d.venta_id,
+    cantidad: d.cantidad,
+    subtotal: d.subtotal,
+    producto: d.inv_productos?.nombre ?? "Producto",
+    marca: d.inv_productos?.nombre ?? "Producto",
+    costo:
+      (Number(d.inv_lotes?.precio_costo) || 0) * (Number(d.cantidad) || 0),
+  }));
+
   return construirReporteVentasMes(
     ventas,
     anulacionesPorVentaId,
-    detalles,
+    detallesReporte,
+    { "demo-user": "Admin Sistema" },
     year,
     month,
   );

@@ -1,34 +1,45 @@
-import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
-import type { VentaRecetaReporteRow } from "./actions";
-
-const MX = 14;
+import type { MetaInforme } from "@/lib/reportes/identidad";
+import { nombreArchivo } from "@/lib/reportes/nombres";
+import {
+  columnasNumericas,
+  crearDocumentoPdf,
+  encabezadoPdf,
+  estilosTabla,
+  finalYTabla,
+  piePaginas,
+  tituloSeccion,
+} from "@/lib/reportes/pdf-base";
+import { formatFechaHoraGt } from "@/lib/fechas-gt";
+import type {
+  TotalesRecetaProductoRow,
+  VentaRecetaReporteRow,
+} from "./actions";
 
 export type ReporteVentasRecetaPdf = {
   fechaDesde: string;
   fechaHasta: string;
   generadoPor: string;
   filas: VentaRecetaReporteRow[];
+  totalesPorProducto: TotalesRecetaProductoRow[];
 };
 
-export function descargarReporteVentasRecetaPdf(reporte: ReporteVentasRecetaPdf) {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+export function descargarReporteVentasRecetaPdf(
+  reporte: ReporteVentasRecetaPdf,
+  meta: MetaInforme,
+) {
+  const doc = crearDocumentoPdf();
 
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("Ventas con receta", MX, 18);
-
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text(
-    `Del ${reporte.fechaDesde} al ${reporte.fechaHasta}`,
-    MX,
-    26,
-  );
-  doc.text(`Generado por: ${reporte.generadoPor}`, MX, 32);
+  let y = encabezadoPdf(doc, {
+    titulo: "Ventas con receta",
+    periodo: `Del ${reporte.fechaDesde} al ${reporte.fechaHasta}`,
+    generadoPor: meta.generadoPor,
+    institucion: meta.institucion,
+  });
 
   autoTable(doc, {
-    startY: 38,
+    ...estilosTabla(),
+    startY: y,
     head: [
       [
         "Recibo",
@@ -37,22 +48,49 @@ export function descargarReporteVentasRecetaPdf(reporte: ReporteVentasRecetaPdf)
         "Médico",
         "Colegiado",
         "N. receta",
-        "Total",
+        "Producto",
+        "Marca",
+        "Lote",
+        "Cant.",
       ],
     ],
     body: reporte.filas.map((f) => [
       f.recibo,
-      f.fecha,
+      formatFechaHoraGt(f.fecha),
       f.cliente,
       f.medico,
       f.colegiado,
       f.numero_receta,
-      f.total,
+      f.producto,
+      f.marca,
+      f.lote,
+      String(f.cantidad),
     ]),
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [44, 95, 155] },
-    margin: { left: MX, right: MX },
+    columnStyles: columnasNumericas([9]),
+    styles: { fontSize: 7, cellPadding: 2 },
   });
 
-  doc.save(`ventas-con-receta_${reporte.fechaDesde}_${reporte.fechaHasta}.pdf`);
+  y = finalYTabla(doc) + 8;
+  y = tituloSeccion(doc, y, "Total de unidades por producto");
+
+  autoTable(doc, {
+    ...estilosTabla(),
+    startY: y,
+    head: [["Producto", "Marca", "Unidades"]],
+    body: reporte.totalesPorProducto.map((t) => [
+      t.producto,
+      t.marca,
+      String(t.cantidad),
+    ]),
+    columnStyles: columnasNumericas([2]),
+  });
+
+  piePaginas(doc, "Ventas con receta");
+  doc.save(
+    nombreArchivo(
+      "Ventas_Con_Receta",
+      `${reporte.fechaDesde}_${reporte.fechaHasta}`,
+      "pdf",
+    ),
+  );
 }

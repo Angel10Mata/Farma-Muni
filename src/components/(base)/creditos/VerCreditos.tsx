@@ -10,8 +10,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { Download as DownloadNode, FileDown } from "lucide";
-import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
 import {
   modulePillSwitchBtnClass,
   modulePillSwitchShellClass,
@@ -39,6 +38,8 @@ import {
 import { cn, fmtQ } from "@/lib/utils";
 import { useResumenCreditos } from "./lib/hooks";
 import { descargarReporteCreditosPdf } from "./lib/export-reporte-creditos-pdf";
+import { descargarReporteCreditosExcel } from "./lib/export-reporte-creditos-xlsx";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
 import { VerDetalleCredito } from "./forms/VerDetalleCredito";
 import type { CreditoResumen } from "./lib/zod";
 import { useCuentasPorCobrar } from "@/components/(base)/finanzas/lib/hooks";
@@ -112,26 +113,42 @@ export function VerCreditos() {
   const totalPages = Math.ceil(creditosOrdenados.length / pageSize) || 1;
   const paginatedCreditos = creditosOrdenados.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const handleExportarGlobal = async () => {
+  const resolverCuentasExport = (): CuentaPorCobrar[] => {
+    if (isDemoMode) {
+      return cuentasCobrar.length > 0 ? cuentasCobrar : DEMO_CUENTAS_COBRAR;
+    }
+    return cuentasCobrar;
+  };
+
+  const handleExportarPdf = async () => {
     if (exportando) return;
     setExportando(true);
     try {
       const generadoPor =
         profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
-      let cuentas: CuentaPorCobrar[];
-      if (isDemoMode) {
-        cuentas =
-          cuentasCobrar.length > 0 ? cuentasCobrar : DEMO_CUENTAS_COBRAR;
-      } else {
-        cuentas = cuentasCobrar;
-      }
-      await descargarReporteCreditosPdf({
-        cuentas,
-        generadoPor,
-      });
+      const cuentas = resolverCuentasExport();
+      const meta = await construirMetaInforme(generadoPor);
+      descargarReporteCreditosPdf({ cuentas, generadoPor }, meta);
       toast.success("Reporte PDF generado correctamente.");
     } catch {
       toast.error("No se pudo generar el archivo PDF.");
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  const handleExportarExcel = async () => {
+    if (exportando) return;
+    setExportando(true);
+    try {
+      const generadoPor =
+        profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
+      const cuentas = resolverCuentasExport();
+      const meta = await construirMetaInforme(generadoPor);
+      await descargarReporteCreditosExcel(cuentas, meta);
+      toast.success("Reporte Excel generado correctamente.");
+    } catch {
+      toast.error("No se pudo generar el archivo Excel.");
     } finally {
       setExportando(false);
     }
@@ -221,15 +238,15 @@ export function VerCreditos() {
                 <option value="saldo-asc">Menor Saldo Pendiente</option>
                 <option value="nombre-asc">Nombre (A-Z)</option>
               </select>
-              <SigetActionButton
-                label="Exportar"
-                accentColor={sigetAccent.excel}
-                morphFrom={DownloadNode}
-                morphTo={FileDown}
-                onClick={() => void handleExportarGlobal()}
-                disabled={exportando}
-                ariaBusy={exportando}
-                className="h-9 w-[113px] shrink-0"
+              <ModuleInformeDropdown
+                busy={exportando}
+                items={[
+                  {
+                    titulo: "Cuentas por cobrar",
+                    onPdf: () => void handleExportarPdf(),
+                    onExcel: () => void handleExportarExcel(),
+                  },
+                ]}
               />
             </div>
           </div>

@@ -5,12 +5,8 @@ import { revalidatePath } from "next/cache";
 import { ProveedorInputSchema, ProveedorInput, CompraSchema, CompraInput } from "./zod";
 import { detalleCodigoBarrasDuplicado } from "@/lib/inv-lote-codigo-barras";
 import { FACTURA_DUPLICATE_MSG } from "./compras-helpers";
-import { formatFechaHoraGt } from "@/lib/fechas-gt";
-import { fmtQ } from "@/lib/utils";
-import {
-  formatearFechaCompraGt,
-  totalPagadoCompra,
-} from "./compras-helpers";
+import { normalizarFechaCalendario } from "@/lib/fechas-gt";
+import { totalPagadoCompra } from "./compras-helpers";
 import { requireAdmin, requireRole } from "@/lib/auth-guards";
 
 const PROVEEDORES_WRITE_ROLES = [
@@ -432,7 +428,9 @@ export async function obtenerDetalleCompra(compraId: string) {
 
     const { data, error } = await supabase
       .from("inv_compras_detalles")
-      .select("*, inv_productos(nombre)")
+      .select(
+        "*, inv_productos(nombre, presentacion), inv_lotes(numero_lote, fecha_vencimiento)",
+      )
       .eq("compra_id", compraId);
 
     if (error) return { code: "INTERNAL" as const };
@@ -577,17 +575,18 @@ export type CompraProveedorReporteRow = {
   proveedor: string;
   factura: string;
   fecha: string;
-  vence: string;
-  total: string;
-  pagado: string;
-  saldo: string;
-  vencida: string;
+  vence: string | null;
+  total: number;
+  pagado: number;
+  saldo: number;
+  vencida: boolean;
 };
 
 export async function obtenerReporteComprasProveedor(
   fechaDesde: string,
   fechaHasta: string,
   proveedorId?: string | null,
+  soloSaldoPendiente?: boolean,
 ) {
   try {
     if (!fechaDesde || !fechaHasta) {
@@ -633,23 +632,28 @@ export async function obtenerReporteComprasProveedor(
     );
     const hoyStr = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 
-    const filas: CompraProveedorReporteRow[] = (compras ?? []).map((c) => {
+    const filas: CompraProveedorReporteRow[] = [];
+    for (const c of compras ?? []) {
       const prov = c.inv_proveedores as { nombre?: string } | null;
       const pagado = totalPagadoCompra(c.fin_transacciones as unknown[]);
-      const saldo = Math.max(0, Number(c.total) - pagado);
-      const vence = (c.fecha_vencimiento_pago as string | null)?.trim() || "";
-      const vencida = saldo > 0.009 && vence && vence < hoyStr ? "Sí" : "No";
-      return {
+      const total = Number(c.total) || 0;
+      const saldo = Math.max(0, total - pagado);
+      if (soloSaldoPendiente && saldo <= 0.009) continue;
+      const venceRaw = normalizarFechaCalendario(
+        c.fecha_vencimiento_pago as string | null,
+      );
+      const vencida = saldo > 0.009 && venceRaw && venceRaw < hoyStr;
+      filas.push({
         proveedor: prov?.nombre?.trim() || "Proveedor",
         factura: (c.numero_factura as string | null)?.trim() || "—",
-        fecha: formatFechaHoraGt(c.created_at as string),
-        vence: vence ? formatearFechaCompraGt(vence) : "—",
-        total: fmtQ(Number(c.total) || 0),
-        pagado: fmtQ(pagado),
-        saldo: fmtQ(saldo),
-        vencida,
-      };
-    });
+        fecha: c.created_at as string,
+        vence: venceRaw || null,
+        total,
+        pagado,
+        saldo,
+        vencida: Boolean(vencida),
+      });
+    }
 
     return {
       success: true as const,
@@ -657,6 +661,7 @@ export async function obtenerReporteComprasProveedor(
         fechaDesde,
         fechaHasta,
         generadoPor,
+        soloSaldoPendiente: Boolean(soloSaldoPendiente),
         filas,
       },
     };

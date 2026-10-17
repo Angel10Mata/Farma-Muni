@@ -53,9 +53,10 @@ import {
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
 
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
+import { descargarReporteClientesExcel } from "./lib/export-reporte-clientes-xlsx";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { obtenerSemanasDelMes } from "@/lib/fechas-gt";
 import { CrearCliente } from "./forms/Crear";
@@ -681,46 +682,13 @@ export function VerClientes() {
     currentPage * pageSize
   );
 
-  // Exportar PDF
-  const handleExportarPDF = () => {
+  const handleExportarExcel = async () => {
     try {
-      const doc = new jsPDF();
-      doc.text("Reporte General de Clientes", 14, 15);
-
-      const tableData = clientesOrdenados.map((c) => [
-        c.nombre,
-        c.telefono,
-        c.email,
-        c.nit,
-        c.totalCompras.toString(),
-        `${fmtQ(c.saldo)}`
-      ]);
-
-      autoTable(doc, {
-        head: [["Nombre", "Teléfono", "Email", "NIT", "Compras", "Saldo Pendiente"]],
-        body: tableData,
-        startY: 22,
-        theme: "striped",
-        headStyles: {
-          fillColor: [141, 167, 142],
-          textColor: [245, 245, 241],
-          fontStyle: "bold",
-          fontSize: 10
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 241]
-        },
-        margin: { top: 40 },
-        styles: {
-          fontSize: 9,
-          cellPadding: 3
-        }
-      });
-
-      doc.save(`Reporte_Clientes_${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success("PDF exportado correctamente.");
+      const meta = await construirMetaInforme("Usuario");
+      await descargarReporteClientesExcel(clientesOrdenados, meta);
+      toast.success("Excel exportado correctamente.");
     } catch {
-      toast.error("No se pudo generar el archivo PDF.");
+      toast.error("No se pudo generar el archivo Excel.");
     }
   };
 
@@ -779,13 +747,13 @@ export function VerClientes() {
                 <SelectItem value="saldo-desc" className="text-xs font-semibold cursor-pointer">Saldo Pendiente (Mayor a Menor)</SelectItem>
               </SelectContent>
             </Select>
-            <SigetActionButton
-              label="Exportar"
-              accentColor={sigetAccent.excel}
-              morphFrom={DownloadNode}
-              morphTo={FileDown}
-              onClick={handleExportarPDF}
-              className="w-auto shrink-0"
+            <ModuleInformeDropdown
+              items={[
+                {
+                  titulo: "Listado de clientes",
+                  onExcel: () => void handleExportarExcel(),
+                },
+              ]}
             />
           </div>
         </div>

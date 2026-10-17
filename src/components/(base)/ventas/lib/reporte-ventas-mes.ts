@@ -1,13 +1,16 @@
-import { fmtQ } from "@/lib/utils";
 import { formatFechaHoraGt } from "@/lib/fechas-gt";
 import {
+  clasificarFormaPagoReporte,
   codigoReciboVenta,
+  ETIQUETA_CONSUMIDOR_FINAL,
   etiquetaTipoVentaHistorial,
-  ventaEsContadoHistorial,
-  ventaEsCreditoHistorial,
-  ventaEsTarjetaHistorial,
   ventaEstaAnulada,
 } from "./helpers";
+
+export type ResumenFormaPagoMes = {
+  cantidad: number;
+  monto: number;
+};
 
 export type ReporteVentasMesDatos = {
   periodoLabel: string;
@@ -16,9 +19,9 @@ export type ReporteVentasMesDatos = {
     totalVentas: number;
     ventasActivas: number;
     anuladas: number;
-    porContado: number;
-    porCredito: number;
-    porTarjeta: number;
+    porContado: ResumenFormaPagoMes;
+    porCredito: ResumenFormaPagoMes;
+    porTarjeta: ResumenFormaPagoMes;
     montoTotalActivas: number;
   };
   anulaciones: Array<{
@@ -33,11 +36,23 @@ export type ReporteVentasMesDatos = {
     fecha: string;
     cliente: string;
     tipo: string;
-    total: string;
+    total: number;
     estado: string;
     notaAnulacion: string;
   }>;
-  topProductos: Array<{ nombre: string; cantidad: number }>;
+  topProductos: Array<{
+    producto: string;
+    marca: string;
+    cantidad: number;
+    monto: number;
+    costo: number;
+    ganancia: number;
+  }>;
+  porVendedor: Array<{
+    vendedor: string;
+    ventas: number;
+    monto: number;
+  }>;
 };
 
 export type ReporteVentasMes = ReporteVentasMesDatos & {
@@ -52,13 +67,17 @@ export type VentaReporteMesInput = {
   total: number | string | null;
   observaciones?: string | null;
   anulada?: boolean | null;
+  usuario_id?: string | null;
   ven_clientes?: { nombre: string } | null;
 };
 
 export type DetalleReporteMesInput = {
   venta_id: string;
   cantidad: number;
-  inv_productos?: { nombre: string } | null;
+  subtotal: number;
+  producto: string;
+  marca: string;
+  costo: number;
 };
 
 const MESES_ES = [
@@ -80,6 +99,10 @@ function etiquetaRecibo(venta: VentaReporteMesInput): string {
   return codigoReciboVenta(venta);
 }
 
+function resumenFormaPagoVacio(): ResumenFormaPagoMes {
+  return { cantidad: 0, monto: 0 };
+}
+
 export function etiquetaPeriodoVentasMes(year: number, month: number): string {
   const nombre = MESES_ES[month - 1] ?? String(month);
   return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} ${year}`;
@@ -89,6 +112,7 @@ export function construirReporteVentasMes(
   ventas: VentaReporteMesInput[],
   anulacionesPorVentaId: Record<string, { autor: string; motivo: string }>,
   detalles: DetalleReporteMesInput[],
+  nombresVendedorPorId: Record<string, string>,
   year: number,
   month: number,
 ): ReporteVentasMesDatos {
@@ -96,13 +120,14 @@ export function construirReporteVentasMes(
   const periodoLabel = etiquetaPeriodoVentasMes(year, month);
 
   let anuladas = 0;
-  let porContado = 0;
-  let porCredito = 0;
-  let porTarjeta = 0;
+  const porContado = resumenFormaPagoVacio();
+  const porCredito = resumenFormaPagoVacio();
+  const porTarjeta = resumenFormaPagoVacio();
   let montoTotalActivas = 0;
 
   const anulaciones: ReporteVentasMes["anulaciones"] = [];
   const historial: ReporteVentasMes["historial"] = [];
+  const vendedorAgg = new Map<string, { ventas: number; monto: number }>();
 
   for (const v of ventas) {
     const esAnulada = ventaEstaAnulada(v);
@@ -111,13 +136,31 @@ export function construirReporteVentasMes(
     } else {
       const total = Number(v.total) || 0;
       montoTotalActivas += total;
-      if (ventaEsCreditoHistorial(v.tipo_venta)) porCredito += 1;
-      else if (ventaEsTarjetaHistorial(v.tipo_venta)) porTarjeta += 1;
-      else if (ventaEsContadoHistorial(v.tipo_venta)) porContado += 1;
+      const bucket = clasificarFormaPagoReporte(v.tipo_venta);
+      if (bucket === "credito") {
+        porCredito.cantidad += 1;
+        porCredito.monto += total;
+      } else if (bucket === "tarjeta") {
+        porTarjeta.cantidad += 1;
+        porTarjeta.monto += total;
+      } else if (bucket === "contado") {
+        porContado.cantidad += 1;
+        porContado.monto += total;
+      }
+
+      const vendedorId = v.usuario_id ?? "";
+      const vendedorNombre =
+        (vendedorId && nombresVendedorPorId[vendedorId]) || "Sin nombre";
+      const prev = vendedorAgg.get(vendedorNombre) ?? { ventas: 0, monto: 0 };
+      vendedorAgg.set(vendedorNombre, {
+        ventas: prev.ventas + 1,
+        monto: prev.monto + total,
+      });
     }
 
     const recibo = etiquetaRecibo(v);
-    const cliente = v.ven_clientes?.nombre?.trim() || "Cliente general";
+    const cliente =
+      v.ven_clientes?.nombre?.trim() || ETIQUETA_CONSUMIDOR_FINAL;
     const fecha = formatFechaHoraGt(v.created_at);
 
     let notaAnulacion = "";
@@ -140,21 +183,59 @@ export function construirReporteVentasMes(
       fecha,
       cliente,
       tipo: etiquetaTipoVentaHistorial(v.tipo_venta),
-      total: fmtQ(Number(v.total) || 0),
+      total: Number(v.total) || 0,
       estado: esAnulada ? "Anulada" : "Vigente",
       notaAnulacion,
     });
   }
 
-  const productoCantidad = new Map<string, number>();
+  const productoAgg = new Map<
+    string,
+    {
+      producto: string;
+      marca: string;
+      cantidad: number;
+      monto: number;
+      costo: number;
+    }
+  >();
   for (const d of detalles) {
-    const nombre = d.inv_productos?.nombre?.trim() || "Producto";
-    productoCantidad.set(nombre, (productoCantidad.get(nombre) ?? 0) + d.cantidad);
+    const key = `${d.marca}\0${d.producto}`;
+    const prev = productoAgg.get(key) ?? {
+      producto: d.producto,
+      marca: d.marca,
+      cantidad: 0,
+      monto: 0,
+      costo: 0,
+    };
+    productoAgg.set(key, {
+      producto: d.producto,
+      marca: d.marca,
+      cantidad: prev.cantidad + d.cantidad,
+      monto: prev.monto + d.subtotal,
+      costo: prev.costo + d.costo,
+    });
   }
-  const topProductos = [...productoCantidad.entries()]
-    .map(([nombre, cantidad]) => ({ nombre, cantidad }))
-    .sort((a, b) => b.cantidad - a.cantidad)
+
+  const topProductos = [...productoAgg.values()]
+    .map((p) => ({
+      producto: p.producto,
+      marca: p.marca,
+      cantidad: p.cantidad,
+      monto: Math.round(p.monto * 100) / 100,
+      costo: Math.round(p.costo * 100) / 100,
+      ganancia: Math.round((p.monto - p.costo) * 100) / 100,
+    }))
+    .sort((a, b) => b.monto - a.monto)
     .slice(0, 25);
+
+  const porVendedor = [...vendedorAgg.entries()]
+    .map(([vendedor, stats]) => ({
+      vendedor,
+      ventas: stats.ventas,
+      monto: Math.round(stats.monto * 100) / 100,
+    }))
+    .sort((a, b) => b.monto - a.monto);
 
   return {
     periodoLabel,
@@ -171,5 +252,6 @@ export function construirReporteVentasMes(
     anulaciones,
     historial,
     topProductos,
+    porVendedor,
   };
 }

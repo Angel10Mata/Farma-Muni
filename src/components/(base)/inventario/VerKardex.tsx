@@ -1,11 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { FileDown, FileText } from "lucide";
 import { Search } from "lucide-react";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
-import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
 import {
   ModuleTableFooter,
   moduleTableBodyClass,
@@ -28,12 +27,9 @@ import { formatFechaHoraTablaGt, fechaCalendarioGt } from "@/lib/fechas-gt";
 import { InventarioSubnav } from "./InventarioSubnav";
 import { etiquetaLaboratorioComercial } from "./lib/helpers";
 import { useKardex, useProductos, useLotes } from "./lib/hooks";
-import { obtenerKardex } from "./lib/actions";
-import { demoKardexMovimientos } from "@/lib/demo/fixtures";
 import {
   TIPOS_MOVIMIENTO_KARDEX,
   type TipoMovimientoKardex,
-  type KardexFila,
 } from "./lib/zod";
 import {
   cantidadEntradaSalidaKardex,
@@ -41,10 +37,16 @@ import {
   referenciaKardexTexto,
 } from "./lib/kardex-helpers";
 import { tituloProductoFarmacia, productoCoincideBusquedaInventario } from "./lib/helpers";
-import { descargarReporteKardex } from "./lib/reportes-pdf";
+import { resolverKardexInforme } from "./informes/cargar-datos";
+import { descargarKardexExcel, descargarKardexPdf } from "./informes/kardex-excel";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
 
 export function VerKardex() {
   const { isDemoMode } = useDemoMode();
+  const { user } = useUserContext();
+  const { profile } = useProfile(user?.id ?? "", !!user);
   const [busquedaProducto, setBusquedaProducto] = useState("");
   const [productoId, setProductoId] = useState<string | undefined>();
   const [loteId, setLoteId] = useState<string | undefined>();
@@ -93,48 +95,60 @@ export function VerKardex() {
   const pageSize = data?.pageSize ?? 50;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  const filtrosKardex = {
+    productoLabel: productoSeleccionado?.nombre,
+    loteNumero: lotes.find((l) => l.id === loteId)?.numero_lote,
+    tipo: tipo || undefined,
+    desde: desde || undefined,
+    hasta: hasta || undefined,
+  };
+
+  const generadoPor =
+    profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
+
+  const cargarFilasExport = async () => {
+    const res = await resolverKardexInforme(isDemoMode, {
+      productoId,
+      loteId,
+      tipo: tipo || undefined,
+      desde: desde || undefined,
+      hasta: hasta || undefined,
+    });
+    if ("error" in res) throw new Error(res.error);
+    return res.filas;
+  };
+
   const descargarPdf = async () => {
     try {
-      let todas: KardexFila[] = [];
-      if (isDemoMode) {
-        todas = demoKardexMovimientos({
-          productoId,
-          loteId,
-          tipo: tipo || undefined,
-          desde: desde || undefined,
-          hasta: hasta || undefined,
-          pagina: 1,
-          pageSize: 5000,
-        }).filas;
+      const todas = await cargarFilasExport();
+      const meta = await construirMetaInforme(generadoPor);
+      descargarKardexPdf(todas, filtrosKardex, meta);
+      if (!isDemoMode && total > 0 && todas.length < total) {
+        toast.warn(
+          `Se exportaron ${todas.length} de ${total} movimientos. Ajuste filtros o contacte soporte si falta historial.`,
+        );
       } else {
-        let page = 1;
-        let more = true;
-        while (more) {
-          const res = await obtenerKardex({
-            productoId,
-            loteId,
-            tipo: tipo || undefined,
-            desde: desde || undefined,
-            hasta: hasta || undefined,
-            pagina: page,
-          });
-          if ("code" in res) throw new Error(res.code);
-          todas = todas.concat(res.data.filas);
-          more = todas.length < res.data.total;
-          page += 1;
-          if (page > 40) break;
-        }
+        toast.success(`PDF de kardex descargado (${todas.length} movimientos).`);
       }
-      descargarReporteKardex(todas, {
-        productoLabel: productoSeleccionado?.nombre,
-        loteNumero: lotes.find((l) => l.id === loteId)?.numero_lote,
-        tipo: tipo || undefined,
-        desde: desde || undefined,
-        hasta: hasta || undefined,
-      });
-      toast.success("PDF de kardex descargado.");
     } catch {
       toast.error("No se pudo generar el PDF.");
+    }
+  };
+
+  const descargarExcel = async () => {
+    try {
+      const todas = await cargarFilasExport();
+      const meta = await construirMetaInforme(generadoPor);
+      await descargarKardexExcel(todas, filtrosKardex, meta);
+      if (!isDemoMode && total > 0 && todas.length < total) {
+        toast.warn(
+          `Se exportaron ${todas.length} de ${total} movimientos. Ajuste filtros o contacte soporte si falta historial.`,
+        );
+      } else {
+        toast.success(`Excel de kardex descargado (${todas.length} movimientos).`);
+      }
+    } catch {
+      toast.error("No se pudo generar el Excel.");
     }
   };
 
@@ -155,15 +169,18 @@ export function VerKardex() {
           </div>
           <InventarioSubnav />
         </div>
-        <SigetActionButton
-          label="Descargar"
-          accentColor={sigetAccent.abrir}
-          morphFrom={FileText}
-          morphTo={FileDown}
-          onClick={() => void descargarPdf()}
-          className="w-full sm:w-auto self-end"
-          ariaLabel="Descargar PDF del kardex"
-        />
+        <div className="flex w-full flex-col gap-2 sm:flex-row sm:justify-end">
+          <ModuleInformeDropdown
+            className="w-full sm:w-auto"
+            items={[
+              {
+                titulo: "Movimientos del kardex",
+                onPdf: () => void descargarPdf(),
+                onExcel: () => void descargarExcel(),
+              },
+            ]}
+          />
+        </div>
       </div>
 
       {productoId && data?.stockProductoActual != null ? (

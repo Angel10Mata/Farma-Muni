@@ -5,9 +5,8 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Receipt, Package, AlertTriangle } from "lucide-react";
 import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, FileDown as FileDownNode, MessageCircle as MessageCircleNode, Printer as PrinterNode, X as XNode } from "lucide";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import { APP_LOGO_PATH } from "@/lib/app-config";
+import { exportarReciboPdf } from "./lib/recibo-pdf";
+import { obtenerFarmaciaReciboSettings } from "./lib/actions";
 import { fmtQ } from "@/lib/utils";
 import { CrearCliente } from "@/components/(base)/clientes/forms/Crear";
 import { anularVenta, validarCredencialesAdmin } from "./lib/actions";
@@ -339,132 +338,12 @@ function VerVentasInner({
     }
   };
 
-  // Recibo en PDF y WhatsApp
-  const getBase64ImageFromUrl = async (url: string): Promise<string | null> => {
+  const exportarReciboPdfVenta = async (venta: Venta, detalles: any[]) => {
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
-      });
-    } catch {
-      return null;
-    }
-  };
-
-  const exportarFacturaPDF = async (venta: Venta, detalles: any[]) => {
-    try {
-      const doc = new jsPDF({ unit: "mm", format: [80, 175] });
-      const clientName = venta.ven_clientes?.nombre || "Consumidor Final";
-      const clientNit = venta.ven_clientes?.nit || "C/F";
-      const dateFormatted = new Date(venta.created_at).toLocaleString("es-GT", {
-        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
-      });
-
-      let currentY = 6;
-
-      // Cargar e insertar Logo
-      const logoBase64 = await getBase64ImageFromUrl(APP_LOGO_PATH);
-      if (logoBase64) {
-        const logoFormat = logoBase64.includes("image/webp") ? "WEBP" : "PNG";
-        doc.addImage(logoBase64, logoFormat, 33, currentY, 14, 14);
-        currentY += 17;
-      } else {
-        currentY += 4;
-      }
-
-      // Nombre de la Farmacia
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text("FarmaMuni", 40, currentY, { align: "center" });
-      currentY += 4;
-
-      // Dirección
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.setTextColor(0, 0, 0);
-      doc.text("3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA", 40, currentY, { align: "center" });
-      currentY += 3.5;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(0, 0, 0);
-      doc.text("Guatemala", 40, currentY, { align: "center" });
-      currentY += 3.5;
-
-      doc.setDrawColor(0, 0, 0);
-      doc.line(5, currentY, 75, currentY);
-      currentY += 5;
-
-      const codigoRecibo = codigoReciboVenta(venta);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`RECIBO DE VENTA #${codigoRecibo}`, 5, currentY);
-      currentY += 5;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Fecha: ${dateFormatted}`, 5, currentY); currentY += 4.5;
-      doc.text(`Cliente: ${clientName}`, 5, currentY); currentY += 4.5;
-      doc.text(`NIT: ${clientNit}`, 5, currentY); currentY += 4.5;
-      doc.text(`Pago: ${venta.tipo_venta || "Contado"}`, 5, currentY); currentY += 3;
-
-      doc.setDrawColor(0, 0, 0);
-      doc.line(5, currentY, 75, currentY);
-      currentY += 2;
-
-      autoTable(doc, {
-        startY: currentY,
-        head: [["Cant", "Detalle", "Precio", "Sub"]],
-        body: detalles.map((d) => {
-          const unit = d.cantidad > 0 ? d.subtotal / d.cantidad : d.precio_aplicado ?? 0;
-          const detalle =
-            d.nombre != null
-              ? `${d.nombre}${d.descripcion ? ` — ${d.descripcion}` : ""}`
-              : d.inv_productos?.nombre || "Pedido";
-          return [d.cantidad, detalle, `${fmtQ(unit)}`, `${fmtQ(d.subtotal)}`];
-        }),
-        theme: "plain",
-        styles: { fontSize: 7, cellPadding: 1, valign: "middle", textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: {
-          0: { cellWidth: 8 }, 1: { cellWidth: 35 }, 2: { cellWidth: 12, halign: "right" }, 3: { cellWidth: 15, halign: "right" }
-        },
-        headStyles: { fontStyle: "bold", fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-        margin: { left: 4, right: 4 }
-      });
-
-      const finalY = (doc as any).lastAutoTable.finalY + 4;
-      doc.setDrawColor(0, 0, 0);
-      doc.line(5, finalY, 75, finalY);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`TOTAL A PAGAR: ${fmtQ(venta.total)}`, 75, finalY + 5, { align: "right" });
-
-      let endY = finalY + 11;
-      if (venta.observaciones) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Notas: ${venta.observaciones}`, 5, endY);
-        endY += 6;
-      }
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(0, 0, 0);
-      doc.text("¡Gracias por su compra!", 40, endY, { align: "center" });
-
-      doc.save(`Recibo_FarmaMuni_${codigoRecibo}.pdf`);
+      const settings = await obtenerFarmaciaReciboSettings();
+      await exportarReciboPdf(venta, detalles, settings);
     } catch (error) {
-      console.error("Error al exportar PDF:", error);
+      console.error("Error al exportar recibo PDF:", error);
     }
   };
 
@@ -692,7 +571,7 @@ function VerVentasInner({
                 morphTo={FileDownNode}
                 morphOnHover={false}
                 onClick={() =>
-                  exportarFacturaPDF(
+                  exportarReciboPdfVenta(
                     ventas.reciboModalData.venta,
                     ventas.reciboModalData.reciboItems ?? ventas.reciboModalData.detalles,
                   )

@@ -49,6 +49,20 @@ export async function obtenerClientes() {
       }
     }
 
+    const saldoPorCliente = new Map<string, number>();
+    if (cuentasPendientes) {
+      for (const c of cuentasPendientes as Array<{
+        cliente_id: string;
+        saldo_pendiente?: number;
+      }>) {
+        const prev = saldoPorCliente.get(c.cliente_id) ?? 0;
+        saldoPorCliente.set(
+          c.cliente_id,
+          prev + Number(c.saldo_pendiente ?? 0),
+        );
+      }
+    }
+
     const clientes = (clientesData ?? []).map((row: Record<string, unknown>) => {
       const sales = clientSalesMap.get(row.id as string);
       const creditosPendientes = cuentasPendientes
@@ -66,7 +80,7 @@ export async function obtenerClientes() {
         nit: (row.nit as string) || "C/F",
         totalCompras: sales?.count ?? 0,
         ultimaCompra: sales?.lastDate ?? "",
-        saldo: 0,
+        saldo: saldoPorCliente.get(row.id as string) ?? 0,
         creditosPendientes,
         activo: true,
       };

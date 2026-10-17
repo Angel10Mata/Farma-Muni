@@ -459,6 +459,19 @@ export function ventaEsTarjetaHistorial(
   return claveTipoVentaHistorial(tipoVenta) === "tarjeta";
 }
 
+export type FormaPagoReporte = "contado" | "tarjeta" | "credito";
+
+export function clasificarFormaPagoReporte(
+  tipoVenta: string | null | undefined,
+): FormaPagoReporte | null {
+  if (ventaEsCreditoHistorial(tipoVenta)) return "credito";
+  if (ventaEsTarjetaHistorial(tipoVenta)) return "tarjeta";
+  if (ventaEsContadoHistorial(tipoVenta)) return "contado";
+  return null;
+}
+
+export const ETIQUETA_CONSUMIDOR_FINAL = "Consumidor final";
+
 export function ventaPerteneceMesCalendarioGt(
   createdAt: string,
   year: number,

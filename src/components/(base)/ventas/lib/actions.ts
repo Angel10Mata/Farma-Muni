@@ -22,14 +22,25 @@ import {
   precioMenorQueCosto,
   precioReferenciaRebajaPayload,
   ventaEstaAnulada,
+  ETIQUETA_CONSUMIDOR_FINAL,
+  codigoReciboVenta,
 } from "./helpers";
-import { formatFechaHoraGt } from "@/lib/fechas-gt";
-import { fmtQ } from "@/lib/utils";
 import {
   construirReporteVentasMes,
   type ReporteVentasMes,
 } from "./reporte-ventas-mes";
-import { ultimoDiaMesCalendario } from "@/lib/fechas-gt";
+import {
+  fechaCalendarioGt,
+  finTimestamptzDiaGt,
+  inicioTimestamptzDiaGt,
+  ultimoDiaMesCalendario,
+} from "@/lib/fechas-gt";
+import { enLotes, traerTodo } from "@/lib/reportes/paginacion";
+import { lineaGenericaCompraDisplay } from "@/components/(base)/proveedores/lib/compras-helpers";
+import {
+  construirReporteCorteCaja,
+  type ReporteCorteCaja,
+} from "./reporte-corte-caja";
 import { ajustarStockPorVenta, obtenerCostoProductoOLote } from "./lotes-stock";
 import {
   asignarCantidadFefo,
@@ -990,18 +1001,18 @@ export async function obtenerReporteVentasMes(year: number, month: number) {
     const desdeIso = `${mesPrefijo}-01T00:00:00.000-06:00`;
     const hastaIso = `${mesPrefijo}-${String(lastDay).padStart(2, "0")}T23:59:59.999-06:00`;
 
-    const { data: ventasRaw, error } = await supabase
-      .from("ventas")
-      .select("*, ven_clientes(nombre, nit)")
-      .gte("created_at", desdeIso)
-      .lte("created_at", hastaIso)
-      .order("created_at", { ascending: true });
+    const ventasRaw = await traerTodo(async (from, to) => {
+      const { data, error } = await supabase
+        .from("ventas")
+        .select("*, ven_clientes(nombre, nit)")
+        .gte("created_at", desdeIso)
+        .lte("created_at", hastaIso)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      return { data, error };
+    });
 
-    if (error) {
-      return { success: false as const, error: error.message };
-    }
-
-    const ventas = (ventasRaw || []).filter((v) =>
+    const ventas = ventasRaw.filter((v) =>
       fechaVentaCalendarioGt(v.created_at).startsWith(mesPrefijo),
     );
 
@@ -1070,31 +1081,100 @@ export async function obtenerReporteVentasMes(year: number, month: number) {
       .filter((v) => !ventaEstaAnulada(v))
       .map((v) => v.id);
 
-    let detalles: {
-      venta_id: string;
-      cantidad: number;
-      inv_productos: { nombre: string } | null;
-    }[] = [];
+    const usuarioIdsVentas = [
+      ...new Set(
+        ventas.map((v) => v.usuario_id).filter(Boolean),
+      ),
+    ] as string[];
+
+    let nombresVendedorPorId: Record<string, string> = {};
+    if (usuarioIdsVentas.length > 0) {
+      const { data: perfilesV, error: perfilesVError } = await supabase
+        .from("profiles")
+        .select("id, nombre")
+        .in("id", usuarioIdsVentas);
+      if (perfilesVError) {
+        return { success: false as const, error: perfilesVError.message };
+      }
+      nombresVendedorPorId = Object.fromEntries(
+        (perfilesV ?? []).map((p) => [
+          p.id,
+          p.nombre?.trim() || "Sin nombre",
+        ]),
+      );
+    }
+
+    let detalles: import("./reporte-ventas-mes").DetalleReporteMesInput[] = [];
 
     if (activasIds.length > 0) {
-      const { data: detRaw, error: detError } = await supabase
-        .from("ven_detalles")
-        .select("venta_id, cantidad, inv_productos(nombre)")
-        .in("venta_id", activasIds);
+      type FilaDetalleRaw = {
+        venta_id: string;
+        cantidad: number;
+        subtotal: number;
+        inv_lotes:
+          | { precio_costo: number | null }
+          | { precio_costo: number | null }[]
+          | null;
+        inv_productos:
+          | {
+              nombre: string;
+              inv_genericos: {
+                concentracion: string;
+                forma_farmaceutica: string;
+                inv_catalogos: { nombre: string } | null;
+              } | null;
+            }
+          | {
+              nombre: string;
+              inv_genericos: {
+                concentracion: string;
+                forma_farmaceutica: string;
+                inv_catalogos: { nombre: string } | null;
+              } | null;
+            }[]
+          | null;
+      };
 
-      if (detError) {
-        return { success: false as const, error: detError.message };
+      const detRaw: FilaDetalleRaw[] = [];
+      for (const loteIds of enLotes(activasIds)) {
+        const parte = await traerTodo(async (from, to) => {
+          const { data, error } = await supabase
+            .from("ven_detalles")
+            .select(
+              "venta_id, cantidad, subtotal, inv_lotes(precio_costo), inv_productos(nombre, inv_genericos(concentracion, forma_farmaceutica, inv_catalogos(nombre)))",
+            )
+            .in("venta_id", loteIds)
+            .range(from, to);
+          return { data, error };
+        });
+        detRaw.push(...(parte as unknown as FilaDetalleRaw[]));
       }
-      detalles = (detRaw || []).map((row) => {
-        const prod = row.inv_productos;
-        const nombre =
-          prod && typeof prod === "object" && "nombre" in prod
-            ? String((prod as { nombre: string }).nombre)
-            : "";
+
+      detalles = detRaw.map((row) => {
+        const prodRaw = row.inv_productos;
+        const prod = Array.isArray(prodRaw) ? prodRaw[0] : prodRaw;
+        const marca = prod?.nombre?.trim() || "Producto";
+        const gen = prod?.inv_genericos;
+        const catalogo = gen?.inv_catalogos?.nombre?.trim() || marca;
+        const producto = gen
+          ? lineaGenericaCompraDisplay({
+              catalogo_nombre: catalogo,
+              concentracion: gen.concentracion ?? "",
+              forma_farmaceutica: gen.forma_farmaceutica ?? "",
+            })
+          : marca;
+        const loteRaw = row.inv_lotes;
+        const lote = Array.isArray(loteRaw) ? loteRaw[0] : loteRaw;
+        const costoUnit = Number(lote?.precio_costo) || 0;
+        const cantidad = Number(row.cantidad) || 0;
+        const subtotal = Number(row.subtotal) || 0;
         return {
           venta_id: row.venta_id,
-          cantidad: Number(row.cantidad) || 0,
-          inv_productos: nombre ? { nombre } : null,
+          cantidad,
+          subtotal,
+          producto,
+          marca,
+          costo: Math.round(costoUnit * cantidad * 100) / 100,
         };
       });
     }
@@ -1104,6 +1184,7 @@ export async function obtenerReporteVentasMes(year: number, month: number) {
         ventas,
         anulacionesPorVentaId,
         detalles,
+        nombresVendedorPorId,
         year,
         month,
       ),
@@ -1128,7 +1209,16 @@ export type VentaRecetaReporteRow = {
   medico: string;
   colegiado: string;
   numero_receta: string;
-  total: string;
+  producto: string;
+  marca: string;
+  lote: string;
+  cantidad: number;
+};
+
+export type TotalesRecetaProductoRow = {
+  producto: string;
+  marca: string;
+  cantidad: number;
 };
 
 export async function obtenerReporteVentasReceta(
@@ -1166,42 +1256,129 @@ export async function obtenerReporteVentasReceta(
     const desdeIso = `${fechaDesde}T00:00:00.000-06:00`;
     const hastaIso = `${fechaHasta}T23:59:59.999-06:00`;
 
-    const { data: recetas, error } = await supabase
-      .from("ventas")
-      .select(
-        "id, created_at, numero_recibo, total, ven_clientes(nombre), ven_recetas!inner(medico_nombre, colegiado, numero_receta)",
-      )
-      .gte("created_at", desdeIso)
-      .lte("created_at", hastaIso)
-      .order("created_at", { ascending: true });
+    const ventasReceta = await traerTodo(async (from, to) => {
+      const { data, error } = await supabase
+        .from("ventas")
+        .select(
+          "id, created_at, numero_recibo, ven_clientes(nombre), ven_recetas!inner(medico_nombre, colegiado, numero_receta)",
+        )
+        .gte("created_at", desdeIso)
+        .lte("created_at", hastaIso)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      return { data, error };
+    });
 
-    if (error) {
-      return { success: false as const, error: error.message };
+    const ventaIds = ventasReceta.map((v) => v.id as string);
+    const filas: VentaRecetaReporteRow[] = [];
+
+    if (ventaIds.length > 0) {
+      type FilaDetReceta = {
+        venta_id: string;
+        cantidad: number;
+        inv_lotes:
+          | { numero_lote: string | null }
+          | { numero_lote: string | null }[]
+          | null;
+        inv_productos:
+          | {
+              nombre: string;
+              inv_genericos: { requiere_receta: boolean; concentracion: string; forma_farmaceutica: string; inv_catalogos: { nombre: string } | null } | null;
+            }
+          | {
+              nombre: string;
+              inv_genericos: { requiere_receta: boolean; concentracion: string; forma_farmaceutica: string; inv_catalogos: { nombre: string } | null } | null;
+            }[]
+          | null;
+      };
+
+      const detallesRaw: FilaDetReceta[] = [];
+      for (const loteIds of enLotes(ventaIds)) {
+        const parte = await traerTodo(async (from, to) => {
+          const { data, error } = await supabase
+            .from("ven_detalles")
+            .select(
+              "venta_id, cantidad, inv_lotes(numero_lote), inv_productos(nombre, inv_genericos(requiere_receta, concentracion, forma_farmaceutica, inv_catalogos(nombre)))",
+            )
+            .in("venta_id", loteIds)
+            .range(from, to);
+          return { data, error };
+        });
+        detallesRaw.push(...(parte as unknown as FilaDetReceta[]));
+      }
+
+      const ventaPorId = new Map(
+        ventasReceta.map((v) => [v.id as string, v]),
+      );
+
+      for (const row of detallesRaw) {
+        const prodRaw = row.inv_productos;
+        const prod = Array.isArray(prodRaw) ? prodRaw[0] : prodRaw;
+        if (!prod?.inv_genericos?.requiere_receta) continue;
+
+        const venta = ventaPorId.get(row.venta_id);
+        if (!venta) continue;
+
+        const recetaRow = Array.isArray(venta.ven_recetas)
+          ? venta.ven_recetas[0]
+          : venta.ven_recetas;
+        const clientes = venta.ven_clientes as
+          | { nombre: string }
+          | { nombre: string }[]
+          | null;
+        const clienteNombre = Array.isArray(clientes)
+          ? clientes[0]?.nombre
+          : clientes?.nombre;
+        const loteRaw = row.inv_lotes;
+        const lote = Array.isArray(loteRaw) ? loteRaw[0] : loteRaw;
+        const catalogo =
+          prod.inv_genericos.inv_catalogos?.nombre?.trim() ||
+          prod.nombre;
+        const producto = lineaGenericaCompraDisplay({
+          catalogo_nombre: catalogo,
+          concentracion: prod.inv_genericos.concentracion ?? "",
+          forma_farmaceutica: prod.inv_genericos.forma_farmaceutica ?? "",
+        });
+
+        filas.push({
+          recibo: codigoReciboVenta({
+            id: venta.id as string,
+            numero_recibo: venta.numero_recibo as number | null,
+          }),
+          fecha: venta.created_at as string,
+          cliente: clienteNombre?.trim() || ETIQUETA_CONSUMIDOR_FINAL,
+          medico: (recetaRow as { medico_nombre: string }).medico_nombre,
+          colegiado: (recetaRow as { colegiado: string }).colegiado,
+          numero_receta:
+            (recetaRow as { numero_receta?: string | null }).numero_receta?.trim() ||
+            "—",
+          producto,
+          marca: prod.nombre?.trim() || "—",
+          lote: lote?.numero_lote?.trim() || "—",
+          cantidad: Number(row.cantidad) || 0,
+        });
+      }
+
+      filas.sort((a, b) => a.fecha.localeCompare(b.fecha));
     }
 
-    const filas: VentaRecetaReporteRow[] = (recetas ?? []).map((v) => {
-      const recetaRow = Array.isArray(v.ven_recetas)
-        ? v.ven_recetas[0]
-        : v.ven_recetas;
-      const recibo =
-        formatNumeroRecibo(v.numero_recibo as number | null) ||
-        `#${v.numero_recibo ?? v.id.slice(0, 8)}`;
-      const clientes = v.ven_clientes as { nombre: string } | { nombre: string }[] | null;
-      const clienteNombre = Array.isArray(clientes)
-        ? clientes[0]?.nombre
-        : clientes?.nombre;
-      return {
-        recibo,
-        fecha: formatFechaHoraGt(v.created_at as string),
-        cliente: clienteNombre?.trim() || "Consumidor final",
-        medico: (recetaRow as { medico_nombre: string }).medico_nombre,
-        colegiado: (recetaRow as { colegiado: string }).colegiado,
-        numero_receta:
-          (recetaRow as { numero_receta?: string | null }).numero_receta?.trim() ||
-          "—",
-        total: fmtQ(Number(v.total) || 0),
-      };
-    });
+    const totalesPorProductoMap = new Map<string, TotalesRecetaProductoRow>();
+    for (const f of filas) {
+      const key = `${f.marca}\0${f.producto}`;
+      const prev = totalesPorProductoMap.get(key);
+      if (prev) {
+        prev.cantidad += f.cantidad;
+      } else {
+        totalesPorProductoMap.set(key, {
+          producto: f.producto,
+          marca: f.marca,
+          cantidad: f.cantidad,
+        });
+      }
+    }
+    const totalesPorProducto = [...totalesPorProductoMap.values()].sort(
+      (a, b) => b.cantidad - a.cantidad,
+    );
 
     return {
       success: true as const,
@@ -1210,6 +1387,7 @@ export async function obtenerReporteVentasReceta(
         fechaHasta,
         generadoPor,
         filas,
+        totalesPorProducto,
       },
     };
   } catch (error: unknown) {
@@ -1217,6 +1395,280 @@ export async function obtenerReporteVentasReceta(
       error instanceof Error
         ? error.message
         : "No se pudo generar el reporte de ventas con receta.";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function obtenerVendedoresCorteCaja() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida.", vendedores: [] };
+    }
+
+    const rol = await resolveUserRole(supabase, user);
+    if (!isAdminRole(rol)) {
+      return { success: true as const, vendedores: [] };
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, nombre")
+      .in("rol", ["user", "admin", "super"])
+      .order("nombre", { ascending: true });
+
+    if (error) {
+      return { success: false as const, error: error.message, vendedores: [] };
+    }
+
+    return {
+      success: true as const,
+      vendedores: (data ?? []).map((p) => ({
+        id: p.id,
+        nombre: p.nombre?.trim() || "Sin nombre",
+      })),
+    };
+  } catch {
+    return {
+      success: false as const,
+      error: "No se pudieron cargar los vendedores.",
+      vendedores: [],
+    };
+  }
+}
+
+function fechaMovimientoCalendarioGt(fechaMovimiento: string): string {
+  return fechaCalendarioGt(new Date(fechaMovimiento));
+}
+
+export async function obtenerCorteCajaDiario(
+  fecha: string,
+  usuarioFiltroId: string | null,
+) {
+  try {
+    const fechaNorm = fecha.trim();
+    if (!fechaNorm) {
+      return { success: false as const, error: "Indica la fecha del corte." };
+    }
+
+    const inicio = inicioTimestamptzDiaGt(fechaNorm);
+    const fin = finTimestamptzDiaGt(fechaNorm);
+    if (!inicio || !fin) {
+      return { success: false as const, error: "Fecha inválida." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida o expirada." };
+    }
+
+    const rol = await resolveUserRole(supabase, user);
+    const puedeHistorial = isAdminRole(rol) || rol === "user";
+    if (!puedeHistorial) {
+      return {
+        success: false as const,
+        error: "No tienes permiso para el corte de caja.",
+      };
+    }
+
+    let usuarioIdConsulta: string | null = null;
+    if (isAdminRole(rol)) {
+      usuarioIdConsulta =
+        usuarioFiltroId && usuarioFiltroId.trim() !== ""
+          ? usuarioFiltroId.trim()
+          : null;
+    } else {
+      usuarioIdConsulta = user.id;
+    }
+
+    const { data: perfilReporte } = await supabase
+      .from("profiles")
+      .select("nombre")
+      .eq("id", user.id)
+      .maybeSingle();
+    const generadoPor = perfilReporte?.nombre?.trim() || "Sin nombre";
+
+    let etiquetaVendedor = "Todos los vendedores";
+    if (usuarioIdConsulta) {
+      const { data: perfilV } = await supabase
+        .from("profiles")
+        .select("nombre")
+        .eq("id", usuarioIdConsulta)
+        .maybeSingle();
+      etiquetaVendedor = perfilV?.nombre?.trim() || "Sin nombre";
+    }
+
+    const ventasRaw = await traerTodo(async (from, to) => {
+      let q = supabase
+        .from("ventas")
+        .select("*, ven_clientes(nombre, nit)")
+        .gte("created_at", inicio)
+        .lte("created_at", fin)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      if (usuarioIdConsulta) {
+        q = q.eq("usuario_id", usuarioIdConsulta);
+      }
+      const { data, error } = await q;
+      return { data, error };
+    });
+
+    const ventas = ventasRaw.filter(
+      (v) => fechaVentaCalendarioGt(v.created_at as string) === fechaNorm,
+    );
+
+    const ventaIds = ventas.map((v) => v.id as string);
+    const anulacionesBitacora: {
+      venta_id: string;
+      usuario_id: string;
+      motivo: string;
+      created_at: string;
+    }[] = [];
+
+    const bitacorasDia = await traerTodo(async (from, to) => {
+      const { data, error } = await supabase
+        .from("ven_ventas_bitacora")
+        .select("venta_id, usuario_id, motivo, created_at, accion")
+        .eq("accion", "anular")
+        .gte("created_at", inicio)
+        .lte("created_at", fin)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      return { data, error };
+    });
+
+    for (const b of bitacorasDia) {
+      if (fechaVentaCalendarioGt(b.created_at as string) !== fechaNorm) continue;
+      anulacionesBitacora.push({
+        venta_id: b.venta_id as string,
+        usuario_id: b.usuario_id as string,
+        motivo: typeof b.motivo === "string" ? b.motivo : "",
+        created_at: b.created_at as string,
+      });
+    }
+
+    const ventaIdsAnuladas = [
+      ...new Set(anulacionesBitacora.map((b) => b.venta_id)),
+    ];
+    const ventasAnuladasExtra = ventaIdsAnuladas.filter(
+      (id) => !ventaIds.includes(id),
+    );
+
+    let ventasAnuladasLookup = [...ventas];
+    if (ventasAnuladasExtra.length > 0) {
+      for (const loteIds of enLotes(ventasAnuladasExtra)) {
+        const { data: extra, error: extraError } = await supabase
+          .from("ventas")
+          .select("*, ven_clientes(nombre, nit)")
+          .in("id", loteIds);
+        if (extraError) {
+          return { success: false as const, error: extraError.message };
+        }
+        ventasAnuladasLookup.push(...(extra ?? []));
+      }
+    }
+
+    const usuarioIdsBitacora = [
+      ...new Set(anulacionesBitacora.map((b) => b.usuario_id)),
+    ];
+    let perfilesBitacora: Record<string, string> = {};
+    if (usuarioIdsBitacora.length > 0) {
+      const { data: perfiles, error: perfilesError } = await supabase
+        .from("profiles")
+        .select("id, nombre")
+        .in("id", usuarioIdsBitacora);
+      if (perfilesError) {
+        return { success: false as const, error: perfilesError.message };
+      }
+      perfilesBitacora = Object.fromEntries(
+        (perfiles ?? []).map((p) => [
+          p.id,
+          p.nombre?.trim() || "Sin nombre",
+        ]),
+      );
+    }
+
+    const abonosRaw = await traerTodo(async (from, to) => {
+      let q = supabase
+        .from("fin_transacciones")
+        .select("id, monto, fecha_movimiento, usuario_id, descripcion, venta_id")
+        .eq("categoria", "abono_cliente")
+        .eq("tipo_movimiento", "ingreso")
+        .gte("fecha_movimiento", inicio)
+        .lte("fecha_movimiento", fin)
+        .order("fecha_movimiento", { ascending: true })
+        .range(from, to);
+      if (usuarioIdConsulta) {
+        q = q.eq("usuario_id", usuarioIdConsulta);
+      }
+      const { data, error } = await q;
+      return { data, error };
+    });
+
+    const abonos = abonosRaw
+      .filter(
+        (a) =>
+          fechaMovimientoCalendarioGt(a.fecha_movimiento as string) ===
+          fechaNorm,
+      )
+      .map((a) => ({
+        monto: Number(a.monto) || 0,
+        fecha_movimiento: a.fecha_movimiento as string,
+        descripcion: (a.descripcion as string | null) ?? "",
+      }));
+
+    const reporte: ReporteCorteCaja = {
+      ...construirReporteCorteCaja({
+        fecha: fechaNorm,
+        etiquetaVendedor,
+        ventas: ventas.map((v) => ({
+          id: v.id as string,
+          created_at: v.created_at as string,
+          numero_recibo: v.numero_recibo as number | null,
+          tipo_venta: v.tipo_venta as string | null,
+          total: v.total as number | string | null,
+          observaciones: v.observaciones as string | null,
+          anulada: v.anulada as boolean | null,
+          estado: v.estado as string | null,
+          ven_clientes: v.ven_clientes as { nombre: string } | null,
+        })),
+        anulacionesDia: anulacionesBitacora
+          .filter((b) => {
+            if (!usuarioIdConsulta) return true;
+            const venta = ventasAnuladasLookup.find((v) => v.id === b.venta_id);
+            return venta?.usuario_id === usuarioIdConsulta;
+          })
+          .map((b) => {
+          const venta = ventasAnuladasLookup.find((v) => v.id === b.venta_id);
+          return {
+            recibo: venta
+              ? codigoReciboVenta({
+                  id: venta.id as string,
+                  numero_recibo: venta.numero_recibo as number | null,
+                })
+              : b.venta_id.slice(0, 8),
+            monto: Number(venta?.total) || 0,
+            autor: perfilesBitacora[b.usuario_id] ?? "Sin nombre",
+            motivo: b.motivo.trim() || "—",
+          };
+        }),
+        abonos,
+      }),
+      generadoPor,
+    };
+
+    return { success: true as const, data: reporte };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo generar el corte de caja.";
     return { success: false as const, error: message };
   }
 }

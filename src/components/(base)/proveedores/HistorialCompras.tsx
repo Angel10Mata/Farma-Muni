@@ -18,11 +18,12 @@ import {
   totalPagadoCompra,
 } from "./lib/compras-helpers";
 import { InsigniaPagoVencidoCompra } from "./InsigniaPagoVencidoCompra";
-import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { FileDown } from "lucide";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
 import { toast } from "react-toastify";
 import { obtenerReporteComprasProveedor } from "./lib/actions";
 import { descargarReporteComprasProveedorPdf } from "./lib/export-reporte-compras-proveedor-pdf";
+import { descargarReporteComprasProveedorExcel } from "./lib/export-reporte-compras-proveedor-xlsx";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
 import { ultimoDiaMesCalendario } from "@/lib/fechas-gt";
 import {
   moduleTableBodyClass,
@@ -70,6 +71,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
   const [currentPageCompras, setCurrentPageCompras] = useState(1);
   const [pageSizeCompras, setPageSizeCompras] = useState(15);
   const [exportandoReporte, setExportandoReporte] = useState(false);
+  const [soloSaldoPendienteReporte, setSoloSaldoPendienteReporte] = useState(false);
 
   const [mostrarMesDropdownCompras, setMostrarMesDropdownCompras] = useState(false);
   const [mostrarSemanaDropdownCompras, setMostrarSemanaDropdownCompras] = useState(false);
@@ -145,18 +147,44 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
     };
   };
 
-  const exportarComprasProveedor = async () => {
+  const cargarDatosReporte = async () => {
     const { desde, hasta } = resolverRangoReporte();
+    const res = await obtenerReporteComprasProveedor(
+      desde,
+      hasta,
+      undefined,
+      soloSaldoPendienteReporte,
+    );
+    if (!res.success) throw new Error(res.error);
+    if (res.data.filas.length === 0) {
+      toast.warn("No hay compras en el periodo seleccionado.");
+      return null;
+    }
+    const meta = await construirMetaInforme(res.data.generadoPor);
+    return { data: res.data, meta };
+  };
+
+  const exportarComprasProveedorPdf = async () => {
     setExportandoReporte(true);
     try {
-      const res = await obtenerReporteComprasProveedor(desde, hasta);
-      if (!res.success) throw new Error(res.error);
-      if (res.data.filas.length === 0) {
-        toast.warn("No hay compras en el periodo seleccionado.");
-        return;
-      }
-      descargarReporteComprasProveedorPdf(res.data);
+      const pack = await cargarDatosReporte();
+      if (!pack) return;
+      descargarReporteComprasProveedorPdf(pack.data, pack.meta);
       toast.success("Reporte PDF generado.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo generar el reporte.");
+    } finally {
+      setExportandoReporte(false);
+    }
+  };
+
+  const exportarComprasProveedorExcel = async () => {
+    setExportandoReporte(true);
+    try {
+      const pack = await cargarDatosReporte();
+      if (!pack) return;
+      await descargarReporteComprasProveedorExcel(pack.data, pack.meta);
+      toast.success("Reporte Excel generado.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "No se pudo generar el reporte.");
     } finally {
@@ -271,8 +299,51 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
           </div>
 
           <div
-            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end"
           >
+            <div className="flex flex-wrap items-center justify-end gap-2">
+              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                <input
+                  type="checkbox"
+                  className="size-4 rounded"
+                  checked={soloSaldoPendienteReporte}
+                  onChange={(e) => setSoloSaldoPendienteReporte(e.target.checked)}
+                />
+                Solo con saldo pendiente
+              </label>
+              <ModuleInformeDropdown
+                busy={exportandoReporte}
+                items={[
+                  {
+                    titulo: "Compras por proveedor",
+                    onPdf: () => void exportarComprasProveedorPdf(),
+                    onExcel: () => void exportarComprasProveedorExcel(),
+                  },
+                ]}
+              />
+              <ModuleFilterUnderlineTabs
+                ariaLabel="Estado de pago"
+                value={filtroPago}
+                options={[
+                  { id: "todos", label: "Todos" },
+                  { id: "Pagado", label: "Pagado" },
+                  { id: "Pendiente", label: "Pendiente" },
+                ]}
+                onChange={(id) => {
+                  setFiltroPago(id);
+                  setCurrentPageCompras(1);
+                }}
+                className="sm:justify-end"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+        <div className={cn(moduleTableShellClass, "mt-0 p-0")}>
+        <div
+          className="shrink-0 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800 md:px-5 md:pt-4 md:pb-3"
+        >
             <ModuleDateFilterLayout
               periodValue={tipoFiltroFechaCompras}
               periodOptions={[
@@ -506,38 +577,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
               )}
             </AnimatePresence>
             </ModuleDateFilterLayout>
-
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <SigetActionButton
-                label="Proveedor"
-                accentColor={sigetAccent.excel}
-                morphFrom={FileDown}
-                morphTo={FileDown}
-                morphOnHover={false}
-                onClick={() => void exportarComprasProveedor()}
-                disabled={exportandoReporte}
-                className="w-auto shrink-0"
-              />
-              <ModuleFilterUnderlineTabs
-                ariaLabel="Estado de pago"
-                value={filtroPago}
-                options={[
-                  { id: "todos", label: "Todos" },
-                  { id: "Pagado", label: "Pagado" },
-                  { id: "Pendiente", label: "Pendiente" },
-                ]}
-                onChange={(id) => {
-                  setFiltroPago(id);
-                  setCurrentPageCompras(1);
-                }}
-                className="sm:justify-end"
-              />
-            </div>
-          </div>
         </div>
-      </section>
-
-        <div className={cn(moduleTableShellClass, "mt-0")}>
         <div className={cn(moduleTableScrollClass, "pr-1 min-h-0")}>
           {comprasPaginadas.length === 0 ? (
             <div className={moduleTableEmptyClass}>

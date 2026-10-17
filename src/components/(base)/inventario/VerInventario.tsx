@@ -14,13 +14,10 @@ import {
   BookOpen,
   FlaskConical,
   X,
-  FileText,
-  BarChart3,
   MoreVertical,
   Pencil as PencilIcon,
   Ban,
   CircleCheck,
-  FileDown,
 } from "lucide-react";
 import {
   Box as BoxNode,
@@ -43,6 +40,7 @@ import {
   modulePillSwitchShellClass,
 } from "@/components/ui/module-pill-switch";
 import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
 import { moduleFilterTabUnderlineClass } from "@/components/ui/module-pill-switch";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -91,15 +89,18 @@ import {
   CrearGenerico,
   CrearLaboratorio,
 } from "./forms/Crear";
+import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import {
-  descargarReporteGestion,
-  type ProductoInventarioReporte,
-} from "./lib/reportes-pdf";
-import {
-  descargarReporteLotesVencidosPorVencer,
-  filasReporteDesdeInventario,
-} from "./lib/reportes-vencimientos";
-import { descargarReporteVencimientosLotesExcel } from "./lib/export-reporte-vencimientos-xlsx";
+  ejecutarExistenciasValorizadasExcel,
+  ejecutarExistenciasValorizadasPdf,
+  ejecutarHojaConteoPdf,
+  ejecutarKardexExcel,
+  ejecutarKardexPdf,
+  ejecutarStockBajoExcel,
+  ejecutarStockBajoPdf,
+  ejecutarVencimientosExcel,
+  ejecutarVencimientosPdf,
+} from "./informes/ejecutar-informes";
 import {
   CATEGORIAS_VENCIMIENTO_LOTE,
   ETIQUETAS_CATEGORIA_VENCIMIENTO,
@@ -108,7 +109,6 @@ import {
   parseCategoriaVencimientoQuery,
   type CategoriaVencimientoLote,
 } from "@/lib/vencimientos-gt";
-import { exportarPDF } from "./utils";
 import {
   ModalConfirmDelete,
   ModalForm,
@@ -123,6 +123,7 @@ import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-but
 import { inventarioPageShellClass, moduleControlsShellClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
 import { InventarioSubnav } from "./InventarioSubnav";
 import {
   LoteOperacionesModals,
@@ -148,30 +149,6 @@ type Producto = FilaInventarioUi & {
   imagen_url_3?: string | null;
   created_at?: string;
 };
-
-function productoParaReporte(p: Producto): ProductoInventarioReporte {
-  return {
-    codigo: p.codigo,
-    nombre: p.nombre,
-    catalogo_nombre: p.catalogo_nombre,
-    nombre_generico: p.nombre_generico,
-    concentracion: p.concentracion,
-    forma_farmaceutica: p.forma_farmaceutica,
-    presentacion: p.presentacion,
-    requiere_receta: p.requiere_receta,
-    stock_actual: p.stock_actual,
-    stock_minimo: p.stock_minimo,
-    precio_base: p.precio_base,
-    precio_venta: p.precio_venta,
-    precio_costo: p.precio_costo,
-    laboratorio: etiquetaLaboratorioComercial(p.laboratorio),
-    proveedor_nombre: p.inv_proveedores?.nombre ?? null,
-    activo: p.activo,
-    fecha_vencimiento: p.fecha_vencimiento,
-    numero_lote: p.numero_lote,
-    ubicacion: p.ubicacion,
-  };
-}
 
 function ProductoFarmaciaTitulo({
   producto,
@@ -261,9 +238,9 @@ function campoBusquedaPorVista(vista: VistaInventario) {
 
 function placeholderBusquedaInventario(vista: VistaInventario): string {
   if (vista === "catalogo") return "Buscar por principio activo (catálogo)...";
-  if (vista === "generico") return "Buscar por genérico (concentración, forma)...";
+  if (vista === "generico") return "Buscar producto (concentración, forma)...";
   if (vista === "laboratorio") return "Buscar por laboratorio...";
-  if (vista === "comercial") return "Buscar por nombre comercial o código de barras...";
+  if (vista === "comercial") return "Buscar por marca, presentación o código de barras...";
   return "Buscar por nombre, genérico o código de barras...";
 }
 
@@ -954,13 +931,13 @@ function CatalogoDetalle({
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
-            <span className={detalleLabelClass}>Genéricos</span>
+            <span className={detalleLabelClass}>Productos</span>
             <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
               {genericos.length}
             </span>
           </div>
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
-            <span className={detalleLabelClass}>Comerciales</span>
+            <span className={detalleLabelClass}>Marcas</span>
             <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
               {fmtNum(comercialesTotal)}
             </span>
@@ -985,10 +962,10 @@ function CatalogoDetalle({
         </div>
 
         <div className="space-y-3">
-          <h4 className={detalleLabelClass}>Genéricos del catálogo</h4>
+          <h4 className={detalleLabelClass}>Productos del catálogo</h4>
           {genericos.length === 0 ? (
             <p className={detalleFieldClass}>
-              No hay genéricos registrados bajo este principio activo.
+              No hay productos registrados bajo este principio activo.
             </p>
           ) : (
             <ul className="divide-y divide-[#C1D1C5]/25 overflow-hidden rounded-xl border border-[#C1D1C5]/30 dark:divide-[#A3BEB0]/15 dark:border-[#A3BEB0]/15">
@@ -1004,7 +981,7 @@ function CatalogoDetalle({
                         {tituloGenericoInventario(g)}
                       </p>
                       <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-                        {g.comerciales} comercial{g.comerciales === 1 ? "" : "es"}
+                        {g.comerciales} marca{g.comerciales === 1 ? "" : "s"}
                         {g.requiere_receta ? " · Requiere receta" : ""}
                         {g.precio_desde != null ? ` · Desde ${fmtQ(g.precio_desde)}` : ""}
                       </p>
@@ -1039,7 +1016,7 @@ function CatalogoDetalle({
                       </span>
                       <SigetActionButton
                         label="Ver"
-                        ariaLabel="Ver productos comerciales del genérico"
+                        ariaLabel="Ver marcas del producto"
                         accentColor={sigetAccent.crear}
                         morphFrom={PlusNode}
                         morphTo={PackageNode}
@@ -1092,7 +1069,7 @@ function GenericoDetalle({
               <FlaskConical className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
             </div>
             <div className="min-w-0 space-y-1">
-              <p className={detalleLabelClass}>Genérico</p>
+              <p className={detalleLabelClass}>Producto</p>
               <p className="text-xl font-black text-slate-900 dark:text-white md:text-2xl">
                 {titulo || generico.nombre}
               </p>
@@ -1114,7 +1091,7 @@ function GenericoDetalle({
 
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
-            <span className={detalleLabelClass}>Comerciales</span>
+            <span className={detalleLabelClass}>Marcas</span>
             <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
               {comerciales.length}
             </span>
@@ -1126,7 +1103,7 @@ function GenericoDetalle({
             </span>
           </div>
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
-            <span className={detalleLabelClass}>Stock mínimo</span>
+            <span className={detalleLabelClass}>Existencia mínima</span>
             <span className="text-lg font-black tabular-nums text-slate-700 dark:text-slate-200">
               {fmtNum(generico.stock_minimo)}
             </span>
@@ -1146,10 +1123,10 @@ function GenericoDetalle({
         </div>
 
         <div className="space-y-3">
-          <h4 className={detalleLabelClass}>Productos comerciales</h4>
+          <h4 className={detalleLabelClass}>Marcas y presentaciones</h4>
           {comerciales.length === 0 ? (
             <p className={detalleFieldClass}>
-              No hay productos comerciales registrados para este genérico.
+              No hay marcas registradas para este producto.
             </p>
           ) : (
             <ul className="divide-y divide-[#C1D1C5]/25 overflow-hidden rounded-xl border border-[#C1D1C5]/30 dark:divide-[#A3BEB0]/15 dark:border-[#A3BEB0]/15">
@@ -1207,7 +1184,7 @@ function GenericoDetalle({
                       </span>
                       <SigetActionButton
                         label="Lotes"
-                        ariaLabel="Ver lotes del producto comercial"
+                        ariaLabel="Ver lotes de la marca"
                         accentColor={sigetAccent.crear}
                         morphFrom={BoxNode}
                         morphTo={PackageNode}
@@ -1307,9 +1284,9 @@ function LaboratorioDetalle({
         </div>
 
         <div className="space-y-3">
-          <h4 className={detalleLabelClass}>Productos comerciales</h4>
+          <h4 className={detalleLabelClass}>Marcas y presentaciones</h4>
           {comerciales.length === 0 ? (
-            <p className={detalleFieldClass}>No hay productos registrados bajo este laboratorio.</p>
+            <p className={detalleFieldClass}>No hay marcas registradas bajo este laboratorio.</p>
           ) : (
             <ul className="divide-y divide-[#C1D1C5]/25 overflow-hidden rounded-xl border border-[#C1D1C5]/30 dark:divide-[#A3BEB0]/15 dark:border-[#A3BEB0]/15">
               {comerciales.map((c) => {
@@ -1689,7 +1666,9 @@ function filaCoincideInventarioResaltado(
 export function VerInventario() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { effectiveRole } = useUserContext();
+  const { effectiveRole, user } = useUserContext();
+  const { profile } = useProfile(user?.id ?? "", !!user);
+  const { isDemoMode } = useDemoMode();
   const puedeOperarLotes = ["super", "admin", "inventario"].includes(effectiveRole);
   const [busqueda, setBusqueda] = useState("");
   const [filtroStockBajo, setFiltroStockBajo] = useState(false);
@@ -1950,18 +1929,10 @@ export function VerInventario() {
   const [pageSize, setPageSize] = useState(15);
   const [mostrarPageSizeDropdown, setMostrarPageSizeDropdown] = useState(false);
   const pageSizeDropdownRef = useRef<HTMLDivElement>(null);
-  const [mostrarReportesDropdown, setMostrarReportesDropdown] = useState(false);
-  const reportesDropdownRef = useRef<HTMLDivElement>(null);
-
-
-
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (pageSizeDropdownRef.current && !pageSizeDropdownRef.current.contains(event.target as Node)) {
         setMostrarPageSizeDropdown(false);
-      }
-      if (reportesDropdownRef.current && !reportesDropdownRef.current.contains(event.target as Node)) {
-        setMostrarReportesDropdown(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -2197,11 +2168,11 @@ export function VerInventario() {
       : vistaInventario === "catalogo"
         ? "Catálogo"
         : vistaInventario === "generico"
-          ? "Genérico"
+          ? "Producto"
           : vistaInventario === "laboratorio"
             ? "Laboratorio"
             : vistaInventario === "comercial"
-              ? "Comercial"
+              ? "Marca"
               : "Producto";
 
   const handleNuevoLote = () => {
@@ -2219,7 +2190,7 @@ export function VerInventario() {
     const id = idProductoComercialParaEdicion(p);
     if (!id) {
       toast.warn(
-        "Para editar, usa la vista Comercial o abre un lote y elige el producto de venta.",
+        "Para editar, usa la vista Marca o abre un lote y elige el producto de venta.",
       );
       return;
     }
@@ -2230,7 +2201,7 @@ export function VerInventario() {
   const solicitarDesactivarProducto = (p: Producto) => {
     const id = idProductoComercialParaEdicion(p);
     if (!id) {
-      toast.warn("Solo puedes desactivar un producto comercial, no un resumen de catálogo.");
+      toast.warn("Solo puedes desactivar una marca, no un resumen de catálogo.");
       return;
     }
     handleDesactivarProducto({ ...p, id });
@@ -2256,7 +2227,7 @@ export function VerInventario() {
   const handleActivarProducto = async (producto: Producto) => {
     const id = idProductoComercialParaEdicion(producto);
     if (!id) {
-      toast.warn("Solo puedes activar un producto comercial, no un resumen de catálogo.");
+      toast.warn("Solo puedes activar una marca, no un resumen de catálogo.");
       return;
     }
     try {
@@ -2303,64 +2274,22 @@ export function VerInventario() {
     }
   };
 
-  const filasReporteVencimientoLotes = () => {
-    const fuente =
-      vistaInventario === "lotes"
-        ? (lotes as LoteInventario[])
-            .filter((l) =>
-              esLoteActivoConExistencia({
-                activo: l.activo,
-                cantidad_actual: Number(l.cantidad_actual) || 0,
-              }),
-            )
-            .map((l) => productoParaReporte(mapLoteAFila(l)))
-        : productosFiltrados.map(productoParaReporte);
-    return filasReporteDesdeInventario(fuente);
-  };
+  const nombreGeneradorInforme =
+    profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
 
-  const handleReporteLotesVencidosPorVencerPdf = () => {
+  const ejecutarInforme = async (
+    fn: () => Promise<{ ok: boolean; mensaje?: string }>,
+    exito = "Informe descargado.",
+  ) => {
     try {
-      descargarReporteLotesVencidosPorVencer(filasReporteVencimientoLotes());
-      toast.success("Reporte de lotes vencidos y por vencer descargado.");
-      setMostrarReportesDropdown(false);
+      const res = await fn();
+      if (!res.ok) {
+        toast.error(res.mensaje ?? "No se pudo generar el informe.");
+        return;
+      }
+      toast.success(res.mensaje ?? exito);
     } catch {
-      toast.error("No se pudo generar el reporte.");
-    }
-  };
-
-  const handleReporteLotesVencidosPorVencerExcel = async () => {
-    try {
-      await descargarReporteVencimientosLotesExcel(filasReporteVencimientoLotes());
-      toast.success("Excel de vencimientos descargado.");
-      setMostrarReportesDropdown(false);
-    } catch {
-      toast.error("No se pudo generar el Excel.");
-    }
-  };
-
-  const handleReporteGestion = () => {
-    try {
-      descargarReporteGestion(productosFiltrados.map(productoParaReporte));
-      toast.success("Resumen de gestión descargado.");
-      setMostrarReportesDropdown(false);
-    } catch {
-      toast.error("No se pudo generar el resumen de gestión.");
-    }
-  };
-
-
-
-  // Exportar lista a PDF
-  const handleExportarPDF = () => {
-    try {
-      exportarPDF(
-        productosFiltrados.map(productoParaReporte),
-        vistaInventario === "lotes",
-      );
-      toast.success("Reporte de inventario descargado correctamente.");
-      setMostrarReportesDropdown(false);
-    } catch {
-      toast.error("No se pudo generar el archivo PDF.");
+      toast.error("No se pudo generar el informe.");
     }
   };
 
@@ -2398,9 +2327,9 @@ export function VerInventario() {
           value={vistaInventario}
           options={[
             { id: "catalogo", label: "Catálogo" },
-            { id: "generico", label: "Genérico" },
+            { id: "generico", label: "Producto" },
             { id: "laboratorio", label: "Laboratorio" },
-            { id: "comercial", label: "Comercial" },
+            { id: "comercial", label: "Marca" },
             { id: "lotes", label: "Lotes" },
           ]}
           onChange={(id) => {
@@ -2506,77 +2435,83 @@ export function VerInventario() {
                   Inactivos
                 </button>
               </div>
-              <div
-                className={cn("relative", mostrarReportesDropdown && "z-[250]")}
-                ref={reportesDropdownRef}
-              >
-                <button
-                  type="button"
-                  onClick={() => setMostrarReportesDropdown((v) => !v)}
-                  className={cn(
-                    "justify-center px-3 py-2 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap",
-                    mostrarReportesDropdown
-                      ? "border-[#8DA78E] bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
-                      : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:bg-zinc-800",
-                  )}
-                >
-                  <BarChart3 className="size-3.5 shrink-0" />
-                  Informe
-                  <ChevronDown
-                    className={cn(
-                      "size-3 shrink-0 transition-transform duration-200",
-                      mostrarReportesDropdown && "rotate-180",
-                    )}
-                  />
-                </button>
-                <AnimatePresence>
-                  {mostrarReportesDropdown ? (
-                    <motion.div
-                      initial={{ opacity: 0, y: -4, scale: 0.98 }}
-                      animate={{ opacity: 1, y: 0, scale: 1 }}
-                      exit={{ opacity: 0, y: -4, scale: 0.98 }}
-                      transition={{ duration: 0.15 }}
-                      className="absolute right-0 top-full z-[250] mt-2 flex min-w-[240px] flex-col gap-0.5 rounded-2xl border border-slate-200/80 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800/80 dark:bg-zinc-900"
-                    >
-                      <div className="mb-1 border-b border-slate-100 px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-slate-800/80 dark:text-slate-500">
-                        Reportes PDF
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleReporteLotesVencidosPorVencerPdf}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        <FileText className="size-3.5 shrink-0 text-amber-600" />
-                        Lotes vencidos y por vencer (PDF)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => void handleReporteLotesVencidosPorVencerExcel()}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        <FileDown className="size-3.5 shrink-0 text-emerald-600" />
-                        Lotes vencidos y por vencer (Excel)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleReporteGestion}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        <BarChart3 className="size-3.5 shrink-0 text-[#8DA78E]" />
-                        PDF gestión
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleExportarPDF}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        <FileDown className="size-3.5 shrink-0 text-emerald-600" />
-                        Exportar
-                      </button>
-                    </motion.div>
-                  ) : null}
-                </AnimatePresence>
-              </div>
+              <ModuleInformeDropdown
+                items={[
+                  {
+                    titulo: "Existencias valorizadas",
+                    onPdf: () =>
+                      void ejecutarInforme(
+                        () =>
+                          ejecutarExistenciasValorizadasPdf(
+                            isDemoMode,
+                            nombreGeneradorInforme,
+                          ),
+                        "PDF descargado.",
+                      ),
+                    onExcel: () =>
+                      void ejecutarInforme(
+                        () =>
+                          ejecutarExistenciasValorizadasExcel(
+                            isDemoMode,
+                            nombreGeneradorInforme,
+                          ),
+                        "Excel descargado.",
+                      ),
+                  },
+                  {
+                    titulo: "Vencimientos",
+                    onPdf: () =>
+                      void ejecutarInforme(
+                        () => ejecutarVencimientosPdf(isDemoMode, nombreGeneradorInforme),
+                        "PDF descargado.",
+                      ),
+                    onExcel: () =>
+                      void ejecutarInforme(
+                        () => ejecutarVencimientosExcel(isDemoMode, nombreGeneradorInforme),
+                        "Excel descargado.",
+                      ),
+                  },
+                  {
+                    titulo: "Stock bajo y pedido sugerido",
+                    onPdf: () =>
+                      void ejecutarInforme(
+                        () => ejecutarStockBajoPdf(isDemoMode, nombreGeneradorInforme),
+                        "PDF descargado.",
+                      ),
+                    onExcel: () =>
+                      void ejecutarInforme(
+                        () => ejecutarStockBajoExcel(isDemoMode, nombreGeneradorInforme),
+                        "Excel descargado.",
+                      ),
+                  },
+                  {
+                    titulo: "Hoja de conteo físico",
+                    onPdf: () =>
+                      void ejecutarInforme(
+                        () =>
+                          ejecutarHojaConteoPdf(
+                            isDemoMode,
+                            nombreGeneradorInforme,
+                            filtroUbicacion || null,
+                          ),
+                        "PDF descargado.",
+                      ),
+                  },
+                  {
+                    titulo: "Kardex",
+                    onPdf: () =>
+                      void ejecutarInforme(
+                        () => ejecutarKardexPdf(isDemoMode, nombreGeneradorInforme),
+                        "PDF descargado.",
+                      ),
+                    onExcel: () =>
+                      void ejecutarInforme(
+                        () => ejecutarKardexExcel(isDemoMode, nombreGeneradorInforme),
+                        "Excel descargado.",
+                      ),
+                  },
+                ]}
+              />
             </div>
           </div>
         </div>
@@ -3066,7 +3001,7 @@ export function VerInventario() {
             className="flex min-h-0 flex-1 flex-col gap-4"
           >
             <p className="shrink-0 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
-              Busca en el catálogo el producto comercial al que registrarás el lote. Al elegir uno,
+              Busca la marca a la que registrarás el lote. Al elegir una,
               continuarás con cantidad, vencimiento y proveedor.
             </p>
             <div className="flex min-h-0 flex-1 flex-col">

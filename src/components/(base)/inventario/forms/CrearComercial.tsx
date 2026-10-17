@@ -63,7 +63,7 @@ export function CrearComercial({
 
   const guardar = async () => {
     if (!genericoId) {
-      toast.warn("Selecciona un genérico.");
+      toast.warn("Selecciona un producto.");
       return;
     }
     if (!nombreComercial.trim() || !presentacion.trim()) {
@@ -86,14 +86,14 @@ export function CrearComercial({
           activo: true,
         },
       });
-      toast.success("Producto comercial registrado.");
+      toast.success("Marca registrada.");
       onSuccess();
       cerrar();
     } catch (err) {
       const message = err instanceof Error ? err.message : undefined;
       const detail = (err as Error & { detail?: string }).detail;
       toast.error(
-        actionErrorMessage({ error: message, detail }, "No se pudo guardar el comercial."),
+        actionErrorMessage({ error: message, detail }, "No se pudo guardar la marca."),
       );
     }
   };
@@ -105,25 +105,25 @@ export function CrearComercial({
       <ModalShell
         isOpen={isOpen && !modalLab}
         onClose={cerrar}
-        title="Nuevo producto comercial"
-        subtitle="Genérico + marca y presentación. El laboratorio se puede asignar después."
+        title="Nueva marca"
+        subtitle="Marca y presentación del producto de inventario. El laboratorio se puede asignar después."
         maxWidth="max-w-lg"
       >
         <ModalForm onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {genericos.length === 0 ? (
             <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              No hay genéricos.{" "}
+              No hay productos.{" "}
               <Link
                 href="/farmamuni/inventario?vista=generico"
                 className="font-bold text-[#2c5f9b] underline"
               >
-                Crea un genérico
+                Crea un producto
               </Link>{" "}
               primero.
             </p>
           ) : null}
           <ModalField>
-            <ModalLabel htmlFor="com-gen">Genérico *</ModalLabel>
+            <ModalLabel htmlFor="com-gen">Producto *</ModalLabel>
             <ModalSelect
               id="com-gen"
               value={genericoId}

@@ -140,7 +140,7 @@ export const genericoInputSchema = z.object({
   forma_farmaceutica: formaFarmaceuticaEnum,
   requiere_receta: z.boolean().default(false),
   unidad_venta: z.string().trim().min(1).default("unidad"),
-  stock_minimo: z.number().nonnegative("El stock mínimo debe ser un número no negativo"),
+  stock_minimo: z.number().nonnegative("La existencia mínima debe ser un número no negativo"),
   activo: z.boolean().default(true),
 });
 

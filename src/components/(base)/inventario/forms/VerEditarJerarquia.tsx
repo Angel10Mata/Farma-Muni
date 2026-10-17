@@ -78,7 +78,7 @@ export function EditarJerarquia({
 
   const guardarPasoComercial = async () => {
     if (!producto.generico_id) {
-      toast.error("Falta el genérico del producto.");
+      toast.error("Falta el producto de inventario.");
       return false;
     }
     const precio = parseFloat(precioVenta);
@@ -104,7 +104,7 @@ export function EditarJerarquia({
 
   const guardarPasoGenerico = async () => {
     if (!producto.generico_id || !producto.catalogo_id) {
-      toast.error("No se encontró el genérico asociado.");
+      toast.error("No se encontró el producto asociado.");
       return false;
     }
     const min = parseFloat(stockMinimo);
@@ -264,8 +264,8 @@ export function EditarJerarquia({
               className="rounded-xl border border-amber-300/80 bg-amber-50 px-3 py-3 text-xs text-amber-950 dark:border-amber-800/80 dark:bg-amber-950/40 dark:text-amber-100"
               role="alert"
             >
-              Cambiar concentración o forma del genérico afecta a todos los productos comerciales
-              vinculados a este genérico.
+              Cambiar concentración o forma del producto afecta a todas las marcas
+              vinculadas a este producto.
             </div>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ModalField>
@@ -292,7 +292,7 @@ export function EditarJerarquia({
               </ModalField>
             </div>
             <ModalField>
-              <ModalLabel htmlFor="edit-gen-min">Stock mínimo (genérico)</ModalLabel>
+              <ModalLabel htmlFor="edit-gen-min">Existencia mínima (producto)</ModalLabel>
               <ModalInput
                 id="edit-gen-min"
                 type="number"

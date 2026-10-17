@@ -74,7 +74,7 @@ export function FinanzasPeriodoSelector({
 
   return (
     <ModuleDateFilterLayout
-      className={cn("mx-auto w-full md:w-fit", className)}
+      className={cn("w-full md:w-fit", className)}
       periodValue={tipoFiltroFecha}
       periodOptions={periodOptions}
       onPeriodChange={(id) => patch({ tipoFiltroFecha: id })}

@@ -93,6 +93,7 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
           cliente_id: row.id,
           nombre: row.nombre || "Cliente sin nombre",
           nit: row.nit || "C/F",
+          telefono: row.telefono?.trim() || "No registrado",
           limite_credito: "N/A",
           total_consumido: 0,
           saldo_pendiente: 0,
@@ -179,7 +180,7 @@ export async function obtenerDetalleCredito(clienteId: string): Promise<VentaCre
   const { data, error } = await supabase
     .from("ventas")
     .select(
-      "id, created_at, tipo_venta, total, estado, observaciones, fecha_credito_vencimiento, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
+      "id, created_at, numero_recibo, tipo_venta, total, estado, observaciones, fecha_credito_vencimiento, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
     )
     .eq("cliente_id", clienteId)
     .eq("tipo_venta", "Crédito")

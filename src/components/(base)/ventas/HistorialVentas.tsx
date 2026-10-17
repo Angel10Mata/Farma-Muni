@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Search, ChevronLeft, ChevronRight, Calendar } from "lucide-react";
 import {
   Eye as EyeNode,
@@ -15,6 +15,7 @@ import { moduleControlsShellClass } from "@/lib/module-layout";
 import { moduleDateFilterShellClass } from "@/components/ui/module-pill-switch";
 import { ModuleDateFilterLayout } from "@/components/ui/module-date-period-filter";
 import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import {
@@ -29,10 +30,21 @@ import {
 } from "./lib/helpers";
 import { fechaCalendarioGt, ultimoDiaMesCalendario } from "@/lib/fechas-gt";
 import { useHistorialVentas } from "./lib/hooks";
-import { obtenerReporteVentasMes, obtenerReporteVentasReceta } from "./lib/actions";
+import {
+  obtenerCorteCajaDiario,
+  obtenerReporteVentasMes,
+  obtenerReporteVentasReceta,
+  obtenerVendedoresCorteCaja,
+} from "./lib/actions";
 import { descargarReporteVentasMesPdf } from "./lib/export-reporte-ventas-mes-pdf";
+import { descargarReporteVentasMesExcel } from "./lib/export-reporte-ventas-mes-xlsx";
 import { descargarReporteVentasRecetaPdf } from "./lib/export-reporte-ventas-receta-pdf";
+import { descargarReporteVentasRecetaExcel } from "./lib/export-reporte-ventas-receta-xlsx";
+import { descargarReporteCorteCajaPdf } from "./lib/export-reporte-corte-caja-pdf";
+import { descargarReporteCorteCajaExcel } from "./lib/export-reporte-corte-caja-xlsx";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
 import { construirReporteVentasMesDemo } from "./lib/reporte-ventas-mes-demo";
+import { construirReporteCorteCajaDemo } from "./lib/reporte-corte-caja-demo";
 import { etiquetaPeriodoVentasMes } from "./lib/reporte-ventas-mes";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
@@ -88,7 +100,25 @@ export function HistorialVentas({
   // Filtros
   const [busquedaHistorial, setBusquedaHistorial] = useState("");
   const [exportandoInforme, setExportandoInforme] = useState(false);
+  const [exportandoInformeExcel, setExportandoInformeExcel] = useState(false);
   const [exportandoReceta, setExportandoReceta] = useState(false);
+  const [exportandoRecetaExcel, setExportandoRecetaExcel] = useState(false);
+  const [exportandoCortePdf, setExportandoCortePdf] = useState(false);
+  const [exportandoCorteExcel, setExportandoCorteExcel] = useState(false);
+  const [fechaCorte, setFechaCorte] = useState(() => fechaCalendarioGt());
+  const [usuarioCorteId, setUsuarioCorteId] = useState("");
+  const [vendedoresCorte, setVendedoresCorte] = useState<
+    { id: string; nombre: string }[]
+  >([]);
+
+  const esAdminHistorial = ["admin", "super"].includes(profile?.rol ?? "");
+
+  useEffect(() => {
+    if (!esAdminHistorial || isDemoMode) return;
+    void obtenerVendedoresCorteCaja().then((res) => {
+      if (res.success) setVendedoresCorte(res.vendedores);
+    });
+  }, [esAdminHistorial, isDemoMode]);
   const [tipoPagoSwitch, setTipoPagoSwitch] = useState<"todos" | "contado" | "credito">("todos");
   
   // Filtros de Fecha
@@ -188,14 +218,105 @@ export function HistorialVentas({
         toast.warn("No hay ventas con receta en el rango seleccionado.");
         return;
       }
-      descargarReporteVentasRecetaPdf(res.data);
-      toast.success("Reporte de ventas con receta generado.");
+      const meta = await construirMetaInforme(res.data.generadoPor);
+      descargarReporteVentasRecetaPdf(res.data, meta);
+      toast.success("Reporte PDF de ventas con receta generado.");
     } catch (err) {
       const msg =
         err instanceof Error ? err.message : "No se pudo generar el reporte.";
       toast.error(msg);
     } finally {
       setExportandoReceta(false);
+    }
+  };
+
+  const exportarVentasRecetaExcel = async () => {
+    const { desde, hasta } = resolverRangoInforme();
+    setExportandoRecetaExcel(true);
+    try {
+      const res = await obtenerReporteVentasReceta(desde, hasta);
+      if (!res.success) throw new Error(res.error);
+      if (res.data.filas.length === 0) {
+        toast.warn("No hay ventas con receta en el rango seleccionado.");
+        return;
+      }
+      const meta = await construirMetaInforme(res.data.generadoPor);
+      await descargarReporteVentasRecetaExcel(res.data, meta);
+      toast.success("Excel de ventas con receta generado.");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo generar el reporte.";
+      toast.error(msg);
+    } finally {
+      setExportandoRecetaExcel(false);
+    }
+  };
+
+  const resolverDatosCorte = async () => {
+    const generadoPor =
+      profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
+    if (isDemoMode) {
+      return {
+        ...construirReporteCorteCajaDemo(
+          fechaCorte,
+          usuarioCorteId.trim() || null,
+        ),
+        generadoPor,
+      };
+    }
+    const res = await obtenerCorteCajaDiario(
+      fechaCorte,
+      usuarioCorteId.trim() || null,
+    );
+    if (!res.success) throw new Error(res.error);
+    return res.data;
+  };
+
+  const exportarCorteCajaPdf = async () => {
+    setExportandoCortePdf(true);
+    try {
+      const data = await resolverDatosCorte();
+      if (
+        data.detalleVentas.length === 0 &&
+        data.abonosDetalle.length === 0 &&
+        data.anulaciones.length === 0
+      ) {
+        toast.warn("No hay movimientos para el corte seleccionado.");
+        return;
+      }
+      const meta = await construirMetaInforme(data.generadoPor);
+      descargarReporteCorteCajaPdf(data, meta);
+      toast.success("Corte de caja PDF generado.");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo generar el corte.";
+      toast.error(msg);
+    } finally {
+      setExportandoCortePdf(false);
+    }
+  };
+
+  const exportarCorteCajaExcel = async () => {
+    setExportandoCorteExcel(true);
+    try {
+      const data = await resolverDatosCorte();
+      if (
+        data.detalleVentas.length === 0 &&
+        data.abonosDetalle.length === 0 &&
+        data.anulaciones.length === 0
+      ) {
+        toast.warn("No hay movimientos para el corte seleccionado.");
+        return;
+      }
+      const meta = await construirMetaInforme(data.generadoPor);
+      await descargarReporteCorteCajaExcel(data, meta);
+      toast.success("Corte de caja Excel generado.");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo generar el corte.";
+      toast.error(msg);
+    } finally {
+      setExportandoCorteExcel(false);
     }
   };
 
@@ -227,7 +348,8 @@ export function HistorialVentas({
         );
         return;
       }
-      descargarReporteVentasMesPdf(data);
+      const meta = await construirMetaInforme(data.generadoPor);
+      descargarReporteVentasMesPdf(data, meta);
       toast.success("Informe PDF generado correctamente.");
     } catch (err) {
       const msg =
@@ -235,6 +357,46 @@ export function HistorialVentas({
       toast.error(msg);
     } finally {
       setExportandoInforme(false);
+    }
+  };
+
+  const exportarInformeVentasMesExcel = async () => {
+    const { year, month } = resolverMesExportacionVentas({
+      tipoFiltroFecha,
+      fechaDia,
+      activeYear,
+      activeMonth,
+    });
+    setExportandoInformeExcel(true);
+    try {
+      const generadoPor =
+        profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
+      let data;
+      if (isDemoMode) {
+        data = {
+          ...construirReporteVentasMesDemo(year, month),
+          generadoPor,
+        };
+      } else {
+        const res = await obtenerReporteVentasMes(year, month);
+        if (!res.success) throw new Error(res.error);
+        data = res.data;
+      }
+      if (data.resumen.totalVentas === 0) {
+        toast.warn(
+          `No hay ventas en ${etiquetaPeriodoVentasMes(year, month)} para exportar.`,
+        );
+        return;
+      }
+      const meta = await construirMetaInforme(data.generadoPor);
+      await descargarReporteVentasMesExcel(data, meta);
+      toast.success("Informe Excel generado correctamente.");
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "No se pudo generar el informe.";
+      toast.error(msg);
+    } finally {
+      setExportandoInformeExcel(false);
     }
   };
 
@@ -263,31 +425,44 @@ export function HistorialVentas({
               />
             </div>
             <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
-              {mostrarInformesAdmin ? (
-                <>
-                  <SigetActionButton
-                    label="Recetas"
-                    accentColor={sigetAccent.editar}
-                    morphFrom={FileDown}
-                    morphTo={FileDown}
-                    morphOnHover={false}
-                    onClick={() => void exportarVentasReceta()}
-                    disabled={exportandoReceta || isLoading || isDemoMode}
-                    className="w-auto shrink-0"
-                  />
-                  <SigetActionButton
-                    label="Informe"
-                    accentColor={sigetAccent.excel}
-                    morphFrom={DownloadNode}
-                    morphTo={FileDown}
-                    onClick={() => void exportarInformeVentasMes()}
-                    disabled={exportandoInforme || isLoading}
-                    ariaBusy={exportandoInforme}
-                    ariaLabel="Descargar informe PDF de ventas del mes"
-                    className="w-auto shrink-0"
-                  />
-                </>
-              ) : null}
+              <ModuleInformeDropdown
+                busy={
+                  isLoading ||
+                  exportandoCortePdf ||
+                  exportandoCorteExcel ||
+                  exportandoReceta ||
+                  exportandoRecetaExcel ||
+                  exportandoInforme ||
+                  exportandoInformeExcel
+                }
+                items={[
+                  {
+                    titulo: "Corte de caja",
+                    onPdf: () => void exportarCorteCajaPdf(),
+                    onExcel: () => void exportarCorteCajaExcel(),
+                    pdfDisabled: exportandoCortePdf,
+                    excelDisabled: exportandoCorteExcel,
+                  },
+                  ...(mostrarInformesAdmin
+                    ? [
+                        {
+                          titulo: "Ventas con receta",
+                          onPdf: () => void exportarVentasReceta(),
+                          onExcel: () => void exportarVentasRecetaExcel(),
+                          pdfDisabled: exportandoReceta || isDemoMode,
+                          excelDisabled: exportandoRecetaExcel || isDemoMode,
+                        },
+                        {
+                          titulo: "Ventas del mes",
+                          onPdf: () => void exportarInformeVentasMes(),
+                          onExcel: () => void exportarInformeVentasMesExcel(),
+                          pdfDisabled: exportandoInforme,
+                          excelDisabled: exportandoInformeExcel,
+                        },
+                      ]
+                    : []),
+                ]}
+              />
               <ModuleFilterUnderlineTabs
                 ariaLabel="Tipo de pago"
                 value={tipoPagoSwitch}
@@ -305,8 +480,42 @@ export function HistorialVentas({
           </div>
 
           <div
-            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 xl:flex-row xl:items-center xl:justify-between"
+            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
           >
+            <div className="flex flex-wrap items-center gap-2 shrink-0">
+              <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+                Corte de caja
+              </span>
+              <CustomDatePicker
+                value={fechaCorte}
+                onChange={setFechaCorte}
+                placeholder="Fecha corte"
+                align="left"
+              />
+              {esAdminHistorial ? (
+                <select
+                  value={usuarioCorteId}
+                  onChange={(e) => setUsuarioCorteId(e.target.value)}
+                  className="h-[42px] rounded-xl border border-zinc-200 bg-white px-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                  aria-label="Vendedor del corte"
+                >
+                  <option value="">Todos los vendedores</option>
+                  {vendedoresCorte.map((v) => (
+                    <option key={v.id} value={v.id}>
+                      {v.nombre}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className={cn(moduleTableShellClass, "overflow-visible p-0")}>
+        <div
+          className="flex shrink-0 flex-col gap-3 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800 md:px-5 md:pt-4 md:pb-3 xl:flex-row xl:items-center xl:justify-between"
+        >
             <ModuleDateFilterLayout
               periodValue={tipoFiltroFecha}
               periodOptions={[
@@ -435,11 +644,7 @@ export function HistorialVentas({
                 </span>
               </div>
             ) : null}
-          </div>
         </div>
-      </section>
-
-      <div className={cn(moduleTableShellClass, "overflow-visible")}>
       <div className={moduleTableScrollClass}>
         {isLoading ? (
           <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div></div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Wallet,
@@ -10,10 +10,6 @@ import {
   FileText,
   ArrowUpRight,
   ArrowDownRight,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  Check,
   MoreVertical,
 } from "lucide-react";
 import { BarChart3, ChartPie } from "lucide";
@@ -36,13 +32,22 @@ import {
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
-import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
-import {
-  ModuleDateFilterLayout,
-  moduleDateFilterControlButtonClass,
-} from "@/components/ui/module-date-period-filter";
 import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
-import { fechaCalendarioGt, obtenerSemanasDelMes } from "@/lib/fechas-gt";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
+import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
+import { FinanzasPeriodoSelector } from "./FinanzasPeriodoSelector";
+import {
+  calcularRangoPeriodoFinanzas,
+  periodoFinanzasInicial,
+  type PeriodoFinanzasState,
+} from "./lib/periodo-finanzas-helpers";
+import { obtenerReporteIngresosEgresos } from "./lib/actions";
+import { construirReporteIngresosEgresosDemo } from "./lib/reporte-ingresos-egresos-demo";
+import { descargarReporteIngresosEgresosPdf } from "./lib/export-reporte-ingresos-egresos-pdf";
+import { descargarReporteIngresosEgresosExcel } from "./lib/export-reporte-ingresos-egresos-xlsx";
 
 import {
   CATEGORIA_LABELS,
@@ -64,6 +69,10 @@ import { GraficasFinanzasModal } from "./modals/GraficasFinanzasModal";
 const SEARCH_DEBOUNCE_MS = 350;
 
 export function VerFinanzas() {
+  const { isDemoMode } = useDemoMode();
+  const { user } = useUserContext();
+  const { profile } = useProfile(user?.id ?? "", !!user);
+
   // Paginación y búsqueda
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -72,25 +81,13 @@ export function VerFinanzas() {
   const [filtroTipo, setFiltroTipo] = useState<FiltroTipo>("todos");
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
-  // Filtros de fecha
-  const [tipoFiltroFecha, setTipoFiltroFecha] = useState<string>("dia");
-  const [fechaDia, setFechaDia] = useState<string>(() => {
-    const pad = (n: number) => n.toString().padStart(2, "0");
-    const d = new Date();
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-  });
+  const [periodo, setPeriodo] = useState<PeriodoFinanzasState>(() => ({
+    ...periodoFinanzasInicial(),
+    tipoFiltroFecha: "dia",
+    selectedWeekIndex: 0,
+  }));
 
-  const [activeMonth, setActiveMonth] = useState(() => new Date().getMonth());
-  const [activeYear, setActiveYear] = useState(() => new Date().getFullYear());
-  const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
-
-  const [mostrarMesDropdown, setMostrarMesDropdown] = useState(false);
-  const [mostrarSemanaDropdown, setMostrarSemanaDropdown] = useState(false);
-  const mesDropdownRef = useRef<HTMLDivElement>(null);
-  const semanaDropdownRef = useRef<HTMLDivElement>(null);
-
-  const [fechaRangoDesde, setFechaRangoDesde] = useState<string>("");
-  const [fechaRangoHasta, setFechaRangoHasta] = useState<string>("");
+  const [exportandoInforme, setExportandoInforme] = useState(false);
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -112,66 +109,10 @@ export function VerFinanzas() {
     };
   }, [searchInput]);
 
-  // Cerrar dropdowns al hacer clic fuera
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (semanaDropdownRef.current && !semanaDropdownRef.current.contains(event.target as Node)) {
-        setMostrarSemanaDropdown(false);
-      }
-      if (mesDropdownRef.current && !mesDropdownRef.current.contains(event.target as Node)) {
-        setMostrarMesDropdown(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  const { desde, hasta, resumenDesde, resumenHasta } = useMemo(() => {
-    let d = undefined;
-    let h = undefined;
-    let rD = undefined;
-    let rH = undefined;
-    const pad = (n: number) => n.toString().padStart(2, "0");
-
-    if (tipoFiltroFecha === "dia" && fechaDia) {
-      d = `${fechaDia}T00:00:00.000-06:00`;
-      h = `${fechaDia}T23:59:59.999-06:00`;
-      const [y, m, day] = fechaDia.split('-');
-      const ultimoDia = new Date(Number(y), Number(m), 0).getDate();
-      rD = `${y}-${m}-01T00:00:00.000-06:00`;
-      rH = `${y}-${m}-${pad(ultimoDia)}T23:59:59.999-06:00`;
-    } else if (tipoFiltroFecha === "semana") {
-      const semanas = obtenerSemanasDelMes(activeMonth, activeYear);
-      const ultimoDia = new Date(activeYear, activeMonth + 1, 0).getDate();
-      const mesCompletoDesde = `${activeYear}-${pad(activeMonth + 1)}-01T00:00:00.000-06:00`;
-      const mesCompletoHasta = `${activeYear}-${pad(activeMonth + 1)}-${pad(ultimoDia)}T23:59:59.999-06:00`;
-      
-      rD = mesCompletoDesde;
-      rH = mesCompletoHasta;
-
-      if (selectedWeekIndex === -1) {
-        d = mesCompletoDesde;
-        h = mesCompletoHasta;
-      } else {
-        const sem = semanas[selectedWeekIndex];
-        if (sem) {
-          d = `${sem.desde}T00:00:00.000-06:00`;
-          h = `${sem.hasta}T23:59:59.999-06:00`;
-        }
-      }
-    } else if (tipoFiltroFecha === "rango") {
-      if (fechaRangoDesde) {
-        d = `${fechaRangoDesde}T00:00:00.000-06:00`;
-        rD = d;
-      }
-      if (fechaRangoHasta) {
-        h = `${fechaRangoHasta}T23:59:59.999-06:00`;
-        rH = h;
-      }
-    }
-
-    return { desde: d, hasta: h, resumenDesde: rD, resumenHasta: rH };
-  }, [tipoFiltroFecha, fechaDia, activeMonth, activeYear, selectedWeekIndex, fechaRangoDesde, fechaRangoHasta]);
+  const { desde, hasta, resumenDesde, resumenHasta } = useMemo(
+    () => calcularRangoPeriodoFinanzas(periodo),
+    [periodo],
+  );
 
   // Queries y mutaciones
   const { data: listado, isLoading } = useMovimientosFinancieros({
@@ -250,6 +191,55 @@ export function VerFinanzas() {
 
   const getCategoriaLabel = (categoria: string) =>
     CATEGORIA_LABELS[categoria as keyof typeof CATEGORIA_LABELS] ?? categoria.toUpperCase();
+
+  const nombreGeneradorInforme =
+    profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
+
+  const resolverReporteIngresosEgresos = async () => {
+    if (!desde || !hasta) {
+      throw new Error("Selecciona un período válido para el informe.");
+    }
+    if (isDemoMode) {
+      return construirReporteIngresosEgresosDemo(desde, hasta, nombreGeneradorInforme);
+    }
+    const res = await obtenerReporteIngresosEgresos(desde, hasta);
+    if (!res.success) throw new Error(res.error);
+    return res.data;
+  };
+
+  const exportarInformePdf = async () => {
+    if (exportandoInforme) return;
+    setExportandoInforme(true);
+    try {
+      const reporte = await resolverReporteIngresosEgresos();
+      const meta = await construirMetaInforme(reporte.generadoPor);
+      descargarReporteIngresosEgresosPdf(reporte, meta);
+      toast.success("Informe PDF descargado.");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo generar el informe PDF.";
+      toast.error(message);
+    } finally {
+      setExportandoInforme(false);
+    }
+  };
+
+  const exportarInformeExcel = async () => {
+    if (exportandoInforme) return;
+    setExportandoInforme(true);
+    try {
+      const reporte = await resolverReporteIngresosEgresos();
+      const meta = await construirMetaInforme(reporte.generadoPor);
+      await descargarReporteIngresosEgresosExcel(reporte, meta);
+      toast.success("Informe Excel descargado.");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "No se pudo generar el informe Excel.";
+      toast.error(message);
+    } finally {
+      setExportandoInforme(false);
+    }
+  };
 
   const totalPaginas = Math.max(1, Math.ceil(totalRegistros / pageSize));
 
@@ -343,180 +333,26 @@ export function VerFinanzas() {
           </div>
 
           <div
-            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+            className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
           >
-            <ModuleDateFilterLayout
-              periodValue={tipoFiltroFecha}
-              periodOptions={[
-                { id: "dia", label: "Día" },
-                { id: "semana", label: "Mes" },
-                { id: "rango", label: "Rango" },
-              ]}
-              onPeriodChange={setTipoFiltroFecha}
-            >
-                  {tipoFiltroFecha === "dia" && (
-                    <CustomDatePicker
-                      value={fechaDia}
-                      onChange={setFechaDia}
-                      placeholder="Elegir día"
-                      align="left"
-                      dropDirection="down"
-                    />
-                  )}
+            <FinanzasPeriodoSelector
+              variant="lista"
+              periodo={periodo}
+              onPeriodoChange={setPeriodo}
+              className="w-full shrink-0 sm:w-auto"
+            />
 
-                  {tipoFiltroFecha === "semana" && (
-                    <div className="flex flex-wrap items-center gap-2">
-                      <div className="relative shrink-0" ref={mesDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)}
-                          className={cn(moduleDateFilterControlButtonClass, "sm:w-[8.75rem]")}
-                        >
-                          <div className="flex items-center gap-1.5">
-                            <Calendar className="size-3.5 text-[#8DA78E]" />
-                            <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
-                              {["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][activeMonth]} {activeYear}
-                            </span>
-                          </div>
-                          <ChevronDown className="size-3 text-slate-400" />
-                        </button>
-
-                        <AnimatePresence>
-                          {mostrarMesDropdown && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -5 }}
-                              className="absolute top-full left-1/2 z-[200] mt-1 w-48 -translate-x-1/2 rounded-xl border border-slate-200 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800 dark:bg-zinc-900"
-                            >
-                              <div className="flex items-center justify-between mb-2 pb-2 border-b border-slate-100 dark:border-slate-900">
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveYear((y) => y - 1)}
-                                  className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded text-slate-500 cursor-pointer"
-                                >
-                                  <ChevronLeft className="size-3.5" />
-                                </button>
-                                <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{activeYear}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => setActiveYear((y) => y + 1)}
-                                  className="p-1 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded text-slate-500 cursor-pointer"
-                                >
-                                  <ChevronRight className="size-3.5" />
-                                </button>
-                              </div>
-                              <div className="grid grid-cols-3 gap-1">
-                                {["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"].map((m, idx) => (
-                                  <button
-                                    key={m}
-                                    type="button"
-                                    onClick={() => {
-                                      setActiveMonth(idx);
-                                      setMostrarMesDropdown(false);
-                                      setSelectedWeekIndex(-1);
-                                    }}
-                                    className={cn(
-                                      "px-1 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer",
-                                      activeMonth === idx
-                                        ? "bg-[#8DA78E] text-white"
-                                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-900"
-                                    )}
-                                  >
-                                    {m}
-                                  </button>
-                                ))}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      <div className="relative shrink-0" ref={semanaDropdownRef}>
-                        <button
-                          type="button"
-                          onClick={() => setMostrarSemanaDropdown(!mostrarSemanaDropdown)}
-                          className={cn(moduleDateFilterControlButtonClass, "sm:w-[9.375rem]")}
-                        >
-                          <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
-                            {selectedWeekIndex === -1 ? "Todo el mes" : obtenerSemanasDelMes(activeMonth, activeYear)[selectedWeekIndex]?.label || "Semana"}
-                          </span>
-                          <ChevronDown className="size-3 text-slate-400 shrink-0" />
-                        </button>
-                        
-                        <AnimatePresence>
-                          {mostrarSemanaDropdown && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -5 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -5 }}
-                              className="absolute top-full left-1/2 z-[200] mt-1 w-[180px] -translate-x-1/2 rounded-xl border border-slate-200 bg-white py-1 opacity-100 shadow-xl dark:border-slate-800 dark:bg-zinc-900"
-                            >
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  setSelectedWeekIndex(-1);
-                                  setMostrarSemanaDropdown(false);
-                                }}
-                                className={cn(
-                                  "w-full text-left px-3 py-2 text-xs font-bold flex items-center justify-between cursor-pointer",
-                                  selectedWeekIndex === -1
-                                    ? "bg-[#8DA78E]/10 text-[#8DA78E]"
-                                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-900"
-                                )}
-                              >
-                                <span>Todo el mes</span>
-                                {selectedWeekIndex === -1 && <Check className="size-3" />}
-                              </button>
-                              <div className="h-px bg-slate-100 dark:bg-slate-800 my-1 mx-2" />
-                              {obtenerSemanasDelMes(activeMonth, activeYear).map((sem, idx) => (
-                                <button
-                                  key={idx}
-                                  type="button"
-                                  onClick={() => {
-                                    setSelectedWeekIndex(idx);
-                                    setMostrarSemanaDropdown(false);
-                                  }}
-                                  className={cn(
-                                    "w-full text-left px-3 py-2 text-xs font-semibold flex items-center justify-between cursor-pointer",
-                                    selectedWeekIndex === idx
-                                      ? "bg-[#8DA78E]/10 text-[#8DA78E]"
-                                      : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-900"
-                                  )}
-                                >
-                                  <span>{sem.label}</span>
-                                  {selectedWeekIndex === idx && <Check className="size-3" />}
-                                </button>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                    </div>
-                  )}
-
-                  {tipoFiltroFecha === "rango" && (
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                      <CustomDatePicker
-                        value={fechaRangoDesde}
-                        onChange={setFechaRangoDesde}
-                        placeholder="Desde"
-                        align="left"
-                        dropDirection="down"
-                      />
-                      <span className="text-xs text-slate-400">-</span>
-                      <CustomDatePicker
-                        value={fechaRangoHasta}
-                        onChange={setFechaRangoHasta}
-                        placeholder="Hasta"
-                        align="right"
-                        dropDirection="down"
-                      />
-                    </div>
-                  )}
-            </ModuleDateFilterLayout>
-
-            <div className="flex flex-wrap items-end justify-end gap-2 sm:ml-auto">
+            <div className="flex flex-wrap items-end justify-end gap-2 sm:shrink-0">
+              <ModuleInformeDropdown
+                busy={exportandoInforme}
+                items={[
+                  {
+                    titulo: "Ingresos y egresos del período",
+                    onPdf: () => void exportarInformePdf(),
+                    onExcel: () => void exportarInformeExcel(),
+                  },
+                ]}
+              />
               <SigetActionButton
                 label="Gráficas"
                 accentColor={sigetAccent.abrir}
@@ -545,15 +381,7 @@ export function VerFinanzas() {
       <GraficasFinanzasModal
         open={graficasOpen}
         onClose={() => setGraficasOpen(false)}
-        periodoInicial={{
-          tipoFiltroFecha,
-          fechaDia,
-          activeMonth,
-          activeYear,
-          selectedWeekIndex,
-          fechaRangoDesde,
-          fechaRangoHasta,
-        }}
+        periodoInicial={periodo}
         tipo={filtroTipo}
         search={searchTerm}
       />
