@@ -16,6 +16,7 @@ import {
   Check,
   MoreVertical,
 } from "lucide-react";
+import { BarChart3, ChartPie } from "lucide";
 import Swal from "sweetalert2";
 import { getSwalThemeOpts } from "@/lib/utils";
 import { toast } from "react-toastify";
@@ -57,6 +58,8 @@ import {
 import { TarjetaCuentasPorPagar } from "@/components/(base)/proveedores/TarjetaCuentasPorPagar";
 import { resumenCuentasPorPagarDesdeRpc } from "@/components/(base)/proveedores/lib/compras-helpers";
 import type { TransaccionFinanciera } from "./lib/zod";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { GraficasFinanzasModal } from "./modals/GraficasFinanzasModal";
 
 const SEARCH_DEBOUNCE_MS = 350;
 
@@ -95,6 +98,7 @@ export function VerFinanzas() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [deleteDesc, setDeleteDesc] = useState<string>("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [graficasOpen, setGraficasOpen] = useState(false);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -512,19 +516,47 @@ export function VerFinanzas() {
                   )}
             </ModuleDateFilterLayout>
 
-            <ModuleFilterUnderlineTabs
-              ariaLabel="Tipo de movimiento"
-              value={filtroTipo}
-              options={FILTROS_TIPO.map((tipo) => ({ id: tipo, label: tipo }))}
-              onChange={(tipo) => {
-                setPage(1);
-                setFiltroTipo(tipo);
-              }}
-              className="sm:justify-end"
-            />
+            <div className="flex flex-wrap items-end justify-end gap-2 sm:ml-auto">
+              <SigetActionButton
+                label="Gráficas"
+                accentColor={sigetAccent.abrir}
+                morphFrom={BarChart3}
+                morphTo={ChartPie}
+                type="button"
+                onClick={() => setGraficasOpen(true)}
+                ariaLabel="Ver gráficas del período"
+                className="w-auto shrink-0"
+              />
+              <ModuleFilterUnderlineTabs
+                ariaLabel="Tipo de movimiento"
+                value={filtroTipo}
+                options={FILTROS_TIPO.map((tipo) => ({ id: tipo, label: tipo }))}
+                onChange={(tipo) => {
+                  setPage(1);
+                  setFiltroTipo(tipo);
+                }}
+                className="sm:justify-end"
+              />
+            </div>
           </div>
         </div>
       </section>
+
+      <GraficasFinanzasModal
+        open={graficasOpen}
+        onClose={() => setGraficasOpen(false)}
+        periodoInicial={{
+          tipoFiltroFecha,
+          fechaDia,
+          activeMonth,
+          activeYear,
+          selectedWeekIndex,
+          fechaRangoDesde,
+          fechaRangoHasta,
+        }}
+        tipo={filtroTipo}
+        search={searchTerm}
+      />
 
         <div className={cn(moduleTableShellClass, "relative p-0")}>
           <div className={cn(moduleTableScrollClass, "p-1 sm:p-2 md:p-4 min-h-0")}>

@@ -3,7 +3,8 @@
 import { useState, useMemo, Fragment, useEffect } from "react";
 import { useUsers } from "./lib/hooks";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
-import { canCreateUsers, ROLE_LABELS } from "./lib/permissions";
+import { canCreateUsers, ROLE_LABELS, ROLE_ORDER } from "./lib/permissions";
+import { UsuarioRolCelda } from "./UsuarioRolCelda";
 import { Loader2, UserX, Search } from "lucide-react";
 import { UserPlus, Check } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
@@ -27,11 +28,12 @@ import { cn } from "@/lib/utils";
 
 // Usuarios
 export function VerUsuarios() {
-  const { effectiveRole, realRole } = useUserContext();
-  const canCreateUser = canCreateUsers(effectiveRole);
+  const { effectiveRole, realRole, user: sessionUser } = useUserContext();
+  const usersListRole = ["super", "admin"].includes(realRole) ? realRole : effectiveRole;
+  const canCreateUser = canCreateUsers(realRole);
 
   // Datos
-  const { data: users, isLoading, isError, refetch } = useUsers(effectiveRole);
+  const { data: users, isLoading, isError, refetch } = useUsers(usersListRole);
 
   // Estado
   const [searchQuery, setSearchQuery] = useState("");
@@ -68,6 +70,27 @@ export function VerUsuarios() {
 
   const roleLabels = ROLE_LABELS;
 
+  const compareUsersByRoleThenName = (
+    a: { nombre?: string | null; rol?: string | null },
+    b: { nombre?: string | null; rol?: string | null },
+  ) => {
+    const roleA = a.rol || "user";
+    const roleB = b.rol || "user";
+    const indexA = ROLE_ORDER.indexOf(roleA as (typeof ROLE_ORDER)[number]);
+    const indexB = ROLE_ORDER.indexOf(roleB as (typeof ROLE_ORDER)[number]);
+    const keyA = indexA >= 0 ? indexA : ROLE_ORDER.length;
+    const keyB = indexB >= 0 ? indexB : ROLE_ORDER.length;
+    if (keyA !== keyB) return keyA - keyB;
+    if (roleA !== roleB) {
+      return roleA.localeCompare(roleB, "es", { sensitivity: "base" });
+    }
+    const nameA = a.nombre || "";
+    const nameB = b.nombre || "";
+    return sortOrder === "asc"
+      ? nameA.localeCompare(nameB, "es", { sensitivity: "base" })
+      : nameB.localeCompare(nameA, "es", { sensitivity: "base" });
+  };
+
   const availableRoles = useMemo(() => {
     if (!users) return [];
     const roles = Array.from(new Set(users.map((u) => u.rol))).filter(Boolean);
@@ -86,6 +109,9 @@ export function VerUsuarios() {
         return matchesSearch && matchesRole;
       })
       .sort((a, b) => {
+        if (roleFilter === "all") {
+          return compareUsersByRoleThenName(a, b);
+        }
         const nameA = a.nombre || "";
         const nameB = b.nombre || "";
         return sortOrder === "asc"
@@ -223,26 +249,25 @@ export function VerUsuarios() {
             </thead>
             <tbody className={moduleTableBodyClass}>
               {paginatedUsers.map((userItem, index) => {
-                const firstLetter = (userItem.nombre || "#")
-                  .charAt(0)
-                  .toUpperCase();
-                const prevFirstLetter =
-                  index > 0
-                    ? (paginatedUsers[index - 1].nombre || "#")
-                        .charAt(0)
-                        .toUpperCase()
-                    : null;
-                const showSeparator = firstLetter !== prevFirstLetter;
+                const roleKey = userItem.rol || "user";
+                const globalIndex = isAll
+                  ? index
+                  : (currentPage - 1) * (pageSize as number) + index;
+                const prevUser =
+                  globalIndex > 0 ? filteredUsers[globalIndex - 1] : null;
+                const prevRoleKey = prevUser ? prevUser.rol || "user" : null;
+                const showRoleSeparator =
+                  roleFilter === "all" && roleKey !== prevRoleKey;
 
                 return (
                   <Fragment key={userItem.id}>
-                    {showSeparator && (
+                    {showRoleSeparator && (
                       <tr>
                         <td
                           colSpan={2}
-                          className="bg-zinc-100 dark:bg-zinc-800/50 px-5 py-1.5 text-[10px] font-bold text-zinc-500 uppercase tracking-widest"
+                          className="bg-zinc-100 dark:bg-zinc-800/50 px-5 py-2 text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest"
                         >
-                          {firstLetter}
+                          {roleLabels[roleKey] || roleKey}
                         </td>
                       </tr>
                     )}
@@ -255,9 +280,13 @@ export function VerUsuarios() {
                       </td>
                       <td className="px-5 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <span className="capitalize text-[10px] font-bold bg-primary/5 px-2 py-0.5 rounded border border-primary/10">
-                            {userItem.rol ? roleLabels[userItem.rol] || userItem.rol : "Sin Rol"}
-                          </span>
+                          <UsuarioRolCelda
+                            userId={userItem.id}
+                            rol={userItem.rol}
+                            actorRealRole={realRole}
+                            isSelf={sessionUser?.id === userItem.id}
+                            onUpdated={() => refetch()}
+                          />
                         </div>
                       </td>
                     </tr>

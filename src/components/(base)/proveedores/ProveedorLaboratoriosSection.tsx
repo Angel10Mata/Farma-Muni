@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-toastify";
+import { normalizarTextoBusquedaProducto } from "@/components/(base)/inventario/lib/helpers";
 import { FlaskConical, Link2Off, MoreVertical, Pencil, Power } from "lucide-react";
 import { Plus, Save, X } from "lucide";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
@@ -17,6 +19,7 @@ import type { InvLaboratorio } from "@/components/(base)/inventario/lib/jerarqui
 import {
   useDesligarLaboratorioProveedor,
   useGuardarLaboratorioInventario,
+  useLaboratoriosInventario,
   useLaboratoriosPorProveedor,
 } from "@/components/(base)/inventario/lib/hooks";
 import type { Proveedor } from "./lib/zod";
@@ -27,14 +30,70 @@ type ProveedorLaboratoriosSectionProps = {
 
 export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratoriosSectionProps) {
   const { data: laboratorios = [], isLoading } = useLaboratoriosPorProveedor(proveedor.id);
+  const { data: todosLaboratorios = [] } = useLaboratoriosInventario();
   const { mutateAsync: guardarLaboratorio, isPending: guardando } =
     useGuardarLaboratorioInventario();
   const { mutateAsync: desligar, isPending: desligando } = useDesligarLaboratorioProveedor();
 
   const [mostrarFormCrear, setMostrarFormCrear] = useState(false);
   const [nombreNuevo, setNombreNuevo] = useState("");
+  const [mostrarSugerenciasLab, setMostrarSugerenciasLab] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [editNombre, setEditNombre] = useState("");
+  const labFormRef = useRef<HTMLDivElement>(null);
+
+  const idsVinculadosProveedor = useMemo(
+    () => new Set(laboratorios.map((l) => l.id)),
+    [laboratorios],
+  );
+
+  const sugerenciasLaboratorios = useMemo(() => {
+    const q = normalizarTextoBusquedaProducto(nombreNuevo.trim());
+    if (!q) return [];
+    return todosLaboratorios
+      .filter((lab) => normalizarTextoBusquedaProducto(lab.nombre).includes(q))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+      .slice(0, 10);
+  }, [todosLaboratorios, nombreNuevo]);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (labFormRef.current && !labFormRef.current.contains(event.target as Node)) {
+        setMostrarSugerenciasLab(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const cerrarFormCrear = () => {
+    setMostrarFormCrear(false);
+    setNombreNuevo("");
+    setMostrarSugerenciasLab(false);
+  };
+
+  const vincularLaboratorioExistente = async (lab: InvLaboratorio) => {
+    if (idsVinculadosProveedor.has(lab.id)) {
+      toast.info("Este laboratorio ya está vinculado a este proveedor.");
+      cerrarFormCrear();
+      return;
+    }
+    try {
+      await guardarLaboratorio({
+        id: lab.id,
+        data: {
+          nombre: lab.nombre,
+          activo: lab.activo,
+          proveedor_id: proveedor.id,
+        },
+      });
+      toast.success("Laboratorio vinculado al proveedor.");
+      cerrarFormCrear();
+    } catch (err) {
+      const e = err as Error & { detail?: string };
+      toast.error(modalActionMessage(e.message, e.detail ?? "No se pudo vincular el laboratorio."));
+    }
+  };
 
   const handleCrear = async () => {
     const nombre = nombreNuevo.trim();
@@ -42,13 +101,20 @@ export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratorio
       toast.warn("Indica el nombre del laboratorio.");
       return;
     }
+    const needle = normalizarTextoBusquedaProducto(nombre);
+    const existente = todosLaboratorios.find(
+      (lab) => normalizarTextoBusquedaProducto(lab.nombre) === needle,
+    );
+    if (existente) {
+      await vincularLaboratorioExistente(existente);
+      return;
+    }
     try {
       await guardarLaboratorio({
         data: { nombre, activo: true, proveedor_id: proveedor.id },
       });
       toast.success("Laboratorio creado y vinculado al proveedor.");
-      setNombreNuevo("");
-      setMostrarFormCrear(false);
+      cerrarFormCrear();
     } catch (err) {
       const e = err as Error & { detail?: string };
       toast.error(modalActionMessage(e.message, e.detail ?? "No se pudo crear el laboratorio."));
@@ -133,16 +199,64 @@ export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratorio
       </div>
 
       {mostrarFormCrear ? (
-        <div className="rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 p-4 dark:border-[#A3BEB0]/10 dark:bg-zinc-900/40">
-          <ModalField>
-            <ModalLabel htmlFor={`lab-nuevo-${proveedor.id}`}>Nuevo laboratorio</ModalLabel>
+        <div
+          ref={labFormRef}
+          className="rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 p-4 dark:border-[#A3BEB0]/10 dark:bg-zinc-900/40"
+        >
+          <ModalField className="relative">
+            <ModalLabel htmlFor={`lab-nuevo-${proveedor.id}`}>
+              Buscar o crear laboratorio
+            </ModalLabel>
             <ModalInput
               id={`lab-nuevo-${proveedor.id}`}
               value={nombreNuevo}
-              onChange={(e) => setNombreNuevo(e.target.value)}
+              onChange={(e) => {
+                setNombreNuevo(e.target.value);
+                setMostrarSugerenciasLab(true);
+              }}
+              onFocus={() => setMostrarSugerenciasLab(true)}
               placeholder="Nombre del laboratorio"
               autoFocus
             />
+            <AnimatePresence>
+              {mostrarSugerenciasLab && nombreNuevo.trim() && sugerenciasLaboratorios.length > 0 ? (
+                <motion.ul
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  className="absolute left-0 right-0 top-full z-[260] mt-1 max-h-48 overflow-y-auto rounded-xl border border-zinc-200 bg-white p-1 shadow-lg dark:border-zinc-700 dark:bg-zinc-900"
+                >
+                  {sugerenciasLaboratorios.map((lab) => {
+                    const yaVinculado = idsVinculadosProveedor.has(lab.id);
+                    const otroProveedor =
+                      lab.proveedor_id &&
+                      lab.proveedor_id !== proveedor.id &&
+                      lab.proveedor_nombre;
+                    return (
+                      <li key={lab.id}>
+                        <button
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => void vincularLaboratorioExistente(lab)}
+                          className="w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                        >
+                          <p className="font-bold text-slate-900 dark:text-slate-100">{lab.nombre}</p>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                            {yaVinculado
+                              ? "Ya vinculado a este proveedor"
+                              : otroProveedor
+                                ? `Proveedor actual: ${lab.proveedor_nombre}`
+                                : lab.proveedor_id === proveedor.id
+                                  ? "Vinculado a este proveedor"
+                                  : "Sin proveedor · clic para vincular"}
+                          </p>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </motion.ul>
+              ) : null}
+            </AnimatePresence>
           </ModalField>
           <div className="mt-3 flex flex-wrap justify-end gap-2">
             <SigetActionButton
@@ -151,10 +265,7 @@ export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratorio
               morphFrom={X}
               morphTo={X}
               type="button"
-              onClick={() => {
-                setMostrarFormCrear(false);
-                setNombreNuevo("");
-              }}
+              onClick={cerrarFormCrear}
               disabled={busy}
               className="w-auto shrink-0"
             />

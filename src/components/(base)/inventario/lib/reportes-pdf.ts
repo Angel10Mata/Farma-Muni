@@ -10,8 +10,6 @@ import {
 } from "./kardex-helpers";
 import type { KardexFila } from "./zod";
 import {
-  diasRestantesVencimiento,
-  etiquetaEstadoVencimiento,
   etiquetaLaboratorioComercial,
   isProductoProximoAVencer,
   isProductoVencido,
@@ -53,74 +51,6 @@ function encabezadoPdf(doc: jsPDF, titulo: string, subtitulo: string) {
   doc.text(subtitulo, 14, 25);
   doc.setDrawColor(193, 209, 197);
   doc.line(14, 28, 196, 28);
-}
-
-// Reporte de vencimientos
-export function descargarReporteVencimientos(productos: ProductoInventarioReporte[]) {
-  const doc = new jsPDF();
-  const fechaGen = new Date().toLocaleString("es-GT");
-  encabezadoPdf(
-    doc,
-    "FarmaMuni — Reporte de vencimientos",
-    `Generado: ${fechaGen}`,
-  );
-
-  const conFecha = productos
-    .filter((p) => p.fecha_vencimiento)
-    .sort((a, b) => {
-      const da = new Date(a.fecha_vencimiento!).getTime();
-      const db = new Date(b.fecha_vencimiento!).getTime();
-      return da - db;
-    });
-
-  autoTable(doc, {
-    startY: 34,
-    head: [
-      [
-        "Código",
-        "Producto",
-        "Genérico",
-        "Presentación",
-        "Laboratorio",
-        "Proveedor",
-        "P. venta",
-        "Lote",
-        "Vencimiento",
-        "Días",
-        "Existencias",
-        "Estado",
-      ],
-    ],
-    body: conFecha.map((p) => {
-      const dias = diasRestantesVencimiento(p.fecha_vencimiento);
-      const diasStr =
-        dias === null ? "—" : dias < 0 ? `${Math.abs(dias)} vencido` : `${dias}`;
-      const precioVenta = precioVentaEfectivoLote(undefined, p.precio_base);
-      return [
-        p.codigo || "—",
-        tituloProductoFarmacia(p),
-        p.nombre_generico || "—",
-        p.presentacion || "—",
-        etiquetaLaboratorioComercial(p.laboratorio),
-        p.proveedor_nombre || "—",
-        fmtQ(precioVenta),
-        p.numero_lote || "—",
-        new Date(p.fecha_vencimiento!).toLocaleDateString("es-GT"),
-        diasStr,
-        fmtNum(p.stock_actual),
-        etiquetaEstadoVencimiento(p.fecha_vencimiento),
-      ];
-    }),
-    headStyles: {
-      fillColor: [141, 167, 142],
-      textColor: [245, 245, 241],
-      fontStyle: "bold",
-      fontSize: 9,
-    },
-    styles: { fontSize: 8, cellPadding: 2.5 },
-  });
-
-  doc.save(`Reporte_Vencimientos_${new Date().toISOString().slice(0, 10)}.pdf`);
 }
 
 // Resumen de gestión

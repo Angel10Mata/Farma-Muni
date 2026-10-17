@@ -18,6 +18,7 @@ import { modalActionMessage } from "@/components/ui/modal-toast";
 const FINANZAS_PATH = "/farmamuni/finanzas";
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
+const GRAFICA_MOVIMIENTOS_LIMIT = 2500;
 
 function toErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
@@ -289,6 +290,49 @@ export async function obtenerMovimientosFinancieros(
     console.error("Error en obtenerMovimientosFinancieros:", error);
     throw new Error(
       toErrorMessage(error, "No se pudieron cargar los movimientos financieros.")
+    );
+  }
+}
+
+export async function obtenerMovimientosGraficaFinanzas(
+  params: Pick<ObtenerMovimientosParams, "tipo" | "search" | "desde" | "hasta"> = {},
+): Promise<TransaccionFinanciera[]> {
+  const tipo = params.tipo ?? "todos";
+  const search = params.search ?? "";
+  const desde = params.desde;
+  const hasta = params.hasta;
+
+  try {
+    const supabase = await createClient();
+
+    let query = supabase
+      .from("fin_transacciones")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .limit(GRAFICA_MOVIMIENTOS_LIMIT);
+
+    if (tipo !== "todos") {
+      query = query.eq("tipo_movimiento", tipo);
+    }
+    if (desde) {
+      query = query.gte("created_at", desde);
+    }
+    if (hasta) {
+      query = query.lte("created_at", hasta);
+    }
+    if (search.trim().length > 0) {
+      const term = sanitizeSearchTerm(search);
+      query = query.or(`descripcion.ilike.%${term}%,categoria.ilike.%${term}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+
+    return (data ?? []) as TransaccionFinanciera[];
+  } catch (error: unknown) {
+    console.error("Error en obtenerMovimientosGraficaFinanzas:", error);
+    throw new Error(
+      toErrorMessage(error, "No se pudieron cargar los datos para las gráficas."),
     );
   }
 }

@@ -106,9 +106,25 @@ export async function guardarProveedor(id: string | undefined, input: ProveedorI
       const { error } = await supabase.from("inv_proveedores").update(payload).eq("id", id);
       if (error) return { code: "INTERNAL" as const };
     } else {
-      const { error } = await supabase.from("inv_proveedores").insert(payload);
+      const { error } = await supabase.from("inv_proveedores").insert({ ...payload, activo: true });
       if (error) return { code: "INTERNAL" as const };
     }
+
+    revalidatePath("/farmamuni/proveedores");
+    return { success: true as const };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function setProveedorActivo(id: string, activo: boolean) {
+  try {
+    const guard = await requireRole([...PROVEEDORES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
+
+    const { error } = await supabase.from("inv_proveedores").update({ activo }).eq("id", id);
+    if (error) return { code: "INTERNAL" as const };
 
     revalidatePath("/farmamuni/proveedores");
     return { success: true as const };
@@ -143,6 +159,7 @@ export async function obtenerProveedoresYProductos() {
     const { data: proveedores, error: provError } = await supabase
       .from("inv_proveedores")
       .select("*")
+      .eq("activo", true)
       .order("nombre", { ascending: true });
 
     if (provError) return { code: "INTERNAL" as const };
@@ -164,12 +181,58 @@ export async function obtenerProveedoresYProductos() {
 
     if (lotesError) return { code: "INTERNAL" as const };
 
-    const ultimoProveedorPorProducto = new Map<string, string>();
-    for (const row of lotesProv ?? []) {
-      const productoId = String(row.producto_id);
-      if (!ultimoProveedorPorProducto.has(productoId) && row.proveedor_id) {
-        ultimoProveedorPorProducto.set(productoId, String(row.proveedor_id));
+    const { data: detallesCompra, error: detallesError } = await supabase
+      .from("inv_compras_detalles")
+      .select("producto_id, inv_compras(proveedor_id, created_at)");
+
+    if (detallesError) return { code: "INTERNAL" as const };
+
+    const { data: laboratoriosProv, error: labProvError } = await supabase
+      .from("inv_laboratorios")
+      .select("id, proveedor_id");
+
+    if (labProvError) return { code: "INTERNAL" as const };
+
+    const proveedorPorLaboratorio = new Map<string, string>();
+    for (const lab of laboratoriosProv ?? []) {
+      if (lab.proveedor_id) {
+        proveedorPorLaboratorio.set(String(lab.id), String(lab.proveedor_id));
       }
+    }
+
+    const ultimoProveedorPorProducto = new Map<string, { proveedorId: string; at: string }>();
+
+    const registrarCandidato = (
+      productoId: string,
+      proveedorId: string,
+      at: string,
+    ) => {
+      const prev = ultimoProveedorPorProducto.get(productoId);
+      if (!prev || at > prev.at) {
+        ultimoProveedorPorProducto.set(productoId, { proveedorId, at });
+      }
+    };
+
+    for (const row of lotesProv ?? []) {
+      if (!row.proveedor_id) continue;
+      registrarCandidato(
+        String(row.producto_id),
+        String(row.proveedor_id),
+        String(row.created_at ?? ""),
+      );
+    }
+
+    for (const row of detallesCompra ?? []) {
+      const compra = row.inv_compras as
+        | { proveedor_id?: string | null; created_at?: string | null }
+        | null
+        | undefined;
+      if (!compra?.proveedor_id) continue;
+      registrarCandidato(
+        String(row.producto_id),
+        String(compra.proveedor_id),
+        String(compra.created_at ?? ""),
+      );
     }
 
     const comerciales = (comercialesRaw ?? []).map((row) => {
@@ -190,7 +253,11 @@ export async function obtenerProveedoresYProductos() {
         laboratorio_nombre:
           row.laboratorio_nombre != null ? String(row.laboratorio_nombre) : null,
         stock_vendible: Number(row.stock_vendible) || 0,
-        ultimo_proveedor_id: ultimoProveedorPorProducto.get(productoId) ?? null,
+        ultimo_proveedor_id:
+          ultimoProveedorPorProducto.get(productoId)?.proveedorId ??
+          (row.laboratorio_id != null
+            ? proveedorPorLaboratorio.get(String(row.laboratorio_id)) ?? null
+            : null),
       };
     });
 

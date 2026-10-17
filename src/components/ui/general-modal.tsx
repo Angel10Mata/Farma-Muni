@@ -474,6 +474,7 @@ export function ModalShell({
   headerClassName,
   hideCloseButton = false,
   hideHeaderOnMobile = false,
+  scrollable = true,
   className,
 }: {
   open?: boolean;
@@ -492,6 +493,7 @@ export function ModalShell({
   headerClassName?: string;
   hideCloseButton?: boolean;
   hideHeaderOnMobile?: boolean;
+  scrollable?: boolean;
   className?: string;
 }) {
   const visible = open ?? isOpen ?? false;
@@ -536,7 +538,7 @@ export function ModalShell({
           exit={shellExit}
           transition={MODAL_SHELL_TRANSITION}
           onAnimationComplete={() => {
-            setContentScrollable(true);
+            if (scrollable) setContentScrollable(true);
           }}
           className={cn(
             "fixed inset-0 z-[200] flex flex-col overflow-hidden",
@@ -572,7 +574,7 @@ export function ModalShell({
             <ModalFrame
               className={cn(
                 fullscreen &&
-                  "rounded-none border-0 shadow-none dark:bg-zinc-900 md:rounded-none",
+                  "h-full rounded-none border-0 shadow-none dark:bg-zinc-900 md:rounded-none",
                 fullHeight && "max-md:h-full md:h-auto",
               )}
             >

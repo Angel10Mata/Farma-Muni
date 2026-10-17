@@ -23,7 +23,7 @@ import { profileObjectSchema } from "../lib/zod";
 import { useUserCredentials, useCredentialsMutation } from "../lib/hooks";
 import { toggleUserStatus } from "../lib/actions";
 import { modalActionMessage } from "@/components/ui/modal-toast";
-import { useUser } from "@/components/(base)/providers/UserProvider";
+import { useUser, useUserContext } from "@/components/(base)/providers/UserProvider";
 import { cn } from "@/lib/utils";
 import { generateStrongPassword } from "@/utils/general/password-generator";
 import { AuroraText } from "@/components/ui/aurora-text";
@@ -72,11 +72,11 @@ const UserStatusToggle = ({
   canEdit: boolean;
 }) => {
   const user = useUser();
+  const { realRole } = useUserContext();
   const [isLoading, setIsLoading] = useState(false);
 
-  const currentUserRole = user?.user_metadata?.rol;
   const isSelf = user?.id === userId;
-  const hasPermission = ["super", "admin"].includes(currentUserRole || "");
+  const hasPermission = ["super", "admin"].includes(realRole);
 
   if (!hasPermission) return null;
 

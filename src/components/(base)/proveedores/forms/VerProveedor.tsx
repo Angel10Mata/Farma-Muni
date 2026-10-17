@@ -27,6 +27,7 @@ import {
   Check as CheckNode,
   History,
   Pencil,
+  Power,
   Save,
   SquarePen,
   Trash,
@@ -35,7 +36,9 @@ import {
   Clock as ClockNode,
 } from "lucide";
 import { toast } from "react-toastify";
-import { guardarProveedor, eliminarProveedor } from "../lib/actions";
+import { guardarProveedor, eliminarProveedor, setProveedorActivo } from "../lib/actions";
+import { puedeEliminarProveedor } from "../lib/proveedores-permissions";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { ProveedorLaboratoriosSection } from "../ProveedorLaboratoriosSection";
 import { useComprasProveedor } from "../lib/hooks";
 import { cn, fmtQ } from "@/lib/utils";
@@ -59,6 +62,7 @@ interface Proveedor {
   nit?: string | null;
   telefono?: string | null;
   correo?: string | null;
+  activo?: boolean;
 }
 
 interface CompraProveedor {
@@ -188,6 +192,9 @@ function ProveedorDetallePanel({
   onCancelEdit,
   onSave,
   onConfirmDelete,
+  puedeEliminar,
+  onToggleActivo,
+  isTogglingActivo,
 }: {
   formData: Proveedor;
   proveedor: Proveedor;
@@ -208,7 +215,11 @@ function ProveedorDetallePanel({
   onCancelEdit: () => void;
   onSave: () => void;
   onConfirmDelete: () => void;
+  puedeEliminar: boolean;
+  onToggleActivo: () => void;
+  isTogglingActivo: boolean;
 }) {
+  const proveedorActivo = proveedor.activo ?? true;
   const comprasPendientes = useMemo(() => compras.filter(compraEstaPendiente), [compras]);
   const ultimaCompra = compras[0]?.created_at;
 
@@ -226,7 +237,14 @@ function ProveedorDetallePanel({
               <Building2 className="size-5 text-[#8DA78E]" />
             </div>
             <h2 className="min-w-0 text-lg font-black leading-snug text-slate-900 dark:text-white md:text-xl">
-              {formData.nombre}
+              <span className="inline-flex flex-wrap items-center gap-2">
+                {formData.nombre}
+                {!proveedorActivo ? (
+                  <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                    Inactivo
+                  </span>
+                ) : null}
+              </span>
             </h2>
           </div>
           <button
@@ -428,7 +446,7 @@ function ProveedorDetallePanel({
       </div>
 
       <div className="flex shrink-0 justify-end gap-3 border-t border-zinc-200 bg-[#F5F5F1] p-4 dark:border-zinc-800 dark:bg-zinc-900 md:p-6 md:pt-4">
-        {confirmEliminar ? (
+        {puedeEliminar && confirmEliminar ? (
           <ModalConfirmDelete
             message={`¿Eliminar a "${proveedor.nombre}"? Esta acción no se puede deshacer.`}
             pending={isDeleting}
@@ -469,14 +487,26 @@ function ProveedorDetallePanel({
                 className="w-auto shrink-0 flex-1 sm:flex-initial md:hidden"
               />
             ) : null}
-            <SigetActionButton
-              label="Quitar"
-              accentColor={sigetAccent.quitar}
-              morphFrom={Trash}
-              morphTo={Trash2}
-              onClick={() => setConfirmEliminar(true)}
-              className="w-auto shrink-0 flex-1 sm:flex-initial"
-            />
+            {puedeEliminar ? (
+              <SigetActionButton
+                label="Quitar"
+                accentColor={sigetAccent.quitar}
+                morphFrom={Trash}
+                morphTo={Trash2}
+                onClick={() => setConfirmEliminar(true)}
+                className="w-auto shrink-0 flex-1 sm:flex-initial"
+              />
+            ) : (
+              <SigetActionButton
+                label={proveedorActivo ? "Inactiva" : "Activa"}
+                accentColor={proveedorActivo ? sigetAccent.inactiva : sigetAccent.activa}
+                morphFrom={Ban}
+                morphTo={Power}
+                onClick={onToggleActivo}
+                disabled={isTogglingActivo}
+                className="w-auto shrink-0 flex-1 sm:flex-initial"
+              />
+            )}
             <SigetActionButton
               label="Editar"
               accentColor={sigetAccent.editar}
@@ -506,6 +536,10 @@ export function VerProveedor({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmEliminar, setConfirmEliminar] = useState(false);
+  const [isTogglingActivo, setIsTogglingActivo] = useState(false);
+
+  const { realRole } = useUserContext();
+  const puedeEliminar = puedeEliminarProveedor(realRole);
 
   const [historialMovilAbierto, setHistorialMovilAbierto] = useState(false);
   const { data: comprasRaw = [] } = useComprasProveedor(proveedor?.id ?? null);
@@ -558,6 +592,24 @@ export function VerProveedor({
       toast.error(modalActionMessage(code, "No se pudo guardar el proveedor."));
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleToggleActivo = async () => {
+    const activoActual = proveedor.activo ?? true;
+    const siguiente = !activoActual;
+    setIsTogglingActivo(true);
+    try {
+      const res = await setProveedorActivo(proveedor.id, siguiente);
+      if (!res.success) throw new Error(res.code);
+      toast.success(siguiente ? "Proveedor activado." : "Proveedor desactivado.");
+      onUpdate();
+      if (!siguiente) onClose();
+    } catch (err: unknown) {
+      const code = err instanceof Error ? err.message : undefined;
+      toast.error(modalActionMessage(code, "No se pudo actualizar el estado del proveedor."));
+    } finally {
+      setIsTogglingActivo(false);
     }
   };
 
@@ -623,6 +675,9 @@ export function VerProveedor({
               onCancelEdit={() => setIsEditing(false)}
               onSave={handleSave}
               onConfirmDelete={handleEliminar}
+              puedeEliminar={puedeEliminar}
+              onToggleActivo={handleToggleActivo}
+              isTogglingActivo={isTogglingActivo}
             />
           </motion.div>
         </div>

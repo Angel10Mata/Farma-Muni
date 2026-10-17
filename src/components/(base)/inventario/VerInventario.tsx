@@ -66,6 +66,7 @@ import {
   filasDesdeLaboratorio,
   idProductoComercialParaEdicion,
   mapLoteAFilaInventario,
+  compararFilasInventarioAlfabetico,
   type FilaInventarioUi,
 } from "./lib/map-inventario-filas";
 import type { InvGenerico, ProductoComercial } from "./lib/jerarquia-zod";
@@ -92,7 +93,6 @@ import {
 } from "./forms/Crear";
 import {
   descargarReporteGestion,
-  descargarReporteVencimientos,
   type ProductoInventarioReporte,
 } from "./lib/reportes-pdf";
 import {
@@ -110,10 +110,7 @@ import {
 } from "@/lib/vencimientos-gt";
 import { exportarPDF } from "./utils";
 import {
-  ModalCancelButton,
   ModalConfirmDelete,
-  ModalField,
-  ModalFooter,
   ModalForm,
   ModalShell,
   modalActionMessage,
@@ -2131,27 +2128,7 @@ export function VerInventario() {
       matchesCategoriaVenc &&
       matchesUbicacion
     );
-  }).sort((a, b) => {
-    const aLow = a.stock_actual <= a.stock_minimo ? 0 : 1;
-    const bLow = b.stock_actual <= b.stock_minimo ? 0 : 1;
-    if (aLow !== bLow) return aLow - bLow;
-    if (vistaInventario === "laboratorio") {
-      return etiquetaLaboratorioComercial(a.laboratorio).localeCompare(
-        etiquetaLaboratorioComercial(b.laboratorio),
-        "es",
-      );
-    }
-    if (vistaInventario === "comercial") {
-      return (a.nombre || "").localeCompare(b.nombre || "", "es");
-    }
-    if (esVistaCatalogo(vistaInventario)) {
-      const ag = (a.nombre_generico || a.nombre || "").trim();
-      const bg = (b.nombre_generico || b.nombre || "").trim();
-      const byGen = ag.localeCompare(bg, "es");
-      if (byGen !== 0) return byGen;
-    }
-    return tituloProductoFarmacia(a).localeCompare(tituloProductoFarmacia(b), "es");
-  });
+  }).sort((a, b) => compararFilasInventarioAlfabetico(a, b, vistaInventario));
 
   const totalItems = productosFiltrados.length;
   const totalPages = Math.ceil(totalItems / pageSize) || 1;
@@ -2323,16 +2300,6 @@ export function VerInventario() {
     } catch (err) {
       const message = err instanceof Error ? err.message : undefined;
       toast.error(modalActionMessage(message, "No se pudo registrar la baja."));
-    }
-  };
-
-  const handleReporteVencimientos = () => {
-    try {
-      descargarReporteVencimientos(productosFiltrados.map(productoParaReporte));
-      toast.success("Reporte de vencimientos descargado.");
-      setMostrarReportesDropdown(false);
-    } catch {
-      toast.error("No se pudo generar el reporte de vencimientos.");
     }
   };
 
@@ -2592,14 +2559,6 @@ export function VerInventario() {
                       </button>
                       <button
                         type="button"
-                        onClick={handleReporteVencimientos}
-                        className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
-                      >
-                        <FileText className="size-3.5 shrink-0 text-zinc-500" />
-                        PDF vencimientos (legacy)
-                      </button>
-                      <button
-                        type="button"
                         onClick={handleReporteGestion}
                         className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-xs font-bold text-zinc-700 transition-colors hover:bg-zinc-100 dark:text-zinc-200 dark:hover:bg-zinc-800"
                       >
@@ -2788,7 +2747,7 @@ export function VerInventario() {
                       </td>
                     </tr>
                   ) : (
-                    [...productosPaginados].sort((a, b) => a.stock_actual - b.stock_actual).reduce((acc: React.ReactNode[], p, index, array) => {
+                    productosPaginados.reduce((acc: React.ReactNode[], p, index, array) => {
                       const isLowStock = p.stock_actual <= p.stock_minimo;
                       const isSelected = productoSeleccionado?.id === p.id;
 
@@ -3092,31 +3051,36 @@ export function VerInventario() {
 
         <ModalShell
           isOpen={modalSeleccionProductoLote}
-          onClose={() => setModalSeleccionProductoLote(false)}
+          onClose={() => {
+            setModalSeleccionProductoLote(false);
+            setBusquedaProductoLote("");
+          }}
           title="Nuevo lote"
-          maxWidth="max-w-lg"
+          subtitle="Registrar existencias"
+          maxWidth="max-w-xl"
+          fullHeight
+          contentClassName="flex min-h-0 flex-1 flex-col p-4 md:p-6"
         >
           <ModalForm
             onSubmit={(e) => e.preventDefault()}
-            className="space-y-4"
+            className="flex min-h-0 flex-1 flex-col gap-4"
           >
-            <p className="text-sm text-zinc-600 dark:text-zinc-300">
-              Busca en el catálogo el producto al que vas a registrar existencias.
+            <p className="shrink-0 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300">
+              Busca en el catálogo el producto comercial al que registrarás el lote. Al elegir uno,
+              continuarás con cantidad, vencimiento y proveedor.
             </p>
-            <ModalField>
+            <div className="flex min-h-0 flex-1 flex-col">
               <ProductoBusquedaAutocomplete
                 id="inventario-nuevo-lote-producto"
-                label="Producto del catálogo"
+                label="Buscar producto"
                 value={busquedaProductoLote}
                 onChange={setBusquedaProductoLote}
                 onSelectProducto={handleSeleccionProductoParaLote}
                 enabled={modalSeleccionProductoLote}
-                listaTitulo="Productos del catálogo"
+                listaTitulo="Resultados del catálogo"
+                listaModo="panel"
               />
-            </ModalField>
-            <ModalFooter className="flex justify-center gap-2">
-              <ModalCancelButton onClick={() => setModalSeleccionProductoLote(false)} />
-            </ModalFooter>
+            </div>
           </ModalForm>
         </ModalShell>
 

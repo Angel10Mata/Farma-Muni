@@ -240,7 +240,7 @@ export function NuevoComercialCompraModal({
       laboratorio_id: laboratorioId || null,
       laboratorio_nombre: labNombre,
       stock_vendible: 0,
-      ultimo_proveedor_id: null,
+      ultimo_proveedor_id: proveedorCompra?.id ?? null,
     });
     toast.success("Producto comercial creado.");
     reset();

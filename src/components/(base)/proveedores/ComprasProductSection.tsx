@@ -19,9 +19,19 @@ import {
   normalizarTextoBusquedaProducto,
   ordenarLaboratoriosProveedorPrimero,
 } from "@/components/(base)/inventario/lib/helpers";
-import { lineaGenericaCompraDisplay } from "./lib/compras-helpers";
-import { useLaboratoriosInventario } from "@/components/(base)/inventario/lib/hooks";
+import {
+  buildVinculoProveedorCompraCtx,
+  comercialesDelProveedor,
+  laboratorioListaCompraInfo,
+  lineaGenericaCompraDisplay,
+} from "./lib/compras-helpers";
+import {
+  useLaboratoriosInventario,
+  useLaboratoriosPorProveedor,
+} from "@/components/(base)/inventario/lib/hooks";
 import { CrearLaboratorio } from "@/components/(base)/inventario/forms/CrearLaboratorio";
+import { ComprasProveedorField } from "./ComprasProveedorField";
+import { cn } from "@/lib/utils";
 
 interface ComprasProductSectionProps {
   comerciales: ComercialCompra[];
@@ -92,6 +102,9 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
   const [verificandoBarras, setVerificandoBarras] = useState(false);
   const { data: laboratorios = [] } = useLaboratoriosInventario();
   const proveedorCompra = context.proveedorSeleccionado;
+  const { data: laboratoriosDelProveedor = [] } = useLaboratoriosPorProveedor(
+    proveedorCompra?.id ?? null,
+  );
   const laboratoriosOrdenados = useMemo(() => {
     const base = laboratoriosParaSeleccionComercial(laboratorios);
     return ordenarLaboratoriosProveedorPrimero(base, proveedorCompra?.id);
@@ -102,20 +115,34 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
     [comerciales, context.comercialesExtra],
   );
 
-  const autoSeleccionarProveedor = (comercial: ComercialCompra) => {
-    const provId = comercial.ultimo_proveedor_id;
-    if (!provId) return;
-    const prov = proveedores.find((p) => p.id === provId);
-    if (!prov) return;
-    context.setProveedorSeleccionado(prov);
-    context.setProveedorBusqueda(prov.nombre);
-    context.setProveedorAutoSeleccionado(true);
-  };
+  const vinculoProveedorCompra = useMemo(() => {
+    if (!proveedorCompra) {
+      return buildVinculoProveedorCompraCtx("", [], []);
+    }
+    return buildVinculoProveedorCompraCtx(
+      proveedorCompra.id,
+      laboratorios,
+      laboratoriosDelProveedor,
+    );
+  }, [laboratorios, laboratoriosDelProveedor, proveedorCompra]);
+
+  const puedeBuscarProducto = Boolean(proveedorCompra);
+
+  const comercialesProveedor = useMemo(() => {
+    if (!proveedorCompra) return [];
+    return comercialesDelProveedor(
+      catalogoComerciales,
+      proveedorCompra.id,
+      vinculoProveedorCompra,
+    );
+  }, [catalogoComerciales, proveedorCompra, vinculoProveedorCompra]);
 
   const gruposComerciales = useMemo((): GrupoComercialCompra[] => {
+    if (!proveedorCompra) return [];
     const q = context.comercialBusqueda.trim();
-    if (!q) return [];
-    const matches = catalogoComerciales.filter((p) => comercialCoincideBusquedaCompra(p, q));
+    const matches = q
+      ? comercialesProveedor.filter((p) => comercialCoincideBusquedaCompra(p, q))
+      : comercialesProveedor;
     const map = new Map<string, GrupoComercialCompra>();
     for (const p of matches) {
       let grupo = map.get(p.generico_id);
@@ -139,9 +166,13 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
       if (b.puntajeGenerico !== a.puntajeGenerico) return b.puntajeGenerico - a.puntajeGenerico;
       return a.lineaGenerica.localeCompare(b.lineaGenerica, "es");
     });
-  }, [catalogoComerciales, context.comercialBusqueda]);
+  }, [comercialesProveedor, context.comercialBusqueda, proveedorCompra]);
 
-  const abrirNuevoComercialCompleto = () => {
+  const abrirNuevoComercial = () => {
+    if (!proveedorCompra) {
+      toast.warn("Seleccione un proveedor primero.");
+      return;
+    }
     context.setNuevoComercialPreset(null);
     setModalComercialOpen(true);
   };
@@ -183,8 +214,25 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
     context.setCostoSeleccionado(Math.round(c.precio_venta * 0.65 * 100) / 100);
     context.setMostrarSugerenciasComercial(false);
     context.setLaboratorioAsignarCompraId("");
-    autoSeleccionarProveedor(c);
     requestAnimationFrame(() => codigoBarrasRef.current?.focus());
+  };
+
+  const intentarSeleccionarComercialDesdeBusqueda = () => {
+    if (!proveedorCompra) return;
+    const q = context.comercialBusqueda.trim();
+    if (!q) return;
+    const normQ = normalizarTextoBusquedaProducto(q);
+    const exactos = comercialesProveedor.filter(
+      (p) => normalizarTextoBusquedaProducto(p.nombre_comercial) === normQ,
+    );
+    if (exactos.length === 1) {
+      seleccionarComercial(exactos[0]);
+      return;
+    }
+    const matches = comercialesProveedor.filter((p) => comercialCoincideBusquedaCompra(p, q));
+    if (matches.length === 1) {
+      seleccionarComercial(matches[0]);
+    }
   };
 
   const precioVentaEfectivo =
@@ -317,7 +365,18 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           Ingreso de Compra / Entrada de Factura
         </h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <ComprasProveedorField
+          proveedores={proveedores}
+          onCrearProveedor={() => context.setIsCrearOpen(true)}
+          onCrearLaboratorio={() => setModalLabOpen(true)}
+        />
+
+        <div
+          className={cn(
+            "grid grid-cols-1 md:grid-cols-12 gap-4 items-end transition-opacity",
+            !puedeBuscarProducto && "opacity-50 pointer-events-none",
+          )}
+        >
           <div className="md:col-span-6 relative" ref={prodDropdownRef}>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
               Buscar producto genérico o marca
@@ -326,19 +385,43 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
               <input
                 type="text"
+                disabled={!puedeBuscarProducto}
                 value={context.comercialBusqueda}
                 onChange={(e) => {
                   context.setComercialBusqueda(e.target.value);
                   context.setMostrarSugerenciasComercial(true);
+                  if (!e.target.value.trim()) {
+                    context.setComercialSeleccionado(null);
+                  }
                 }}
-                onFocus={() => context.setMostrarSugerenciasComercial(true)}
-                placeholder="Genérico, concentración, marca o laboratorio..."
-                className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors"
+                onFocus={() => {
+                  if (puedeBuscarProducto) context.setMostrarSugerenciasComercial(true);
+                }}
+                onBlur={() => {
+                  window.setTimeout(() => {
+                    if (prodDropdownRef.current?.contains(document.activeElement)) return;
+                    intentarSeleccionarComercialDesdeBusqueda();
+                    context.setMostrarSugerenciasComercial(false);
+                  }, 0);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    intentarSeleccionarComercialDesdeBusqueda();
+                    context.setMostrarSugerenciasComercial(false);
+                  }
+                }}
+                placeholder={
+                  puedeBuscarProducto
+                    ? "Productos de este proveedor: genérico, marca o laboratorio..."
+                    : "Primero seleccione un proveedor..."
+                }
+                className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors disabled:cursor-not-allowed disabled:bg-zinc-100 dark:disabled:bg-zinc-800/80"
               />
             </div>
 
             <AnimatePresence>
-              {context.mostrarSugerenciasComercial && context.comercialBusqueda && (
+              {context.mostrarSugerenciasComercial && puedeBuscarProducto && (
                 <motion.div
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -347,13 +430,15 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                 >
                   {gruposComerciales.length === 0 ? (
                     <div className="px-4 py-3 text-xs text-slate-500">
-                      Sin coincidencias.{" "}
+                      {context.comercialBusqueda.trim()
+                        ? "Sin coincidencias con este proveedor. "
+                        : "Este proveedor no tiene productos vinculados aún. "}
                       <button
                         type="button"
                         className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] underline cursor-pointer"
                         onClick={() => {
                           context.setMostrarSugerenciasComercial(false);
-                          abrirNuevoComercialCompleto();
+                          abrirNuevoComercial();
                         }}
                       >
                         Nuevo producto comercial
@@ -375,18 +460,32 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                         </div>
                         {grupo.marcas.map((p) => {
                           const estado = etiquetaEstadoComercial(p);
+                          const labInfo = laboratorioListaCompraInfo(
+                            p,
+                            vinculoProveedorCompra,
+                            laboratorios,
+                          );
                           return (
                             <button
                               key={p.id}
                               type="button"
+                              onMouseDown={(e) => e.preventDefault()}
                               onClick={() => seleccionarComercial(p)}
                               className="w-full pl-6 pr-4 py-2 border-b border-slate-50 dark:border-zinc-900/80 hover:bg-[#8DA78E]/10 dark:hover:bg-[#8DA78E]/20 text-left flex items-center justify-between text-xs cursor-pointer"
                             >
                               <div>
                                 <p className="font-bold text-slate-900 dark:text-white">{p.nombre_comercial}</p>
-                                <p className="text-[10px] text-slate-400">
-                                  {etiquetaLaboratorioComercial(p.laboratorio_nombre)} · Stock vendible:{" "}
-                                  {p.stock_vendible}
+                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                  <span
+                                    className={
+                                      labInfo.pendiente
+                                        ? "font-semibold text-[#2c5f9b] dark:text-[#6f9fd4]"
+                                        : "text-slate-500 dark:text-slate-400"
+                                    }
+                                  >
+                                    {labInfo.etiqueta}
+                                  </span>
+                                  <span className="text-slate-400"> · Stock vendible: {p.stock_vendible}</span>
                                 </p>
                               </div>
                               {estado ? (
@@ -418,12 +517,19 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
               accentColor={sigetAccent.crear}
               morphFrom={Plus}
               morphTo={CirclePlus}
-              onClick={abrirNuevoComercialCompleto}
+              onClick={abrirNuevoComercial}
+              disabled={!puedeBuscarProducto}
               ariaLabel="Nuevo producto comercial"
               className="w-auto shrink-0"
             />
           </div>
         </div>
+
+        {!puedeBuscarProducto ? (
+          <p className="text-[11px] text-slate-500 dark:text-slate-400 text-left -mt-2">
+            Elija el proveedor de la factura para habilitar la búsqueda y el ingreso de lotes.
+          </p>
+        ) : null}
 
         {context.comercialSeleccionado ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 p-4 text-left text-xs">
@@ -484,7 +590,12 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           </div>
         ) : null}
 
-        <div className="md:col-span-12 grid grid-cols-1 md:grid-cols-12 gap-4">
+        <div
+          className={cn(
+            "md:col-span-12 grid grid-cols-1 md:grid-cols-12 gap-4",
+            !puedeBuscarProducto && "opacity-50 pointer-events-none",
+          )}
+        >
           <div className="md:col-span-4">
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
               Código de barras (lote)
@@ -492,6 +603,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             <input
               ref={codigoBarrasRef}
               type="text"
+              disabled={!puedeBuscarProducto}
               autoComplete="off"
               value={context.codigoBarrasLote}
               onChange={(e) => context.setCodigoBarrasLote(e.target.value)}
@@ -532,7 +644,12 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end">
+        <div
+          className={cn(
+            "grid grid-cols-1 md:grid-cols-12 gap-4 items-end",
+            !puedeBuscarProducto && "opacity-50 pointer-events-none",
+          )}
+        >
           <div className="md:col-span-3">
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
               Cantidad
@@ -540,6 +657,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             <input
               type="number"
               min="1"
+              disabled={!puedeBuscarProducto}
               value={context.cantSeleccionada}
               onChange={(e) => {
                 const val = e.target.value;
@@ -615,7 +733,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           morphFrom={Plus}
           morphTo={CirclePlus}
           onClick={handleAgregarAlCarrito}
-          disabled={!context.comercialSeleccionado || verificandoBarras}
+          disabled={!puedeBuscarProducto || !context.comercialSeleccionado || verificandoBarras}
           ariaLabel="Agregar lote a la compra"
           className="w-auto shrink-0"
         />
@@ -644,9 +762,9 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                     {item.comercial.nombre_comercial}
                   </h4>
                   <p className="text-[10px] text-slate-400 mt-0.5">
-                    Barras: {item.codigo_barras} | Lote: {item.numero_lote} | Costo: {fmtQ(item.precio_costo)}
+                    Costo: {fmtQ(item.precio_costo)}
                     {item.actualizar_precio_venta && item.precio_venta != null
-                      ? ` | Nuevo precio venta: ${fmtQ(item.precio_venta)}`
+                      ? ` · Precio venta: ${fmtQ(item.precio_venta)}`
                       : ""}
                   </p>
                 </div>

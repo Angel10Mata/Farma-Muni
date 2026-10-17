@@ -1,15 +1,12 @@
 "use client";
 
-import { useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Truck, User } from "lucide-react";
+import { Truck } from "lucide-react";
 import { Save, Check } from "lucide";
 import Swal from "sweetalert2";
 import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { actionErrorMessage } from "@/lib/modal-toast";
 import { useCompras } from "./ComprasContext";
-import { Proveedor } from "./lib/zod";
 import { fmtQ, getSwalThemeOpts } from "@/lib/utils";
 import { useCrearCompra } from "./lib/hooks";
 import { useAsignarLaboratorioComercial } from "@/components/(base)/inventario/lib/hooks";
@@ -18,39 +15,21 @@ import { ModalFechaInput, ModalField, ModalInput, ModalLabel } from "@/component
 
 // Props
 interface ComprasCartSidebarProps {
-  proveedores: Proveedor[];
   cargarDatos: () => void;
 }
 
 // Carrito
-export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSidebarProps) {
+export function ComprasCartSidebar({ cargarDatos }: ComprasCartSidebarProps) {
   const context = useCompras();
-  const provDropdownRef = useRef<HTMLDivElement>(null);
   const { mutateAsync: crearCompraAsync } = useCrearCompra();
   const { mutateAsync: asignarLaboratorioAsync } = useAsignarLaboratorioComercial();
 
   const totalCarrito = context.carrito.reduce((sum, i) => sum + i.subtotal, 0);
 
-  const sugerenciasProveedores = proveedores.filter((p) => {
-    if (!context.proveedorBusqueda) return false;
-    const q = context.proveedorBusqueda.toLowerCase();
-    return (p.nombre || "").toLowerCase().includes(q) || (p.nit && p.nit.toLowerCase().includes(q));
-  });
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (provDropdownRef.current && !provDropdownRef.current.contains(event.target as Node)) {
-        context.setMostrarSugerenciasProv(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [context]);
-
   // Registrar compra
   const handleFinalizarCompra = async () => {
     if (!context.proveedorSeleccionado) {
-      toast.warn("Por favor selecciona un proveedor antes de registrar la compra.");
+      toast.warn("Seleccione un proveedor en el formulario de ingreso antes de registrar.");
       return;
     }
     if (context.carrito.length === 0) {
@@ -152,70 +131,26 @@ export function ComprasCartSidebar({ proveedores, cargarDatos }: ComprasCartSide
           Resumen de Compra
         </h3>
 
-        <div className="relative text-left" ref={provDropdownRef}>
-          <div className="flex items-center justify-between mb-1">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">
-              Seleccionar Proveedor
-            </label>
-            {context.proveedorAutoSeleccionado && context.proveedorSeleccionado && (
-              <span className="flex items-center gap-1 text-[10px] font-bold text-[#8DA78E] dark:text-[#A3BEB0] bg-[#8DA78E]/10 dark:bg-[#8DA78E]/20 px-2 py-0.5 rounded-full">
-                <Truck className="size-2.5" />
-                Auto
-              </span>
-            )}
-          </div>
-          <div className="flex gap-1.5 items-center">
-            <div className="relative flex-1">
-              <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
-              <input
-                type="text"
-                value={context.proveedorBusqueda}
-                onChange={(e) => {
-                  context.setProveedorBusqueda(e.target.value);
-                  context.setMostrarSugerenciasProv(true);
-                  context.setProveedorAutoSeleccionado(false);
-                  if (!e.target.value) context.setProveedorSeleccionado(null);
-                }}
-                onFocus={() => context.setMostrarSugerenciasProv(true)}
-                placeholder="Escribe nombre o NIT del proveedor..."
-                className={`w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors ${
-                  context.proveedorAutoSeleccionado && context.proveedorSeleccionado
-                    ? "border-[#8DA78E] dark:border-[#A3BEB0]/60"
-                    : "border-slate-200 dark:border-slate-800"
-                }`}
-              />
+        {context.proveedorSeleccionado ? (
+          <div className="flex items-start gap-2 rounded-xl border border-[#C1D1C5]/40 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/50 px-3 py-2.5 text-left">
+            <Truck className="size-4 shrink-0 text-[#8DA78E] dark:text-[#A3BEB0] mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
+                Proveedor
+              </p>
+              <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                {context.proveedorSeleccionado.nombre}
+              </p>
+              {context.proveedorSeleccionado.nit ? (
+                <p className="text-[10px] text-slate-500">NIT: {context.proveedorSeleccionado.nit}</p>
+              ) : null}
             </div>
           </div>
-
-          <AnimatePresence>
-            {context.mostrarSugerenciasProv && sugerenciasProveedores.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: -4 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -4 }}
-                className="absolute left-0 right-0 mt-1 max-h-48 overflow-y-auto bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 text-left"
-              >
-                {sugerenciasProveedores.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => {
-                      context.setProveedorSeleccionado(p);
-                      context.setProveedorBusqueda(p.nombre);
-                      context.setMostrarSugerenciasProv(false);
-                    }}
-                    className="w-full px-4 py-2 border-b border-slate-100 dark:border-slate-900 hover:bg-[#8DA78E]/10 dark:hover:bg-[#8DA78E]/20 text-left flex items-center justify-between text-xs cursor-pointer"
-                  >
-                    <div>
-                      <p className="font-bold text-slate-900 dark:text-white">{p.nombre}</p>
-                      <p className="text-[10px] text-slate-400">NIT: {p.nit || "C/F"}</p>
-                    </div>
-                  </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
+        ) : (
+          <p className="text-[11px] text-amber-700 dark:text-amber-400/90 text-left font-semibold">
+            Seleccione un proveedor en el panel de ingreso para continuar.
+          </p>
+        )}
 
         <ModalField className="text-left">
           <ModalLabel>Número de factura</ModalLabel>

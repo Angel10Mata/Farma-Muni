@@ -112,6 +112,7 @@ export const DEMO_PROVEEDORES: Proveedor[] = PROVEEDORES_DATA.map((p, i) => ({
   nit: p.nit,
   telefono: p.tel,
   correo: p.correo,
+  activo: true,
 }));
 
 const RECETA_CODIGOS = new Set(["AMOX-500", "AZI-500", "CIP-500", "FLU-150", "INS-NPH", "LEV-500", "PRED-5"]);

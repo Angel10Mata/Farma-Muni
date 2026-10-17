@@ -12,7 +12,12 @@ import {
 import { MagicCard } from "@/components/ui/magic-card";
 import { toast } from "react-toastify";
 import { useProfile } from "./lib/hooks";
-import { useUser } from "@/components/(base)/providers/UserProvider";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import {
+  canAssignRole,
+  getManageableRoles,
+  ROLE_LABELS,
+} from "@/components/(base)/(users)/usuarios/lib/permissions";
 import { CamposPerfil } from "./forms/CamposPerfil";
 import { CamposUsuario } from "./forms/CamposUsuario";
 import { updateProfile } from "./lib/actions";
@@ -30,17 +35,15 @@ interface VerPerfilProps {
 // Perfil
 export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
   // Estado
-  const sessionUser = useUser();
+  const { user: sessionUser, realRole } = useUserContext();
   const queryClient = useQueryClient();
   const [view, setView] = useState<"perfil" | "usuario">("perfil");
 
   const targetId = userId || sessionUser?.id || "";
-  const sessionRole = sessionUser?.user_metadata?.rol || "user";
-  const isSuper = sessionRole === "super";
+  const isSelf = sessionUser?.id === targetId;
 
   const canEdit =
-    ["admin", "super"].includes(sessionRole) ||
-    sessionUser?.id === targetId;
+    ["admin", "super"].includes(realRole) || isSelf;
 
   const { profile, loading, error } = useProfile(targetId, isOpen);
 
@@ -55,25 +58,20 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
     };
   }, [isOpen]);
 
-  const roleLabels: Record<string, string> = {
-    user: "Usuario (Estándar)",
-    admin: "Administrador",
-    super: "Super Admin",
-  };
-
-  let roleOptions: string[] = [];
-  if (sessionRole === "super") {
-    roleOptions = ["super", "admin", "user"];
-  } else if (sessionRole === "admin") {
-    roleOptions = ["admin", "user"];
-  }
-
-  const targetIsSuper = profile?.rol === "super";
+  const roleLabels = ROLE_LABELS;
+  const roleOptions = getManageableRoles(realRole);
+  const targetRol = profile?.rol || "user";
   const canChangeRole =
-    roleOptions.length > 0 && !(sessionRole === "admin" && targetIsSuper);
+    !isSelf &&
+    roleOptions.length > 0 &&
+    (realRole === "super" || targetRol !== "super");
 
   const handleRoleUpdate = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
+    if (!canAssignRole(realRole, newRole)) {
+      toast.error("No tienes permiso para asignar ese rol.");
+      return;
+    }
     try {
       const result = await updateProfile(targetId, {
         rol: newRole as "user" | "admin" | "super",
@@ -83,6 +81,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
         return;
       }
       await queryClient.invalidateQueries({ queryKey: ["profile", targetId] });
+      await queryClient.invalidateQueries({ queryKey: ["users-list"] });
       toast.success("Rol actualizado.");
     } catch {
       toast.error("Error al actualizar rol.");
@@ -226,7 +225,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                   <CamposUsuario
                     userId={targetId}
                     canEdit={canEdit}
-                    isSuper={isSuper}
+                    isSuper={realRole === "super"}
                   />
                 </div>
               )}

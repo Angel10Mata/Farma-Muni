@@ -7,6 +7,7 @@ export const ProveedorSchema = z.object({
   nit: z.string().nullable().optional(),
   telefono: z.string().nullable().optional(),
   correo: z.string().nullable().optional(),
+  activo: z.boolean().optional().default(true),
 });
 
 export const ComercialCompraSchema = z.object({

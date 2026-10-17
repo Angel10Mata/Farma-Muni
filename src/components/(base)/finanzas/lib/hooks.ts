@@ -6,6 +6,7 @@ import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import {
   DEMO_CUENTAS_COBRAR,
   DEMO_CUENTAS_PAGAR,
+  DEMO_FINANZAS_MOVIMIENTOS,
   DEMO_RESUMEN_FINANCIERO,
   demoMovimientosFinancieros,
 } from "@/lib/demo/fixtures";
@@ -16,6 +17,7 @@ import {
 } from "@/lib/demo/helpers";
 import {
   obtenerMovimientosFinancieros,
+  obtenerMovimientosGraficaFinanzas,
   obtenerResumenFinanciero,
   registrarMovimiento,
   eliminarMovimiento,
@@ -36,6 +38,10 @@ export const FINANZAS_KEYS = {
     demoQueryKey(["finanzas", "cuentasCobrar"], isDemoMode),
   cuentasPagar: (isDemoMode: boolean) =>
     demoQueryKey(["finanzas", "cuentasPagar"], isDemoMode),
+  grafica: (
+    params: Pick<ObtenerMovimientosParams, "tipo" | "search" | "desde" | "hasta">,
+    isDemoMode: boolean,
+  ) => demoQueryKey(["finanzas", "grafica", params], isDemoMode),
 };
 
 // Queries
@@ -49,6 +55,24 @@ export function useMovimientosFinancieros(params: ObtenerMovimientosParams) {
         () => obtenerMovimientosFinancieros(params),
         () => demoMovimientosFinancieros(params.page, params.pageSize),
       ),
+    staleTime: 1000 * 60,
+  });
+}
+
+export function useMovimientosGraficaFinanzas(
+  params: Pick<ObtenerMovimientosParams, "tipo" | "search" | "desde" | "hasta">,
+  enabled: boolean,
+) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery({
+    queryKey: FINANZAS_KEYS.grafica(params, isDemoMode),
+    queryFn: () =>
+      resolveDemoData(
+        isDemoMode,
+        () => obtenerMovimientosGraficaFinanzas(params),
+        () => DEMO_FINANZAS_MOVIMIENTOS,
+      ),
+    enabled,
     staleTime: 1000 * 60,
   });
 }

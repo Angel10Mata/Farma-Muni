@@ -6,7 +6,15 @@ import {
   etiquetaLaboratorioComercial,
   jerarquiaDesdeProductoLote,
   precioVentaEfectivoLote,
+  tituloProductoFarmacia,
 } from "./helpers";
+
+export type VistaInventarioTabla =
+  | "catalogo"
+  | "generico"
+  | "laboratorio"
+  | "comercial"
+  | "lotes";
 
 export type FilaInventarioUi = {
   id: string;
@@ -42,6 +50,39 @@ export type FilaInventarioUi = {
   laboratorio_proveedor_nombre?: string | null;
   inv_proveedores?: { nombre: string } | null;
 };
+
+function etiquetaOrdenAlfabeticoFila(row: FilaInventarioUi, vista: VistaInventarioTabla): string {
+  switch (vista) {
+    case "catalogo":
+      return (row.catalogo_nombre ?? row.nombre ?? "").trim();
+    case "generico":
+    case "lotes":
+      return tituloProductoFarmacia(row);
+    case "laboratorio":
+      return (row.laboratorio ?? row.nombre ?? "").trim();
+    case "comercial":
+      return (row.nombre_comercial ?? row.nombre ?? "").trim();
+  }
+}
+
+export function compararFilasInventarioAlfabetico(
+  a: FilaInventarioUi,
+  b: FilaInventarioUi,
+  vista: VistaInventarioTabla,
+): number {
+  const cmp = etiquetaOrdenAlfabeticoFila(a, vista).localeCompare(
+    etiquetaOrdenAlfabeticoFila(b, vista),
+    "es",
+    { sensitivity: "base" },
+  );
+  if (cmp !== 0) return cmp;
+  if (vista === "lotes") {
+    const loteA = (a.numero_lote ?? "").trim();
+    const loteB = (b.numero_lote ?? "").trim();
+    return loteA.localeCompare(loteB, "es", { sensitivity: "base" });
+  }
+  return a.id.localeCompare(b.id);
+}
 
 export function filasDesdeCatalogos(items: InvCatalogoResumen[]): FilaInventarioUi[] {
   return items.map((c) => ({
@@ -184,7 +225,7 @@ export function filasDesdeLaboratorio(comerciales: ProductoComercial[]): FilaInv
       comerciales_count: list.length,
     });
   }
-  return filas.sort((a, b) => (a.laboratorio || "").localeCompare(b.laboratorio || "", "es"));
+  return filas.sort((a, b) => compararFilasInventarioAlfabetico(a, b, "laboratorio"));
 }
 
 export function mapLoteAFilaInventario(lote: LoteInventario): FilaInventarioUi {

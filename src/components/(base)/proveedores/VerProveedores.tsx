@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/module-pill-switch";
 import { modulePageShellFixedClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
-import { ComprasProvider } from "./ComprasContext";
+import { ComprasProvider, useCompras } from "./ComprasContext";
 import { ComprasProductSection } from "./ComprasProductSection";
 import { ComprasCartSidebar } from "./ComprasCartSidebar";
 import { HistorialCompras } from "./HistorialCompras";
@@ -30,7 +30,7 @@ type ComprasTabId = (typeof COMPRAS_TABS)[number]["id"];
 function VerProveedoresInner() {
   // Estado
   const [activeTab, setActiveTab] = useState<ComprasTabId>("ingresar_compra");
-  const [isCrearOpen, setIsCrearOpen] = useState(false);
+  const { isCrearOpen, setIsCrearOpen } = useCompras();
 
   // Datos
   const { data: dataPP, isLoading: isLoadingPP, refetch: refetchPP } = useProveedoresYProductos();
@@ -124,7 +124,7 @@ function VerProveedoresInner() {
               <ComprasProductSection comerciales={comerciales} proveedores={proveedores} />
             </div>
             <div className="lg:col-span-4 h-full flex flex-col gap-4">
-              <ComprasCartSidebar proveedores={proveedores} cargarDatos={cargarDatos} />
+              <ComprasCartSidebar cargarDatos={cargarDatos} />
             </div>
           </div>
         )}
