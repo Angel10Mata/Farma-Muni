@@ -19,6 +19,7 @@ import {
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { useDetalleVenta, useAnularVenta, useEditarDetalleVenta, useEliminarDetalleVenta, useBitacoraVenta } from "../lib/hooks";
+import { InsigniaVentaAnulada } from "../InsigniaVentaAnulada";
 import { codigoReciboVenta, resumenAccionBitacoraVenta } from "../lib/helpers";
 
 const PERMITIR_EDICION_LINEAS_HISTORIAL = false;
@@ -170,6 +171,8 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                 </div>
               )}
             </div>
+
+            <InsigniaVentaAnulada venta={venta} />
 
             {puedeGestionarVenta && (bitacoraLoading || bitacora.length > 0) && (
               <div className="space-y-2">

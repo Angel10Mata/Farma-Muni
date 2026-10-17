@@ -48,7 +48,7 @@ export function diasRestantesCredito(
   fechaVencimiento?: string | null,
 ): number {
   const vence = fechaVenceCreditoDesdeVenta(fechaVenta, fechaVencimiento);
-  return diasRestantesVencimientoGt(vence);
+  return diasRestantesVencimientoGt(vence) ?? PLAZO_CREDITO_DIAS;
 }
 
 export function estadoVencimientoCredito(

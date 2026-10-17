@@ -125,6 +125,7 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
             v.fecha_credito_vencimiento,
           );
           const diasRestantes = diasRestantesVencimientoGt(fechaVenceIso, hoyCal);
+          if (diasRestantes === null) return;
 
           if (
             c.dias_restantes === undefined ||

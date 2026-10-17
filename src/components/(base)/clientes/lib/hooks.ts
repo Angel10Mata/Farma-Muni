@@ -45,13 +45,15 @@ export function useVentasCliente(clienteId: string | null) {
           if (!res.success) throw new Error(res.code);
           return res.data;
         },
-        DEMO_VENTAS_HISTORIAL.filter((v) => v.cliente_id === clienteId).map(
-          (v) => ({
+        DEMO_VENTAS_HISTORIAL.filter(
+          (v) => v.cliente_id === clienteId && v.estado !== "anulada",
+        ).map((v) => ({
             id: v.id,
             created_at: v.created_at,
             tipo_venta: v.tipo_venta,
             total: v.total,
             observaciones: v.observaciones,
+            estado: v.estado,
             fin_transacciones: [] as {
               id: string;
               monto: number;
