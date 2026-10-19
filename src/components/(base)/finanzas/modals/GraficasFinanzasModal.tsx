@@ -46,7 +46,7 @@ function GraficaPanel({
 }) {
   return (
     <div className="flex min-h-0 min-w-0 flex-col">
-      <h3 className="mb-1 shrink-0 text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]">
+      <h3 className="mb-1 shrink-0 text-etiqueta font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave">
         {title}
       </h3>
       <div className="min-h-[7.5rem] flex-1 rounded-xl bg-white dark:bg-zinc-900 md:min-h-[8.5rem]">
@@ -130,15 +130,15 @@ export function GraficasFinanzasModal({
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden px-4 pb-2 md:gap-2.5 md:px-6 md:pb-3">
       <div className="grid shrink-0 grid-cols-3 gap-1.5 text-center md:gap-2">
         <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/80 px-2 py-2 dark:border-zinc-700 dark:bg-zinc-800/50">
-          <p className="text-[9px] font-bold uppercase text-zinc-500">Ingresos</p>
-          <p className="text-sm font-black text-[#8DA78E] md:text-base">{fmtQ(resumen.total_ingresos)}</p>
+          <p className="text-etiqueta font-bold uppercase text-zinc-500">Ingresos</p>
+          <p className="text-sm font-black text-look-2-salvia-menta md:text-base">{fmtQ(resumen.total_ingresos)}</p>
         </div>
         <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/80 px-2 py-2 dark:border-zinc-700 dark:bg-zinc-800/50">
-          <p className="text-[9px] font-bold uppercase text-zinc-500">Egresos</p>
+          <p className="text-etiqueta font-bold uppercase text-zinc-500">Egresos</p>
           <p className="text-sm font-black text-rose-500 md:text-base">{fmtQ(resumen.total_egresos)}</p>
         </div>
         <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/80 px-2 py-2 dark:border-zinc-700 dark:bg-zinc-800/50">
-          <p className="text-[9px] font-bold uppercase text-zinc-500">Balance</p>
+          <p className="text-etiqueta font-bold uppercase text-zinc-500">Balance</p>
           <p
             className={cn(
               "text-sm font-black md:text-base",
@@ -226,7 +226,7 @@ export function GraficasFinanzasModal({
 
           <GraficaPanel title="Ingresos por categoría">
             {ingresosPie.length === 0 ? (
-              <p className="flex h-full items-center justify-center text-xs text-zinc-400">
+              <p className="flex h-full items-center justify-center text-xs text-texto-tenue">
                 Sin ingresos en el período
               </p>
             ) : (
@@ -255,7 +255,7 @@ export function GraficasFinanzasModal({
 
           <GraficaPanel title="Compras y pagos a proveedor">
             {egresosPie.length === 0 ? (
-              <p className="flex h-full items-center justify-center text-xs text-zinc-400">
+              <p className="flex h-full items-center justify-center text-xs text-texto-tenue">
                 Sin compras ni pagos a proveedor en el período
               </p>
             ) : (

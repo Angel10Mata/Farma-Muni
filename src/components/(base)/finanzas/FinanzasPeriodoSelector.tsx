@@ -99,12 +99,12 @@ export function FinanzasPeriodoSelector({
               className={cn(moduleDateFilterControlButtonClass, "sm:w-[8.75rem]")}
             >
               <div className="flex items-center gap-1.5">
-                <Calendar className="size-3.5 text-[#8DA78E]" />
+                <Calendar className="size-3.5 text-look-2-salvia-menta" />
                 <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                   {MESES_CORTOS[activeMonth]} {activeYear}
                 </span>
               </div>
-              <ChevronDown className="size-3 text-slate-400" />
+              <ChevronDown className="size-3 text-texto-tenue" />
             </button>
 
             <AnimatePresence>
@@ -142,7 +142,7 @@ export function FinanzasPeriodoSelector({
                           setMostrarMesDropdown(false);
                         }}
                         className={cn(
-                          "cursor-pointer rounded-lg px-1 py-1.5 text-[10px] font-bold transition-all",
+                          "cursor-pointer rounded-lg px-1 py-1.5 text-etiqueta font-bold transition-all",
                           activeMonth === idx
                             ? "bg-[#8DA78E] text-white"
                             : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-zinc-900",
@@ -168,7 +168,7 @@ export function FinanzasPeriodoSelector({
                   ? "Todo el mes"
                   : obtenerSemanasDelMes(activeMonth, activeYear)[selectedWeekIndex]?.label || "Semana"}
               </span>
-              <ChevronDown className="size-3 shrink-0 text-slate-400" />
+              <ChevronDown className="size-3 shrink-0 text-texto-tenue" />
             </button>
 
             <AnimatePresence>
@@ -188,7 +188,7 @@ export function FinanzasPeriodoSelector({
                     className={cn(
                       "flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-xs font-bold",
                       selectedWeekIndex === -1
-                        ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                        ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                         : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-zinc-900",
                     )}
                   >
@@ -207,7 +207,7 @@ export function FinanzasPeriodoSelector({
                       className={cn(
                         "flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-xs font-semibold",
                         selectedWeekIndex === idx
-                          ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                          ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                           : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-zinc-900",
                       )}
                     >
@@ -231,7 +231,7 @@ export function FinanzasPeriodoSelector({
             align="left"
             dropDirection="down"
           />
-          <span className="text-xs text-slate-400">-</span>
+          <span className="text-xs text-texto-tenue">-</span>
           <CustomDatePicker
             value={fechaRangoHasta}
             onChange={(v) => patch({ fechaRangoHasta: v })}

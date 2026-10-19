@@ -249,10 +249,10 @@ export function VerFinanzas() {
         <div className="flex items-center gap-3 px-1">
           <ModuleHeaderBackButton size="sm" />
           <div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-zinc-900 dark:text-white leading-none">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white leading-none">
               Control Financiero
             </h1>
-            <p className="text-sm text-muted-foreground mt-1 font-medium">
+            <p className="text-sm text-texto-tenue mt-1 font-medium">
               Ingresos, egresos, balance y cuentas pendientes
             </p>
           </div>
@@ -262,14 +262,14 @@ export function VerFinanzas() {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 px-1">
           <div className="bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 rounded-2xl p-3 md:p-5 shadow-sm">
             <div className="flex flex-col lg:flex-row items-start lg:items-center gap-2 mb-2">
-              <div className="p-1.5 md:p-2 bg-[#8DA78E]/10 rounded-lg text-[#8DA78E] shrink-0">
+              <div className="p-1.5 md:p-2 bg-[#8DA78E]/10 rounded-lg text-look-2-salvia-menta shrink-0">
                 <ArrowUpRight className="size-4 md:size-5" />
               </div>
-              <h3 className="text-[9px] md:text-sm font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              <h3 className="text-etiqueta md:text-sm font-bold text-texto-tenue uppercase tracking-wider">
                 Total Ingresos
               </h3>
             </div>
-            <p className="text-[12px] min-[380px]:text-sm sm:text-base md:text-2xl font-black text-[#8DA78E] tracking-tighter break-words whitespace-normal leading-tight">
+            <p className="text-[12px] min-[380px]:text-sm sm:text-base md:text-2xl font-black text-look-2-salvia-menta tracking-tighter break-words whitespace-normal leading-tight">
               {formatMoney(resumen.total_ingresos)}
             </p>
           </div>
@@ -279,7 +279,7 @@ export function VerFinanzas() {
               <div className="p-1.5 md:p-2 bg-rose-500/10 rounded-lg text-rose-500 shrink-0">
                 <ArrowDownRight className="size-4 md:size-5" />
               </div>
-              <h3 className="text-[9px] md:text-sm font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              <h3 className="text-etiqueta md:text-sm font-bold text-texto-tenue uppercase tracking-wider">
                 Total Egresos
               </h3>
             </div>
@@ -291,7 +291,7 @@ export function VerFinanzas() {
               <div className="p-1.5 md:p-2 bg-zinc-100 dark:bg-zinc-800 rounded-lg text-zinc-600 dark:text-zinc-300 shrink-0">
                 <Wallet className="size-4 md:size-5" />
               </div>
-              <h3 className="text-[9px] md:text-sm font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+              <h3 className="text-etiqueta md:text-sm font-bold text-texto-tenue uppercase tracking-wider">
                 Balance Total
               </h3>
             </div>
@@ -322,7 +322,7 @@ export function VerFinanzas() {
       >
         <div className="flex flex-col gap-3">
           <div className="relative w-full min-w-0 text-left lg:max-w-xl">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
             <input
               type="text"
               placeholder="Buscar por concepto o categoría..."
@@ -391,17 +391,17 @@ export function VerFinanzas() {
             {isLoading ? (
               <div className="flex flex-col items-center justify-center h-64 opacity-50">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E] mb-4"></div>
-                <p className="text-sm font-medium text-muted-foreground animate-pulse">
+                <p className="text-sm font-medium text-texto-tenue animate-pulse">
                   Cargando registros financieros...
                 </p>
               </div>
             ) : movimientos.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center px-4">
                 <div className="w-16 h-16 rounded-2xl bg-[#8DA78E]/10 flex items-center justify-center mb-4">
-                  <FileText className="size-8 text-[#8DA78E]/50" />
+                  <FileText className="size-8 text-look-2-salvia-menta/50" />
                 </div>
                 <h3 className="text-lg font-bold text-zinc-900 dark:text-zinc-100">Sin registros</h3>
-                <p className="text-sm text-zinc-500 dark:text-zinc-400 mt-1 max-w-sm">
+                <p className="text-sm text-texto-tenue mt-1 max-w-sm">
                   No se encontraron movimientos financieros que coincidan con los filtros aplicados.
                 </p>
               </div>
@@ -431,7 +431,7 @@ export function VerFinanzas() {
                               )}>
                                 {mov.descripcion}
                               </h3>
-                              <span className="text-[10px] text-slate-500 font-medium truncate">
+                              <span className="text-etiqueta text-slate-500 font-medium truncate">
                                 {dateFormatted}
                               </span>
                             </div>
@@ -439,12 +439,12 @@ export function VerFinanzas() {
                             <div className="flex flex-col items-end gap-1.5 shrink-0">
                               <span className={cn(
                                 "font-black text-[13px] tabular-nums tracking-tight leading-tight",
-                                mov.monto < 0 ? "text-rose-600" : (isIngreso ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-rose-500")
+                                mov.monto < 0 ? "text-rose-600" : (isIngreso ? "text-look-2-salvia-menta dark:text-look-1-salvia-suave" : "text-rose-500")
                               )}>
                                 {isIngreso ? (mov.monto < 0 ? "-" : "+") : (mov.monto < 0 ? "+" : "-")}
                                 {formatMoney(Math.abs(mov.monto))}
                               </span>
-                              <span className="text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                              <span className="text-etiqueta font-black uppercase tracking-wider text-texto-tenue">
                                 {getCategoriaLabel(mov.categoria)}
                               </span>
                             </div>
@@ -458,7 +458,7 @@ export function VerFinanzas() {
                               e.stopPropagation();
                               setActiveMenuId(activeMenuId === mov.id ? null : mov.id);
                             }}
-                            className="p-1 rounded-md text-slate-400 hover:text-slate-600 transition-colors cursor-pointer"
+                            className="p-1 rounded-md text-texto-tenue hover:text-slate-600 transition-colors cursor-pointer"
                           >
                             <MoreVertical className="size-4" />
                           </button>
@@ -505,8 +505,8 @@ export function VerFinanzas() {
                         >
                           <td className="px-2 sm:px-5 py-3 sm:py-4 align-top sm:align-middle">
                             <div className="flex items-center gap-1 sm:gap-2">
-                              <Calendar className="size-3 sm:size-3.5 text-zinc-400 shrink-0 hidden sm:block" />
-                              <span className="text-[10px] sm:text-xs font-medium text-zinc-600 dark:text-zinc-300 break-words line-clamp-2">
+                              <Calendar className="size-3 sm:size-3.5 text-texto-tenue shrink-0 hidden sm:block" />
+                              <span className="text-etiqueta sm:text-xs font-medium text-zinc-600 dark:text-zinc-300 break-words line-clamp-2">
                                 {formatFecha(mov.created_at ?? mov.fecha_movimiento).replace(',', '')}
                               </span>
                             </div>
@@ -514,12 +514,12 @@ export function VerFinanzas() {
                           <td className="px-2 sm:px-5 py-3 sm:py-4 align-top sm:align-middle">
                             <div className="flex flex-col">
                               <span className={cn(
-                                "text-[11px] sm:text-sm font-bold line-clamp-2 break-words",
+                                "text-etiqueta sm:text-sm font-bold line-clamp-2 break-words",
                                 mov.monto < 0 ? "text-rose-600 dark:text-rose-400" : "text-zinc-900 dark:text-white"
                               )}>
                                 {mov.descripcion}
                               </span>
-                              <span className="text-[9px] sm:text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400 mt-0.5 flex items-center gap-1 sm:gap-1.5">
+                              <span className="text-etiqueta sm:text-etiqueta font-bold uppercase tracking-wider text-texto-tenue mt-0.5 flex items-center gap-1 sm:gap-1.5">
                                 <span className="truncate">{getCategoriaLabel(mov.categoria)}</span>
                               </span>
                             </div>
@@ -528,7 +528,7 @@ export function VerFinanzas() {
                             <span
                               className={cn(
                                 "text-xs sm:text-sm font-black tabular-nums tracking-tight",
-                                mov.monto < 0 ? "text-rose-600" : (mov.tipo_movimiento === "ingreso" ? "text-[#8DA78E]" : "text-rose-500")
+                                mov.monto < 0 ? "text-rose-600" : (mov.tipo_movimiento === "ingreso" ? "text-look-2-salvia-menta" : "text-rose-500")
                               )}
                             >
                               {mov.tipo_movimiento === "ingreso" ? (mov.monto < 0 ? "-" : "+") : (mov.monto < 0 ? "+" : "-")}
@@ -542,7 +542,7 @@ export function VerFinanzas() {
                               onClick={() => {
                                 void handleDelete(mov.id, mov.descripcion);
                               }}
-                              className="p-1 sm:p-2 rounded-xl text-zinc-400 hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all focus:opacity-100 cursor-pointer"
+                              className="p-1 sm:p-2 rounded-xl text-texto-tenue hover:bg-rose-50 hover:text-rose-500 dark:hover:bg-rose-500/10 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-all focus:opacity-100 cursor-pointer"
                               title="Reversar movimiento"
                             >
                               <Trash2 className="size-3.5 sm:size-4 mx-auto" />
