@@ -17,10 +17,10 @@ export function modulePillSwitchBtnClass(
   const grow = options?.grow !== false;
   return cn(
     grow ? "flex-1 min-w-0" : "shrink-0",
-    "py-2 px-2 sm:px-3 text-[10px] font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer whitespace-nowrap",
+    "py-2 px-2 sm:px-3 text-etiqueta font-semibold rounded-xl transition-colors cursor-pointer whitespace-nowrap",
     active
-      ? "bg-[#8DA78E]/20 text-[#525D53] dark:text-[#A3BEB0]"
-      : "text-slate-500",
+      ? "bg-[#8DA78E]/20 text-texto-principal"
+      : "text-texto-secundario",
   );
 }
 
@@ -36,18 +36,18 @@ export function modulePillSwitchTabBtnClass(
   const grow = options?.grow !== false;
   return cn(
     grow ? "flex-1 min-w-0" : "shrink-0",
-    "py-2.5 px-2 sm:px-3 text-xs sm:text-sm font-black uppercase tracking-wider rounded-xl transition-colors cursor-pointer whitespace-nowrap text-center",
+    "py-2.5 px-2 sm:px-3 text-sm font-semibold rounded-xl transition-colors cursor-pointer whitespace-nowrap text-center",
     active
-      ? "bg-white text-[#2c5f9b] shadow-sm dark:bg-zinc-800 dark:text-[#6f9fd4]"
-      : "text-[#8DA78E] hover:bg-white/60 dark:text-[#A3BEB0] dark:hover:bg-zinc-800/50",
+      ? "border border-[#8DA78E] bg-[#8DA78E]/15 text-texto-principal shadow-sm dark:border-[#A3BEB0]/60"
+      : "text-texto-secundario hover:bg-white/60 dark:hover:bg-zinc-800/50",
   );
 }
 
 export function moduleFilterTabUnderlineClass(active: boolean) {
   return cn(
-    "shrink-0 px-3 sm:px-4 py-2 text-sm font-black uppercase tracking-wider text-center border-b-2 cursor-pointer whitespace-nowrap text-[#8DA78E] dark:text-[#A3BEB0]",
+    "shrink-0 px-3 sm:px-4 py-2 text-sm font-semibold text-center border-b-2 cursor-pointer whitespace-nowrap",
     active
-      ? "border-[#8DA78E] dark:border-[#A3BEB0]"
-      : "border-transparent opacity-75 hover:opacity-100",
+      ? "border-[#8DA78E] text-texto-principal dark:border-[#A3BEB0]/80"
+      : "border-transparent text-texto-secundario opacity-75 hover:opacity-100",
   );
 }

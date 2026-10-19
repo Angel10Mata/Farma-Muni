@@ -20,7 +20,7 @@ export function SigetNuevoExistenteToggle({
   className,
 }: SigetNuevoExistenteToggleProps) {
   const activoClass = "text-[#2c5f9b] dark:text-[#6f9fd4]";
-  const inactivoClass = "text-zinc-500 dark:text-zinc-400";
+  const inactivoClass = "text-texto-secundario";
 
   const irAExistente = () => {
     if (!existenteDisabled) onModoNuevoChange(false);
@@ -42,7 +42,7 @@ export function SigetNuevoExistenteToggle({
         type="button"
         className={cn(
           "min-w-0 font-semibold transition-colors",
-          compact ? "flex-1 text-[10px] leading-tight" : "flex-1 text-left text-sm",
+          compact ? "flex-1 text-etiqueta leading-tight" : "flex-1 text-left text-sm",
           modoNuevo ? activoClass : inactivoClass,
         )}
         onClick={() => onModoNuevoChange(true)}
@@ -78,7 +78,7 @@ export function SigetNuevoExistenteToggle({
         disabled={existenteDisabled}
         className={cn(
           "min-w-0 font-semibold transition-colors",
-          compact ? "flex-1 text-right text-[10px] leading-tight" : "flex-1 text-right text-sm",
+          compact ? "flex-1 text-right text-etiqueta leading-tight" : "flex-1 text-right text-sm",
           !modoNuevo ? activoClass : inactivoClass,
           existenteDisabled && "cursor-not-allowed opacity-40",
         )}

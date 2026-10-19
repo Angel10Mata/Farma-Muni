@@ -60,10 +60,10 @@ export function ModuleInformeDropdown({
         disabled={inactivo}
         onClick={() => setAbierto((v) => !v)}
         className={cn(
-          "justify-center px-3 py-2 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap",
+          "justify-center px-3 py-2 rounded-xl border text-sm font-semibold transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap",
           abierto
-            ? "border-[#8DA78E] bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
-            : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-200 dark:hover:bg-zinc-800",
+            ? "border-[#8DA78E] bg-[#8DA78E]/15 text-texto-principal"
+            : "border-zinc-200 bg-zinc-50 text-texto-principal hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900/60 dark:hover:bg-zinc-800",
           inactivo && "pointer-events-none opacity-60",
         )}
       >
@@ -94,7 +94,7 @@ export function ModuleInformeDropdown({
                 key={informe.titulo}
                 className="rounded-xl border border-transparent px-1 py-1 hover:border-slate-100 dark:hover:border-zinc-800"
               >
-                <p className="px-2 py-1 text-[10px] font-black uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <p className="px-2 py-1 text-etiqueta font-semibold uppercase tracking-wide text-texto-secundario">
                   {informe.titulo}
                 </p>
                 <div className="flex gap-1 px-1 pb-1">
@@ -103,9 +103,9 @@ export function ModuleInformeDropdown({
                       type="button"
                       disabled={inactivo || informe.pdfDisabled}
                       onClick={() => ejecutar(informe.onPdf)}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-[10px] font-bold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-sm font-semibold text-texto-principal transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:hover:bg-zinc-800"
                     >
-                      <FileText className="size-3 shrink-0 text-[#8DA78E]" />
+                      <FileText className="size-3 shrink-0 text-texto-acento" />
                       PDF
                     </button>
                   ) : null}
@@ -114,9 +114,9 @@ export function ModuleInformeDropdown({
                       type="button"
                       disabled={inactivo || informe.excelDisabled}
                       onClick={() => ejecutar(informe.onExcel)}
-                      className="flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-[10px] font-bold text-zinc-700 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                      className="flex flex-1 items-center justify-center gap-1 rounded-lg px-2 py-2 text-sm font-semibold text-texto-principal transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:hover:bg-zinc-800"
                     >
-                      <FileDown className="size-3 shrink-0 text-emerald-600" />
+                      <FileDown className="size-3 shrink-0 text-emerald-700 dark:text-emerald-300" />
                       Excel
                     </button>
                   ) : null}

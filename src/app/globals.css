@@ -28,6 +28,10 @@
   --secondary-foreground: oklch(0.145 0 0);
   --muted: oklch(0.96 0 0);
   --muted-foreground: oklch(0.45 0 0);
+  --texto-principal: #18181b;
+  --texto-secundario: #52525b;
+  --texto-tenue: #71717a;
+  --texto-acento: #525d53;
   --accent: #AEC1B0; /* LOOK_2_SALVIA_MENTA (Softer Mint) */
   --accent-foreground: #f4f4f5;
   --destructive: oklch(0.577 0.245 27.325);
@@ -52,7 +56,11 @@
   --secondary: #525D53; /* LOOK_1_OLIVO_OSCURO */
   --secondary-foreground: oklch(98.5% 0 0);
   --muted: #3f3f46; /* zinc-700 */
-  --muted-foreground: oklch(70.8% 0 0);
+  --muted-foreground: #a1a1aa;
+  --texto-principal: #fafafa;
+  --texto-secundario: #d4d4d8;
+  --texto-tenue: #a1a1aa;
+  --texto-acento: #a3beb0;
   --accent: #AEC1B0; /* LOOK_2_SALVIA_MENTA */
   --accent-foreground: #18181b;
   --border: #3f3f46; /* zinc-700 */
@@ -91,6 +99,20 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+
+  --color-texto-principal: var(--texto-principal);
+  --color-texto-secundario: var(--texto-secundario);
+  --color-texto-tenue: var(--texto-tenue);
+  --color-texto-acento: var(--texto-acento);
+
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.9375rem;
+  --text-sm--line-height: 1.375rem;
+  --text-etiqueta: 0.75rem;
+  --text-etiqueta--line-height: 1rem;
+  --text-dato: 0.875rem;
+  --text-dato--line-height: 1.25rem;
 
   --radius-lg: var(--radius);
   --radius-md: calc(var(--radius) - 2px);

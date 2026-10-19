@@ -361,7 +361,7 @@ export function ModalConfirmDelete({
       <h3 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
         {title}
       </h3>
-      <p className="mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
+      <p className="mt-1 max-w-sm text-sm text-texto-tenue">
         {message ?? description}
       </p>
 
@@ -376,7 +376,7 @@ export function ModalConfirmDelete({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <Package className="h-6 w-6 text-zinc-400 dark:text-zinc-500" />
+                <Package className="h-6 w-6 text-texto-tenue" />
               )}
             </div>
 
@@ -393,17 +393,17 @@ export function ModalConfirmDelete({
                 {itemDetails.stock !== undefined ? (
                   <span
                     className={cn(
-                      "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold",
+                      "inline-flex items-center rounded-md px-2 py-0.5 text-etiqueta font-semibold",
                       itemDetails.stock > 0
-                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                        : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300",
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
                     )}
                   >
                     Stock: {itemDetails.stock} ud.
                   </span>
                 ) : null}
                 {itemDetails.precio !== undefined ? (
-                  <span className="inline-flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="inline-flex items-center text-sm font-bold text-emerald-700 dark:text-emerald-300">
                     ${itemDetails.precio.toFixed(2)}
                   </span>
                 ) : null}
@@ -600,7 +600,7 @@ export function ModalShell({
                     {resolvedSubtitle ? (
                       <p
                         className={cn(
-                          "text-[10px] font-bold uppercase tracking-widest",
+                          "text-etiqueta font-semibold uppercase tracking-wide",
                           modalAccentClass,
                         )}
                       >

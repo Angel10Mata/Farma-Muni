@@ -57,7 +57,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
       {pages.map((p, i) => (
         <React.Fragment key={i}>
           {p === '...' ? (
-            <div className="flex items-center justify-center px-1 text-zinc-400">
+            <div className="flex items-center justify-center px-1 text-texto-tenue">
               <MoreHorizontal className="size-4" />
             </div>
           ) : (
@@ -65,7 +65,7 @@ export function Pagination({ currentPage, totalPages, onPageChange, className }:
               type="button"
               onClick={() => onPageChange(p as number)}
               className={cn(
-                "flex items-center justify-center min-w-[36px] min-h-[36px] px-3 text-sm font-bold rounded-xl transition-all shadow-sm",
+                "flex items-center justify-center min-w-[36px] min-h-[36px] px-3 text-sm font-semibold rounded-xl transition-all shadow-sm",
                 currentPage === p
                   ? "bg-[#8DA78E] text-white"
                   : "bg-white dark:bg-[#171a17] text-zinc-600 dark:text-zinc-300 border border-[#C1D1C5]/30 dark:border-[#525D53]/30 hover:bg-slate-50 dark:hover:bg-zinc-900"
@@ -118,10 +118,10 @@ export function PageSizeSelect({
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 text-zinc-600 dark:text-zinc-300 text-xs font-bold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 cursor-pointer flex items-center justify-between gap-3 min-w-[70px]"
+        className="bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 text-texto-secundario text-sm font-semibold rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 cursor-pointer flex items-center justify-between gap-3 min-w-[70px]"
       >
         <span className="flex-1 text-center">{pageSize}</span>
-        <ChevronDown className={cn("size-3 text-zinc-400 transition-transform duration-200", isOpen && "rotate-180")} />
+        <ChevronDown className={cn("size-3 text-texto-tenue transition-transform duration-200", isOpen && "rotate-180")} />
       </button>
 
       {isOpen && (
@@ -135,10 +135,10 @@ export function PageSizeSelect({
                 setIsOpen(false);
               }}
               className={cn(
-                "w-full px-3 py-2 text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer",
+                "w-full px-3 py-2 text-sm font-semibold transition-all text-left flex items-center justify-between cursor-pointer",
                 pageSize === size
-                  ? "bg-[#8DA78E]/10 text-[#8DA78E] dark:bg-[#A3BEB0]/10 dark:text-[#A3BEB0]"
-                  : "text-zinc-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-900"
+                  ? "bg-[#8DA78E]/10 text-texto-acento dark:bg-[#A3BEB0]/10"
+                  : "text-texto-secundario hover:bg-slate-50 dark:hover:bg-zinc-900"
               )}
             >
               <span>{size}</span>

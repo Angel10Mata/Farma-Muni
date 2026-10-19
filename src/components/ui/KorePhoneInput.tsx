@@ -101,7 +101,7 @@ export function KorePhoneInput({
             <FlagComponent title={country} />
           </div>
         )}
-        <span className="text-[8px] text-muted-foreground select-none">▼</span>
+        <span className="text-etiqueta text-texto-tenue select-none">▼</span>
         <select
           value={country}
           onChange={handleCountryChange}

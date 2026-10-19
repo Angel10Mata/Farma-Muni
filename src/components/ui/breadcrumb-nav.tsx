@@ -56,7 +56,7 @@ export function BreadcrumbNav() {
     <LayoutGroup id="breadcrumb">
       <motion.div
         layout
-        className="flex items-center gap-2 text-[9px] md:text-base font-medium text-muted-foreground overflow-hidden pt-1"
+        className="flex items-center gap-2 text-etiqueta sm:text-sm md:text-base font-medium text-texto-secundario overflow-hidden pt-1"
       >
         <motion.div layout="position">
           <Link
