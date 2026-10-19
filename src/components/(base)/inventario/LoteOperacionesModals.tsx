@@ -127,7 +127,7 @@ function LoteOperacionForm({
         void ejecutar();
       }}
     >
-      <p className="text-xs text-zinc-600 dark:text-zinc-400">
+      <p className="text-xs text-zinc-600">
         Existencia en sistema: <strong>{fmtNum(lote.stock_actual)}</strong>
       </p>
 

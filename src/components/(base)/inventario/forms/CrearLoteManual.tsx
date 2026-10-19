@@ -161,7 +161,7 @@ export function CrearLoteManual({
                 id="lote-manual-proveedor"
                 value={proveedorLoteId}
                 onChange={(e) => setProveedorLoteId(e.target.value)}
-                className={cn(!proveedorLoteId && "text-zinc-500 dark:text-zinc-400")}
+                className={cn(!proveedorLoteId && "text-texto-tenue")}
                 required
               >
                 <option value="">Seleccionar proveedor…</option>

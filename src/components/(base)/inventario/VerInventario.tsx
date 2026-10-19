@@ -169,7 +169,7 @@ function ProductoFarmaciaTitulo({
   const lineaGenerica = lineaGenericaProductoFarmacia(producto);
   const estiloTitulo = cn("font-semibold leading-snug", tituloClassName);
   const estiloSecundario = cn(
-    "mt-0.5 text-xs font-medium text-slate-500 dark:text-slate-400",
+    "mt-0.5 text-xs font-medium text-texto-tenue",
     comercialClassName,
   );
   const estiloPrincipal = cn("font-semibold leading-snug", tituloClassName);
@@ -188,7 +188,7 @@ function ProductoFarmaciaTitulo({
       </p>
       {producto.requiere_receta ? (
         <span
-          className="mt-1 inline-flex rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-800 dark:text-amber-300"
+          className="mt-1 inline-flex rounded-md bg-amber-500/15 px-1.5 py-0.5 text-etiqueta font-black uppercase tracking-wide text-amber-800 dark:text-amber-300"
         >
           Requiere receta
         </span>
@@ -289,7 +289,7 @@ function LoteInventarioAccionesMenu({
         <button
           type="button"
           aria-label="Acciones del lote"
-          className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
         >
           <MoreVertical className="size-4" />
         </button>
@@ -371,7 +371,7 @@ function ProductoAccionesMenu({
         <button
           type="button"
           aria-label="Acciones del producto"
-          className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+          className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
         >
           <MoreVertical className="size-4" />
         </button>
@@ -485,7 +485,7 @@ function ProductoCard({
             className="w-full h-full object-cover"
           />
         ) : (
-          <Package className="size-6 text-slate-300 dark:text-slate-600 animate-pulse" />
+          <Package className="size-6 text-slate-300 animate-pulse" />
         )}
       </div>
 
@@ -504,14 +504,14 @@ function ProductoCard({
               producto.activo ? "bg-[#8DA78E]" : "bg-red-400"
             )} />
           </div>
-          <p className="text-[9px] font-mono text-slate-500 mt-0.5">
+          <p className="text-etiqueta font-mono text-slate-500 mt-0.5">
             CÓD: {producto.codigo || "SIN CÓDIGO"}
             {producto.numero_lote && ` | LOTE: ${producto.numero_lote}`}
           </p>
           {producto.fecha_vencimiento && (
             <p
               className={cn(
-                "text-[9px] font-bold mt-0.5",
+                "text-etiqueta font-bold mt-0.5",
                 destacarVencido && isVencido
                   ? "text-rose-600 animate-pulse"
                   : destacarProximo && isExpiringSoon
@@ -523,8 +523,8 @@ function ProductoCard({
               {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
             </p>
           )}
-          <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">
-            <span className="block text-slate-500 dark:text-slate-500 normal-case font-semibold">
+          <p className="text-etiqueta font-bold text-texto-tenue mt-1 uppercase">
+            <span className="block text-slate-500 normal-case font-semibold">
               Lab
             </span>
             <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
@@ -532,8 +532,8 @@ function ProductoCard({
             </span>
           </p>
           {producto.laboratorio_proveedor_nombre ? (
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">
-              <span className="block text-slate-500 dark:text-slate-500 normal-case font-semibold">
+            <p className="text-etiqueta font-bold text-texto-tenue mt-1 uppercase">
+              <span className="block text-slate-500 normal-case font-semibold">
                 Prov. lab
               </span>
               <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
@@ -542,8 +542,8 @@ function ProductoCard({
             </p>
           ) : null}
           {producto.inv_proveedores?.nombre ? (
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-1 uppercase">
-              <span className="block text-slate-500 dark:text-slate-500 normal-case font-semibold">
+            <p className="text-etiqueta font-bold text-texto-tenue mt-1 uppercase">
+              <span className="block text-slate-500 normal-case font-semibold">
                 Prov
               </span>
               <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
@@ -552,17 +552,17 @@ function ProductoCard({
             </p>
           ) : null}
           {producto.ubicacion && producto.ubicacion !== "Sin asignar" && (
-            <p className="text-[9px] font-bold text-slate-400 dark:text-slate-500 mt-0.5 uppercase flex items-center gap-1">
-              <Box className="size-3 text-[#8DA78E] dark:text-[#A3BEB0]" /> {producto.ubicacion}
+            <p className="text-etiqueta font-bold text-texto-tenue mt-0.5 uppercase flex items-center gap-1">
+              <Box className="size-3 text-look-2-salvia-menta dark:text-look-1-salvia-suave" /> {producto.ubicacion}
             </p>
           )}
         </div>
 
         {/* Bottom stats and action buttons side by side */}
         <div className="mt-1.5 flex items-center justify-between gap-2 pt-1 border-t border-[#C1D1C5]/20 dark:border-[#A3BEB0]/10">
-          <div className="flex gap-2.5 text-[9px] leading-none">
+          <div className="flex gap-2.5 text-etiqueta leading-none">
             <div>
-              <span className="text-[#525D53]/60 dark:text-[#A3BEB0]/50 font-bold uppercase">Stock:</span>
+              <span className="text-[#525D53]/60 dark:text-look-1-salvia-suave/50 font-bold uppercase">Stock:</span>
               <span
                 className={cn(
                   "font-black ml-0.5",
@@ -575,8 +575,8 @@ function ProductoCard({
               </span>
             </div>
             <div>
-              <span className="text-[#525D53]/60 dark:text-[#A3BEB0]/50 font-bold uppercase">Precio:</span>
-              <span className="font-black ml-0.5 text-[#8DA78E] dark:text-[#A3BEB0]">
+              <span className="text-[#525D53]/60 dark:text-look-1-salvia-suave/50 font-bold uppercase">Precio:</span>
+              <span className="font-black ml-0.5 text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                 {fmtQ(producto.precio_venta ?? producto.precio_base)}
               </span>
             </div>
@@ -624,7 +624,7 @@ function ProductoDetalle({
     margenActual != null && margenActual < margenMinimoCfg - 0.01;
   const bajoCpp = cpp != null && cpp > 0 && precioVenta < cpp - 0.001;
   const detalleLabelClass =
-    "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
+    "text-etiqueta font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave/70";
   const detalleFieldClass =
     "rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2.5 text-sm text-slate-800 dark:border-[#A3BEB0]/15 dark:bg-zinc-900/40 dark:text-slate-100";
   const detalleMetricClass =
@@ -641,7 +641,7 @@ function ProductoDetalle({
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
-              <Package className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
+              <Package className="size-5 text-look-2-salvia-menta dark:text-look-1-salvia-suave" />
             </div>
             <div className="min-w-0 space-y-1">
               <p className={detalleLabelClass}>Producto</p>
@@ -649,14 +649,14 @@ function ProductoDetalle({
                 producto={producto}
                 comercialPrimero
                 tituloClassName="text-xl font-black text-slate-900 dark:text-white md:text-2xl"
-                comercialClassName="mt-1 text-sm font-medium text-slate-500 dark:text-slate-400 md:text-base"
+                comercialClassName="mt-1 text-sm font-medium text-texto-tenue md:text-base"
               />
             </div>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer px-2 text-xl font-bold leading-none text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+            className="cursor-pointer px-2 text-xl font-bold leading-none text-texto-tenue transition-colors hover:text-slate-600 dark:hover:text-slate-200"
           >
             ✕
           </button>
@@ -674,7 +674,7 @@ function ProductoDetalle({
               <div className="space-y-2">
                 <h4 className={detalleLabelClass}>Estado</h4>
                 <div className={cn(detalleFieldClass, "flex items-center justify-center font-bold uppercase")}>
-                  <span className={producto.activo ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-red-500"}>
+                  <span className={producto.activo ? "text-look-2-salvia-menta dark:text-look-1-salvia-suave" : "text-red-500"}>
                     {producto.activo ? "Activo" : "Inactivo"}
                   </span>
                 </div>
@@ -692,31 +692,31 @@ function ProductoDetalle({
               <h4 className={detalleLabelClass}>Inventario y costos</h4>
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className={detalleMetricClass}>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                  <span className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53] dark:text-look-1-salvia-suave/80">
                     Existencias
                   </span>
                   <span
                     className={cn(
                       "text-base font-black tabular-nums",
-                      isLowStock ? "text-red-500 animate-pulse" : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                      isLowStock ? "text-red-500 animate-pulse" : "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                     )}
                   >
                     {fmtNum(producto.stock_actual)}
                   </span>
                 </div>
                 <div className={detalleMetricClass}>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                  <span className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53] dark:text-look-1-salvia-suave/80">
                     Mínimo
                   </span>
-                  <span className="text-base font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                  <span className="text-base font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                     {fmtNum(producto.stock_minimo)}
                   </span>
                 </div>
                 <div className={detalleMetricClass}>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                  <span className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53] dark:text-look-1-salvia-suave/80">
                     Precio venta
                   </span>
-                  <span className="text-base font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                  <span className="text-base font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                     {fmtQ(precioVenta)}
                   </span>
                 </div>
@@ -724,7 +724,7 @@ function ProductoDetalle({
 
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className={detalleMetricClass}>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                  <span className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53] dark:text-look-1-salvia-suave/80">
                     Costo promedio
                   </span>
                   <span className="text-sm font-black tabular-nums text-slate-800 dark:text-slate-100">
@@ -732,7 +732,7 @@ function ProductoDetalle({
                   </span>
                 </div>
                 <div className={detalleMetricClass}>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                  <span className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53] dark:text-look-1-salvia-suave/80">
                     Rango costos
                   </span>
                   <span className="text-sm font-bold tabular-nums text-slate-700 dark:text-slate-200">
@@ -742,7 +742,7 @@ function ProductoDetalle({
                   </span>
                 </div>
                 <div className={detalleMetricClass}>
-                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                  <span className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53] dark:text-look-1-salvia-suave/80">
                     Margen actual
                   </span>
                   <span className="text-sm font-black tabular-nums text-slate-800 dark:text-slate-100">
@@ -751,12 +751,12 @@ function ProductoDetalle({
                 </div>
                 <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
                   {bajoMargen ? (
-                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-etiqueta font-black uppercase text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
                       Margen bajo
                     </span>
                   ) : null}
                   {bajoCpp ? (
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-etiqueta font-black uppercase text-red-700 dark:bg-red-950/50 dark:text-red-300">
                       Bajo costo promedio
                     </span>
                   ) : null}
@@ -769,7 +769,7 @@ function ProductoDetalle({
                   <p
                     className={cn(
                       detalleFieldClass,
-                      "flex items-center gap-2 truncate text-sm font-bold text-[#8DA78E] dark:text-[#A3BEB0]",
+                      "flex items-center gap-2 truncate text-sm font-bold text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                     )}
                   >
                     <Box className="size-4 shrink-0 opacity-80" />
@@ -787,7 +787,7 @@ function ProductoDetalle({
                   )}
                 >
                   {lotesProducto.length === 0 ? (
-                    <p className="px-3 py-2.5 text-sm text-slate-500 dark:text-slate-400">
+                    <p className="px-3 py-2.5 text-sm text-texto-tenue">
                       Sin lotes registrados para este producto.
                     </p>
                   ) : (
@@ -813,19 +813,19 @@ function ProductoDetalle({
                               <p className="truncate text-sm font-black text-slate-800 dark:text-slate-100">
                                 Lote {lote.numero_lote || "—"}
                               </p>
-                              <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                              <p className="text-etiqueta text-texto-tenue">
                                 Lab:{" "}
                                 {etiquetaLaboratorioComercial(laboratorioNombreDesdeLote(lote))}
                                 {lote.inv_proveedores?.nombre
                                   ? ` · Prov: ${lote.inv_proveedores.nombre}`
                                   : ""}
                               </p>
-                              <p className="text-[10px] font-bold text-[#8DA78E] dark:text-[#A3BEB0]">
+                              <p className="text-etiqueta font-bold text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                                 Venta {fmtQ(precioVentaEfectivoLote(undefined, producto.precio_base))}
                                 {" · "}
                                 Costo {fmtQ(Number(lote.precio_costo) || 0)}
                               </p>
-                              <p className="text-[10px] font-bold uppercase tracking-wide text-[#525D53]/80 dark:text-[#A3BEB0]/70">
+                              <p className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53]/80 dark:text-look-1-salvia-suave/70">
                                 {lote.activo ? "Activo" : "Inactivo"}
                                 {lote.ubicacion ? ` · ${lote.ubicacion}` : ""}
                               </p>
@@ -838,19 +838,19 @@ function ProductoDetalle({
                                     ? "text-red-500"
                                     : proximo
                                       ? "text-amber-600 dark:text-amber-400"
-                                      : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                                      : "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                                 )}
                               >
                                 Vence {fechaTxt}
                               </span>
                               <span
                                 className={cn(
-                                  "rounded-md px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide",
+                                  "rounded-md px-1.5 py-0.5 text-etiqueta font-black uppercase tracking-wide",
                                   vencido
                                     ? "bg-red-500/10 text-red-600 dark:text-red-400"
                                     : proximo
                                       ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                                      : "bg-[#8DA78E]/10 text-[#525D53] dark:text-[#A3BEB0]",
+                                      : "bg-[#8DA78E]/10 text-[#525D53] dark:text-look-1-salvia-suave",
                                 )}
                               >
                                 {estadoVenc}
@@ -888,7 +888,7 @@ function ProductoDetalle({
                         className="size-full object-cover"
                       />
                     ) : (
-                      <Package className="size-6 text-slate-300 dark:text-slate-600" />
+                      <Package className="size-6 text-slate-300" />
                     )}
                   </div>
                 );
@@ -934,7 +934,7 @@ function CatalogoDetalle({
   onVerGenerico: (g: InvGenerico) => void;
 }) {
   const detalleLabelClass =
-    "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
+    "text-etiqueta font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave/70";
   const detalleFieldClass =
     "rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2.5 text-sm text-slate-800 dark:border-[#A3BEB0]/15 dark:bg-zinc-900/40 dark:text-slate-100";
   const stockTotal = genericos.reduce((s, g) => s + g.stock_vendible, 0);
@@ -951,14 +951,14 @@ function CatalogoDetalle({
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
-              <BookOpen className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
+              <BookOpen className="size-5 text-look-2-salvia-menta dark:text-look-1-salvia-suave" />
             </div>
             <div className="min-w-0 space-y-1">
               <p className={detalleLabelClass}>Catálogo</p>
               <p className="text-xl font-black text-slate-900 dark:text-white md:text-2xl">
                 {catalogo.nombre}
               </p>
-              <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+              <p className="text-xs font-bold uppercase tracking-wide text-texto-tenue">
                 Principio activo
               </p>
             </div>
@@ -966,7 +966,7 @@ function CatalogoDetalle({
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer px-2 text-xl font-bold leading-none text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+            className="cursor-pointer px-2 text-xl font-bold leading-none text-texto-tenue transition-colors hover:text-slate-600 dark:hover:text-slate-200"
           >
             ✕
           </button>
@@ -984,19 +984,19 @@ function CatalogoDetalle({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Productos</span>
-            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+            <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               {genericos.length}
             </span>
           </div>
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Marcas</span>
-            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+            <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               {fmtNum(comercialesTotal)}
             </span>
           </div>
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Stock vendible</span>
-            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+            <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               {fmtNum(stockTotal)}
             </span>
           </div>
@@ -1005,7 +1005,7 @@ function CatalogoDetalle({
             <span
               className={cn(
                 "text-sm font-bold uppercase",
-                catalogo.activo ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-red-500",
+                catalogo.activo ? "text-look-2-salvia-menta dark:text-look-1-salvia-suave" : "text-red-500",
               )}
             >
               {catalogo.activo ? "Activo" : "Inactivo"}
@@ -1032,7 +1032,7 @@ function CatalogoDetalle({
                       <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                         {tituloGenericoInventario(g)}
                       </p>
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <p className="mt-1 text-etiqueta font-bold uppercase tracking-wide text-texto-tenue">
                         {g.comerciales} marca{g.comerciales === 1 ? "" : "s"}
                         {g.requiere_receta ? " · Requiere receta" : ""}
                         {g.precio_desde != null ? ` · Desde ${fmtQ(g.precio_desde)}` : ""}
@@ -1040,27 +1040,27 @@ function CatalogoDetalle({
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
                       <div className="text-right">
-                        <p className="text-[10px] font-bold uppercase text-slate-500">Stock</p>
+                        <p className="text-etiqueta font-bold uppercase text-slate-500">Stock</p>
                         <p
                           className={cn(
                             "text-sm font-black tabular-nums",
-                            isLow ? "text-red-500" : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                            isLow ? "text-red-500" : "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                           )}
                         >
                           {fmtNum(g.stock_vendible)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-bold uppercase text-slate-500">Mínimo</p>
+                        <p className="text-etiqueta font-bold uppercase text-slate-500">Mínimo</p>
                         <p className="text-sm font-black tabular-nums text-slate-600 dark:text-slate-300">
                           {fmtNum(g.stock_minimo)}
                         </p>
                       </div>
                       <span
                         className={cn(
-                          "rounded-md px-2 py-0.5 text-[9px] font-black uppercase",
+                          "rounded-md px-2 py-0.5 text-etiqueta font-black uppercase",
                           g.activo
-                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
+                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-look-1-salvia-suave"
                             : "bg-red-500/10 text-red-600 dark:text-red-400",
                         )}
                       >
@@ -1101,7 +1101,7 @@ function GenericoDetalle({
   onVerLotes: (c: ProductoComercial) => void;
 }) {
   const detalleLabelClass =
-    "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
+    "text-etiqueta font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave/70";
   const detalleFieldClass =
     "rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2.5 text-sm text-slate-800 dark:border-[#A3BEB0]/15 dark:bg-zinc-900/40 dark:text-slate-100";
   const stockTotal = comerciales.reduce((s, c) => s + c.stock_vendible, 0);
@@ -1118,7 +1118,7 @@ function GenericoDetalle({
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
-              <FlaskConical className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
+              <FlaskConical className="size-5 text-look-2-salvia-menta dark:text-look-1-salvia-suave" />
             </div>
             <div className="min-w-0 space-y-1">
               <p className={detalleLabelClass}>Producto</p>
@@ -1126,7 +1126,7 @@ function GenericoDetalle({
                 {titulo || generico.nombre}
               </p>
               {generico.catalogo_nombre || generico.nombre_generico ? (
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-wide text-texto-tenue">
                   Catálogo: {generico.catalogo_nombre || generico.nombre_generico}
                 </p>
               ) : null}
@@ -1135,7 +1135,7 @@ function GenericoDetalle({
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer px-2 text-xl font-bold leading-none text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+            className="cursor-pointer px-2 text-xl font-bold leading-none text-texto-tenue transition-colors hover:text-slate-600 dark:hover:text-slate-200"
           >
             ✕
           </button>
@@ -1144,13 +1144,13 @@ function GenericoDetalle({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Marcas</span>
-            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+            <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               {comerciales.length}
             </span>
           </div>
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Stock vendible</span>
-            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+            <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               {fmtNum(stockTotal)}
             </span>
           </div>
@@ -1165,7 +1165,7 @@ function GenericoDetalle({
             <span
               className={cn(
                 "text-sm font-bold uppercase",
-                generico.activo ? "text-[#8DA78E] dark:text-[#A3BEB0]" : "text-red-500",
+                generico.activo ? "text-look-2-salvia-menta dark:text-look-1-salvia-suave" : "text-red-500",
               )}
             >
               {generico.activo ? "Activo" : "Inactivo"}
@@ -1196,9 +1196,9 @@ function GenericoDetalle({
                         producto={productoUi}
                         comercialPrimero
                         tituloClassName="text-sm font-bold text-slate-900 dark:text-slate-100"
-                        comercialClassName="text-xs font-medium text-slate-500 dark:text-slate-400"
+                        comercialClassName="text-xs font-medium text-texto-tenue"
                       />
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <p className="mt-1 text-etiqueta font-bold uppercase tracking-wide text-texto-tenue">
                         {etiquetaLaboratorioComercial(c.laboratorio_nombre)}
                         {c.presentacion ? ` · ${c.presentacion}` : ""}
                         {c.proximo_vencimiento
@@ -1208,27 +1208,27 @@ function GenericoDetalle({
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
                       <div className="text-right">
-                        <p className="text-[10px] font-bold uppercase text-slate-500">Stock</p>
+                        <p className="text-etiqueta font-bold uppercase text-slate-500">Stock</p>
                         <p
                           className={cn(
                             "text-sm font-black tabular-nums",
-                            isLow ? "text-red-500" : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                            isLow ? "text-red-500" : "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                           )}
                         >
                           {fmtNum(c.stock_vendible)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-bold uppercase text-slate-500">Precio</p>
-                        <p className="text-sm font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                        <p className="text-etiqueta font-bold uppercase text-slate-500">Precio</p>
+                        <p className="text-sm font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                           {fmtQ(c.precio_venta)}
                         </p>
                       </div>
                       <span
                         className={cn(
-                          "rounded-md px-2 py-0.5 text-[9px] font-black uppercase",
+                          "rounded-md px-2 py-0.5 text-etiqueta font-black uppercase",
                           c.activo
-                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
+                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-look-1-salvia-suave"
                             : "bg-red-500/10 text-red-600 dark:text-red-400",
                         )}
                       >
@@ -1275,7 +1275,7 @@ function LaboratorioDetalle({
   onClose: () => void;
 }) {
   const detalleLabelClass =
-    "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
+    "text-etiqueta font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave/70";
   const detalleFieldClass =
     "rounded-xl border border-[#C1D1C5]/30 bg-zinc-50/80 px-3 py-2.5 text-sm text-slate-800 dark:border-[#A3BEB0]/15 dark:bg-zinc-900/40 dark:text-slate-100";
   const stockTotal = comerciales.reduce((s, c) => s + c.stock_vendible, 0);
@@ -1291,7 +1291,7 @@ function LaboratorioDetalle({
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
-              <Building2 className="size-5 text-[#8DA78E] dark:text-[#A3BEB0]" />
+              <Building2 className="size-5 text-look-2-salvia-menta dark:text-look-1-salvia-suave" />
             </div>
             <div className="min-w-0 space-y-1">
               <p className={detalleLabelClass}>Laboratorio</p>
@@ -1299,7 +1299,7 @@ function LaboratorioDetalle({
                 {etiquetaLaboratorioComercial(laboratorio.laboratorio || laboratorio.nombre)}
               </p>
               {proveedorNombre ? (
-                <p className="text-xs font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <p className="text-xs font-bold uppercase tracking-wide text-texto-tenue">
                   Proveedor: {proveedorNombre}
                 </p>
               ) : null}
@@ -1308,7 +1308,7 @@ function LaboratorioDetalle({
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer px-2 text-xl font-bold leading-none text-slate-400 transition-colors hover:text-slate-600 dark:hover:text-slate-200"
+            className="cursor-pointer px-2 text-xl font-bold leading-none text-texto-tenue transition-colors hover:text-slate-600 dark:hover:text-slate-200"
           >
             ✕
           </button>
@@ -1317,19 +1317,19 @@ function LaboratorioDetalle({
         <div className="grid gap-3 sm:grid-cols-3">
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Productos</span>
-            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+            <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               {comerciales.length}
             </span>
           </div>
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Stock vendible</span>
-            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+            <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               {fmtNum(stockTotal)}
             </span>
           </div>
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Activos</span>
-            <span className="text-lg font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+            <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               {comerciales.filter((c) => c.activo).length}
             </span>
           </div>
@@ -1355,9 +1355,9 @@ function LaboratorioDetalle({
                         producto={productoUi}
                         comercialPrimero
                         tituloClassName="text-sm font-bold text-slate-900 dark:text-slate-100"
-                        comercialClassName="text-xs font-medium text-slate-500 dark:text-slate-400"
+                        comercialClassName="text-xs font-medium text-texto-tenue"
                       />
-                      <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                      <p className="mt-1 text-etiqueta font-bold uppercase tracking-wide text-texto-tenue">
                         {c.presentacion}
                         {c.proximo_vencimiento
                           ? ` · Próx. vence ${new Date(c.proximo_vencimiento).toLocaleDateString("es-GT")}`
@@ -1366,27 +1366,27 @@ function LaboratorioDetalle({
                     </div>
                     <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
                       <div className="text-right">
-                        <p className="text-[10px] font-bold uppercase text-slate-500">Stock</p>
+                        <p className="text-etiqueta font-bold uppercase text-slate-500">Stock</p>
                         <p
                           className={cn(
                             "text-sm font-black tabular-nums",
-                            isLow ? "text-red-500" : "text-[#8DA78E] dark:text-[#A3BEB0]",
+                            isLow ? "text-red-500" : "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                           )}
                         >
                           {fmtNum(c.stock_vendible)}
                         </p>
                       </div>
                       <div className="text-right">
-                        <p className="text-[10px] font-bold uppercase text-slate-500">Precio</p>
-                        <p className="text-sm font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                        <p className="text-etiqueta font-bold uppercase text-slate-500">Precio</p>
+                        <p className="text-sm font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                           {fmtQ(c.precio_venta)}
                         </p>
                       </div>
                       <span
                         className={cn(
-                          "rounded-md px-2 py-0.5 text-[9px] font-black uppercase",
+                          "rounded-md px-2 py-0.5 text-etiqueta font-black uppercase",
                           c.activo
-                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-[#A3BEB0]"
+                            ? "bg-[#8DA78E]/15 text-[#525D53] dark:text-look-1-salvia-suave"
                             : "bg-red-500/10 text-red-600 dark:text-red-400",
                         )}
                       >
@@ -1442,13 +1442,13 @@ const VencimientoFilterSelect = ({
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
         className={cn(
-          "flex h-[44px] min-w-[12rem] max-w-[min(100%,16rem)] items-center gap-2 rounded-xl border px-3 py-2.5 text-[11px] font-bold shadow-xs transition-all select-none md:text-xs",
+          "flex h-[44px] min-w-[12rem] max-w-[min(100%,16rem)] items-center gap-2 rounded-xl border px-3 py-2.5 text-etiqueta font-bold shadow-xs transition-all select-none md:text-xs",
           selectedCategoria
-            ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:border-[#A3BEB0]/40 dark:bg-[#8DA78E]/20 dark:text-[#A3BEB0]"
+            ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:border-[#A3BEB0]/40 dark:bg-[#8DA78E]/20 dark:text-look-1-salvia-suave"
             : "border-slate-200 bg-white text-slate-700 hover:border-[#8DA78E] dark:border-slate-700/60 dark:bg-zinc-900/60 dark:text-slate-300 dark:hover:border-[#A3BEB0]/50",
         )}
       >
-        <CalendarX className="size-3.5 shrink-0 text-[#8DA78E] dark:text-[#A3BEB0]" />
+        <CalendarX className="size-3.5 shrink-0 text-look-2-salvia-menta dark:text-look-1-salvia-suave" />
         <span className="min-w-0 flex-1 truncate text-left">{etiquetaSeleccion}</span>
         {selectedCategoria ? (
           <span
@@ -1467,7 +1467,7 @@ const VencimientoFilterSelect = ({
                 setIsOpen(false);
               }
             }}
-            className="shrink-0 rounded-full p-0.5 text-slate-400 transition-colors hover:bg-red-500/15 hover:text-red-500"
+            className="shrink-0 rounded-full p-0.5 text-texto-tenue transition-colors hover:bg-red-500/15 hover:text-red-500"
             title="Limpiar filtro"
           >
             <X className="size-3" />
@@ -1475,7 +1475,7 @@ const VencimientoFilterSelect = ({
         ) : (
           <ChevronDown
             className={cn(
-              "size-3 shrink-0 text-slate-400 transition-transform duration-200",
+              "size-3 shrink-0 text-texto-tenue transition-transform duration-200",
               isOpen && "rotate-180",
             )}
           />
@@ -1491,7 +1491,7 @@ const VencimientoFilterSelect = ({
             transition={{ duration: 0.15 }}
             className="absolute left-0 top-full z-[200] mt-2 w-64 max-w-[min(16rem,calc(100vw-2rem))] origin-top-left rounded-2xl border border-slate-200/80 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800/80 dark:bg-zinc-900"
           >
-            <div className="mb-1 flex items-center justify-between border-b border-slate-100 px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:border-slate-800/80 dark:text-slate-500">
+            <div className="mb-1 flex items-center justify-between border-b border-slate-100 px-2 py-1.5 text-etiqueta font-black uppercase tracking-wider text-texto-tenue dark:border-slate-800/80">
               <span>Vencimiento</span>
             </div>
             <button
@@ -1582,20 +1582,20 @@ const LocationFilterDropdown = ({
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "px-3 py-2.5 rounded-xl border text-[11px] md:text-xs font-bold transition-all flex items-center gap-2 cursor-pointer h-full shadow-xs select-none",
+          "px-3 py-2.5 rounded-xl border text-etiqueta md:text-xs font-bold transition-all flex items-center gap-2 cursor-pointer h-full shadow-xs select-none",
           selectedLocation
-            ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:text-[#A3BEB0] dark:bg-[#8DA78E]/20"
+            ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:text-look-1-salvia-suave dark:bg-[#8DA78E]/20"
             : "border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-slate-700 dark:text-slate-300 hover:border-[#8DA78E]"
         )}
       >
-        <Box className="size-3.5 text-[#8DA78E] shrink-0" />
+        <Box className="size-3.5 text-look-2-salvia-menta shrink-0" />
         <span className="truncate max-w-[140px] md:max-w-[170px]">
           {selectedLocation || "Todas las ubicaciones"}
         </span>
 
         {selectedLocation ? (
           <span className="flex items-center gap-1.5 ml-1">
-            <span className="px-1.5 py-0.5 text-[9px] font-black rounded-full bg-[#8DA78E] text-white">
+            <span className="px-1.5 py-0.5 text-etiqueta font-black rounded-full bg-[#8DA78E] text-white">
               {locationCounts[selectedLocation] || 0}
             </span>
             <span
@@ -1603,14 +1603,14 @@ const LocationFilterDropdown = ({
                 e.stopPropagation();
                 onSelectLocation("");
               }}
-              className="p-0.5 rounded-full hover:bg-red-500/20 text-slate-400 hover:text-red-500 transition-colors"
+              className="p-0.5 rounded-full hover:bg-red-500/20 text-texto-tenue hover:text-red-500 transition-colors"
               title="Limpiar filtro"
             >
               <X className="size-3" />
             </span>
           </span>
         ) : (
-          <ChevronDown className={cn("size-3 text-slate-400 shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
+          <ChevronDown className={cn("size-3 text-texto-tenue shrink-0 transition-transform duration-200", isOpen && "rotate-180")} />
         )}
       </button>
 
@@ -1623,9 +1623,9 @@ const LocationFilterDropdown = ({
             transition={{ duration: 0.15 }}
             className="absolute left-0 top-full z-[200] mt-2 w-64 max-w-[min(16rem,calc(100vw-2rem))] rounded-2xl border border-slate-200/80 bg-white p-2 opacity-100 shadow-xl dark:border-slate-800/80 dark:bg-zinc-900 max-h-72 overflow-y-auto custom-scrollbar origin-top-left"
           >
-            <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-slate-500 border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
+            <div className="px-2 py-1.5 text-etiqueta font-black uppercase tracking-wider text-texto-tenue border-b border-slate-100 dark:border-slate-800/80 mb-1 flex items-center justify-between">
               <span>Ubicaciones</span>
-              <span className="text-[#8DA78E] font-bold">{locations.length} encontradas</span>
+              <span className="text-look-2-salvia-menta font-bold">{locations.length} encontradas</span>
             </div>
 
             {/* Opción: Todas las ubicaciones */}
@@ -1646,7 +1646,7 @@ const LocationFilterDropdown = ({
                 <Building2 className="size-3.5 opacity-80 shrink-0" />
                 <span>Todas las ubicaciones</span>
               </div>
-              <span className={cn("px-2 py-0.5 text-[10px] rounded-full font-extrabold", selectedLocation === "" ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-zinc-900 text-slate-500")}>
+              <span className={cn("px-2 py-0.5 text-etiqueta rounded-full font-extrabold", selectedLocation === "" ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-zinc-900 text-slate-500")}>
                 {totalProducts}
               </span>
             </button>
@@ -1674,7 +1674,7 @@ const LocationFilterDropdown = ({
                     <Box className="size-3.5 opacity-80 shrink-0" />
                     <span className="truncate">{ub}</span>
                   </div>
-                  <span className={cn("px-2 py-0.5 text-[10px] rounded-full font-extrabold shrink-0", isSelected ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-zinc-900 text-slate-500")}>
+                  <span className={cn("px-2 py-0.5 text-etiqueta rounded-full font-extrabold shrink-0", isSelected ? "bg-white/20 text-white" : "bg-slate-100 dark:bg-zinc-900 text-slate-500")}>
                     {count}
                   </span>
                 </button>
@@ -2351,16 +2351,15 @@ export function VerInventario() {
         <div className="flex items-center gap-3 min-w-0">
           <ModuleHeaderBackButton />
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               Módulo
             </p>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none mt-1 truncate">
+            <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight text-slate-900 dark:text-white leading-none mt-1 truncate">
               Inventario
             </h1>
           </div>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:items-center sm:justify-end sm:gap-3">
-          <InventarioSubnav />
           <SigetActionButton
             label={etiquetaBotonNuevo}
             accentColor={sigetAccent.crear}
@@ -2370,6 +2369,7 @@ export function VerInventario() {
             ariaLabel={`Nuevo ${etiquetaBotonNuevo.toLowerCase()}`}
             className="w-full sm:w-auto shrink-0"
           />
+          <InventarioSubnav />
         </div>
       </div>
 
@@ -2410,7 +2410,7 @@ export function VerInventario() {
       >
         <div className="flex flex-col gap-2">
           <div className="relative w-full">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
             <input
               type="text"
               placeholder={placeholderBusquedaInventario(vistaInventario)}
@@ -2746,7 +2746,7 @@ export function VerInventario() {
                           <tr key={`separator-${p.id}`} className="bg-[#C1D1C5]/20 dark:bg-zinc-800/40 pointer-events-none">
                             <td
                               colSpan={inventarioTableColumnCount}
-                              className="px-5 py-2 text-center text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]"
+                              className="px-5 py-2 text-center text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave"
                             >
                               — Stock Normal —
                             </td>
@@ -2826,7 +2826,7 @@ export function VerInventario() {
                               <td
                                 className={cn(
                                   inventarioTableBodyCellLeftClass,
-                                  "text-sm font-semibold text-slate-500 dark:text-slate-400 max-w-[130px]",
+                                  "text-sm font-semibold text-texto-tenue max-w-[130px]",
                                 )}
                               >
                                 <span className={inventarioTableCellTextoMultilineaClass}>
@@ -2836,7 +2836,7 @@ export function VerInventario() {
                               <td
                                 className={cn(
                                   inventarioTableBodyCellCenterClass,
-                                  "font-black text-[#8DA78E] dark:text-[#A3BEB0]",
+                                  "font-black text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                                 )}
                               >
                                 {fmtQ(p.precio_venta ?? p.precio_base)}
@@ -2866,7 +2866,7 @@ export function VerInventario() {
                                       {resaltarVencido ? " · Vencido" : ""}
                                     </span>
                                   ) : (
-                                    <span className="text-slate-400">—</span>
+                                    <span className="text-texto-tenue">—</span>
                                   )}
                                   {p.numero_lote ? (
                                     <span className="text-xs text-slate-500">Lote: {p.numero_lote}</span>
@@ -2900,7 +2900,7 @@ export function VerInventario() {
                                 "inline-flex px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
                                 p.activo
                                   ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                  : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400",
+                                  : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 ",
                               )}
                             >
                               {p.activo ? "Activo" : "Inactivo"}
@@ -2910,7 +2910,7 @@ export function VerInventario() {
                             <td
                               className={cn(
                                 inventarioTableBodyCellCenterClass,
-                                "font-black text-[#8DA78E] dark:text-[#A3BEB0]",
+                                "font-black text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                               )}
                             >
                               {fmtQ(p.precio_venta ?? p.precio_base)}

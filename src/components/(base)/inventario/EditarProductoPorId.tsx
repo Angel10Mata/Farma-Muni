@@ -31,7 +31,7 @@ export function EditarProductoPorId({ id }: { id: string }) {
     return (
       <div className="flex min-h-[50vh] w-full max-w-2xl flex-col items-center justify-center gap-3 mx-auto">
         <div className="size-8 animate-spin rounded-full border-b-2 border-zinc-400" />
-        <p className="text-sm text-muted-foreground">Cargando datos del producto...</p>
+        <p className="text-sm text-texto-tenue">Cargando datos del producto...</p>
       </div>
     );
   }

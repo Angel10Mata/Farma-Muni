@@ -159,10 +159,10 @@ export function VerKardex() {
           <div className="flex items-center gap-3 min-w-0">
             <ModuleHeaderBackButton />
             <div className="min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
+              <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                 Módulo
               </p>
-              <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none mt-1 truncate">
+              <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight text-slate-900 dark:text-white leading-none mt-1 truncate">
                 Kardex
               </h1>
             </div>
@@ -183,41 +183,10 @@ export function VerKardex() {
         </div>
       </div>
 
-      {productoId && data?.stockProductoActual != null ? (
-        <div
-          className={cn(
-            "rounded-xl border px-4 py-3 text-sm",
-            data.saldoCoincide === false
-              ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100"
-              : "border-[#C1D1C5]/50 bg-[#F5F5F1] text-slate-800 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100",
-          )}
-        >
-          <p>
-            Saldo actual del producto: <strong>{fmtNum(data.stockProductoActual)}</strong>
-            {data.ultimoSaldoProductoKardex != null ? (
-              <>
-                {" "}
-                · Último saldo en kardex:{" "}
-                <strong>{fmtNum(data.ultimoSaldoProductoKardex)}</strong>
-              </>
-            ) : null}
-          </p>
-          {data.saldoCoincide === false ? (
-            <p className="mt-1 text-xs font-semibold">
-              Los saldos no coinciden; revisa movimientos o sincronización de stock.
-            </p>
-          ) : data.saldoCoincide === true ? (
-            <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">
-              Coincide con el último movimiento del kardex.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-
       <section className={cn(moduleControlsShellClass, "p-3 md:p-4 space-y-3")}>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           <div className="relative md:col-span-2">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
             <input
               type="text"
               placeholder="Buscar producto por nombre o genérico..."
@@ -251,7 +220,7 @@ export function VerKardex() {
             {productoId ? (
               <button
                 type="button"
-                className="mt-1 text-[10px] font-bold text-[#2c5f9b] dark:text-[#6f9fd4]"
+                className="mt-1 text-etiqueta font-bold text-[#2c5f9b] dark:text-[#6f9fd4]"
                 onClick={() => {
                   setProductoId(undefined);
                   setBusquedaProducto("");
@@ -263,7 +232,7 @@ export function VerKardex() {
             ) : null}
           </div>
 
-          <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wide text-[#8DA78E]">
+          <label className="flex flex-col gap-1 text-etiqueta font-bold uppercase tracking-wide text-look-2-salvia-menta">
             Lote
             <select
               value={loteId ?? ""}
@@ -282,7 +251,7 @@ export function VerKardex() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wide text-[#8DA78E]">
+          <label className="flex flex-col gap-1 text-etiqueta font-bold uppercase tracking-wide text-look-2-salvia-menta">
             Tipo de movimiento
             <select
               value={tipo}
@@ -301,7 +270,7 @@ export function VerKardex() {
             </select>
           </label>
 
-          <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wide text-[#8DA78E]">
+          <label className="flex flex-col gap-1 text-etiqueta font-bold uppercase tracking-wide text-look-2-salvia-menta">
             Desde
             <input
               type="date"
@@ -315,7 +284,7 @@ export function VerKardex() {
             />
           </label>
 
-          <label className="flex flex-col gap-1 text-[10px] font-bold uppercase tracking-wide text-[#8DA78E]">
+          <label className="flex flex-col gap-1 text-etiqueta font-bold uppercase tracking-wide text-look-2-salvia-menta">
             Hasta
             <input
               type="date"
@@ -329,6 +298,39 @@ export function VerKardex() {
               className="rounded-xl border border-zinc-200 bg-white px-3 py-2 text-xs dark:border-zinc-700 dark:bg-zinc-900"
             />
           </label>
+
+          {productoId && data?.stockProductoActual != null ? (
+            <div
+              className={cn(
+                "flex min-h-[42px] flex-col justify-center rounded-xl border px-3 py-2 text-sm md:col-span-2 xl:col-span-2",
+                data.saldoCoincide === false
+                  ? "border-rose-300 bg-rose-50 text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100"
+                  : "border-[#C1D1C5]/50 bg-[#F5F5F1] text-slate-800 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100",
+              )}
+            >
+              <p className="leading-snug">
+                Saldo actual del producto:{" "}
+                <strong>{fmtNum(data.stockProductoActual)}</strong>
+                {data.ultimoSaldoProductoKardex != null ? (
+                  <>
+                    {" "}
+                    · Último saldo en kardex:{" "}
+                    <strong>{fmtNum(data.ultimoSaldoProductoKardex)}</strong>
+                  </>
+                ) : null}
+              </p>
+              {data.saldoCoincide === false ? (
+                <p className="mt-0.5 text-xs font-semibold leading-snug">
+                  Los saldos no coinciden; revisa movimientos o sincronización de
+                  stock.
+                </p>
+              ) : data.saldoCoincide === true ? (
+                <p className="mt-0.5 text-xs leading-snug text-emerald-700 dark:text-emerald-400">
+                  Coincide con el último movimiento del kardex.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -382,14 +384,14 @@ export function VerKardex() {
                             {f.producto_nombre_generico || f.producto_nombre}
                           </span>
                           {f.producto_concentracion ? (
-                            <span className="block text-[10px] text-slate-500">
+                            <span className="block text-etiqueta text-slate-500">
                               {f.producto_concentracion}
                             </span>
                           ) : null}
                         </td>
                         <td className={moduleTableCellClass}>
                           {f.lote_numero ?? "—"}
-                          <span className="block text-[10px] text-slate-500">
+                          <span className="block text-etiqueta text-slate-500">
                             {etiquetaLaboratorioComercial(f.lote_laboratorio)}
                           </span>
                         </td>

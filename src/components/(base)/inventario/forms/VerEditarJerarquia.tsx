@@ -183,8 +183,8 @@ export function EditarJerarquia({
                 type="button"
                 onClick={() => setWizardStep(stepNum)}
                 className={cn(
-                  "rounded-lg px-2 py-1.5 text-[10px] font-bold uppercase",
-                  activo ? modalAccentClass : "text-muted-foreground",
+                  "rounded-lg px-2 py-1.5 text-etiqueta font-bold uppercase",
+                  activo ? modalAccentClass : "text-texto-tenue",
                 )}
               >
                 {meta.titulo}

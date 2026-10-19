@@ -142,7 +142,7 @@ export function ProductoBusquedaAutocomplete({
       {listaModo === "dropdown" &&
       texto.length > 0 &&
       texto.length < MIN_CARACTERES_BUSQUEDA_PRODUCTO ? (
-        <p className="text-[10px] text-zinc-500">
+        <p className="text-etiqueta text-zinc-500">
           Escribe al menos {MIN_CARACTERES_BUSQUEDA_PRODUCTO} letras para ver sugerencias.
         </p>
       ) : null}
@@ -210,7 +210,7 @@ function ListaSugerenciasProducto({
     <div id={listId} role="listbox" className={className}>
       <p
         className={cn(
-          "shrink-0 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-zinc-500",
+          "shrink-0 px-3 py-2 text-etiqueta font-bold uppercase tracking-wide text-zinc-500",
           enPanel && "border-b border-zinc-200/80 dark:border-zinc-700",
         )}
       >
