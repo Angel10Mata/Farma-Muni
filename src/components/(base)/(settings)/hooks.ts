@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getAppSettings, updateAppSettings } from "./actions";
-import { AppSettingsUpdate } from "./zod";
+import { getAppSettings, getMargenesPrecio, updateAppSettings } from "./actions";
+import { AppSettingsUpdate, type MargenesPrecio } from "./zod";
 
 // Consultas
 export const useAppSettings = () => {
@@ -14,6 +14,14 @@ export const useAppSettings = () => {
   });
 };
 
+export function useMargenesPrecio() {
+  return useQuery<MargenesPrecio, Error>({
+    queryKey: ["margenesPrecio"],
+    queryFn: () => getMargenesPrecio(),
+    staleTime: 1000 * 60 * 5,
+  });
+}
+
 // Mutaciones
 export const useUpdateAppSettings = () => {
   const queryClient = useQueryClient();
@@ -24,6 +32,7 @@ export const useUpdateAppSettings = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["appSettings"] });
+      queryClient.invalidateQueries({ queryKey: ["margenesPrecio"] });
     },
   });
 };

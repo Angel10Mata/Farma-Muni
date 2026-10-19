@@ -49,6 +49,7 @@ import {
   listarLaboratorios,
   listarLaboratoriosPorProveedor,
   obtenerComercial,
+  obtenerCostosComercial,
 } from "./jerarquia-actions";
 import type {
   CatalogoInput,
@@ -58,6 +59,8 @@ import type {
   LaboratorioInput,
 } from "./jerarquia-zod";
 import { demoKardexMovimientos } from "@/lib/demo/fixtures";
+import { demoInvCostosComercial } from "@/lib/demo/inv-costos";
+import type { InvCostosComercial } from "@/lib/precios";
 import {
   type AjustarConteoInput,
   type BajaLoteInput,
@@ -735,5 +738,25 @@ export function useActivarProducto() {
     onError: (error: Error) => {
       toast.error(error.message);
     },
+  });
+}
+
+export function useCostosComercial(productoId: string | null) {
+  const { isDemoMode } = useDemoMode();
+  return useQuery<InvCostosComercial | null, Error>({
+    queryKey: demoQueryKey(["inv-costos-comercial", productoId], isDemoMode),
+    queryFn: () =>
+      resolveDemoData(
+        isDemoMode,
+        async () => {
+          if (!productoId) return null;
+          const res = await obtenerCostosComercial(productoId);
+          if (!("success" in res) || !res.success) throw new Error(res.code);
+          return res.data;
+        },
+        productoId ? demoInvCostosComercial(productoId) : null,
+      ),
+    enabled: Boolean(productoId),
+    staleTime: 1000 * 60,
   });
 }

@@ -18,10 +18,14 @@ import {
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { cn } from "@/lib/utils";
 import {
+  useCostosComercial,
   useGuardarComercialInventario,
   useGuardarGenericoInventario,
   useLaboratoriosInventario,
 } from "../lib/hooks";
+import { useMargenesPrecio } from "@/components/(base)/(settings)/hooks";
+import { precioBajoCostoPromedio, precioBajoMargenMinimo, precioMinimoMargen } from "@/lib/precios";
+import { fmtQ } from "@/lib/utils";
 import { laboratoriosParaSeleccionComercial } from "../lib/helpers";
 import { CrearLaboratorio } from "./CrearLaboratorio";
 import {
@@ -66,6 +70,10 @@ export function EditarJerarquia({
   const { mutateAsync: guardarGenerico, isPending: guardandoGenerico } =
     useGuardarGenericoInventario();
   const { data: laboratorios = [] } = useLaboratoriosInventario();
+  const { data: costos } = useCostosComercial(producto.id);
+  const { data: margenes } = useMargenesPrecio();
+  const margenMinimo = margenes?.margen_minimo_pct ?? 10;
+  const cpp = costos?.costo_promedio ?? null;
 
   const laboratoriosSelect = laboratoriosParaSeleccionComercial(laboratorios);
 
@@ -85,6 +93,15 @@ export function EditarJerarquia({
     if (!nombreComercial.trim() || !presentacion.trim() || Number.isNaN(precio)) {
       toast.warn("Completa nombre, presentación y precio.");
       return false;
+    }
+    if (cpp != null && cpp > 0 && precioBajoCostoPromedio(precio, cpp)) {
+      toast.error(`Venderías con pérdida: el precio no puede ser menor que ${fmtQ(cpp)} (costo promedio).`);
+      return false;
+    }
+    if (cpp != null && cpp > 0 && precioBajoMargenMinimo(precio, cpp, margenMinimo)) {
+      toast.warn(
+        `Margen bajo el mínimo (${margenMinimo}%). Se recomienda al menos ${fmtQ(precioMinimoMargen(cpp, margenMinimo))}.`,
+      );
     }
     await guardarComercial({
       id: producto.id,

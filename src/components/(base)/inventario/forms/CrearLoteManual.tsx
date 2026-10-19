@@ -46,6 +46,7 @@ export function CrearLoteManual({
   const [numeroLote, setNumeroLote] = useState("");
   const [cantidadLote, setCantidadLote] = useState("");
   const [precioCostoLote, setPrecioCostoLote] = useState("");
+  const [precioVentaLote, setPrecioVentaLote] = useState("");
   const [fechaVencimientoLote, setFechaVencimientoLote] = useState("");
   const [ubicacionLote, setUbicacionLote] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -64,8 +65,10 @@ export function CrearLoteManual({
     setFieldErrors({});
     const precio = producto.precio_base > 0 ? producto.precio_base : 0;
     if (precio > 0) {
+      setPrecioVentaLote(String(precio));
       setPrecioCostoLote(String(Math.round(precio * 0.65 * 100) / 100));
     } else {
+      setPrecioVentaLote("");
       setPrecioCostoLote("");
     }
   }, [open, producto.id, producto.precio_base]);
@@ -88,6 +91,7 @@ export function CrearLoteManual({
       numero_lote: numeroLote.trim(),
       cantidad: parseFloat(cantidadLote),
       precio_costo: parseFloat(precioCostoLote),
+      precio_venta: parseFloat(precioVentaLote),
       fecha_vencimiento: fechaIso ?? "",
       ubicacion: ubicacionLote.trim() || null,
     });
@@ -119,6 +123,7 @@ export function CrearLoteManual({
         numero_lote: parsed.data.numero_lote,
         cantidad: parsed.data.cantidad,
         precio_costo: parsed.data.precio_costo,
+        precio_venta: parsed.data.precio_venta,
         fecha_vencimiento: fechaIso,
         ubicacion: parsed.data.ubicacion,
       });
@@ -215,24 +220,39 @@ export function CrearLoteManual({
               </ModalField>
             </div>
 
-            <ModalField>
-              <ModalLabel htmlFor="lote-manual-costo">Costo unitario *</ModalLabel>
-              <ModalInput
-                id="lote-manual-costo"
-                type="number"
-                step="0.01"
-                min="0"
-                value={precioCostoLote}
-                onChange={(e) => setPrecioCostoLote(e.target.value)}
-                required
-              />
-              {fieldErrors.precio_costo ? (
-                <p className="text-xs font-bold text-red-500">{fieldErrors.precio_costo}</p>
-              ) : null}
-              <p className="text-[11px] text-zinc-500">
-                El precio de venta se toma del producto comercial ({producto.precio_base}).
-              </p>
-            </ModalField>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <ModalField>
+                <ModalLabel htmlFor="lote-manual-costo">Costo unitario *</ModalLabel>
+                <ModalInput
+                  id="lote-manual-costo"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={precioCostoLote}
+                  onChange={(e) => setPrecioCostoLote(e.target.value)}
+                  required
+                />
+                {fieldErrors.precio_costo ? (
+                  <p className="text-xs font-bold text-red-500">{fieldErrors.precio_costo}</p>
+                ) : null}
+              </ModalField>
+
+              <ModalField>
+                <ModalLabel htmlFor="lote-manual-precio">Precio de venta *</ModalLabel>
+                <ModalInput
+                  id="lote-manual-precio"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={precioVentaLote}
+                  onChange={(e) => setPrecioVentaLote(e.target.value)}
+                  required
+                />
+                {fieldErrors.precio_venta ? (
+                  <p className="text-xs font-bold text-red-500">{fieldErrors.precio_venta}</p>
+                ) : null}
+              </ModalField>
+            </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <ModalField>

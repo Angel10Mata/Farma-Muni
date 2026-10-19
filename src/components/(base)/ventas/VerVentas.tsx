@@ -303,6 +303,7 @@ function VerVentasInner({
           numero_lote: d.inv_lotes?.numero_lote ?? null,
           stock_lote: d.cantidad,
           precio_costo_lote: Number(d.inv_lotes?.precio_costo) || 0,
+          costo_promedio: comercial.costo_promedio ?? null,
           precio_venta_referencia: precioRef,
           laboratorio_nombre: comercial.laboratorio_nombre,
           cantidad: d.cantidad,

@@ -91,13 +91,19 @@ export function precioMenorQueCosto(
   return precioAplicado < costo - PRECIO_EPSILON;
 }
 
+export function costoReferenciaVentaItem(item: ItemCarrito): number {
+  const cpp = item.costo_promedio ?? item.comercial.costo_promedio;
+  if (cpp != null && cpp > 0) return cpp;
+  return costoUnitarioProducto(item.precio_costo_lote);
+}
+
 export function mensajePrecioBajoCosto(nombre: string, costo: number): string {
-  return `El precio de "${nombre}" no puede ser menor al costo (Q${costo.toFixed(2)}).`;
+  return `El precio de "${nombre}" no puede ser menor al costo promedio (Q${costo.toFixed(2)}).`;
 }
 
 export function validarCarritoPrecioCosto(carrito: ItemCarrito[]): string | null {
   for (const item of carrito) {
-    const costo = costoUnitarioProducto(item.precio_costo_lote);
+    const costo = costoReferenciaVentaItem(item);
     if (precioMenorQueCosto(item.precio_aplicado, costo)) {
       return mensajePrecioBajoCosto(item.comercial.nombre_comercial, costo);
     }

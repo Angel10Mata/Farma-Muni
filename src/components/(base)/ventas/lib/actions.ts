@@ -41,7 +41,7 @@ import {
   construirReporteCorteCaja,
   type ReporteCorteCaja,
 } from "./reporte-corte-caja";
-import { ajustarStockPorVenta, obtenerCostoProductoOLote } from "./lotes-stock";
+import { ajustarStockPorVenta, obtenerCostoReferenciaVenta } from "./lotes-stock";
 import {
   asignarCantidadFefo,
   filtrarLotesVendiblesFefo,
@@ -86,6 +86,7 @@ function mapFilaComercialVenta(row: Record<string, unknown>): ComercialVenta {
     stock_vendible: Number(row.stock_vendible) || 0,
     imagen_url: (row.imagen_url as string | null) ?? null,
     activo: Boolean(row.activo),
+    costo_promedio: null,
   };
 }
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -111,7 +112,7 @@ function mensajeErrorRegistrarVenta(message: string): string {
     return "La rebaja de precio no está autorizada o la solicitud ya no es válida. Solicita aprobación de nuevo.";
   }
   if (message.includes("PRECIO_MENOR_COSTO")) {
-    return "Hay un precio por debajo del costo del lote. Solo un administrador puede autorizar esta venta.";
+    return "Hay un precio por debajo del costo promedio. Solo un administrador puede autorizar esta venta.";
   }
   if (message.includes("CREDITO_VENCIDO:")) {
     const raw = message.split("CREDITO_VENCIDO:")[1]?.trim() ?? "";
@@ -239,9 +240,30 @@ export async function obtenerProductosYClientes() {
     const genericos = (genericosRaw ?? []).map((row) =>
       mapFilaGenericoVenta(row as Record<string, unknown>),
     );
-    const comerciales = (comercialesRaw ?? []).map((row) =>
+    const comercialesBase = (comercialesRaw ?? []).map((row) =>
       mapFilaComercialVenta(row as Record<string, unknown>),
     );
+
+    const productoIds = comercialesBase.map((c) => c.producto_id);
+    const costoMap = new Map<string, number | null>();
+    if (productoIds.length > 0) {
+      const { data: costosRaw } = await supabase
+        .from("v_inv_costos")
+        .select("producto_id, costo_promedio")
+        .in("producto_id", productoIds);
+      for (const row of costosRaw ?? []) {
+        const pid = String(row.producto_id);
+        costoMap.set(
+          pid,
+          row.costo_promedio != null ? Number(row.costo_promedio) : null,
+        );
+      }
+    }
+
+    const comerciales = comercialesBase.map((c) => ({
+      ...c,
+      costo_promedio: costoMap.get(c.producto_id) ?? null,
+    }));
 
     const { data: clientes, error: cliError } = await supabase
       .from("ven_clientes")
@@ -309,10 +331,21 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
       return { success: false as const, error: "No se encontró el producto comercial del lote." };
     }
 
-    const comercial = mapFilaComercialVenta(comercialRow as Record<string, unknown>);
+    let comercial = mapFilaComercialVenta(comercialRow as Record<string, unknown>);
     if (!comercial.activo || comercial.stock_vendible <= 0) {
       return { success: false as const, error: "El comercial no tiene stock vendible." };
     }
+
+    const { data: costoRow } = await supabase
+      .from("v_inv_costos")
+      .select("costo_promedio")
+      .eq("producto_id", productoId)
+      .maybeSingle();
+    comercial = {
+      ...comercial,
+      costo_promedio:
+        costoRow?.costo_promedio != null ? Number(costoRow.costo_promedio) : null,
+    };
 
     const { data: genericoRow, error: genericoError } = await supabase
       .from("v_inv_genericos")
@@ -486,34 +519,6 @@ async function registrarBitacoraVenta(
       );
     }
     throw new Error(`No se pudo registrar la bitácora: ${msg}`);
-  }
-}
-
-async function assertPreciosNoMenoresAlCosto(
-  supabase: SupabaseClient,
-  items: ItemVentaInput[],
-) {
-  for (const item of items) {
-    const { data: prod } = await supabase
-      .from("inv_productos")
-      .select("nombre")
-      .eq("id", item.producto_id)
-      .maybeSingle();
-
-    if (!prod) {
-      throw new Error(`Producto con ID ${item.producto_id} no encontrado.`);
-    }
-
-    const costo = await obtenerCostoProductoOLote(
-      supabase,
-      item.producto_id,
-      item.lote_id,
-    );
-    if (precioMenorQueCosto(item.precio_aplicado, costo)) {
-      throw new Error(
-        `El precio de "${prod.nombre}" no puede ser menor al costo (Q${costo.toFixed(2)}).`,
-      );
-    }
   }
 }
 
@@ -1944,7 +1949,7 @@ export async function crearSolicitudRebaja(payload: unknown) {
         .select("nombre")
         .eq("id", item.producto_id)
         .maybeSingle();
-      const costo = await obtenerCostoProductoOLote(
+      const costo = await obtenerCostoReferenciaVenta(
         supabaseRead,
         item.producto_id,
         item.lote_id,
@@ -1952,7 +1957,7 @@ export async function crearSolicitudRebaja(payload: unknown) {
       if (precioMenorQueCosto(item.precio_aplicado, costo)) {
         return {
           success: false as const,
-          error: `El precio de "${prod?.nombre ?? "producto"}" no puede ser menor al costo (Q${costo.toFixed(2)}).`,
+          error: `El precio de "${prod?.nombre ?? "producto"}" no puede ser menor al costo promedio (Q${costo.toFixed(2)}).`,
         };
       }
     }

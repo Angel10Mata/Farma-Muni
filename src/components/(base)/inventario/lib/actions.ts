@@ -418,6 +418,15 @@ export async function crearLoteManual(input: unknown) {
 
     if (error) return await mapLoteDbError(supabase, error, parsed.data.codigo_barras);
 
+    const { error: precioError } = await supabase
+      .from("inv_productos")
+      .update({ precio_base: parsed.data.precio_venta })
+      .eq("id", parsed.data.producto_id);
+
+    if (precioError) {
+      return { code: "INTERNAL" as const, detail: "No se pudo actualizar el precio de venta del producto." };
+    }
+
     try {
       await activarProductoCatalogoPorNuevoLote(supabase, parsed.data.producto_id);
     } catch (syncErr) {

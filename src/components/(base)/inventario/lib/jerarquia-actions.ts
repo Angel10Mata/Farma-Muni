@@ -903,3 +903,59 @@ export async function guardarComercial(id: string | undefined, input: ComercialI
     return { code: "INTERNAL" as const };
   }
 }
+
+const V_INV_COSTOS_SELECT =
+  "producto_id, existencia_vendible, costo_promedio, costo_minimo, costo_maximo, precio_venta, margen_actual_pct";
+
+export async function obtenerCostosComercial(productoId: string) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { code: "UNAUTHORIZED" as const };
+
+    const id = productoId.trim();
+    if (!id) return { code: "VALIDATION" as const };
+
+    const { data, error } = await supabase
+      .from("v_inv_costos")
+      .select(V_INV_COSTOS_SELECT)
+      .eq("producto_id", id)
+      .maybeSingle();
+
+    if (error) return { code: "INTERNAL" as const, detail: error.message };
+
+    if (!data) {
+      return {
+        success: true as const,
+        data: {
+          producto_id: id,
+          existencia_vendible: 0,
+          costo_promedio: null,
+          costo_minimo: null,
+          costo_maximo: null,
+          precio_venta: 0,
+          margen_actual_pct: null,
+        },
+      };
+    }
+
+    return {
+      success: true as const,
+      data: {
+        producto_id: String(data.producto_id),
+        existencia_vendible: Number(data.existencia_vendible) || 0,
+        costo_promedio:
+          data.costo_promedio != null ? Number(data.costo_promedio) : null,
+        costo_minimo: data.costo_minimo != null ? Number(data.costo_minimo) : null,
+        costo_maximo: data.costo_maximo != null ? Number(data.costo_maximo) : null,
+        precio_venta: Number(data.precio_venta) || 0,
+        margen_actual_pct:
+          data.margen_actual_pct != null ? Number(data.margen_actual_pct) : null,
+      },
+    };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}

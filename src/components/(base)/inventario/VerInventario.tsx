@@ -51,8 +51,10 @@ import {
   useCatalogosResumenInventario,
   useGenericosInventario,
   useComercialesInventario,
+  useCostosComercial,
   useLaboratoriosInventario,
 } from "./lib/hooks";
+import { useMargenesPrecio } from "@/components/(base)/(settings)/hooks";
 import type { InventarioJerarquiaFiltros } from "./lib/jerarquia-zod";
 import {
   filasDesdeCatalogos,
@@ -611,7 +613,16 @@ function ProductoDetalle({
   onEditClick: () => void;
   puedeEditar: boolean;
 }) {
+  const { data: costos } = useCostosComercial(producto.id);
+  const { data: margenes } = useMargenesPrecio();
+  const margenMinimoCfg = margenes?.margen_minimo_pct ?? 10;
   const isLowStock = producto.stock_actual <= producto.stock_minimo;
+  const cpp = costos?.costo_promedio ?? null;
+  const precioVenta = costos?.precio_venta ?? producto.precio_base;
+  const margenActual = costos?.margen_actual_pct;
+  const bajoMargen =
+    margenActual != null && margenActual < margenMinimoCfg - 0.01;
+  const bajoCpp = cpp != null && cpp > 0 && precioVenta < cpp - 0.001;
   const detalleLabelClass =
     "text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70";
   const detalleFieldClass =
@@ -703,11 +714,52 @@ function ProductoDetalle({
                 </div>
                 <div className={detalleMetricClass}>
                   <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
-                    P. sugerido
+                    Precio venta
                   </span>
                   <span className="text-base font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
-                    {fmtQ(producto.precio_base)}
+                    {fmtQ(precioVenta)}
                   </span>
+                </div>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className={detalleMetricClass}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                    Costo promedio
+                  </span>
+                  <span className="text-sm font-black tabular-nums text-slate-800 dark:text-slate-100">
+                    {cpp != null ? fmtQ(cpp) : "—"}
+                  </span>
+                </div>
+                <div className={detalleMetricClass}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                    Rango costos
+                  </span>
+                  <span className="text-sm font-bold tabular-nums text-slate-700 dark:text-slate-200">
+                    {costos?.costo_minimo != null && costos?.costo_maximo != null
+                      ? `${fmtQ(costos.costo_minimo)} – ${fmtQ(costos.costo_maximo)}`
+                      : "—"}
+                  </span>
+                </div>
+                <div className={detalleMetricClass}>
+                  <span className="text-[10px] font-bold uppercase tracking-wide text-[#525D53] dark:text-[#A3BEB0]/80">
+                    Margen actual
+                  </span>
+                  <span className="text-sm font-black tabular-nums text-slate-800 dark:text-slate-100">
+                    {margenActual != null ? `${margenActual.toFixed(1)}%` : "—"}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
+                  {bajoMargen ? (
+                    <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-black uppercase text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                      Margen bajo
+                    </span>
+                  ) : null}
+                  {bajoCpp ? (
+                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black uppercase text-red-700 dark:bg-red-950/50 dark:text-red-300">
+                      Bajo costo promedio
+                    </span>
+                  ) : null}
                 </div>
               </div>
 

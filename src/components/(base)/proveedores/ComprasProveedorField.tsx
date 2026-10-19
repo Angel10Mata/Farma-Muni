@@ -62,6 +62,8 @@ export function ComprasProveedorField({
     context.setCantSeleccionada(1);
   };
 
+  const nitProveedorSeleccionado = context.proveedorSeleccionado?.nit?.trim() || null;
+
   const elegirProveedor = (p: Proveedor) => {
     if (
       context.proveedorSeleccionado?.id !== p.id &&
@@ -91,6 +93,11 @@ export function ComprasProveedorField({
         <input
           type="text"
           value={context.proveedorBusqueda}
+          title={
+            nitProveedorSeleccionado
+              ? `NIT: ${nitProveedorSeleccionado}`
+              : undefined
+          }
           onChange={(e) => {
             const val = e.target.value;
             context.setProveedorBusqueda(val);
@@ -109,12 +116,21 @@ export function ComprasProveedorField({
           onFocus={() => context.setMostrarSugerenciasProv(true)}
           placeholder="Escribe nombre o NIT del proveedor..."
           className={cn(
-            "w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors",
+            "w-full pl-9 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors",
+            nitProveedorSeleccionado ? "pr-[7.5rem] sm:pr-32" : "pr-4",
             context.proveedorSeleccionado
               ? "border-[#8DA78E] dark:border-[#A3BEB0]/60"
               : "border-slate-200 dark:border-slate-800",
           )}
         />
+        {nitProveedorSeleccionado ? (
+          <span
+            className="pointer-events-none absolute right-3 top-1/2 max-w-[42%] -translate-y-1/2 truncate text-right text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400"
+            aria-hidden
+          >
+            NIT: {nitProveedorSeleccionado}
+          </span>
+        ) : null}
         </div>
         <div className="flex gap-2 shrink-0 sm:items-center">
           <SigetActionButton
@@ -137,12 +153,6 @@ export function ComprasProveedorField({
           />
         </div>
       </div>
-      {context.proveedorSeleccionado?.nit ? (
-        <p className="mt-1 text-[10px] text-slate-500 dark:text-slate-400">
-          NIT: {context.proveedorSeleccionado.nit}
-        </p>
-      ) : null}
-
       <AnimatePresence>
         {context.mostrarSugerenciasProv && sugerencias.length > 0 && (
           <motion.div

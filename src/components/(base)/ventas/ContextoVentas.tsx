@@ -450,6 +450,7 @@ export function VentasProvider({
             numero_lote: a.numero_lote,
             stock_lote: a.stock_lote,
             precio_costo_lote: a.precio_costo,
+            costo_promedio: comercial.costo_promedio ?? null,
             precio_venta_referencia: comercial.precio_venta,
             laboratorio_nombre: comercial.laboratorio_nombre ?? undefined,
             cantidad: a.cantidad,

@@ -182,6 +182,7 @@ export const crearLoteManualSchema = z.object({
   numero_lote: z.string().trim().min(1, "El número de lote es requerido"),
   cantidad: z.number().positive("La cantidad debe ser mayor a 0"),
   precio_costo: z.number().nonnegative("El costo debe ser un número válido"),
+  precio_venta: z.number().positive("Indica un precio de venta válido"),
   fecha_vencimiento: z.string().trim().min(1, "La fecha de vencimiento es requerida"),
   ubicacion: z.string().trim().optional().nullable(),
 });

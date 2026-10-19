@@ -634,6 +634,7 @@ export function demoProductosPos() {
       stock_vendible: c.stock_vendible,
       imagen_url: c.imagen_url,
       activo: c.activo,
+      costo_promedio: null as number | null,
     }),
   );
 

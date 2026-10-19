@@ -24,6 +24,7 @@ export const ComercialVentaSchema = z.object({
   stock_vendible: z.number(),
   imagen_url: z.string().nullable().optional(),
   activo: z.boolean(),
+  costo_promedio: z.number().nullable().optional(),
 });
 
 export const ClienteSchema = z.object({
@@ -43,6 +44,7 @@ export const ItemCarritoSchema = z.object({
   codigo_barras_lote: z.string().optional(),
   stock_lote: z.number().optional(),
   precio_costo_lote: z.number().optional(),
+  costo_promedio: z.number().nullable().optional(),
   precio_venta_referencia: z.number(),
   laboratorio_nombre: z.string().nullable().optional(),
   cantidad: z.number(),

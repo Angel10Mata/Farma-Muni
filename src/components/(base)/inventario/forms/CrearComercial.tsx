@@ -41,7 +41,6 @@ export function CrearComercial({
   const [laboratorioId, setLaboratorioId] = useState("");
   const [nombreComercial, setNombreComercial] = useState("");
   const [presentacion, setPresentacion] = useState("");
-  const [precioVenta, setPrecioVenta] = useState("");
   const [modalLab, setModalLab] = useState(false);
 
   const { data: genericos = [] } = useGenericosInventario();
@@ -57,7 +56,6 @@ export function CrearComercial({
     setLaboratorioId("");
     setNombreComercial("");
     setPresentacion("");
-    setPrecioVenta("");
     onClose();
   };
 
@@ -70,11 +68,6 @@ export function CrearComercial({
       toast.warn("Indica nombre comercial y presentación.");
       return;
     }
-    const precio = parseFloat(precioVenta);
-    if (Number.isNaN(precio) || precio < 0) {
-      toast.warn("Indica un precio de venta válido.");
-      return;
-    }
     try {
       await guardarComercial({
         data: {
@@ -82,7 +75,7 @@ export function CrearComercial({
           laboratorio_id: laboratorioId ? laboratorioId : null,
           nombre_comercial: nombreComercial.trim(),
           presentacion: presentacion.trim(),
-          precio_venta: precio,
+          precio_venta: 0,
           activo: true,
         },
       });
@@ -175,17 +168,6 @@ export function CrearComercial({
               id="com-pres"
               value={presentacion}
               onChange={(e) => setPresentacion(e.target.value)}
-            />
-          </ModalField>
-          <ModalField>
-            <ModalLabel htmlFor="com-precio">Precio de venta *</ModalLabel>
-            <ModalInput
-              id="com-precio"
-              type="number"
-              min="0"
-              step="0.01"
-              value={precioVenta}
-              onChange={(e) => setPrecioVenta(e.target.value)}
             />
           </ModalField>
           <ModalFooter className="justify-between gap-2">

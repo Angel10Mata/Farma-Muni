@@ -16,6 +16,7 @@ import {
   demoQueryKey,
   resolveDemoData,
 } from "@/lib/demo/helpers";
+import { demoInvCostosComercial } from "@/lib/demo/inv-costos";
 import {
   obtenerHistorialVentas,
   obtenerDetalleVenta,
@@ -40,7 +41,16 @@ export function useDatosVentas() {
       resolveDemoData(
         isDemoMode,
         () => obtenerProductosYClientes(),
-        demoProductosPos,
+        () => {
+          const base = demoProductosPos();
+          return {
+            ...base,
+            comerciales: base.comerciales.map((c) => ({
+              ...c,
+              costo_promedio: demoInvCostosComercial(c.producto_id)?.costo_promedio ?? null,
+            })),
+          };
+        },
       ),
     staleTime: 1000 * 60 * 5,
   });

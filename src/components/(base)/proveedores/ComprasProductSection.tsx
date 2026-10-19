@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useRef, useEffect, useState } from "react";
+import { useMemo, useRef, useEffect, useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Minus, Trash2, Receipt, Plus as PlusIcon } from "lucide-react";
-import { Plus, CirclePlus } from "lucide";
+import { Plus, CirclePlus, Info, CircleHelp } from "lucide";
 import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
-import { ModalFechaInput } from "@/components/ui/general-modal";
+import {
+  ModalCancelButton,
+  ModalFechaInput,
+  ModalFooter,
+  ModalShell,
+} from "@/components/ui/general-modal";
 import { useCompras } from "./ComprasContext";
 import { ComercialCompra, Proveedor } from "./lib/zod";
 import { fmtQ } from "@/lib/utils";
@@ -26,9 +31,19 @@ import {
   lineaGenericaCompraDisplay,
 } from "./lib/compras-helpers";
 import {
+  useCostosComercial,
   useLaboratoriosInventario,
   useLaboratoriosPorProveedor,
 } from "@/components/(base)/inventario/lib/hooks";
+import { useMargenesPrecio } from "@/components/(base)/(settings)/hooks";
+import {
+  cppNuevoTrasCompra,
+  margenPct,
+  precioBajoCostoPromedio,
+  precioBajoMargenMinimo,
+  precioMinimoMargen,
+  precioSugerido,
+} from "@/lib/precios";
 import { CrearLaboratorio } from "@/components/(base)/inventario/forms/CrearLaboratorio";
 import { ComprasProveedorField } from "./ComprasProveedorField";
 import { cn } from "@/lib/utils";
@@ -36,6 +51,34 @@ import { cn } from "@/lib/utils";
 interface ComprasProductSectionProps {
   comerciales: ComercialCompra[];
   proveedores: Proveedor[];
+}
+
+function compraMonedaDisplay(val: number | ""): string {
+  if (val === "") return "0.00";
+  const n = Number(val);
+  if (Number.isNaN(n)) return "0.00";
+  return n.toFixed(2);
+}
+
+function parseCompraMonedaInput(raw: string): number | "" {
+  const cleaned = raw.trim().replace(/,/g, "");
+  if (cleaned === "" || cleaned === ".") return "";
+  const n = parseFloat(cleaned);
+  if (Number.isNaN(n) || n < 0) return "";
+  return Math.round(n * 100) / 100;
+}
+
+function sincronizarCompraMonedaDesdeTexto(
+  raw: string,
+  setValor: (val: number | "") => void,
+) {
+  const cleaned = raw.trim().replace(/,/g, "");
+  if (cleaned === "" || cleaned === ".") {
+    setValor("");
+    return;
+  }
+  if (cleaned.endsWith(".")) return;
+  setValor(parseCompraMonedaInput(raw));
 }
 
 function etiquetaEstadoComercial(c: ComercialCompra) {
@@ -99,7 +142,15 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
   const codigoBarrasRef = useRef<HTMLInputElement>(null);
   const [modalComercialOpen, setModalComercialOpen] = useState(false);
   const [modalLabOpen, setModalLabOpen] = useState(false);
+  const [modalDetalleComercialOpen, setModalDetalleComercialOpen] = useState(false);
+  const [costoMonedaTexto, setCostoMonedaTexto] = useState<string | null>(null);
+  const [precioMonedaTexto, setPrecioMonedaTexto] = useState<string | null>(null);
   const [verificandoBarras, setVerificandoBarras] = useState(false);
+  const precioEditadoManualRef = useRef(false);
+  const { data: margenes } = useMargenesPrecio();
+  const margenGanancia = margenes?.margen_ganancia_pct ?? 30;
+  const margenMinimo = margenes?.margen_minimo_pct ?? 10;
+  const { data: costosComercial } = useCostosComercial(context.comercialSeleccionado?.id ?? null);
   const { data: laboratorios = [] } = useLaboratoriosInventario();
   const proveedorCompra = context.proveedorSeleccionado;
   const { data: laboratoriosDelProveedor = [] } = useLaboratoriosPorProveedor(
@@ -206,16 +257,90 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [context]);
 
+  const lineasCarritoMismaMarca = useCallback(
+    (productoId: string) =>
+      context.carrito
+        .filter((i) => i.comercial.id === productoId)
+        .map((i) => ({ cantidad: i.cantidad, precio_costo: i.precio_costo })),
+    [context.carrito],
+  );
+
+  const calcularEscenarioPrecio = useCallback(
+    (comercial: ComercialCompra, cantidad: number, costoUnit: number) => {
+      const precioActual = comercial.precio_venta;
+      const existencia = costosComercial?.existencia_vendible ?? 0;
+      const cppActual = costosComercial?.costo_promedio ?? null;
+      const lineasCarrito = lineasCarritoMismaMarca(comercial.id);
+      const cppNuevo =
+        cantidad > 0 && costoUnit > 0
+          ? cppNuevoTrasCompra({
+              existenciaVendible: existencia,
+              costoPromedio: cppActual,
+              lineasCarrito,
+              cantidadLinea: cantidad,
+              costoLinea: costoUnit,
+            })
+          : cppActual ?? 0;
+      const sugerido =
+        cppNuevo > 0 ? precioSugerido(cppNuevo, margenGanancia) : precioActual;
+      const subirSugerido = sugerido > precioActual + 0.001;
+      return {
+        precioActual,
+        cppActual,
+        cppNuevo,
+        sugerido,
+        subirSugerido,
+        margenActual:
+          cppActual != null && cppActual > 0 ? margenPct(precioActual, cppActual) : null,
+        margenNuevo: cppNuevo > 0 ? margenPct(sugerido, cppNuevo) : null,
+        precioMinimo: cppNuevo > 0 ? precioMinimoMargen(cppNuevo, margenMinimo) : 0,
+      };
+    },
+    [costosComercial, lineasCarritoMismaMarca, margenGanancia, margenMinimo],
+  );
+
   const seleccionarComercial = (c: ComercialCompra) => {
+    precioEditadoManualRef.current = false;
     context.setComercialSeleccionado(c);
     context.setComercialBusqueda(c.nombre_comercial);
-    context.setPrecioVentaEditado(c.precio_venta);
+    context.setPrecioVentaEditado("");
     context.setActualizarPrecioVenta(false);
-    context.setCostoSeleccionado(Math.round(c.precio_venta * 0.65 * 100) / 100);
+    setPrecioMonedaTexto(null);
+    context.setCostoSeleccionado("");
     context.setMostrarSugerenciasComercial(false);
     context.setLaboratorioAsignarCompraId("");
     requestAnimationFrame(() => codigoBarrasRef.current?.focus());
   };
+
+  const cantNumForm = Number(context.cantSeleccionada) || 0;
+  const costoNumForm = Number(context.costoSeleccionado) || 0;
+  const escenarioPrecio = useMemo(() => {
+    if (!context.comercialSeleccionado) return null;
+    return calcularEscenarioPrecio(context.comercialSeleccionado, cantNumForm, costoNumForm);
+  }, [calcularEscenarioPrecio, context.comercialSeleccionado, cantNumForm, costoNumForm]);
+
+  useEffect(() => {
+    if (!context.comercialSeleccionado || !escenarioPrecio) return;
+    if (precioEditadoManualRef.current) return;
+    if (cantNumForm <= 0 || costoNumForm <= 0) {
+      context.setPrecioVentaEditado("");
+      context.setActualizarPrecioVenta(false);
+      return;
+    }
+    if (escenarioPrecio.subirSugerido) {
+      context.setPrecioVentaEditado(escenarioPrecio.sugerido);
+      context.setActualizarPrecioVenta(true);
+    } else {
+      context.setPrecioVentaEditado(escenarioPrecio.precioActual);
+      context.setActualizarPrecioVenta(false);
+    }
+  }, [escenarioPrecio, cantNumForm, costoNumForm, context.comercialSeleccionado?.id]);
+
+  useEffect(() => {
+    if (!context.comercialSeleccionado) {
+      setModalDetalleComercialOpen(false);
+    }
+  }, [context.comercialSeleccionado]);
 
   const intentarSeleccionarComercialDesdeBusqueda = () => {
     if (!proveedorCompra) return;
@@ -235,14 +360,21 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
     }
   };
 
-  const precioVentaEfectivo =
-    context.precioVentaEditado === ""
-      ? context.comercialSeleccionado?.precio_venta ?? 0
-      : Number(context.precioVentaEditado);
-
-  const costoNum = Number(context.costoSeleccionado) || 0;
-  const costoMayorQueVenta =
-    context.comercialSeleccionado && costoNum > 0 && costoNum > precioVentaEfectivo;
+  const precioEditadoNum =
+    context.precioVentaEditado === "" ? 0 : Number(context.precioVentaEditado);
+  const evaluarPrecioVentaFormulario =
+    cantNumForm > 0 &&
+    costoNumForm > 0 &&
+    (context.actualizarPrecioVenta || context.precioVentaEditado !== "");
+  const bloqueoPrecioVenta =
+    escenarioPrecio &&
+    evaluarPrecioVentaFormulario &&
+    precioBajoCostoPromedio(precioEditadoNum, escenarioPrecio.cppNuevo);
+  const advertenciaMargenBajo =
+    escenarioPrecio &&
+    evaluarPrecioVentaFormulario &&
+    !bloqueoPrecioVenta &&
+    precioBajoMargenMinimo(precioEditadoNum, escenarioPrecio.cppNuevo, margenMinimo);
 
   const handleAgregarAlCarrito = async () => {
     if (!context.comercialSeleccionado) return;
@@ -269,6 +401,21 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
       return;
     }
 
+    const escenario = calcularEscenarioPrecio(context.comercialSeleccionado, cant, costo);
+    const precioEditado =
+      context.precioVentaEditado === "" ? 0 : Number(context.precioVentaEditado);
+    const validaPrecioVenta =
+      context.actualizarPrecioVenta || context.precioVentaEditado !== "";
+    if (
+      validaPrecioVenta &&
+      precioBajoCostoPromedio(precioEditado, escenario.cppNuevo)
+    ) {
+      toast.error(
+        `Venderías con pérdida: el precio no puede ser menor que ${fmtQ(escenario.cppNuevo)} (costo promedio tras esta compra).`,
+      );
+      return;
+    }
+
     const duplicadoCarrito = context.carrito.some((i) => i.codigo_barras.trim() === codigo);
     if (duplicadoCarrito) {
       toast.warn("Ese código de barras ya está en el pedido.");
@@ -291,13 +438,19 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
     }
 
     const precioCatalogo = context.comercialSeleccionado.precio_venta;
-    const precioEditado =
-      context.precioVentaEditado === "" ? precioCatalogo : Number(context.precioVentaEditado);
     const actualizar =
-      context.actualizarPrecioVenta && precioEditado !== precioCatalogo && !Number.isNaN(precioEditado);
+      context.actualizarPrecioVenta &&
+      context.precioVentaEditado !== "" &&
+      precioEditado !== precioCatalogo &&
+      !Number.isNaN(precioEditado);
 
-    if (costo > precioEditado) {
-      toast.warn("El costo unitario es mayor que el precio de venta del comercial.");
+    if (
+      validaPrecioVenta &&
+      precioBajoMargenMinimo(precioEditado, escenario.cppNuevo, margenMinimo)
+    ) {
+      toast.warn(
+        `El margen queda bajo el mínimo (${margenMinimo}%). Se recomienda al menos ${fmtQ(escenario.precioMinimo)}.`,
+      );
     }
 
     const com = context.comercialSeleccionado;
@@ -331,6 +484,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
     context.setCostoSeleccionado("");
     context.setPrecioVentaEditado("");
     context.setActualizarPrecioVenta(false);
+    precioEditadoManualRef.current = false;
     context.setCodigoBarrasLote("");
     context.setNumeroLote("");
     context.setFechaVencimientoLote("");
@@ -377,12 +531,13 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             !puedeBuscarProducto && "opacity-50 pointer-events-none",
           )}
         >
-          <div className="md:col-span-6 relative" ref={prodDropdownRef}>
+          <div className="md:col-span-12" ref={prodDropdownRef}>
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
               Buscar producto genérico o marca
             </label>
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+            <div className="flex gap-2 items-stretch">
+              <div className="relative min-w-0 flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none z-[1]" />
               <input
                 type="text"
                 disabled={!puedeBuscarProducto}
@@ -418,7 +573,6 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                 }
                 className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors disabled:cursor-not-allowed disabled:bg-zinc-100 dark:disabled:bg-zinc-800/80"
               />
-            </div>
 
             <AnimatePresence>
               {context.mostrarSugerenciasComercial && puedeBuscarProducto && (
@@ -426,7 +580,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                   initial={{ opacity: 0, y: -4 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -4 }}
-                  className="absolute left-0 right-0 mt-1 max-h-64 overflow-y-auto bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 text-left"
+                  className="absolute left-0 right-0 top-full mt-1 max-h-64 overflow-y-auto bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 text-left"
                 >
                   {gruposComerciales.length === 0 ? (
                     <div className="px-4 py-3 text-xs text-slate-500">
@@ -509,19 +663,30 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
-
-          <div className="md:col-span-6 flex items-end justify-end">
-            <SigetActionButton
-              label="Nuevo"
-              accentColor={sigetAccent.crear}
-              morphFrom={Plus}
-              morphTo={CirclePlus}
-              onClick={abrirNuevoComercial}
-              disabled={!puedeBuscarProducto}
-              ariaLabel="Nuevo producto comercial"
-              className="w-auto shrink-0"
-            />
+              </div>
+              <div className="flex shrink-0 items-stretch gap-1">
+                <SigetActionButton
+                  label="Detalle"
+                  accentColor={sigetAccent.editar}
+                  morphFrom={Info}
+                  morphTo={CircleHelp}
+                  onClick={() => setModalDetalleComercialOpen(true)}
+                  disabled={!puedeBuscarProducto || !context.comercialSeleccionado}
+                  ariaLabel="Ver detalle del producto comercial"
+                  className="w-auto shrink-0 self-stretch min-h-[42px]"
+                />
+                <SigetActionButton
+                  label="Nuevo"
+                  accentColor={sigetAccent.crear}
+                  morphFrom={Plus}
+                  morphTo={CirclePlus}
+                  onClick={abrirNuevoComercial}
+                  disabled={!puedeBuscarProducto}
+                  ariaLabel="Nuevo producto comercial"
+                  className="w-auto shrink-0 self-stretch min-h-[42px]"
+                />
+              </div>
+            </div>
           </div>
         </div>
 
@@ -529,65 +694,6 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           <p className="text-[11px] text-slate-500 dark:text-slate-400 text-left -mt-2">
             Elija el proveedor de la factura para habilitar la búsqueda y el ingreso de lotes.
           </p>
-        ) : null}
-
-        {context.comercialSeleccionado ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 rounded-2xl border border-slate-200/80 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/80 p-4 text-left text-xs">
-            <div>
-              <p className="font-bold text-slate-500 uppercase text-[10px]">Catálogo</p>
-              <p className="text-slate-900 dark:text-white">{context.comercialSeleccionado.catalogo_nombre}</p>
-            </div>
-            <div>
-              <p className="font-bold text-slate-500 uppercase text-[10px]">Genérico</p>
-              <p className="text-slate-900 dark:text-white">
-                {context.comercialSeleccionado.concentracion}{" "}
-                {context.comercialSeleccionado.forma_farmaceutica}
-              </p>
-              <p className="text-[10px] text-slate-400">{context.comercialSeleccionado.generico_nombre}</p>
-            </div>
-            <div>
-              <p className="font-bold text-slate-500 uppercase text-[10px]">Laboratorio</p>
-              <p className="text-slate-900 dark:text-white">
-                {etiquetaLaboratorioComercial(context.comercialSeleccionado.laboratorio_nombre)}
-              </p>
-              {!context.comercialSeleccionado.laboratorio_id ? (
-                <div className="mt-2 space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-slate-500">
-                    Asignar laboratorio (opcional)
-                  </label>
-                  <div className="flex gap-2">
-                    <select
-                      value={context.laboratorioAsignarCompraId}
-                      onChange={(e) => context.setLaboratorioAsignarCompraId(e.target.value)}
-                      className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
-                    >
-                      <option value="">Sin asignar</option>
-                      {laboratoriosOrdenados.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.nombre}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      className="text-[10px] font-bold text-[#2c5f9b] underline"
-                      onClick={() => setModalLabOpen(true)}
-                    >
-                      Nuevo
-                    </button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
-            <div>
-              <p className="font-bold text-slate-500 uppercase text-[10px]">Presentación</p>
-              <p className="text-slate-900 dark:text-white">{context.comercialSeleccionado.presentacion}</p>
-            </div>
-            <div className="md:col-span-2">
-              <p className="font-bold text-slate-500 uppercase text-[10px]">Precio de venta (catálogo)</p>
-              <p className="text-slate-900 dark:text-white font-black">{fmtQ(context.comercialSeleccionado.precio_venta)}</p>
-            </div>
-          </div>
         ) : null}
 
         <div
@@ -673,57 +779,103 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             <div className="relative">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">Q</span>
               <input
-                type="number"
-                step="0.01"
-                min="0.01"
-                value={context.costoSeleccionado}
+                type="text"
+                inputMode="decimal"
+                value={costoMonedaTexto ?? compraMonedaDisplay(context.costoSeleccionado)}
                 onChange={(e) => {
-                  const val = e.target.value;
-                  context.setCostoSeleccionado(val === "" ? "" : Number(val));
+                  const raw = e.target.value;
+                  setCostoMonedaTexto(raw);
+                  sincronizarCompraMonedaDesdeTexto(raw, context.setCostoSeleccionado);
                 }}
-                placeholder="0.00"
-                className="w-full pl-7 pr-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                onFocus={(e) => {
+                  setCostoMonedaTexto(compraMonedaDisplay(context.costoSeleccionado));
+                  e.target.select();
+                }}
+                onBlur={() => {
+                  setCostoMonedaTexto(null);
+                }}
+                className="w-full pl-7 pr-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors tabular-nums"
               />
             </div>
-            {costoMayorQueVenta ? (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-semibold">
-                El costo supera el precio de venta del comercial.
-              </p>
-            ) : null}
           </div>
           <div className="md:col-span-4">
             <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
               Actualizar precio de venta
             </label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">Q</span>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                disabled={!context.comercialSeleccionado}
-                value={context.precioVentaEditado}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const num = val === "" ? "" : Number(val);
-                  context.setPrecioVentaEditado(num);
-                  if (context.comercialSeleccionado && num !== "") {
-                    context.setActualizarPrecioVenta(num !== context.comercialSeleccionado.precio_venta);
-                  }
-                }}
-                className="w-full pl-7 pr-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors disabled:opacity-50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-              />
+            <div className="flex gap-2 items-center">
+              <div className="relative min-w-0 flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                  Q
+                </span>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  disabled={!context.comercialSeleccionado}
+                  value={precioMonedaTexto ?? compraMonedaDisplay(context.precioVentaEditado)}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    setPrecioMonedaTexto(raw);
+                    precioEditadoManualRef.current = true;
+                    sincronizarCompraMonedaDesdeTexto(raw, (num) => {
+                      context.setPrecioVentaEditado(num);
+                      if (context.comercialSeleccionado && num !== "") {
+                        context.setActualizarPrecioVenta(
+                          num !== context.comercialSeleccionado.precio_venta,
+                        );
+                      }
+                    });
+                  }}
+                  onFocus={(e) => {
+                    setPrecioMonedaTexto(compraMonedaDisplay(context.precioVentaEditado));
+                    e.target.select();
+                  }}
+                  onBlur={() => {
+                    setPrecioMonedaTexto(null);
+                  }}
+                  className="w-full pl-7 pr-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors disabled:opacity-50 tabular-nums"
+                />
+              </div>
+              <label
+                className={cn(
+                  "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm leading-none dark:border-zinc-800 dark:bg-zinc-900",
+                  !context.comercialSeleccionado && "opacity-50 pointer-events-none",
+                )}
+                title="Guardar nuevo precio en el comercial al registrar la compra"
+              >
+                <input
+                  type="checkbox"
+                  checked={context.actualizarPrecioVenta}
+                  disabled={!context.comercialSeleccionado}
+                  onChange={(e) => context.setActualizarPrecioVenta(e.target.checked)}
+                  className="size-3.5 shrink-0 rounded border-slate-300"
+                />
+                <span className="text-[9px] font-bold uppercase leading-tight text-slate-500 dark:text-slate-400">
+                  Guardar
+                </span>
+              </label>
             </div>
-            <label className="flex items-center gap-2 mt-2 text-[10px] text-slate-500 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={context.actualizarPrecioVenta}
-                disabled={!context.comercialSeleccionado}
-                onChange={(e) => context.setActualizarPrecioVenta(e.target.checked)}
-                className="rounded border-slate-300"
-              />
-              Guardar nuevo precio en el comercial al registrar la compra
-            </label>
+            {bloqueoPrecioVenta && escenarioPrecio ? (
+              <p className="text-[10px] text-red-600 dark:text-red-400 mt-1 font-bold">
+                Venderías con pérdida: el precio no puede ser menor que{" "}
+                {fmtQ(escenarioPrecio.cppNuevo)}.
+              </p>
+            ) : null}
+            {advertenciaMargenBajo && escenarioPrecio ? (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+                Margen bajo el mínimo ({margenMinimo}%). Mínimo recomendado:{" "}
+                {fmtQ(escenarioPrecio.precioMinimo)}.
+              </p>
+            ) : null}
+            {escenarioPrecio &&
+            cantNumForm > 0 &&
+            costoNumForm > 0 &&
+            !escenarioPrecio.subirSugerido &&
+            escenarioPrecio.sugerido < escenarioPrecio.precioActual - 0.001 ? (
+              <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1 font-semibold">
+                El costo promedio bajó. Se recomienda mantener el precio actual; si lo bajas, no lo
+                pongas bajo {fmtQ(escenarioPrecio.precioMinimo)}.
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -733,7 +885,12 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           morphFrom={Plus}
           morphTo={CirclePlus}
           onClick={handleAgregarAlCarrito}
-          disabled={!puedeBuscarProducto || !context.comercialSeleccionado || verificandoBarras}
+          disabled={
+            !puedeBuscarProducto ||
+            !context.comercialSeleccionado ||
+            verificandoBarras ||
+            Boolean(bloqueoPrecioVenta)
+          }
           ariaLabel="Agregar lote a la compra"
           className="w-auto shrink-0"
         />
@@ -764,8 +921,8 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                   <p className="text-[10px] text-slate-400 mt-0.5">
                     Costo: {fmtQ(item.precio_costo)}
                     {item.actualizar_precio_venta && item.precio_venta != null
-                      ? ` · Precio venta: ${fmtQ(item.precio_venta)}`
-                      : ""}
+                      ? ` · Nuevo precio: ${fmtQ(item.precio_venta)} (antes ${fmtQ(item.comercial.precio_venta)})`
+                      : ` · Precio venta: ${fmtQ(item.comercial.precio_venta)}`}
                   </p>
                 </div>
 
@@ -808,6 +965,97 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           </div>
         )}
       </div>
+
+      {context.comercialSeleccionado ? (
+        <ModalShell
+          isOpen={modalDetalleComercialOpen}
+          onClose={() => setModalDetalleComercialOpen(false)}
+          title={context.comercialSeleccionado.nombre_comercial}
+          subtitle={context.comercialSeleccionado.presentacion}
+          maxWidth="max-w-lg"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left text-sm">
+            <div>
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+                Catálogo
+              </p>
+              <p className="text-slate-900 dark:text-white mt-1">
+                {context.comercialSeleccionado.catalogo_nombre}
+              </p>
+            </div>
+            <div>
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+                Genérico
+              </p>
+              <p className="text-slate-900 dark:text-white mt-1">
+                {context.comercialSeleccionado.concentracion}{" "}
+                {context.comercialSeleccionado.forma_farmaceutica}
+              </p>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {context.comercialSeleccionado.generico_nombre}
+              </p>
+            </div>
+            <div>
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+                Laboratorio
+              </p>
+              <p className="text-slate-900 dark:text-white mt-1">
+                {etiquetaLaboratorioComercial(context.comercialSeleccionado.laboratorio_nombre)}
+              </p>
+              {!context.comercialSeleccionado.laboratorio_id ? (
+                <div className="mt-2 space-y-1">
+                  <label className="text-[10px] font-bold uppercase text-slate-500">
+                    Asignar laboratorio (opcional)
+                  </label>
+                  <div className="flex gap-2">
+                    <select
+                      value={context.laboratorioAsignarCompraId}
+                      onChange={(e) => context.setLaboratorioAsignarCompraId(e.target.value)}
+                      className="flex-1 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs dark:border-zinc-800 dark:bg-zinc-900"
+                    >
+                      <option value="">Sin asignar</option>
+                      {laboratoriosOrdenados.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.nombre}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="text-[10px] font-bold text-[#2c5f9b] underline"
+                      onClick={() => {
+                        setModalDetalleComercialOpen(false);
+                        setModalLabOpen(true);
+                      }}
+                    >
+                      Nuevo
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+            <div>
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+                Presentación
+              </p>
+              <p className="text-slate-900 dark:text-white mt-1">
+                {context.comercialSeleccionado.presentacion}
+              </p>
+            </div>
+            <div className="sm:col-span-2">
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+                Precio de venta (catálogo)
+              </p>
+              <p className="text-slate-900 dark:text-white font-black text-lg mt-1">
+                {fmtQ(context.comercialSeleccionado.precio_venta)}
+              </p>
+            </div>
+          </div>
+          <ModalFooter>
+            <ModalCancelButton onClick={() => setModalDetalleComercialOpen(false)} />
+          </ModalFooter>
+        </ModalShell>
+      ) : null}
 
       <NuevoComercialCompraModal
         open={modalComercialOpen}

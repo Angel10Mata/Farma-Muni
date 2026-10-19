@@ -25,6 +25,8 @@ export default function VerConfiguraciones() {
   const [farmaciaDireccion, setFarmaciaDireccion] = useState("");
   const [farmaciaTelefono, setFarmaciaTelefono] = useState("");
   const [diasCredito, setDiasCredito] = useState(30);
+  const [margenGanancia, setMargenGanancia] = useState(30);
+  const [margenMinimo, setMargenMinimo] = useState(10);
 
   useEffect(() => {
     if (settings) {
@@ -34,6 +36,8 @@ export default function VerConfiguraciones() {
       setFarmaciaDireccion(settings.farmacia_direccion ?? "");
       setFarmaciaTelefono(settings.farmacia_telefono ?? "");
       setDiasCredito(settings.dias_credito ?? 30);
+      setMargenGanancia(settings.margen_ganancia_pct ?? 30);
+      setMargenMinimo(settings.margen_minimo_pct ?? 10);
     }
   }, [settings]);
 
@@ -45,6 +49,8 @@ export default function VerConfiguraciones() {
     farmacia_direccion: farmaciaDireccion.trim() || null,
     farmacia_telefono: farmaciaTelefono.trim() || null,
     dias_credito: diasCredito,
+    margen_ganancia_pct: margenGanancia,
+    margen_minimo_pct: margenMinimo,
   });
 
   if (isLoading) {
@@ -74,6 +80,9 @@ export default function VerConfiguraciones() {
   };
 
   const guardarFarmacia = () => {
+    if (margenMinimo > margenGanancia) {
+      return;
+    }
     updateSettings(payloadBase());
   };
 
@@ -198,14 +207,47 @@ export default function VerConfiguraciones() {
                   disabled={isPending}
                 />
               </ModalField>
+              <ModalField>
+                <ModalLabel>Margen de ganancia sugerido (%)</ModalLabel>
+                <ModalInput
+                  type="number"
+                  min={0}
+                  max={500}
+                  step={0.1}
+                  value={margenGanancia}
+                  onChange={(e) =>
+                    setMargenGanancia(Math.min(500, Math.max(0, Number(e.target.value) || 0)))
+                  }
+                  disabled={isPending}
+                />
+              </ModalField>
+              <ModalField>
+                <ModalLabel>Margen mínimo (%)</ModalLabel>
+                <ModalInput
+                  type="number"
+                  min={0}
+                  max={500}
+                  step={0.1}
+                  value={margenMinimo}
+                  onChange={(e) =>
+                    setMargenMinimo(Math.min(500, Math.max(0, Number(e.target.value) || 0)))
+                  }
+                  disabled={isPending}
+                />
+              </ModalField>
             </div>
+            {margenMinimo > margenGanancia ? (
+              <p className="text-xs font-bold text-red-500">
+                El margen mínimo no puede ser mayor que el margen de ganancia sugerido.
+              </p>
+            ) : null}
             <button
               type="button"
               onClick={guardarFarmacia}
-              disabled={isPending}
+              disabled={isPending || margenMinimo > margenGanancia}
               className="text-sm font-bold text-[#2c5f9b] hover:underline disabled:opacity-50"
             >
-              Guardar datos de farmacia y crédito
+              Guardar datos de farmacia, crédito y márgenes
             </button>
           </div>
         </div>
