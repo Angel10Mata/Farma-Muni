@@ -25,7 +25,7 @@ export function TarjetaCuentasPorPagar({
         <div className="p-1.5 md:p-2 bg-amber-500/10 rounded-lg text-amber-600 shrink-0">
           <Wallet className="size-4 md:size-5" />
         </div>
-        <h3 className="text-[10px] md:text-sm font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+        <h3 className="text-etiqueta md:text-sm font-bold text-texto-tenue uppercase tracking-wider">
           Cuentas por pagar
         </h3>
       </div>

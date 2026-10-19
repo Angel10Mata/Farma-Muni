@@ -180,8 +180,8 @@ export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratorio
   return (
     <div className="space-y-4 border-t border-[#C1D1C5]/20 pt-4">
       <div className="flex items-center justify-between gap-3">
-        <h4 className="flex min-w-0 items-center gap-2 text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70">
-          <FlaskConical className="size-4 shrink-0 text-[#8DA78E]" />
+        <h4 className="flex min-w-0 items-center gap-2 text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave/70">
+          <FlaskConical className="size-4 shrink-0 text-look-2-salvia-menta" />
           Laboratorios
         </h4>
         {!mostrarFormCrear ? (
@@ -241,7 +241,7 @@ export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratorio
                           className="w-full rounded-lg px-3 py-2 text-left text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800"
                         >
                           <p className="font-bold text-slate-900 dark:text-slate-100">{lab.nombre}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          <p className="text-etiqueta text-texto-tenue mt-0.5">
                             {yaVinculado
                               ? "Ya vinculado a este proveedor"
                               : otroProveedor
@@ -307,7 +307,7 @@ export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratorio
                   <p className="truncate font-bold text-slate-800 dark:text-slate-100">
                     {lab.nombre}
                   </p>
-                  <p className="text-[10px] font-bold uppercase text-slate-400">
+                  <p className="text-etiqueta font-bold uppercase text-texto-tenue">
                     {lab.activo ? "Activo" : "Inactivo"}
                   </p>
                 </div>
@@ -343,7 +343,7 @@ export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratorio
                         type="button"
                         aria-label="Acciones del laboratorio"
                         disabled={busy}
-                        className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800"
+                        className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
                       >
                         <MoreVertical className="size-4" />
                       </button>
@@ -356,14 +356,14 @@ export function ProveedorLaboratoriosSection({ proveedor }: ProveedorLaboratorio
                         className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2 text-xs font-bold text-zinc-800 focus:bg-zinc-100 focus:text-zinc-900 dark:text-zinc-100 dark:focus:bg-zinc-800 dark:focus:text-white"
                         onSelect={() => iniciarEdicion(lab)}
                       >
-                        <Pencil className="size-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
+                        <Pencil className="size-3.5 shrink-0 text-texto-tenue" />
                         Editar nombre
                       </DropdownMenuItem>
                       <DropdownMenuItem
                         className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2 text-xs font-bold text-zinc-800 focus:bg-zinc-100 focus:text-zinc-900 dark:text-zinc-100 dark:focus:bg-zinc-800 dark:focus:text-white"
                         onSelect={() => void toggleActivo(lab)}
                       >
-                        <Power className="size-3.5 shrink-0 text-zinc-500 dark:text-zinc-400" />
+                        <Power className="size-3.5 shrink-0 text-texto-tenue" />
                         {lab.activo ? "Desactivar" : "Activar"}
                       </DropdownMenuItem>
                       <DropdownMenuItem

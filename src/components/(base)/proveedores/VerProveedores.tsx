@@ -99,7 +99,7 @@ function VerProveedoresInner() {
         <div className="flex flex-col items-center justify-center gap-4">
           <div className="relative">
             <div className="absolute inset-0 bg-[#8DA78E] blur-xl opacity-20 rounded-full animate-pulse" />
-            <Truck className="size-12 text-[#8DA78E] animate-bounce" />
+            <Truck className="size-12 text-look-2-salvia-menta animate-bounce" />
           </div>
           <div className="flex flex-col items-center gap-2">
             <p className="text-slate-800 dark:text-slate-200 font-black text-xl uppercase tracking-widest">
@@ -125,10 +125,10 @@ function VerProveedoresInner() {
         <div className="flex min-w-0 items-center gap-3">
           <ModuleHeaderBackButton />
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               Compras
             </p>
-            <h1 className="truncate text-2xl font-black uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-3xl">
+            <h1 className="truncate text-2xl font-bold uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-3xl">
               Gestión de compra
             </h1>
           </div>

@@ -225,13 +225,13 @@ function ProveedorDetallePanel({
         <div className="flex items-center justify-between gap-3">
           <div className="flex min-w-0 items-center gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
-              <Building2 className="size-5 text-[#8DA78E]" />
+              <Building2 className="size-5 text-look-2-salvia-menta" />
             </div>
             <h2 className="min-w-0 text-lg font-black leading-snug text-slate-900 dark:text-white md:text-xl">
               <span className="inline-flex flex-wrap items-center gap-2">
                 {formData.nombre}
                 {!proveedorActivo ? (
-                  <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                  <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-etiqueta font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                     Inactivo
                   </span>
                 ) : null}
@@ -241,7 +241,7 @@ function ProveedorDetallePanel({
           <button
             type="button"
             onClick={onClose}
-            className="cursor-pointer px-2 text-xl font-bold text-slate-400 transition-colors"
+            className="cursor-pointer px-2 text-xl font-bold text-texto-tenue transition-colors"
           >
             ✕
           </button>
@@ -315,15 +315,15 @@ function ProveedorDetallePanel({
         ) : (
           <>
             <div className="space-y-2.5">
-              <h4 className="text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70">
+              <h4 className="text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave/70">
                 Contacto
               </h4>
               <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
-                <Mail className="size-5 shrink-0 text-[#8DA78E]" />
+                <Mail className="size-5 shrink-0 text-look-2-salvia-menta" />
                 <span className="truncate">{formData.correo || "No registrado"}</span>
               </div>
               <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
-                <Phone className="size-5 shrink-0 text-[#8DA78E]" />
+                <Phone className="size-5 shrink-0 text-look-2-salvia-menta" />
                 {formData.telefono ? (
                   <a
                     href={getWhatsappUrl(formData.telefono)}
@@ -334,21 +334,21 @@ function ProveedorDetallePanel({
                     {formatPhoneDisplay(formData.telefono)}
                   </a>
                 ) : (
-                  <span className="text-slate-400">No registrado</span>
+                  <span className="text-texto-tenue">No registrado</span>
                 )}
               </div>
               <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
-                <Receipt className="size-5 shrink-0 text-[#8DA78E]" />
+                <Receipt className="size-5 shrink-0 text-look-2-salvia-menta" />
                 <span className="truncate">NIT: {formData.nit || "C/F"}</span>
               </div>
               {formData.descripcion ? (
-                <p className="text-sm italic text-slate-500 dark:text-slate-400">{formData.descripcion}</p>
+                <p className="text-sm italic text-texto-tenue">{formData.descripcion}</p>
               ) : null}
             </div>
 
             {comprasPendientes.length > 0 ? (
               <div className="space-y-3 border-t border-[#C1D1C5]/20 pt-3">
-                <h4 className="text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70">
+                <h4 className="text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave/70">
                   Pagos pendientes
                 </h4>
                 <ul className="space-y-2">
@@ -375,7 +375,7 @@ function ProveedorDetallePanel({
             ) : null}
 
             <div>
-              <h4 className="mb-2.5 text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]/70">
+              <h4 className="mb-2.5 text-xs font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave/70">
                 Estadísticas
               </h4>
               <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-3 min-[420px]:gap-2.5">
@@ -385,7 +385,7 @@ function ProveedorDetallePanel({
                     label: "Total compras",
                     value: String(compras.length),
                     valueClass: "text-slate-900 dark:text-white",
-                    iconClass: "text-[#8DA78E] dark:text-[#A3BEB0]",
+                    iconClass: "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                   },
                   {
                     icon: TrendingUp,
@@ -405,7 +405,7 @@ function ProveedorDetallePanel({
                         })
                       : "—",
                     valueClass: "text-slate-900 dark:text-white",
-                    iconClass: "text-[#8DA78E] dark:text-[#A3BEB0]",
+                    iconClass: "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
                   },
                 ].map(({ icon: Icon, label, value, valueClass, iconClass }) => (
                   <div
@@ -414,7 +414,7 @@ function ProveedorDetallePanel({
                   >
                     <div className="mb-1.5 flex items-start gap-2">
                       <Icon className={`mt-0.5 size-4 shrink-0 ${iconClass}`} />
-                      <span className="text-[11px] font-bold uppercase leading-snug text-slate-600 dark:text-slate-300">
+                      <span className="text-etiqueta font-bold uppercase leading-snug text-slate-600 dark:text-slate-300">
                         {label}
                       </span>
                     </div>
@@ -924,12 +924,12 @@ function HistorialComprasProveedorPanel({
                       className={cn(moduleDateFilterControlButtonClass, "sm:w-[8.75rem]")}
                     >
                       <div className="flex items-center gap-1.5">
-                        <Calendar className="size-3.5 text-[#8DA78E]" />
+                        <Calendar className="size-3.5 text-look-2-salvia-menta" />
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                           {["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][activeMonth]} {activeYear}
                         </span>
                       </div>
-                      <ChevronDown className="size-3 text-slate-400" />
+                      <ChevronDown className="size-3 text-texto-tenue" />
                     </button>
 
                     <AnimatePresence>
@@ -968,7 +968,7 @@ function HistorialComprasProveedorPanel({
                                   setSelectedWeekIndex(-1);
                                 }}
                                 className={cn(
-                                  "cursor-pointer rounded-lg px-1 py-1.5 text-[10px] font-bold transition-all",
+                                  "cursor-pointer rounded-lg px-1 py-1.5 text-etiqueta font-bold transition-all",
                                   activeMonth === idx
                                     ? "bg-[#8DA78E] text-white"
                                     : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-zinc-900",
@@ -992,7 +992,7 @@ function HistorialComprasProveedorPanel({
                       <span className="truncate text-xs font-semibold text-slate-800 dark:text-slate-200">
                         {selectedWeekIndex === -1 ? "Todo el mes" : obtenerSemanasDelMes(activeMonth, activeYear)[selectedWeekIndex]?.label || "Semana"}
                       </span>
-                      <ChevronDown className="size-3 shrink-0 text-slate-400" />
+                      <ChevronDown className="size-3 shrink-0 text-texto-tenue" />
                     </button>
 
                     <AnimatePresence>
@@ -1012,7 +1012,7 @@ function HistorialComprasProveedorPanel({
                             className={cn(
                               "flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-xs font-bold",
                               selectedWeekIndex === -1
-                                ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                                ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                                 : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-zinc-900",
                             )}
                           >
@@ -1031,7 +1031,7 @@ function HistorialComprasProveedorPanel({
                               className={cn(
                                 "flex w-full cursor-pointer items-center justify-between px-3 py-2 text-left text-xs font-semibold",
                                 selectedWeekIndex === idx
-                                  ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                                  ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                                   : "text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-zinc-900",
                               )}
                             >
@@ -1055,7 +1055,7 @@ function HistorialComprasProveedorPanel({
                     align="left"
                     dropDirection="down"
                   />
-                  <span className="text-xs text-slate-400">-</span>
+                  <span className="text-xs text-texto-tenue">-</span>
                   <CustomDatePicker
                     value={fechaRangoHasta}
                     onChange={setFechaRangoHasta}
@@ -1068,7 +1068,7 @@ function HistorialComprasProveedorPanel({
           </ModuleDateFilterLayout>
         </div>
 
-        <button type="button" onClick={onClose} className="ml-auto cursor-pointer text-zinc-400 md:ml-0">
+        <button type="button" onClick={onClose} className="ml-auto cursor-pointer text-texto-tenue md:ml-0">
           <CloseIcon className="size-5" />
         </button>
       </div>
@@ -1088,11 +1088,11 @@ function HistorialComprasProveedorPanel({
           </ResponsiveContainer>
         </div>
         <div className="mt-8 space-y-2">
-          <h4 className="mb-3 text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0]">
+          <h4 className="mb-3 text-etiqueta font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave">
             Detalle de Compras
           </h4>
           {comprasFiltradas.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
+            <div className="flex flex-col items-center justify-center py-12 text-texto-tenue">
               <ShoppingBag className="mb-3 size-12 opacity-20" />
               <p className="text-sm font-bold">No hay compras registradas en este período.</p>
             </div>
@@ -1111,15 +1111,15 @@ function HistorialComprasProveedorPanel({
                 >
                   <div>
                     <p className="text-sm font-black text-zinc-800 dark:text-zinc-100">{fmtQ(compraMonto(c))}</p>
-                    <p className="mt-0.5 flex items-center gap-1 text-[10px] font-medium text-zinc-500">
+                    <p className="mt-0.5 flex items-center gap-1 text-etiqueta font-medium text-zinc-500">
                       <Clock className="size-3" /> {new Date(c.created_at).toLocaleString("es-GT")}
                     </p>
                   </div>
                   <span
                     className={cn(
-                      "rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-wider",
+                      "rounded-md px-2 py-1 text-etiqueta font-bold uppercase tracking-wider",
                       isPaid
-                        ? "bg-[#8DA78E]/10 text-[#8DA78E] dark:bg-[#A3BEB0]/10 dark:text-[#A3BEB0]"
+                        ? "bg-[#8DA78E]/10 text-look-2-salvia-menta dark:bg-[#A3BEB0]/10 dark:text-look-1-salvia-suave"
                         : "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400",
                     )}
                   >

@@ -532,12 +532,12 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           )}
         >
           <div className="md:col-span-12" ref={prodDropdownRef}>
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+            <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Buscar producto genérico o marca
             </label>
             <div className="flex gap-2 items-stretch">
               <div className="relative min-w-0 flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400 pointer-events-none z-[1]" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-texto-tenue pointer-events-none z-[1]" />
               <input
                 type="text"
                 disabled={!puedeBuscarProducto}
@@ -605,10 +605,10 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                         className="border-b border-slate-100 dark:border-slate-900 last:border-b-0"
                       >
                         <div className="px-4 py-2.5 bg-slate-50 dark:bg-zinc-900/80 border-b border-slate-100 dark:border-zinc-800">
-                          <p className="text-[11px] font-black text-slate-800 dark:text-slate-200">
+                          <p className="text-etiqueta font-black text-slate-800 dark:text-slate-200">
                             {grupo.lineaGenerica}
                           </p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
+                          <p className="text-etiqueta text-texto-tenue mt-0.5">
                             Catálogo: {grupo.catalogo_nombre}
                           </p>
                         </div>
@@ -629,21 +629,21 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                             >
                               <div>
                                 <p className="font-bold text-slate-900 dark:text-white">{p.nombre_comercial}</p>
-                                <p className="text-[10px] text-slate-400 mt-0.5">
+                                <p className="text-etiqueta text-texto-tenue mt-0.5">
                                   <span
                                     className={
                                       labInfo.pendiente
                                         ? "font-semibold text-[#2c5f9b] dark:text-[#6f9fd4]"
-                                        : "text-slate-500 dark:text-slate-400"
+                                        : "text-texto-tenue"
                                     }
                                   >
                                     {labInfo.etiqueta}
                                   </span>
-                                  <span className="text-slate-400"> · Stock vendible: {p.stock_vendible}</span>
+                                  <span className="text-texto-tenue"> · Stock vendible: {p.stock_vendible}</span>
                                 </p>
                               </div>
                               {estado ? (
-                                <span className="text-[10px] bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-semibold">
+                                <span className="text-etiqueta bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded-full font-semibold">
                                   {estado}
                                 </span>
                               ) : null}
@@ -653,7 +653,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                         <button
                           type="button"
                           onClick={() => abrirOtraCasaComercial(grupo.marcas)}
-                          className="w-full px-4 py-2 text-left text-[11px] font-bold text-[#2c5f9b] dark:text-[#6f9fd4] hover:bg-[#2c5f9b]/5 dark:hover:bg-[#6f9fd4]/10 cursor-pointer"
+                          className="w-full px-4 py-2 text-left text-etiqueta font-bold text-[#2c5f9b] dark:text-[#6f9fd4] hover:bg-[#2c5f9b]/5 dark:hover:bg-[#6f9fd4]/10 cursor-pointer"
                         >
                           Otra casa comercial
                         </button>
@@ -691,7 +691,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
         </div>
 
         {!puedeBuscarProducto ? (
-          <p className="text-[11px] text-slate-500 dark:text-slate-400 text-left -mt-2">
+          <p className="text-etiqueta text-texto-tenue text-left -mt-2">
             Elija el proveedor de la factura para habilitar la búsqueda y el ingreso de lotes.
           </p>
         ) : null}
@@ -703,7 +703,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           )}
         >
           <div className="md:col-span-4">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+            <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Código de barras (lote)
             </label>
             <input
@@ -718,7 +718,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             />
           </div>
           <div className="md:col-span-2">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+            <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Nº lote
             </label>
             <input
@@ -729,7 +729,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             />
           </div>
           <div className="md:col-span-3">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+            <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Vencimiento
             </label>
             <ModalFechaInput
@@ -738,7 +738,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             />
           </div>
           <div className="md:col-span-3">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+            <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Ubicación
             </label>
             <input
@@ -757,7 +757,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           )}
         >
           <div className="md:col-span-3">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+            <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Cantidad
             </label>
             <input
@@ -773,11 +773,11 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             />
           </div>
           <div className="md:col-span-3">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+            <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Costo unitario
             </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">Q</span>
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-texto-tenue">Q</span>
               <input
                 type="text"
                 inputMode="decimal"
@@ -799,12 +799,12 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             </div>
           </div>
           <div className="md:col-span-4">
-            <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 text-left">
+            <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Actualizar precio de venta
             </label>
             <div className="flex gap-2 items-center">
               <div className="relative min-w-0 flex-1">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-slate-400">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-texto-tenue">
                   Q
                 </span>
                 <input
@@ -849,19 +849,19 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                   onChange={(e) => context.setActualizarPrecioVenta(e.target.checked)}
                   className="size-3.5 shrink-0 rounded border-slate-300"
                 />
-                <span className="text-[9px] font-bold uppercase leading-tight text-slate-500 dark:text-slate-400">
+                <span className="text-etiqueta font-bold uppercase leading-tight text-texto-tenue">
                   Guardar
                 </span>
               </label>
             </div>
             {bloqueoPrecioVenta && escenarioPrecio ? (
-              <p className="text-[10px] text-red-600 dark:text-red-400 mt-1 font-bold">
+              <p className="text-etiqueta text-red-600 dark:text-red-400 mt-1 font-bold">
                 Venderías con pérdida: el precio no puede ser menor que{" "}
                 {fmtQ(escenarioPrecio.cppNuevo)}.
               </p>
             ) : null}
             {advertenciaMargenBajo && escenarioPrecio ? (
-              <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-1 font-semibold">
+              <p className="text-etiqueta text-amber-600 dark:text-amber-400 mt-1 font-semibold">
                 Margen bajo el mínimo ({margenMinimo}%). Mínimo recomendado:{" "}
                 {fmtQ(escenarioPrecio.precioMinimo)}.
               </p>
@@ -871,7 +871,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             costoNumForm > 0 &&
             !escenarioPrecio.subirSugerido &&
             escenarioPrecio.sugerido < escenarioPrecio.precioActual - 0.001 ? (
-              <p className="text-[10px] text-amber-700 dark:text-amber-300 mt-1 font-semibold">
+              <p className="text-etiqueta text-amber-700 dark:text-amber-300 mt-1 font-semibold">
                 El costo promedio bajó. Se recomienda mantener el precio actual; si lo bajas, no lo
                 pongas bajo {fmtQ(escenarioPrecio.precioMinimo)}.
               </p>
@@ -897,15 +897,15 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
       </div>
 
       <div className="bg-[#F5F5F1] dark:bg-zinc-900/60 border border-[#C1D1C5]/40 dark:border-zinc-800 rounded-3xl p-5 flex flex-col gap-3">
-        <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 border-b border-[#C1D1C5]/20 pb-2 text-left">
+        <h3 className="text-xs font-black uppercase tracking-wider text-texto-tenue border-b border-[#C1D1C5]/20 pb-2 text-left">
           Productos en el Pedido
         </h3>
 
         {context.carrito.length === 0 ? (
-          <div className="py-10 flex flex-col items-center justify-center text-slate-400">
-            <Receipt className="size-10 mb-2 opacity-55 text-slate-400" />
+          <div className="py-10 flex flex-col items-center justify-center text-texto-tenue">
+            <Receipt className="size-10 mb-2 opacity-55 text-texto-tenue" />
             <p className="text-xs font-semibold">Aún no hay productos cargados</p>
-            <p className="text-[10px] opacity-70">Busca un comercial e ingresa los datos del lote.</p>
+            <p className="text-etiqueta opacity-70">Busca un comercial e ingresa los datos del lote.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-2 max-h-96 overflow-y-auto">
@@ -918,7 +918,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                   <h4 className="font-bold text-xs text-slate-900 dark:text-white truncate">
                     {item.comercial.nombre_comercial}
                   </h4>
-                  <p className="text-[10px] text-slate-400 mt-0.5">
+                  <p className="text-etiqueta text-texto-tenue mt-0.5">
                     Costo: {fmtQ(item.precio_costo)}
                     {item.actualizar_precio_venta && item.precio_venta != null
                       ? ` · Nuevo precio: ${fmtQ(item.precio_venta)} (antes ${fmtQ(item.comercial.precio_venta)})`
@@ -976,7 +976,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-left text-sm">
             <div>
-              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-etiqueta">
                 Catálogo
               </p>
               <p className="text-slate-900 dark:text-white mt-1">
@@ -984,19 +984,19 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
               </p>
             </div>
             <div>
-              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-etiqueta">
                 Genérico
               </p>
               <p className="text-slate-900 dark:text-white mt-1">
                 {context.comercialSeleccionado.concentracion}{" "}
                 {context.comercialSeleccionado.forma_farmaceutica}
               </p>
-              <p className="text-xs text-slate-500 dark:text-slate-400">
+              <p className="text-xs text-texto-tenue">
                 {context.comercialSeleccionado.generico_nombre}
               </p>
             </div>
             <div>
-              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-etiqueta">
                 Laboratorio
               </p>
               <p className="text-slate-900 dark:text-white mt-1">
@@ -1004,7 +1004,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
               </p>
               {!context.comercialSeleccionado.laboratorio_id ? (
                 <div className="mt-2 space-y-1">
-                  <label className="text-[10px] font-bold uppercase text-slate-500">
+                  <label className="text-etiqueta font-bold uppercase text-slate-500">
                     Asignar laboratorio (opcional)
                   </label>
                   <div className="flex gap-2">
@@ -1022,7 +1022,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                     </select>
                     <button
                       type="button"
-                      className="text-[10px] font-bold text-[#2c5f9b] underline"
+                      className="text-etiqueta font-bold text-[#2c5f9b] underline"
                       onClick={() => {
                         setModalDetalleComercialOpen(false);
                         setModalLabOpen(true);
@@ -1035,7 +1035,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
               ) : null}
             </div>
             <div>
-              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-etiqueta">
                 Presentación
               </p>
               <p className="text-slate-900 dark:text-white mt-1">
@@ -1043,7 +1043,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
               </p>
             </div>
             <div className="sm:col-span-2">
-              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-[10px]">
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-etiqueta">
                 Precio de venta (catálogo)
               </p>
               <p className="text-slate-900 dark:text-white font-black text-lg mt-1">

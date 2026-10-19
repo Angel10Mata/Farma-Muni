@@ -84,12 +84,12 @@ export function ComprasProveedorField({
 
   return (
     <div className="relative text-left" ref={provDropdownRef}>
-      <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
+      <label className="block text-xs font-bold text-texto-tenue uppercase mb-1">
         Seleccionar proveedor
       </label>
       <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch max-w-3xl">
         <div className="relative flex-1 min-w-0">
-        <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+        <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-texto-tenue" />
         <input
           type="text"
           value={context.proveedorBusqueda}
@@ -125,7 +125,7 @@ export function ComprasProveedorField({
         />
         {nitProveedorSeleccionado ? (
           <span
-            className="pointer-events-none absolute right-3 top-1/2 max-w-[42%] -translate-y-1/2 truncate text-right text-[10px] font-semibold tabular-nums text-slate-500 dark:text-slate-400"
+            className="pointer-events-none absolute right-3 top-1/2 max-w-[42%] -translate-y-1/2 truncate text-right text-etiqueta font-semibold tabular-nums text-texto-tenue"
             aria-hidden
           >
             NIT: {nitProveedorSeleccionado}
@@ -170,7 +170,7 @@ export function ComprasProveedorField({
                 className="w-full px-4 py-2 border-b border-slate-100 dark:border-slate-900 hover:bg-[#8DA78E]/10 dark:hover:bg-[#8DA78E]/20 text-left text-xs cursor-pointer"
               >
                 <p className="font-bold text-slate-900 dark:text-white">{p.nombre}</p>
-                <p className="text-[10px] text-slate-400">NIT: {p.nit || "C/F"}</p>
+                <p className="text-etiqueta text-texto-tenue">NIT: {p.nit || "C/F"}</p>
               </button>
             ))}
           </motion.div>

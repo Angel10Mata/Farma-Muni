@@ -285,7 +285,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
       >
         <div className="flex flex-col gap-3">
           <div className="relative w-full min-w-0 text-left lg:max-w-xl">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
             <input
               type="text"
               value={busquedaHistorial}
@@ -401,7 +401,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         setSelectedWeekIndexCompras(-1);
                         setCurrentPageCompras(1);
                       }}
-                      className="size-5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-slate-500 dark:text-slate-400 cursor-pointer"
+                      className="size-5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-texto-tenue cursor-pointer"
                     >
                       <ChevronLeft className="size-3" />
                     </button>
@@ -410,7 +410,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                       <button
                         type="button"
                         onClick={() => setMostrarMesDropdownCompras(!mostrarMesDropdownCompras)}
-                        className="px-2 py-1 rounded-lg text-xs font-bold text-slate-700 dark:text-[#A3BEB0] cursor-pointer hover:bg-transparent active:bg-transparent focus:outline-none focus-visible:outline-none"
+                        className="px-2 py-1 rounded-lg text-xs font-bold text-slate-700 dark:text-look-1-salvia-suave cursor-pointer hover:bg-transparent active:bg-transparent focus:outline-none focus-visible:outline-none"
                       >
                         {[
                           "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -466,7 +466,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         setSelectedWeekIndexCompras(-1);
                         setCurrentPageCompras(1);
                       }}
-                      className="size-5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-slate-500 dark:text-slate-400 cursor-pointer"
+                      className="size-5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-texto-tenue cursor-pointer"
                     >
                       <ChevronRight className="size-3" />
                     </button>
@@ -482,10 +482,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                           <button
                             type="button"
                             onClick={() => setMostrarSemanaDropdownCompras(!mostrarSemanaDropdownCompras)}
-                            className="flex h-[42px] min-w-[8.75rem] shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-[#525D53] transition-all dark:border-slate-800 dark:bg-zinc-900 dark:text-[#A3BEB0]"
+                            className="flex h-[42px] min-w-[8.75rem] shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1 text-etiqueta font-bold text-[#525D53] transition-all dark:border-slate-800 dark:bg-zinc-900 dark:text-look-1-salvia-suave"
                           >
                             <span>{selectedWeekIndexCompras === -1 ? "Todas las semanas" : (semSeleccionada ? semSeleccionada.label : "Seleccionar semana")}</span>
-                            <ChevronDown className="size-3.5 text-slate-400" />
+                            <ChevronDown className="size-3.5 text-texto-tenue" />
                           </button>
 
                           <AnimatePresence>
@@ -506,7 +506,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                                   }}
                                   className={`w-full px-3 py-2 rounded-lg text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
                                     selectedWeekIndexCompras === -1
-                                      ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                                      ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                                       : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/60"
                                   }`}
                                 >
@@ -527,7 +527,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                                     }}
                                     className={`w-full px-3 py-2 rounded-lg text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
                                       selectedWeekIndexCompras === idx
-                                        ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                                        ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                                         : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/60"
                                     }`}
                                   >
@@ -553,7 +553,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   exit={{ opacity: 0, x: -10 }}
                   className="flex items-center gap-2 flex-wrap max-w-full"
                 >
-                  <span className="text-[10px] font-bold text-slate-400">Desde:</span>
+                  <span className="text-etiqueta font-bold text-texto-tenue">Desde:</span>
                   <CustomDatePicker
                     value={fechaRangoDesdeCompras}
                     onChange={(val) => {
@@ -563,7 +563,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                     placeholder="Desde"
                     align="left"
                   />
-                  <span className="text-[10px] font-bold text-slate-400">Hasta:</span>
+                  <span className="text-etiqueta font-bold text-texto-tenue">Hasta:</span>
                   <CustomDatePicker
                     value={fechaRangoHastaCompras}
                     onChange={(val) => {
@@ -612,7 +612,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         return (
                           <span className="inline-flex flex-wrap items-center gap-1">
                             <span
-                              className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                              className={`px-2.5 py-1 rounded-full text-etiqueta font-bold uppercase tracking-wider ${
                                 isPaid
                                   ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
                                   : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
@@ -630,11 +630,11 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                       <p className="font-bold text-slate-800 dark:text-zinc-200">
                         {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
                       </p>
-                      <p className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                        <Calendar className="size-3.5 text-[#8DA78E]" /> {date}
+                      <p className="text-etiqueta text-texto-tenue flex items-center gap-1.5 mt-0.5">
+                        <Calendar className="size-3.5 text-look-2-salvia-menta" /> {date}
                       </p>
                       {c.observaciones && (
-                        <p className="text-[10px] text-slate-550 dark:text-slate-400 italic mt-1 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40 truncate">
+                        <p className="text-etiqueta text-slate-550 dark:text-slate-400 italic mt-1 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40 truncate">
                           {c.observaciones}
                         </p>
                       )}
@@ -646,17 +646,17 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         return (
                           <>
                             <div className="flex flex-col">
-                              <span className="text-[9px] font-bold text-slate-450 uppercase leading-none">
+                              <span className="text-etiqueta font-bold text-slate-450 uppercase leading-none">
                                 {saldoCompra < c.total && saldoCompra > 0 ? "Saldo Pendiente" : "Total"}
                               </span>
-                              <span className="text-xs font-black text-[#8DA78E] mt-1">
+                              <span className="text-xs font-black text-look-2-salvia-menta mt-1">
                                 {fmtQ(saldoCompra < c.total && saldoCompra > 0 ? saldoCompra : c.total)}
                               </span>
                             </div>
                             <div className="flex gap-2">
                               <button
                                 onClick={() => cargarDetallesCompra(c)}
-                                className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-[#8DA78E] dark:text-[#A3BEB0] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase border border-[#8DA78E]/20"
+                                className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-look-2-salvia-menta dark:text-look-1-salvia-suave font-bold rounded-lg transition-colors cursor-pointer text-etiqueta uppercase border border-[#8DA78E]/20"
                               >
                                 Ver Detalle
                               </button>
@@ -720,7 +720,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                           <td className="px-5 py-3.5 whitespace-nowrap">
                             <span className="inline-flex flex-wrap items-center gap-1">
                               <span
-                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                                className={`px-2.5 py-1 rounded-full text-etiqueta font-bold uppercase tracking-wider ${
                                   isPaid
                                     ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
                                     : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
@@ -731,9 +731,9 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                               {vencido && <InsigniaPagoVencidoCompra />}
                             </span>
                           </td>
-                          <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0] whitespace-nowrap">
+                          <td className="px-5 py-3.5 text-right font-black text-look-2-salvia-menta dark:text-look-1-salvia-suave whitespace-nowrap">
                             <div className="flex flex-col items-end">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-1">
+                              <span className="text-etiqueta font-bold text-texto-tenue uppercase leading-none mb-1">
                                 {saldoCompra < c.total && saldoCompra > 0 ? "Saldo" : "Total"}
                               </span>
                               <span>
@@ -745,7 +745,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 onClick={() => cargarDetallesCompra(c)}
-                                className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-[#8DA78E] dark:text-[#A3BEB0] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase border border-[#8DA78E]/20"
+                                className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-look-2-salvia-menta dark:text-look-1-salvia-suave font-bold rounded-lg transition-colors cursor-pointer text-etiqueta uppercase border border-[#8DA78E]/20"
                               >
                                 Ver Detalle
                               </button>

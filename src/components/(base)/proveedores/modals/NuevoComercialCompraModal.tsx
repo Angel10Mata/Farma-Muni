@@ -265,7 +265,7 @@ export function NuevoComercialCompraModal({
             <ModalField>
               <ModalLabel>Genérico</ModalLabel>
               <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{etiquetaGenericoFijo}</p>
-              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
+              <p className="text-xs text-texto-tenue mt-0.5">
                 Catálogo: {preset!.catalogo_nombre}
               </p>
             </ModalField>
@@ -319,7 +319,7 @@ export function NuevoComercialCompraModal({
               </button>
             </div>
             {!modoGenericoFijo ? (
-              <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+              <p className="mb-2 text-xs text-texto-tenue">
                 Crea laboratorios en{" "}
                 <Link
                   href="/farmamuni/proveedores"

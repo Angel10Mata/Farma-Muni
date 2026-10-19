@@ -153,7 +153,7 @@ export function CatalogoProveedores({
         >
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full min-w-0 text-left sm:max-w-xl">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
               <input
                 type="text"
                 value={proveedorBusqueda}
@@ -219,16 +219,16 @@ export function CatalogoProveedores({
                           <span className="inline-flex flex-wrap items-center gap-2">
                             {p.nombre}
                             {p.activo === false ? (
-                              <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                              <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-etiqueta font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                                 Inactivo
                               </span>
                             ) : null}
                           </span>
                         </td>
-                        <td className="px-5 py-3.5 font-mono text-slate-500 dark:text-slate-400">
-                          {p.nit || <span className="text-slate-300 dark:text-slate-600">C/F</span>}
+                        <td className="px-5 py-3.5 font-mono text-texto-tenue">
+                          {p.nit || <span className="text-slate-300">C/F</span>}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400">
+                        <td className="px-5 py-3.5 text-texto-tenue">
                           {p.telefono ? (
                             <a
                               href={getWhatsappUrl(p.telefono)}
@@ -240,23 +240,23 @@ export function CatalogoProveedores({
                               <Phone className="size-3" /> {formatPhoneDisplay(p.telefono)}
                             </a>
                           ) : (
-                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                            <span className="text-slate-300">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400">
+                        <td className="px-5 py-3.5 text-texto-tenue">
                           {p.correo ? (
                             <span className="flex items-center gap-1.5">
-                              <Mail className="size-3 text-[#8DA78E]" /> {p.correo}
+                              <Mail className="size-3 text-look-2-salvia-menta" /> {p.correo}
                             </span>
                           ) : (
-                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                            <span className="text-slate-300">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-slate-500 dark:text-slate-400 max-w-[200px]">
+                        <td className="px-5 py-3.5 text-texto-tenue max-w-[200px]">
                           {p.descripcion ? (
                             <span className="line-clamp-1 italic">{p.descripcion}</span>
                           ) : (
-                            <span className="text-slate-300 dark:text-slate-600">—</span>
+                            <span className="text-slate-300">—</span>
                           )}
                         </td>
                         <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
@@ -332,17 +332,17 @@ export function CatalogoProveedores({
                     <h4 className="font-bold text-sm text-slate-900 dark:text-white inline-flex flex-wrap items-center gap-2">
                       {p.nombre}
                       {p.activo === false ? (
-                        <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                        <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-etiqueta font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                           Inactivo
                         </span>
                       ) : null}
                     </h4>
-                    <p className="text-[11px] text-slate-400 mt-0.5">NIT: {p.nit || "C/F"}</p>
+                    <p className="text-etiqueta text-texto-tenue mt-0.5">NIT: {p.nit || "C/F"}</p>
                   </div>
-                  <div className="flex flex-col gap-1 text-xs text-slate-500 dark:text-slate-400">
+                  <div className="flex flex-col gap-1 text-xs text-texto-tenue">
                     {p.telefono && (
                       <p className="flex items-center gap-1.5">
-                        <Phone className="size-3.5 text-[#8DA78E] shrink-0" />
+                        <Phone className="size-3.5 text-look-2-salvia-menta shrink-0" />
                         <a
                           href={getWhatsappUrl(p.telefono)}
                           target="_blank"
@@ -355,7 +355,7 @@ export function CatalogoProveedores({
                       </p>
                     )}
                     {p.correo && (
-                      <p className="flex items-center gap-1.5 truncate"><Mail className="size-3.5 text-[#8DA78E]" /> {p.correo}</p>
+                      <p className="flex items-center gap-1.5 truncate"><Mail className="size-3.5 text-look-2-salvia-menta" /> {p.correo}</p>
                     )}
                   </div>
                   <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-zinc-800" onClick={(e) => e.stopPropagation()}>

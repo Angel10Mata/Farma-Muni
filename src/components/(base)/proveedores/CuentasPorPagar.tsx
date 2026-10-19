@@ -100,7 +100,7 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
         )}
       >
         <div className="relative w-full min-w-0 text-left lg:max-w-xl">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
           <input
             type="text"
             value={busquedaCuentasPagar}
@@ -170,14 +170,14 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                         <td className="px-5 py-3.5 text-right font-black text-slate-600 dark:text-slate-400 whitespace-nowrap">
                           {fmtQ(c.total)}
                         </td>
-                        <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0] whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-right font-black text-look-2-salvia-menta dark:text-look-1-salvia-suave whitespace-nowrap">
                           {fmtQ(saldoCompra)}
                         </td>
                         <td className="px-5 py-3.5 whitespace-nowrap text-center">
                           {vencido ? (
                             <InsigniaPagoVencidoCompra />
                           ) : (
-                            <span className="text-[10px] font-bold uppercase text-blue-700 dark:text-blue-400">
+                            <span className="text-etiqueta font-bold uppercase text-blue-700 dark:text-blue-400">
                               Al día
                             </span>
                           )}
@@ -207,7 +207,7 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
         {/* Mobile Cards */}
         <div className="md:hidden flex flex-col gap-3">
           {cuentasPaginadas.length === 0 ? (
-            <div className="py-10 text-center text-slate-400 font-bold text-sm bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-2xl">
+            <div className="py-10 text-center text-texto-tenue font-bold text-sm bg-white dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 rounded-2xl">
               No hay cuentas por pagar pendientes.
             </div>
           ) : (
@@ -230,10 +230,10 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                   <div className="flex justify-between items-start">
                     <div>
                       <h4 className="font-bold text-sm text-slate-900 dark:text-white">#{obtenerCodigoCompra(c.id)}</h4>
-                      <p className="text-[11px] font-bold text-slate-500 mt-0.5">{c.inv_proveedores?.nombre || "Desconocido"}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">{dateStr}</p>
+                      <p className="text-etiqueta font-bold text-slate-500 mt-0.5">{c.inv_proveedores?.nombre || "Desconocido"}</p>
+                      <p className="text-etiqueta text-texto-tenue mt-0.5">{dateStr}</p>
                     </div>
-                    <span className={`inline-flex px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                    <span className={`inline-flex px-2 py-0.5 rounded text-etiqueta font-bold uppercase tracking-wider ${
                       isVencido
                         ? "bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400"
                         : diasRestantes <= 5 ? "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400" : "bg-blue-50 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
@@ -241,14 +241,14 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
                       {isVencido ? "Vencido" : `${diasRestantes} Días`}
                     </span>
                   </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-slate-100 dark:border-zinc-800 text-slate-500 dark:text-slate-400">
+                  <div className="grid grid-cols-2 gap-2 text-xs py-2 border-y border-slate-100 dark:border-zinc-800 text-texto-tenue">
                     <div className="flex flex-col">
-                      <span className="font-bold text-[10px] uppercase">Monto Total</span>
+                      <span className="font-bold text-etiqueta uppercase">Monto Total</span>
                       <span>{fmtQ(c.total)}</span>
                     </div>
                     <div className="flex flex-col items-end">
-                      <span className="font-bold text-[10px] uppercase text-[#8DA78E] dark:text-[#A3BEB0]">Saldo Pendiente</span>
-                      <span className="font-black text-[#8DA78E] dark:text-[#A3BEB0]">{fmtQ(saldoCompra)}</span>
+                      <span className="font-bold text-etiqueta uppercase text-look-2-salvia-menta dark:text-look-1-salvia-suave">Saldo Pendiente</span>
+                      <span className="font-black text-look-2-salvia-menta dark:text-look-1-salvia-suave">{fmtQ(saldoCompra)}</span>
                     </div>
                   </div>
                   <div className="flex justify-end pt-1">

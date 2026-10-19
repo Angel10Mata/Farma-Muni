@@ -133,21 +133,21 @@ export function ComprasCartSidebar({ cargarDatos }: ComprasCartSidebarProps) {
 
         {context.proveedorSeleccionado ? (
           <div className="flex items-start gap-2 rounded-xl border border-[#C1D1C5]/40 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/50 px-3 py-2.5 text-left">
-            <Truck className="size-4 shrink-0 text-[#8DA78E] dark:text-[#A3BEB0] mt-0.5" />
+            <Truck className="size-4 shrink-0 text-look-2-salvia-menta dark:text-look-1-salvia-suave mt-0.5" />
             <div className="min-w-0">
-              <p className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400">
+              <p className="text-etiqueta font-bold uppercase text-texto-tenue">
                 Proveedor
               </p>
               <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
                 {context.proveedorSeleccionado.nombre}
               </p>
               {context.proveedorSeleccionado.nit ? (
-                <p className="text-[10px] text-slate-500">NIT: {context.proveedorSeleccionado.nit}</p>
+                <p className="text-etiqueta text-slate-500">NIT: {context.proveedorSeleccionado.nit}</p>
               ) : null}
             </div>
           </div>
         ) : (
-          <p className="text-[11px] text-amber-700 dark:text-amber-400/90 text-left font-semibold">
+          <p className="text-etiqueta text-amber-700 dark:text-amber-400/90 text-left font-semibold">
             Seleccione un proveedor en el panel de ingreso para continuar.
           </p>
         )}
@@ -162,7 +162,7 @@ export function ComprasCartSidebar({ cargarDatos }: ComprasCartSidebarProps) {
         </ModalField>
 
         <div className="text-left">
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
+          <label className="block text-xs font-bold text-texto-tenue uppercase mb-1">
             Estado de Pago
           </label>
           <div className="grid grid-cols-2 bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700/50 p-1 rounded-xl">
@@ -171,8 +171,8 @@ export function ComprasCartSidebar({ cargarDatos }: ComprasCartSidebarProps) {
               onClick={() => context.setEstadoPago("Pagado")}
               className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 context.estadoPago === "Pagado"
-                  ? "bg-white dark:bg-zinc-900 text-[#8DA78E] shadow-xs"
-                  : "text-slate-500 dark:text-slate-400"
+                  ? "bg-white dark:bg-zinc-900 text-look-2-salvia-menta shadow-xs"
+                  : "text-texto-tenue"
               }`}
             >
               PAGADO
@@ -183,7 +183,7 @@ export function ComprasCartSidebar({ cargarDatos }: ComprasCartSidebarProps) {
               className={`py-1.5 text-xs font-bold rounded-lg transition-all cursor-pointer ${
                 context.estadoPago === "Pendiente"
                   ? "bg-white dark:bg-zinc-900 text-amber-500 shadow-xs"
-                  : "text-slate-500 dark:text-slate-400"
+                  : "text-texto-tenue"
               }`}
             >
               PENDIENTE
@@ -202,7 +202,7 @@ export function ComprasCartSidebar({ cargarDatos }: ComprasCartSidebarProps) {
         )}
 
         <div className="text-left">
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
+          <label className="block text-xs font-bold text-texto-tenue uppercase mb-1">
             Observaciones / Comentario
           </label>
           <textarea
@@ -217,7 +217,7 @@ export function ComprasCartSidebar({ cargarDatos }: ComprasCartSidebarProps) {
         <div className="border-t border-[#C1D1C5]/30 pt-3 mt-auto space-y-2 text-left">
           <div className="flex items-center justify-between text-sm font-black text-slate-800 dark:text-white pt-1">
             <span>Total a pagar:</span>
-            <span className="text-base text-[#8DA78E]">{fmtQ(totalCarrito)}</span>
+            <span className="text-base text-look-2-salvia-menta">{fmtQ(totalCarrito)}</span>
           </div>
         </div>
 
