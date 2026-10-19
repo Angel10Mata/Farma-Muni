@@ -76,8 +76,8 @@ export default function EncabezadoApp() {
                   transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
                   className="flex flex-col leading-none"
                 >
-                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farma</span>
-                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Muni</span>
+                  <span className="text-xs sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farma</span>
+                  <span className="text-xs sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Muni</span>
                 </motion.span>
               </Link>
             </div>
@@ -169,7 +169,7 @@ export default function EncabezadoApp() {
                 </AnimatePresence>
               </button>
               {!isOpen && canSeePendingDevices && pendingDevices > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-celeste-kore text-[10px] font-bold text-white animate-pulse pointer-events-none">
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-celeste-kore text-etiqueta font-bold text-white animate-pulse pointer-events-none">
                   {pendingDevices}
                 </span>
               )}

@@ -68,7 +68,7 @@ export function LogoMuniFullscreen({ isOpen, onClose }: LogoMuniFullscreenProps)
             </motion.div>
           </motion.div>
 
-          <div className="pointer-events-none absolute bottom-12 left-1/2 -translate-x-1/2 animate-bounce text-[10px] font-black tracking-[0.5em] text-black/60 uppercase dark:text-white/40">
+          <div className="pointer-events-none absolute bottom-12 left-1/2 -translate-x-1/2 animate-bounce text-etiqueta font-bold tracking-[0.5em] text-texto-tenue uppercase">
             Click en cualquier lugar para cerrar
           </div>
         </motion.div>

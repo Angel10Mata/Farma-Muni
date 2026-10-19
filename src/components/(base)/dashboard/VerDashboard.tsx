@@ -33,14 +33,14 @@ function DashboardHeader({
     >
       <h1
         className={cn(
-          "font-black uppercase tracking-tight text-zinc-900 dark:text-zinc-50 leading-[0.95]",
+          "font-bold uppercase tracking-tight text-texto-principal leading-[0.95]",
           centered ? "text-2xl md:text-4xl" : "text-3xl md:text-5xl",
         )}
       >
         {title}
       </h1>
       {subtitle ? (
-        <p className="mt-2 md:mt-3 text-sm text-zinc-500 dark:text-zinc-400 font-medium leading-snug">
+        <p className="mt-2 md:mt-3 text-sm text-texto-tenue font-medium leading-snug">
           {subtitle}
         </p>
       ) : null}
@@ -155,7 +155,7 @@ function DashboardModuleCard({
       >
         <span
           className={cn(
-            "absolute z-20 inline-flex rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400",
+            "absolute z-20 inline-flex rounded-md bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-etiqueta font-semibold uppercase tracking-wider text-texto-tenue",
             featured ? "top-5 right-5 left-5 sm:left-auto" : "top-4 right-4 hidden sm:inline-flex",
           )}
         >
@@ -224,10 +224,10 @@ function DashboardModuleCard({
 
               <p
                 className={cn(
-                  "text-zinc-500 dark:text-zinc-400 font-medium mt-2 leading-snug",
+                  "text-texto-tenue font-medium mt-2 leading-snug",
                   featured
                     ? "text-sm max-w-sm line-clamp-3"
-                    : "text-[11px] leading-tight line-clamp-2",
+                    : "text-etiqueta leading-tight line-clamp-2",
                 )}
               >
                 {mod.desc}
@@ -253,8 +253,8 @@ function DashboardModuleCard({
             >
               <span
                 className={cn(
-                  "text-[10px] md:text-xs font-bold uppercase tracking-widest transition-colors inline-flex items-center gap-1.5",
-                  !hovered && "text-zinc-400 dark:text-zinc-500",
+                  "text-etiqueta md:text-xs font-bold uppercase tracking-widest transition-colors inline-flex items-center gap-1.5",
+                  !hovered && "text-texto-tenue",
                 )}
                 style={hovered ? { color: iconColor } : undefined}
               >
@@ -331,16 +331,16 @@ export function VerDashboard() {
     router.push(href);
   };
 
-  const AREA_NEGOCIO = ["ventas", "clientes", "proveedores", "inventario", "finanzas", "creditos"];
+  const AREA_FARMACIA = ["ventas", "clientes", "proveedores", "inventario", "finanzas", "creditos"];
 
-  const negocioModules = AREA_NEGOCIO
+  const modulosFarmacia = AREA_FARMACIA
     .map((id) => visibleModules.find((m) => m.id === id))
     .filter(Boolean) as AppModuleConfig[];
 
   const AreaLabel = ({ children }: { children: React.ReactNode }) => (
     <div className="flex items-center justify-center gap-3 w-full px-1 mb-4 md:mb-5">
       <div className="h-px flex-1 max-w-24 bg-zinc-200 dark:bg-zinc-800" />
-      <span className="text-[10px] font-black uppercase tracking-[0.35em] text-zinc-500 dark:text-zinc-500 shrink-0">
+      <span className="text-etiqueta font-bold uppercase tracking-[0.35em] text-texto-tenue shrink-0">
         {children}
       </span>
       <div className="h-px flex-1 max-w-24 bg-zinc-200 dark:bg-zinc-800" />
@@ -350,7 +350,7 @@ export function VerDashboard() {
   const isStandardUserView =
     roleLoaded && effectiveRole === "user" && !isSuperOrAdmin;
   const centerSingleModule =
-    roleLoaded && (isStandardUserView || negocioModules.length === 1);
+    roleLoaded && (isStandardUserView || modulosFarmacia.length === 1);
 
   const renderModuleCard = (
     mod: AppModuleConfig,
@@ -370,15 +370,15 @@ export function VerDashboard() {
 
   const renderBentoGrid = () => (
     <div className="w-full rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white/80 dark:bg-zinc-900/50 p-4 md:p-6">
-      <AreaLabel>Negocio</AreaLabel>
+      <AreaLabel>Gestión de la farmacia</AreaLabel>
       <div className="grid w-full grid-cols-1 md:grid-cols-3 gap-4 md:gap-5 auto-rows-auto sm:auto-rows-[160px]">
-        {negocioModules.map((mod, index) => renderModuleCard(mod, index))}
+        {modulosFarmacia.map((mod, index) => renderModuleCard(mod, index))}
       </div>
     </div>
   );
 
   const renderSoloModule = () => {
-    const mod = negocioModules[0];
+    const mod = modulosFarmacia[0];
     if (!mod) return null;
 
     return (
