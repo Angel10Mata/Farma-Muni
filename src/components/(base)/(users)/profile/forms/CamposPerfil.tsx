@@ -59,7 +59,7 @@ const Select = ({
         className,
       )}
     />
-    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-texto-tenue">
       <svg
         width="10"
         height="6"
@@ -131,7 +131,7 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
   };
 
   const NavButtons = (
-    <div className="flex md:hidden items-center gap-2 text-muted-foreground/60">
+    <div className="flex md:hidden items-center gap-2 text-texto-tenue/60">
       <button
         onClick={() => setStep((s) => Math.max(1, s - 1))}
         disabled={step === 1}
@@ -175,7 +175,7 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
           <div className="relative">
             <Fingerprint
               size={14}
-              className="absolute left-3 top-3 text-muted-foreground"
+              className="absolute left-3 top-3 text-texto-tenue"
             />
             <Input
               name="dpi"
@@ -210,7 +210,7 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
           >
             <Calendar
               size={14}
-              className="absolute left-3 text-muted-foreground pointer-events-none z-10"
+              className="absolute left-3 text-texto-tenue pointer-events-none z-10"
             />
             <Input
               type="date"
@@ -311,7 +311,7 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
   );
 
   return (
-    <div className="w-full flex flex-col h-full animate-in fade-in duration-300 ">
+    <div className="w-full flex flex-col h-full animate-in fade-in duration-300">
       <div className="hidden md:grid md:grid-cols-3 md:mx-20 gap-10 pb-6">
         {SectionPersonal}
         {SectionContacto}

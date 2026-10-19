@@ -55,7 +55,7 @@ function AdminCard({
           <h3 className="text-base md:text-xl font-bold tracking-tight text-foreground">
             {opt.title}
           </h3>
-          <p className="text-[10px] md:text-xs text-muted-foreground line-clamp-1 font-medium italic">
+          <p className="text-etiqueta md:text-xs text-texto-tenue line-clamp-1 font-medium italic">
             {opt.desc}
           </p>
         </div>

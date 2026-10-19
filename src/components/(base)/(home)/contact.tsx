@@ -24,7 +24,7 @@ export function ContactSection() {
         >
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary/10 border border-primary/20">
             <PhoneCall className="size-3 text-primary" />
-            <span className="text-[9px] font-bold uppercase tracking-widest text-primary">
+            <span className="text-etiqueta font-bold uppercase tracking-widest text-primary">
               Contacto
             </span>
           </div>
@@ -42,13 +42,13 @@ export function ContactSection() {
         >
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className="space-y-4 lg:space-y-6 text-center lg:text-left">
-              <p className="text-muted-foreground text-sm lg:text-base font-medium leading-relaxed">
+              <p className="text-texto-tenue text-sm lg:text-base font-medium leading-relaxed">
                 Contáctenos para recibir asesoría sobre el Sistema Integral de Gestión Kore
                 y optimizar sus procesos operativos.
               </p>
               <div className="flex items-center justify-center lg:justify-start gap-4 p-3 rounded-xl bg-muted/50 border border-zinc-200 dark:border-zinc-800">
                 <MapPin className="text-primary size-4 shrink-0" />
-                <span className="font-bold uppercase text-[10px] lg:text-xs tracking-tight leading-tight">
+                <span className="font-bold uppercase text-etiqueta lg:text-xs tracking-tight leading-tight">
                   Concepción Las Minas, Chiquimula, Guatemala
                 </span>
               </div>
@@ -63,7 +63,7 @@ export function ContactSection() {
                 <div className="flex items-center gap-4">
                   <MessageCircle className="size-6 lg:size-8 text-emerald-500 group-hover:text-inherit" />
                   <div className="text-left font-bold uppercase">
-                    <p className="text-[9px] opacity-60 tracking-widest text-inherit">
+                    <p className="text-etiqueta opacity-60 tracking-widest text-inherit">
                       WhatsApp
                     </p>
                     <p className="text-sm lg:text-lg text-inherit">
@@ -80,7 +80,7 @@ export function ContactSection() {
                 <div className="flex items-center gap-4">
                   <Phone className="size-6 lg:size-8 text-primary group-hover:text-inherit" />
                   <div className="text-left font-bold uppercase">
-                    <p className="text-[9px] opacity-60 tracking-widest text-inherit">
+                    <p className="text-etiqueta opacity-60 tracking-widest text-inherit">
                       Llámenos ahora
                     </p>
                     <p className="text-sm lg:text-lg text-inherit tracking-tighter">

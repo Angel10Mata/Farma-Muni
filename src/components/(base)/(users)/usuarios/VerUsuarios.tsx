@@ -166,11 +166,11 @@ export function VerUsuarios() {
               </h2>
               <p className="text-xs">
                 Rol Actual:{" "}
-                <span className="text-[10px] underline font-bold uppercase">
+                <span className="text-etiqueta underline font-bold uppercase">
                   {roleLabels[effectiveRole] || effectiveRole}
                 </span>
                 {realRole !== effectiveRole && (
-                  <span className="text-[10px] text-muted-foreground ml-1">
+                  <span className="text-etiqueta text-texto-tenue ml-1">
                     (simulación)
                   </span>
                 )}
@@ -192,7 +192,7 @@ export function VerUsuarios() {
 
           <div className="flex items-center gap-3">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-texto-tenue" />
               <input
                 type="text"
                 placeholder="Buscar por nombre..."
@@ -265,7 +265,7 @@ export function VerUsuarios() {
                       <tr>
                         <td
                           colSpan={2}
-                          className="bg-zinc-100 dark:bg-zinc-800/50 px-5 py-2 text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-widest"
+                          className="bg-zinc-100 dark:bg-zinc-800/50 px-5 py-2 text-etiqueta font-bold text-zinc-600 uppercase tracking-widest"
                         >
                           {roleLabels[roleKey] || roleKey}
                         </td>
@@ -297,7 +297,7 @@ export function VerUsuarios() {
           </table>
 
           {filteredUsers.length === 0 && (
-            <div className="p-12 flex flex-col items-center gap-4 text-center text-muted-foreground text-xs uppercase font-medium">
+            <div className="p-12 flex flex-col items-center gap-4 text-center text-texto-tenue text-xs uppercase font-medium">
               <p>
                 {searchQuery
                   ? "No se encontraron coincidencias."

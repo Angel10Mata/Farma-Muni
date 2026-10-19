@@ -30,7 +30,7 @@ export function VerAdmin() {
             Administración
           </h1>
         </div>
-        <p className="text-sm text-muted-foreground ml-0.5">
+        <p className="text-sm text-texto-tenue ml-0.5">
           Panel de control administrativo.
         </p>
       </div>

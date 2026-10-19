@@ -334,7 +334,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
                   type="button"
                   onClick={openGallery}
                   disabled={isProcessing}
-                  className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-white/95 text-[#525D53] transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 text-etiqueta font-bold rounded-lg bg-white/95 text-[#525D53] transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Upload size={12} />
                   Cambiar
@@ -343,7 +343,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
                   type="button"
                   onClick={handleDelete}
                   disabled={isProcessing}
-                  className="flex items-center justify-center px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-red-500/90 text-white transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex items-center justify-center px-2.5 py-1.5 text-etiqueta font-bold rounded-lg bg-red-500/90 text-white transition-all disabled:opacity-50 cursor-pointer"
                 >
                   {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                 </button>
@@ -354,7 +354,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
 
         {isProductVariant && currentImagePath && loadingPreview && (
           <div className="absolute inset-0 flex items-center justify-center bg-zinc-100 dark:bg-zinc-900 rounded-2xl">
-            <Loader2 className="animate-spin text-[#8DA78E]" size={28} />
+            <Loader2 className="animate-spin text-look-2-salvia-menta" size={28} />
           </div>
         )}
 
@@ -366,8 +366,8 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
 
         {isProductVariant && uploading && (
           <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-sm rounded-2xl">
-            <Loader2 className="animate-spin text-[#8DA78E]" size={28} />
-            <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Subiendo imagen...</span>
+            <Loader2 className="animate-spin text-look-2-salvia-menta" size={28} />
+            <span className="text-etiqueta font-bold text-slate-600 dark:text-slate-300">Subiendo imagen...</span>
           </div>
         )}
 
@@ -416,14 +416,14 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
           <div className="relative z-10 flex items-center gap-3 h-full w-full px-4 py-3 pointer-events-none">
             <div className={`size-11 shrink-0 rounded-xl flex items-center justify-center transition-transform duration-300 ${
               isDragging ? 'scale-105' : ''
-            } bg-[#8DA78E]/15 dark:bg-[#8DA78E]/10 border border-[#8DA78E]/25 text-[#8DA78E]`}>
+            } bg-[#8DA78E]/15 dark:bg-[#8DA78E]/10 border border-[#8DA78E]/25 text-look-2-salvia-menta`}>
               <ImageIcon className="size-5" />
             </div>
             <div className="flex-1 min-w-0 text-left">
               <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
                 {isDragging ? 'Suelta la imagen aquí' : 'Arrastra tu imagen'}
               </p>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5 truncate">
+              <p className="text-etiqueta text-texto-tenue mt-0.5 truncate">
                 4:3 vertical · JPG, PNG o WebP
               </p>
             </div>
@@ -433,7 +433,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
                   type="button"
                   onClick={openGallery}
                   disabled={isProcessing}
-                  className="flex items-center justify-center gap-1 px-3 py-2 text-[10px] font-bold rounded-lg bg-[#8DA78E] text-white transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="flex items-center justify-center gap-1 px-3 py-2 text-etiqueta font-bold rounded-lg bg-[#8DA78E] text-white transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
                   <Upload size={13} />
                   Galería
@@ -442,9 +442,9 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
                   type="button"
                   onClick={openCamera}
                   disabled={isProcessing}
-                  className="flex items-center justify-center gap-1 px-3 py-2 text-[10px] font-bold rounded-lg bg-white/90 dark:bg-zinc-800/90 border border-[#C1D1C5]/60 dark:border-zinc-700 text-[#525D53] dark:text-slate-200 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="flex items-center justify-center gap-1 px-3 py-2 text-etiqueta font-bold rounded-lg bg-white/90 dark:bg-zinc-800/90 border border-[#C1D1C5]/60 dark:border-zinc-700 text-[#525D53] dark:text-slate-200 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
-                  <Camera size={13} className="text-[#8DA78E]" />
+                  <Camera size={13} className="text-look-2-salvia-menta" />
                   Cámara
                 </button>
               </div>
@@ -454,7 +454,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
 
         {!isProductVariant && !currentImagePath && !uploading && !botonesExternos && !compact && (
           <div className="flex flex-col items-center gap-2 text-center pointer-events-none">
-            <div className="size-12 rounded-2xl bg-[#8DA78E]/10 dark:bg-[#8DA78E]/5 border border-[#8DA78E]/20 flex items-center justify-center text-[#8DA78E] mb-1">
+            <div className="size-12 rounded-2xl bg-[#8DA78E]/10 dark:bg-[#8DA78E]/5 border border-[#8DA78E]/20 flex items-center justify-center text-look-2-salvia-menta mb-1">
               <ImageIcon className="size-6" />
             </div>
             <p className="text-sm text-slate-800 dark:text-slate-200 font-bold">
@@ -467,7 +467,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
           <div className="w-full h-full flex flex-col justify-between py-1 bg-white dark:bg-zinc-900/60 rounded-xl">
             {/* Header Title */}
             <div className="text-center pt-1 pb-1 border-b border-[#C1D1C5]/10 dark:border-zinc-800/10 select-none">
-              <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">Tomar / Subir Foto</span>
+              <span className="text-etiqueta font-bold text-slate-500 uppercase tracking-wider">Tomar / Subir Foto</span>
             </div>
             {/* Buttons Row */}
             <div className="flex-1 flex flex-row items-stretch divide-x divide-[#C1D1C5]/30 dark:divide-zinc-800/40">
@@ -477,10 +477,10 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
                   e.stopPropagation();
                   fileInputRef.current?.click();
                 }}
-                className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#8DA78E] hover:bg-slate-50 dark:hover:bg-zinc-800/20 transition-all gap-0.5 p-1 cursor-pointer select-none"
+                className="flex-1 flex flex-col items-center justify-center text-texto-tenue hover:text-[#8DA78E] hover:bg-slate-50 dark:hover:bg-zinc-800/20 transition-all gap-0.5 p-1 cursor-pointer select-none"
               >
                 <Upload size={14} />
-                <span className="text-[8px] font-bold uppercase tracking-wider">Archivo</span>
+                <span className="text-etiqueta font-bold uppercase tracking-wider">Archivo</span>
               </button>
               <button
                 type="button"
@@ -488,10 +488,10 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
                   e.stopPropagation();
                   cameraInputRef.current?.click();
                 }}
-                className="flex-1 flex flex-col items-center justify-center text-slate-400 dark:text-slate-500 hover:text-[#8DA78E] hover:bg-slate-50 dark:hover:bg-zinc-800/20 transition-all gap-0.5 p-1 cursor-pointer select-none"
+                className="flex-1 flex flex-col items-center justify-center text-texto-tenue hover:text-[#8DA78E] hover:bg-slate-50 dark:hover:bg-zinc-800/20 transition-all gap-0.5 p-1 cursor-pointer select-none"
               >
                 <Camera size={14} />
-                <span className="text-[8px] font-bold uppercase tracking-wider">Cámara</span>
+                <span className="text-etiqueta font-bold uppercase tracking-wider">Cámara</span>
               </button>
             </div>
           </div>
@@ -499,7 +499,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
 
         {compact && uploading && (
           <div className="flex items-center justify-center">
-            <Loader2 className="animate-spin text-[#8DA78E]" size={24} />
+            <Loader2 className="animate-spin text-look-2-salvia-menta" size={24} />
           </div>
         )}
 
@@ -547,7 +547,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
                     disabled={isProcessing}
                     className="flex items-center gap-2 px-4 py-2.5 text-xs font-bold rounded-xl bg-white dark:bg-zinc-800 border border-[#C1D1C5]/60 dark:border-zinc-700 text-[#525D53] dark:text-slate-200 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                   >
-                    <Camera size={14} className="text-[#8DA78E]" />
+                    <Camera size={14} className="text-look-2-salvia-menta" />
                     Tomar Foto
                   </button>
                 </>

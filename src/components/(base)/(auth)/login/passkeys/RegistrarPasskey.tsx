@@ -68,12 +68,12 @@ export function RegisterPasskey() {
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Configurar Ingreso Seguro</h3>
         {passkeyCount !== null && (
-          <span className="text-sm font-medium text-muted-foreground bg-secondary px-2 py-1 rounded-md">
+          <span className="text-sm font-medium text-texto-tenue bg-secondary px-2 py-1 rounded-md">
             {passkeyCount} / 3 Dispositivos
           </span>
         )}
       </div>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-texto-tenue">
         Añade tu huella, rostro o PIN para iniciar sesión sin contraseña.
       </p>
 

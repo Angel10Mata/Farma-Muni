@@ -69,17 +69,17 @@ export default function OfflineBanner() {
               <AlertTriangle className="w-4 h-4 text-white animate-pulse" />
             )}
             <div className="flex flex-col md:flex-row md:items-center gap-0 md:gap-4">
-              <p className="text-[10px] md:text-xs font-black text-white uppercase tracking-[0.4em]">
+              <p className="text-etiqueta md:text-xs font-black text-white uppercase tracking-[0.4em]">
                 {status === "offline" ? "Sin Conexión a Internet" : "Conexión Lenta o Inestable"}
               </p>
-              <p className="hidden md:block text-[8px] font-bold text-white/40 uppercase tracking-widest">
+              <p className="hidden md:block text-etiqueta font-bold text-white/40 uppercase tracking-widest">
                 {status === "offline" ? "El sistema está en modo lectura" : "Las acciones podrían tardar más"}
               </p>
             </div>
             <button
               type="button"
               onClick={() => window.location.reload()}
-              className="ml-6 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[9px] font-black text-white transition-all cursor-pointer uppercase tracking-widest"
+              className="ml-6 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-etiqueta font-black text-white transition-all cursor-pointer uppercase tracking-widest"
             >
               <RefreshCw className="w-3 h-3" />
               Reintentar

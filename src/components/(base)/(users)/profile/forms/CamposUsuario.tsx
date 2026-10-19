@@ -103,7 +103,7 @@ const UserStatusToggle = ({
     <div className="py-10">
       <div className="flex justify-between items-end mb-2">
         {isSelf ? (
-          <span className="text-[10px] font-bold text-red-600 uppercase flex items-center gap-1">
+          <span className="text-etiqueta font-bold text-red-600 uppercase flex items-center gap-1">
             <AlertTriangle size={12} /> No puede banear su propio perfil
           </span>
         ) : (
@@ -149,7 +149,7 @@ const UserStatusToggle = ({
 
         <div className="flex items-center gap-2">
           {isLoading && (
-            <Loader2 size={14} className="animate-spin text-muted-foreground" />
+            <Loader2 size={14} className="animate-spin text-texto-tenue" />
           )}
           <StatusSwitch
             checked={isActive}
@@ -271,7 +271,7 @@ export function CamposUsuario({ userId, canEdit }: InfoUserProps) {
   return (
     <div className="w-full max-w-sm mx-auto flex flex-col h-full">
       <div className="flex items-center gap-2 pb-2 border-b border-border/40 mb-3">
-        <Shield size={25} className=" text-purple-500" />
+        <Shield size={25} className="text-purple-500" />
         <h3 className="text-xs font-bold uppercase tracking-wider">
           Acceso y Seguridad
         </h3>
@@ -286,7 +286,7 @@ export function CamposUsuario({ userId, canEdit }: InfoUserProps) {
             exit={{ opacity: 0 }}
             className="space-y-3"
           >
-            <div className="space-y-2.5 ">
+            <div className="space-y-2.5">
               <div>
                 <label className="text-xs font-semibold text-foreground/70 mb-1 block">
                   Usuario
@@ -349,7 +349,7 @@ export function CamposUsuario({ userId, canEdit }: InfoUserProps) {
                   <button
                     type="button"
                     onClick={() => setShowPass(!showPass)}
-                    className="absolute right-2 top-2.5 text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                    className="absolute right-2 top-2.5 text-texto-tenue hover:text-foreground cursor-pointer transition-colors"
                   >
                     {showPass ? <EyeOff size={14} /> : <Eye size={14} />}
                   </button>
@@ -491,13 +491,13 @@ const SuccessView = ({
     >
       <div className="p-4 rounded-xl border bg-muted/30 space-y-3">
         <div className="flex justify-between items-center pb-2 border-b border-border/50">
-          <span className="text-[10px] font-black uppercase text-muted-foreground tracking-wider">
+          <span className="text-etiqueta font-black uppercase text-texto-tenue tracking-wider">
             Actualizado
           </span>
           <button
             type="button"
             onClick={handleCopy}
-            className="flex items-center gap-1 text-[10px] text-primary font-bold hover:underline cursor-pointer"
+            className="flex items-center gap-1 text-etiqueta text-primary font-bold hover:underline cursor-pointer"
           >
             {copied ? <CheckCircle2 size={12} /> : <ClipboardCopy size={12} />}{" "}
             {copied ? "Copiado" : "Copiar"}
@@ -510,7 +510,7 @@ const SuccessView = ({
           </p>
           <p className="text-xs flex items-center justify-between">
             <span className="font-bold opacity-70">Clave:</span>
-            <code className="bg-background px-1.5 py-0.5 rounded border text-[10px]">
+            <code className="bg-background px-1.5 py-0.5 rounded border text-etiqueta">
               {savedData.pass}
             </code>
           </p>

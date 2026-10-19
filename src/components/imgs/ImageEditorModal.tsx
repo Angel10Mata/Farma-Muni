@@ -163,7 +163,7 @@ export default function ImageEditorModal({
             )}
           </div>
 
-          <p className="text-[10px] text-center text-gray-400 dark:text-gray-500">Pellizca o usa la rueda del ratón para hacer zoom</p>
+          <p className="text-etiqueta text-center text-gray-400 dark:text-gray-500">Pellizca o usa la rueda del ratón para hacer zoom</p>
         </div>
 
         {/* Footer */}

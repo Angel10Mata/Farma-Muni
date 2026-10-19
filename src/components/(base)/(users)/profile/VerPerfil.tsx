@@ -108,12 +108,12 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
               </div>
 
               <div className="min-w-0">
-                <h2 className="text-[10px] sm:text-lg font-bold tracking-tight text-foreground truncate ">
+                <h2 className="text-etiqueta sm:text-lg font-bold tracking-tight text-foreground truncate">
                   {profile?.nombre || "Usuario"}
                 </h2>
                 <div className="mt-1 flex items-center">
                   <div className="relative group">
-                    <div className="flex items-center bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase">
+                    <div className="flex items-center bg-primary/10 text-primary px-2 py-0.5 rounded text-etiqueta font-bold tracking-wider uppercase">
                       <ShieldCheck size={12} className="mr-1" />
                       <span>{profile?.rol ? roleLabels[profile.rol] || profile.rol : "USUARIO"}</span>
                       {canChangeRole && (
@@ -145,7 +145,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                   "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5",
                   view === "perfil"
                     ? "bg-blue-700 text-blue-200 dark:bg-blue-900 dark:text-blue-300 ring-1 ring-blue-200 dark:ring-blue-900"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                    : "text-texto-tenue hover:text-foreground hover:bg-muted/40",
                 )}
               >
                 <User size={12} />
@@ -157,7 +157,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                   "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5",
                   view === "usuario"
                     ? "bg-purple-700 text-purple-200 dark:bg-purple-900 dark:text-purple-200 ring-1 ring-purple-200 dark:ring-purple-900"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                    : "text-texto-tenue hover:text-foreground hover:bg-muted/40",
                 )}
               >
                 <Shield size={12} />
@@ -167,7 +167,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
 
             <button
               onClick={onClose}
-              className="shrink-0 p-2 text-muted-foreground rounded-full transition-colors cursor-pointer"
+              className="shrink-0 p-2 text-texto-tenue rounded-full transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -180,7 +180,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                 "flex-1 justify-center px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5",
                 view === "perfil"
                   ? "bg-blue-700 text-blue-200"
-                  : "text-muted-foreground",
+                  : "text-texto-tenue",
               )}
             >
               <User size={12} />
@@ -192,7 +192,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                 "flex-1 justify-center px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5",
                 view === "usuario"
                   ? "bg-purple-700 text-purple-200"
-                  : "text-muted-foreground",
+                  : "text-texto-tenue",
               )}
             >
               <Shield size={12} />
@@ -206,7 +206,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
           style={{ height: "calc(100% - 150px)" }}
         >
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-3 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-40 gap-3 text-texto-tenue">
               <Loader2 className="animate-spin" size={32} />
               <p className="text-sm">Cargando información...</p>
             </div>

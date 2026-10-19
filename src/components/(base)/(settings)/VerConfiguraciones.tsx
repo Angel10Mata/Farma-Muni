@@ -56,7 +56,7 @@ export default function VerConfiguraciones() {
   if (isLoading) {
     return (
       <div className="flex items-center justify-center w-full h-40">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <Loader2 className="w-8 h-8 animate-spin text-texto-tenue" />
       </div>
     );
   }
@@ -105,7 +105,7 @@ export default function VerConfiguraciones() {
             Configuraciones
           </h1>
         </div>
-        <p className="text-sm text-muted-foreground ml-0.5">
+        <p className="text-sm text-texto-tenue ml-0.5">
           Ajustes generales del sistema y seguridad.
         </p>
       </div>
@@ -119,7 +119,7 @@ export default function VerConfiguraciones() {
               </div>
               <div className="space-y-0.5 text-left">
                 <h3 className="text-base font-semibold text-foreground">Autorización de dispositivos</h3>
-                <p className="text-xs text-muted-foreground">Requerir aprobación manual para nuevos dispositivos.</p>
+                <p className="text-xs text-texto-tenue">Requerir aprobación manual para nuevos dispositivos.</p>
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -141,7 +141,7 @@ export default function VerConfiguraciones() {
               </div>
               <div className="space-y-0.5 text-left">
                 <h3 className="text-base font-semibold text-foreground">Habilitar Passkeys</h3>
-                <p className="text-xs text-muted-foreground">Permitir el inicio de sesión sin contraseña.</p>
+                <p className="text-xs text-texto-tenue">Permitir el inicio de sesión sin contraseña.</p>
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -163,7 +163,7 @@ export default function VerConfiguraciones() {
               </div>
               <div>
                 <h3 className="text-base font-semibold text-foreground">Datos del recibo</h3>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-texto-tenue">
                   Nombre, dirección y teléfono que aparecen en el ticket de venta.
                 </p>
               </div>

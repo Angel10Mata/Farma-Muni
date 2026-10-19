@@ -22,7 +22,7 @@ export function ServicesSection() {
       >
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
           <Zap className="size-3 text-primary" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary">Services</span>
+          <span className="text-etiqueta font-bold uppercase tracking-widest text-primary">Services</span>
         </div>
         <h2 className="text-3xl lg:text-5xl font-black uppercase tracking-tighter italic text-foreground leading-none">Our Services</h2>
       </motion.div>
@@ -41,7 +41,7 @@ export function ServicesSection() {
               <s.icon className="size-6 lg:size-8 text-white" />
             </div>
             <h3 className="text-xl lg:text-2xl font-black mb-4 uppercase text-foreground">{s.title}</h3>
-            <p className="text-muted-foreground text-sm font-medium leading-relaxed">{s.desc}</p>
+            <p className="text-texto-tenue text-sm font-medium leading-relaxed">{s.desc}</p>
           </motion.div>
         ))}
       </div>

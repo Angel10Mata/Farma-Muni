@@ -38,7 +38,7 @@ export function UsuarioRolCelda({
     (actorRealRole === "super" || roleKey !== "super");
 
   const badgeClass =
-    "text-[10px] font-bold bg-primary/5 px-2 py-0.5 rounded border border-primary/10 max-w-[180px] truncate";
+    "text-etiqueta font-bold bg-primary/5 px-2 py-0.5 rounded border border-primary/10 max-w-[180px] truncate";
 
   if (!canEdit) {
     return <span className={cn(badgeClass, "inline-block capitalize")}>{label}</span>;
@@ -75,7 +75,7 @@ export function UsuarioRolCelda({
       onClick={(e) => e.stopPropagation()}
     >
       {pending ? (
-        <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />
+        <Loader2 className="h-3.5 w-3.5 animate-spin text-texto-tenue" aria-hidden />
       ) : null}
       <select
         value={roleKey}

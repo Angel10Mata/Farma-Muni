@@ -19,7 +19,7 @@ export function AboutSection() {
         className="text-center mb-10 lg:mb-16 space-y-4"
       >
         <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-primary/10 border border-primary/20">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+          <span className="text-etiqueta font-bold uppercase tracking-widest text-primary flex items-center gap-2">
             <Info className="size-3" />
             About Us
           </span>
@@ -55,7 +55,7 @@ export function AboutSection() {
           transition={{ duration: 1.2, ease: "easeOut", delay: 0.7 }}
           className="space-y-6 lg:space-y-8 text-center lg:text-left"
         >
-          <p className="text-muted-foreground text-base lg:text-lg font-medium leading-relaxed italic">
+          <p className="text-texto-tenue text-base lg:text-lg font-medium leading-relaxed italic">
             At The Cars Place Lot INC, we build trust through transparency.
             Every unit is documented for your peace of mind.
           </p>

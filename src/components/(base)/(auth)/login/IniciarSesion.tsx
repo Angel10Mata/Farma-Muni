@@ -123,7 +123,7 @@ export default function IniciarSesion() {
               <h3 className="text-2xl font-black tracking-tight">
                 <AuroraText>Bienvenido de nuevo</AuroraText>
               </h3>
-              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-[0.2em]">
+              <p className="text-etiqueta text-texto-tenue font-bold uppercase tracking-[0.2em]">
                 FarmaMuni
               </p>
             </div>
@@ -186,7 +186,7 @@ export default function IniciarSesion() {
                     <label className="flex items-center gap-2 text-sm font-semibold text-foreground/70">
                       Contraseña
                       {isCapsLockOn && (
-                        <span className="text-[10px] text-amber-500 font-bold uppercase animate-pulse">
+                        <span className="text-etiqueta text-amber-500 font-bold uppercase animate-pulse">
                           Mayúsculas activadas
                         </span>
                       )}
@@ -218,7 +218,7 @@ export default function IniciarSesion() {
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-1 cursor-pointer"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-texto-tenue hover:text-foreground p-1 cursor-pointer"
                       >
                         {showPassword ? (
                           <EyeOff className="size-4" />
@@ -262,7 +262,7 @@ export default function IniciarSesion() {
                         <span className="w-full border-t border-border/50" />
                       </div>
                       <div className="relative flex justify-center text-xs uppercase font-bold tracking-widest">
-                        <span className="bg-card px-3 text-muted-foreground/70">
+                        <span className="bg-card px-3 text-texto-tenue/70">
                           O
                         </span>
                       </div>

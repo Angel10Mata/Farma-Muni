@@ -27,12 +27,12 @@ export default function SinAccesoContent() {
           Acceso Restringido
         </h1>
 
-        <p className="text-muted-foreground mb-8 text-sm">
+        <p className="text-texto-tenue mb-8 text-sm">
           Usted no cuenta con los permisos suficientes para acceder a este
           módulo
         </p>
 
-        <div className="bg-red-500/5 p-4 rounded-xl text-[10px] mb-8 border border-red-500/20 italic uppercase font-bold tracking-widest text-red-500">
+        <div className="bg-red-500/5 p-4 rounded-xl text-etiqueta mb-8 border border-red-500/20 italic uppercase font-bold tracking-widest text-red-500">
           Intento de acceso no autorizado registrado.
         </div>
 
