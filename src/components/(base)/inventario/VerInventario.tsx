@@ -527,7 +527,7 @@ function ProductoCard({
             <span className="block text-slate-500 normal-case font-semibold">
               Lab
             </span>
-            <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
+            <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-texto-secundario")}>
               {etiquetaLaboratorioComercial(producto.laboratorio)}
             </span>
           </p>
@@ -536,7 +536,7 @@ function ProductoCard({
               <span className="block text-slate-500 normal-case font-semibold">
                 Prov. lab
               </span>
-              <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
+              <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-texto-secundario")}>
                 {producto.laboratorio_proveedor_nombre}
               </span>
             </p>
@@ -546,7 +546,7 @@ function ProductoCard({
               <span className="block text-slate-500 normal-case font-semibold">
                 Prov
               </span>
-              <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-slate-600 dark:text-slate-400")}>
+              <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-texto-secundario")}>
                 {producto.inv_proveedores.nombre}
               </span>
             </p>
