@@ -97,12 +97,12 @@ export function SeccionProductosVentas({
 
         {/* 1. Selección de Cliente */}
         <div className="flex flex-col gap-1.5 w-full relative text-left" ref={clienteDropdownRef}>
-          <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+          <label className="block text-etiqueta font-bold text-texto-tenue uppercase tracking-wide">
             Seleccionar Cliente
           </label>
           <div className="flex items-center gap-2">
             <div className="relative w-full">
-              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+              <User className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-texto-tenue" />
               <input
                 type="text"
                 value={ventas.clienteBusqueda}
@@ -121,7 +121,7 @@ export function SeccionProductosVentas({
                     ventas.setClienteBusqueda("Consumidor Final");
                     ventas.setClienteSeleccionado(null);
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-red-500 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-texto-tenue hover:text-red-500 transition-colors"
                 >
                   <X className="size-4" />
                 </button>
@@ -156,7 +156,7 @@ export function SeccionProductosVentas({
                     className="w-full px-4 py-2 border-b border-slate-100 dark:border-slate-900 hover:bg-[#8DA78E]/10 dark:hover:bg-[#8DA78E]/20 text-left text-sm cursor-pointer transition-colors"
                   >
                     <p className="font-bold text-slate-900 dark:text-white">{c.nombre}</p>
-                    <p className="text-[10px] text-slate-500 mt-0.5">NIT: {c.nit || "C/F"}</p>
+                    <p className="text-etiqueta text-slate-500 mt-0.5">NIT: {c.nit || "C/F"}</p>
                   </button>
                 ))}
               </motion.div>
@@ -166,7 +166,7 @@ export function SeccionProductosVentas({
 
         {/* 2. Método de Pago */}
         <div className="flex flex-col gap-1.5 w-full relative text-left">
-          <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+          <label className="block text-etiqueta font-bold text-texto-tenue uppercase tracking-wide">
             Método de Pago
           </label>
           <button
@@ -177,7 +177,7 @@ export function SeccionProductosVentas({
             <span className={ventas.tipoVenta === "Crédito" ? "text-amber-600 dark:text-amber-400" : ""}>
               {ventas.tipoVenta === "Contado" ? "Contado" : "Crédito"}
             </span>
-            <ChevronDown className="absolute right-3 size-4 text-slate-400" />
+            <ChevronDown className="absolute right-3 size-4 text-texto-tenue" />
           </button>
 
           <AnimatePresence>
@@ -216,7 +216,7 @@ export function SeccionProductosVentas({
                     }}
                     className={`w-full px-3 py-2 rounded-lg text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
                       ventas.tipoVenta === opt.id
-                        ? "bg-[#8DA78E]/10 text-[#8DA78E] dark:text-[#A3BEB0]"
+                        ? "bg-[#8DA78E]/10 text-look-2-salvia-menta dark:text-look-1-salvia-suave"
                         : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/60"
                     }`}
                   >
@@ -255,11 +255,11 @@ export function SeccionProductosVentas({
           className={`flex flex-col gap-1.5 w-full text-left ${ventas.mostrarSugerenciasProd ? "relative z-[60]" : ""}`}
           ref={prodDropdownRef}
         >
-          <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+          <label className="block text-etiqueta font-bold text-texto-tenue uppercase tracking-wide">
             Buscar genérico o escanear código de barras
           </label>
           <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-slate-400 pointer-events-none" />
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 size-5 text-texto-tenue pointer-events-none" />
             <input
               type="text"
               value={ventas.genericoBusqueda}
@@ -328,7 +328,7 @@ export function SeccionProductosVentas({
                         <p className="text-sm font-black leading-snug text-slate-800 dark:text-slate-200">
                           {grupo.lineaGenerica}
                         </p>
-                        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+                        <p className="text-xs text-texto-tenue mt-1">
                           Catálogo: {grupo.catalogo_nombre}
                         </p>
                       </div>
@@ -344,9 +344,9 @@ export function SeccionProductosVentas({
                             <p className="text-sm font-bold leading-snug text-slate-900 dark:text-white">
                               {c.nombre_comercial}
                             </p>
-                            <p className="text-xs leading-relaxed text-slate-500 dark:text-slate-400 mt-0.5">
+                            <p className="text-xs leading-relaxed text-texto-tenue mt-0.5">
                               Laboratorio: {etiquetaLaboratorioComercial(c.laboratorio_nombre)}
-                              <span className="text-slate-400">
+                              <span className="text-texto-tenue">
                                 {" "}
                                 · Stock vendible: {c.stock_vendible}
                               </span>
@@ -369,7 +369,7 @@ export function SeccionProductosVentas({
         {/* 4. Cantidad y Añadir */}
         <div className="flex items-end gap-3 w-full">
           <div className="w-[35%]">
-            <label className="block text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wide mb-1.5 text-left truncate">
+            <label className="block text-etiqueta font-bold text-texto-tenue uppercase tracking-wide mb-1.5 text-left truncate">
               Cantidad
             </label>
             <div className="flex items-center justify-between gap-0.5 border border-[#E5E9E5] dark:border-[#3D473F] rounded-xl bg-white dark:bg-zinc-900 px-1 h-[46px] w-full">
@@ -424,7 +424,7 @@ export function SeccionProductosVentas({
               className="w-full overflow-hidden mt-1"
             >
               <div className="flex flex-col gap-2 bg-white dark:bg-zinc-900 border border-[#E5E9E5] dark:border-[#3D473F] rounded-xl p-3 shadow-sm w-full">
-                <span className="text-[9px] uppercase tracking-widest font-black text-slate-400">
+                <span className="text-etiqueta uppercase tracking-widest font-black text-texto-tenue">
                   Imagen del comercial
                 </span>
                 <img

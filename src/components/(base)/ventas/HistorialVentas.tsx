@@ -412,7 +412,7 @@ export function HistorialVentas({
         <div className="flex flex-col gap-3">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full min-w-0 flex-1 lg:max-w-xl">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
               <input
                 type="text"
                 placeholder="Buscar recibo o cliente..."
@@ -483,7 +483,7 @@ export function HistorialVentas({
             className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
           >
             <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <span className="text-[10px] font-bold uppercase tracking-wide text-zinc-400">
+              <span className="text-etiqueta font-bold uppercase tracking-wide text-texto-tenue">
                 Corte de caja
               </span>
               <CustomDatePicker
@@ -554,8 +554,8 @@ export function HistorialVentas({
                     <ChevronLeft className="size-3" />
                   </button>
                   <div className="relative">
-                    <button onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)} className="text-[11px] font-bold text-zinc-700 dark:text-zinc-300 px-2 py-1 flex items-center gap-1 cursor-pointer rounded-lg transition-colors">
-                      <Calendar className="size-3 text-[#8DA78E]" /> {new Date(activeYear, activeMonth).toLocaleString("es-GT", { month: "short" })} {activeYear}
+                    <button onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)} className="text-etiqueta font-bold text-zinc-700 dark:text-zinc-300 px-2 py-1 flex items-center gap-1 cursor-pointer rounded-lg transition-colors">
+                      <Calendar className="size-3 text-look-2-salvia-menta" /> {new Date(activeYear, activeMonth).toLocaleString("es-GT", { month: "short" })} {activeYear}
                     </button>
                     <AnimatePresence>
                       {mostrarMesDropdown && (
@@ -600,7 +600,7 @@ export function HistorialVentas({
 
             {tipoFiltroFecha === "rango" && (
               <motion.div key="rango" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-wrap items-center gap-2">
-                <span className="text-[10px] font-bold text-zinc-400 shrink-0">Desde:</span>
+                <span className="text-etiqueta font-bold text-texto-tenue shrink-0">Desde:</span>
                 <CustomDatePicker
                   value={fechaRangoDesde}
                   onChange={(val) => {
@@ -610,7 +610,7 @@ export function HistorialVentas({
                   placeholder="Calendario"
                   align="left"
                 />
-                <span className="text-[10px] font-bold text-zinc-400 shrink-0">Hasta:</span>
+                <span className="text-etiqueta font-bold text-texto-tenue shrink-0">Hasta:</span>
                 <CustomDatePicker
                   value={fechaRangoHasta}
                   onChange={(val) => {
@@ -623,7 +623,7 @@ export function HistorialVentas({
                 <button
                   type="button"
                   onClick={aplicarRangoMesActual}
-                  className="text-[10px] font-bold text-[#8DA78E] hover:underline cursor-pointer px-1"
+                  className="text-etiqueta font-bold text-look-2-salvia-menta hover:underline cursor-pointer px-1"
                 >
                   Mes actual
                 </button>
@@ -639,7 +639,7 @@ export function HistorialVentas({
                 )}
               >
                 <span className="text-xl font-black text-[#3B523D] dark:text-[#A0BCA2]">Total:</span>
-                <span className="ml-2 text-xl font-black tracking-wide text-[#8DA78E]">
+                <span className="ml-2 text-xl font-black tracking-wide text-look-2-salvia-menta">
                   {fmtQ(totalVentas)}
                 </span>
               </div>
@@ -650,7 +650,7 @@ export function HistorialVentas({
           <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div></div>
         ) : paginatedData.length === 0 ? (
           <div className="flex flex-col items-center justify-center min-h-[280px] px-6 py-14 text-center">
-            <p className="text-sm font-bold text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm font-bold text-texto-tenue">
               Sin registro de ventas
             </p>
           </div>
@@ -668,7 +668,7 @@ export function HistorialVentas({
                       </span>
                       <span
                         className={cn(
-                          "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                          "px-2.5 py-1 rounded-full text-etiqueta font-bold uppercase tracking-wider",
                           ventaEsCreditoHistorial(v.tipo_venta)
                             ? "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
                             : v.tipo_venta === "Tarjeta"
@@ -684,11 +684,11 @@ export function HistorialVentas({
                       <p className="font-bold text-slate-800 dark:text-zinc-200">
                         {v.ven_clientes?.nombre || "Consumidor Final"}
                       </p>
-                      <p className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                        <Calendar className="size-3.5 text-[#8DA78E]" /> {date}
+                      <p className="text-etiqueta text-texto-tenue flex items-center gap-1.5 mt-0.5">
+                        <Calendar className="size-3.5 text-look-2-salvia-menta" /> {date}
                       </p>
                       {v.observaciones && (
-                        <p className="text-[10px] text-slate-500 italic mt-1 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40">
+                        <p className="text-etiqueta text-slate-500 italic mt-1 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40">
                           {v.observaciones}
                         </p>
                       )}
@@ -696,8 +696,8 @@ export function HistorialVentas({
 
                     <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-900 mt-1">
                       <div className="flex flex-col">
-                        <span className="text-[9px] font-bold text-slate-400 uppercase leading-none">Total</span>
-                        <span className="text-xs font-black text-[#8DA78E] mt-1">{fmtQ(v.total)}</span>
+                        <span className="text-etiqueta font-bold text-texto-tenue uppercase leading-none">Total</span>
+                        <span className="text-xs font-black text-look-2-salvia-menta mt-1">{fmtQ(v.total)}</span>
                       </div>
                       <div className="flex gap-2">
                         <SigetActionButton
@@ -775,7 +775,7 @@ export function HistorialVentas({
                         <td className="px-5 py-3.5 whitespace-nowrap">
                           <span
                             className={cn(
-                              "px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider",
+                              "px-2.5 py-1 rounded-full text-etiqueta font-bold uppercase tracking-wider",
                               ventaEsCreditoHistorial(v.tipo_venta)
                                 ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
                                 : v.tipo_venta === "Tarjeta"
@@ -786,7 +786,7 @@ export function HistorialVentas({
                             {etiquetaTipoVentaHistorial(v.tipo_venta)}
                           </span>
                         </td>
-                        <td className={cn(moduleTableCellClass, "text-right font-black text-[#8DA78E] whitespace-nowrap")}>
+                        <td className={cn(moduleTableCellClass, "text-right font-black text-look-2-salvia-menta whitespace-nowrap")}>
                           {fmtQ(v.total)}
                         </td>
                         <td className={cn(moduleTableCellClass, "whitespace-nowrap")}>

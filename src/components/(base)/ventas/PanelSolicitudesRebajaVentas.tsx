@@ -94,7 +94,7 @@ export function PanelSolicitudesRebajaVentas({
         >
           <Bell className="size-5" />
           {badgeCount > 0 ? (
-            <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-600 px-1 text-[10px] font-black text-white dark:bg-amber-500">
+            <span className="absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-600 px-1 text-etiqueta font-black text-white dark:bg-amber-500">
               {badgeCount > 9 ? "9+" : badgeCount}
             </span>
           ) : null}
@@ -111,7 +111,7 @@ export function PanelSolicitudesRebajaVentas({
         <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-700" />
 
         {loading ? (
-          <div className="flex items-center gap-2 px-3 py-4 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 px-3 py-4 text-xs text-texto-tenue">
             <Loader2 className="size-4 animate-spin shrink-0" />
             Cargando…
           </div>
@@ -121,7 +121,7 @@ export function PanelSolicitudesRebajaVentas({
               No se pudieron cargar las solicitudes.
             </p>
           ) : listaAdmin.length === 0 ? (
-            <p className="px-3 py-4 text-xs text-muted-foreground">
+            <p className="px-3 py-4 text-xs text-texto-tenue">
               No hay solicitudes pendientes.
             </p>
           ) : (
@@ -142,10 +142,10 @@ export function PanelSolicitudesRebajaVentas({
                           ? `Total ${fmtQ(payload.total)} · ${payload.tipo_venta}`
                           : "Solicitud de rebaja"}
                       </span>
-                      <span className="text-[10px] text-slate-500 dark:text-slate-400">
+                      <span className="text-etiqueta text-texto-tenue">
                         {new Date(s.created_at).toLocaleString("es-GT")}
                       </span>
-                      <span className="text-[10px] font-bold text-[#2c5f9b] dark:text-[#6f9fd4] mt-0.5">
+                      <span className="text-etiqueta font-bold text-[#2c5f9b] dark:text-[#6f9fd4] mt-0.5">
                         Toca para revisar
                       </span>
                     </DropdownMenuItem>
@@ -165,10 +165,10 @@ export function PanelSolicitudesRebajaVentas({
             <span className="text-xs font-bold text-slate-800 dark:text-slate-100">
               Total {fmtQ(resumenMi.total)} · {resumenMi.tipo_venta}
             </span>
-            <span className="text-[10px] text-slate-500 dark:text-slate-400">
+            <span className="text-etiqueta text-texto-tenue">
               Esperando confirmación administrativa
             </span>
-            <span className="text-[10px] font-bold text-[#2c5f9b] dark:text-[#6f9fd4] mt-0.5">
+            <span className="text-etiqueta font-bold text-[#2c5f9b] dark:text-[#6f9fd4] mt-0.5">
               Ver estado
             </span>
           </DropdownMenuItem>

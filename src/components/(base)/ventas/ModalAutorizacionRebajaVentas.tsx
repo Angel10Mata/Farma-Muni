@@ -85,7 +85,7 @@ export function ModalAutorizacionRebajaVentas() {
                 placeholder="••••••••"
               />
             </ModalField>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-xs text-texto-tenue">
               También recibirás una notificación push si tienes la campana activada en el menú.
             </p>
           </div>
@@ -125,7 +125,7 @@ export function ModalAutorizacionRebajaVentas() {
             <p className="text-sm font-bold text-slate-800 dark:text-slate-100 max-w-sm">
               Esperando confirmación administrativa
             </p>
-            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm leading-relaxed">
+            <p className="text-xs text-texto-tenue max-w-sm leading-relaxed">
               Se notificó a administración. No modifiques el carrito hasta que autoricen la rebaja;
               el cobro continuará automáticamente.
             </p>

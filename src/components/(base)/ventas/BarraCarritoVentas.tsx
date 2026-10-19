@@ -25,9 +25,9 @@ export function BarraCarritoVentas() {
       >
         <div className="flex items-center justify-between border-b border-[#C1D1C5]/30 pb-2">
           <h2 className="text-sm font-black uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-2">
-            <ShoppingCart className="size-4 text-[#8DA78E]" /> Venta
+            <ShoppingCart className="size-4 text-look-2-salvia-menta" /> Venta
           </h2>
-          <span className="bg-[#8DA78E]/10 text-[#8DA78E] dark:text-[#A3BEB0] text-xs font-bold px-2 py-0.5 rounded-full">
+          <span className="bg-[#8DA78E]/10 text-look-2-salvia-menta dark:text-look-1-salvia-suave text-xs font-bold px-2 py-0.5 rounded-full">
             {lineasCarrito.length} Producto(s)
           </span>
         </div>
@@ -41,9 +41,9 @@ export function BarraCarritoVentas() {
                 animate={{ opacity: 1 }}
                 className="h-full flex flex-col items-center justify-center py-8"
               >
-                <ShoppingCart className="size-16 sm:size-20 text-slate-400 dark:text-slate-600 mb-4" strokeWidth={1.5} />
+                <ShoppingCart className="size-16 sm:size-20 text-texto-tenue mb-4" strokeWidth={1.5} />
                 <p className="text-lg sm:text-xl font-black text-slate-800 dark:text-slate-200">Venta vacía</p>
-                <p className="text-sm font-bold text-slate-500 dark:text-slate-400 max-w-[250px] leading-normal mt-2 text-center">
+                <p className="text-sm font-bold text-texto-tenue max-w-[250px] leading-normal mt-2 text-center">
                   Busca y agrega productos desde el panel izquierdo.
                 </p>
               </motion.div>
@@ -73,7 +73,7 @@ export function BarraCarritoVentas() {
                       </h4>
                       <div className="grid grid-cols-2 gap-2">
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-black uppercase text-slate-500">Precio Unitario</label>
+                          <label className="text-etiqueta font-black uppercase text-slate-500">Precio Unitario</label>
                           <input
                             type="number"
                             step="0.01"
@@ -83,7 +83,7 @@ export function BarraCarritoVentas() {
                           />
                         </div>
                         <div className="flex flex-col gap-1">
-                          <label className="text-[10px] font-black uppercase text-slate-500">Cantidad</label>
+                          <label className="text-etiqueta font-black uppercase text-slate-500">Cantidad</label>
                           <input
                             type="number"
                             min="1"
@@ -152,7 +152,7 @@ export function BarraCarritoVentas() {
                               className="w-full h-full object-cover"
                             />
                           ) : (
-                            <Package className="size-5 text-slate-400 opacity-60" />
+                            <Package className="size-5 text-texto-tenue opacity-60" />
                           )}
                         </div>
 
@@ -239,7 +239,7 @@ export function BarraCarritoVentas() {
                         </div>
 
                         {/* Subtotal */}
-                        <span className="text-sm font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0] min-w-[5.5rem] text-right shrink-0">
+                        <span className="text-sm font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave min-w-[5.5rem] text-right shrink-0">
                           {fmtQ(grupo.subtotalTotal)}
                         </span>
 
@@ -247,7 +247,7 @@ export function BarraCarritoVentas() {
                         <div className="flex items-center gap-1 shrink-0">
                           <button
                             onClick={() => ventas.handleEliminarGrupoCarrito(grupo.indices)}
-                            className="text-slate-400 hover:text-red-500 transition-colors cursor-pointer p-1"
+                            className="text-texto-tenue hover:text-red-500 transition-colors cursor-pointer p-1"
                             title="Eliminar item"
                           >
                             <Trash2 className="size-3.5" />
@@ -265,7 +265,7 @@ export function BarraCarritoVentas() {
 
         {/* Observaciones */}
         <div className="flex flex-col gap-1 text-left mt-2 border-t border-[#C1D1C5]/30 pt-3">
-          <label className="block text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">
+          <label className="block text-xs font-bold text-texto-tenue uppercase mb-1">
             Observaciones / Comentarios
           </label>
           <textarea
@@ -280,7 +280,7 @@ export function BarraCarritoVentas() {
         <div className="border-t border-[#C1D1C5]/30 pt-3 mt-auto space-y-2 text-left">
           <div className="flex items-center justify-between text-sm font-black text-slate-800 dark:text-white pt-1">
             <span>Total a pagar:</span>
-            <span className="text-base text-[#8DA78E]">{fmtQ(ventas.totalCarrito)}</span>
+            <span className="text-base text-look-2-salvia-menta">{fmtQ(ventas.totalCarrito)}</span>
           </div>
         </div>
 
@@ -291,7 +291,7 @@ export function BarraCarritoVentas() {
             onClick={() => ventas.setShowModalAutorizacionRebaja(true)}
             className="w-full rounded-xl border border-amber-400/60 bg-amber-50 dark:bg-amber-950/40 px-3 py-2.5 text-left cursor-pointer transition-colors hover:bg-amber-100/80 dark:hover:bg-amber-950/60"
           >
-            <p className="text-[10px] font-black uppercase tracking-wide text-amber-800 dark:text-amber-200">
+            <p className="text-etiqueta font-black uppercase tracking-wide text-amber-800 dark:text-amber-200">
               Rebaja en espera de confirmación
             </p>
             <p className="text-xs text-amber-900/80 dark:text-amber-100/80 mt-0.5">

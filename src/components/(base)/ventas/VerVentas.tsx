@@ -483,7 +483,7 @@ function VerVentasInner({
                     <span className="font-bold text-slate-900 dark:text-white text-lg">
                       {item.cantidad}x {item.comercial.nombre_comercial}
                     </span>
-                    <div className="flex items-center gap-1.5 text-[#8DA78E] font-bold bg-[#8DA78E]/10 w-fit px-2.5 py-1 rounded-md">
+                    <div className="flex items-center gap-1.5 text-look-2-salvia-menta font-bold bg-[#8DA78E]/10 w-fit px-2.5 py-1 rounded-md">
                       <Package className="size-4" />
                       <span className="text-sm">
                         {item.generico.generico_nombre} · {item.comercial.presentacion}
@@ -529,7 +529,7 @@ function VerVentasInner({
         headerActions={
           ventas.reciboModalData ? (
             <div className="size-10 rounded-2xl bg-[#8DA78E]/10 flex items-center justify-center">
-              <Receipt className="size-5 text-[#8DA78E]" />
+              <Receipt className="size-5 text-look-2-salvia-menta" />
             </div>
           ) : undefined
         }
@@ -612,8 +612,8 @@ function VerVentasInner({
         <div className="flex items-center gap-4">
           <ModuleHeaderBackButton />
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">Módulo</p>
+            <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight text-slate-900 dark:text-white leading-none">
               Área de Ventas
             </h1>
           </div>

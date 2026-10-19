@@ -63,16 +63,16 @@ export function ReciboVenta({
           alt="Logo FarmaMuni"
           className="size-12 mx-auto object-contain mb-1"
         />
-        <h1 className="text-sm font-black tracking-tight text-black uppercase leading-tight">
+        <h1 className="text-sm font-bold tracking-tight text-black uppercase leading-tight">
           {farmaciaNombre}
         </h1>
         <p className="text-[9.5px] font-bold text-black leading-tight mt-0.5 max-w-[240px] mx-auto">
           {farmaciaDireccion}
         </p>
         {farmaciaTelefono ? (
-          <p className="text-[9px] font-bold text-black/80 mt-0.5">Tel. {farmaciaTelefono}</p>
+          <p className="text-[9px] font-bold text-black mt-0.5">Tel. {farmaciaTelefono}</p>
         ) : (
-          <p className="text-[9px] font-bold text-black/80 mt-0.5">Guatemala</p>
+          <p className="text-[9px] font-bold text-black mt-0.5">Guatemala</p>
         )}
       </div>
 
@@ -107,7 +107,7 @@ export function ReciboVenta({
               <div className="min-w-0 pr-1">
                 <p className="font-bold text-black leading-tight break-words">{item.nombre}</p>
                 {item.descripcion && (
-                  <p className="text-[9px] text-black/80 font-medium font-mono truncate">{item.descripcion}</p>
+                  <p className="text-[9px] text-black font-medium font-mono truncate">{item.descripcion}</p>
                 )}
               </div>
               <span className="text-right font-medium text-black">{fmtQ(unitPrice)}</span>
@@ -140,7 +140,7 @@ export function ReciboVenta({
       {/* Pie de página */}
       <div className="text-center pt-1 mt-2">
         <p className="text-[10.5px] font-bold text-black">¡Gracias por su compra!</p>
-        <div className="mt-2 text-[8px] text-black/60 border-t border-dashed border-black/40 pt-1">
+        <div className="mt-2 text-[8px] text-black border-t border-dashed border-black/40 pt-1">
           - - - - - - - - - - - - - - - - - - - - - - - - - -
         </div>
       </div>

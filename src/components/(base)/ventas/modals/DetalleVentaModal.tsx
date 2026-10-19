@@ -134,7 +134,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
             className="relative w-full max-w-md h-[calc(100%-2rem)] m-4 bg-white dark:bg-zinc-900 shadow-2xl flex flex-col rounded-[2rem] overflow-hidden"
           >
           <div className="flex md:hidden justify-end p-4 pb-0 shrink-0">
-            <button onClick={onClose} className="p-2 text-zinc-400 bg-white dark:bg-zinc-800 rounded-full">
+            <button onClick={onClose} className="p-2 text-texto-tenue bg-white dark:bg-zinc-800 rounded-full">
               <X className="size-5" />
             </button>
           </div>
@@ -164,7 +164,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                   <span className="text-zinc-500 font-semibold uppercase shrink-0">Última modificación:</span>
                   <span className="text-zinc-900 dark:text-white font-bold text-right leading-snug">
                     {bitacora[0].profiles?.nombre ?? "Usuario"}
-                    <span className="block text-[10px] font-medium text-zinc-500 mt-0.5">
+                    <span className="block text-etiqueta font-medium text-zinc-500 mt-0.5">
                       {formatFechaHoraTablaCompactGt(bitacora[0].created_at)}
                     </span>
                   </span>
@@ -176,7 +176,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
 
             {puedeGestionarVenta && (bitacoraLoading || bitacora.length > 0) && (
               <div className="space-y-2">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                <h4 className="text-etiqueta font-black uppercase tracking-widest text-zinc-500">
                   Quién modificó esta factura
                 </h4>
                 <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl overflow-hidden shadow-sm">
@@ -192,14 +192,14 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                             <span className="font-bold text-zinc-900 dark:text-white">
                               {entry.profiles?.nombre ?? "Sin nombre"}
                             </span>
-                            <span className="text-[10px] text-zinc-500 shrink-0">
+                            <span className="text-etiqueta text-zinc-500 shrink-0">
                               {formatFechaHoraTablaCompactGt(entry.created_at)}
                             </span>
                           </div>
-                          <p className="text-[11px] font-semibold text-[#8DA78E]">
+                          <p className="text-etiqueta font-semibold text-look-2-salvia-menta">
                             {resumenAccionBitacoraVenta(entry)}
                           </p>
-                          <p className="text-[10px] text-zinc-500 italic leading-relaxed">
+                          <p className="text-etiqueta text-zinc-500 italic leading-relaxed">
                             Motivo: {entry.motivo}
                           </p>
                         </li>
@@ -211,12 +211,12 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
             )}
 
             <div className="space-y-2">
-              <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Detalle de Artículos</h4>
+              <h4 className="text-etiqueta font-black uppercase tracking-widest text-zinc-500">Detalle de Artículos</h4>
               <div className="bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 rounded-2xl overflow-hidden shadow-sm">
                 {isLoading ? (
                   <div className="py-10 flex flex-col items-center justify-center gap-2">
                     <div className="size-6 rounded-full border-2 border-[#8DA78E]/30 border-t-[#8DA78E] animate-spin" />
-                    <span className="text-[10px] font-bold text-zinc-400">Cargando detalles...</span>
+                    <span className="text-etiqueta font-bold text-texto-tenue">Cargando detalles...</span>
                   </div>
                 ) : (
                   <div className="divide-y divide-zinc-100 dark:divide-zinc-700">
@@ -227,7 +227,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                             <p className="font-bold text-zinc-800 dark:text-white mb-1.5">{d.inv_productos?.nombre}</p>
                             <div className="flex gap-2">
                               <div className="flex-1">
-                                <label className="text-[9px] uppercase font-bold text-zinc-400">Cant</label>
+                                <label className="text-etiqueta uppercase font-bold text-texto-tenue">Cant</label>
                                 <input
                                   type="number"
                                   value={editingDetalleQty}
@@ -236,7 +236,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                                 />
                               </div>
                               <div className="flex-1">
-                                <label className="text-[9px] uppercase font-bold text-zinc-400">Precio</label>
+                                <label className="text-etiqueta uppercase font-bold text-texto-tenue">Precio</label>
                                 <input
                                   type="number"
                                   step="0.01"
@@ -278,17 +278,17 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
                                   className="w-10 h-10 object-cover rounded-lg border border-zinc-100 dark:border-zinc-800"
                                 />
                               ) : (
-                                <div className="w-10 h-10 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-lg text-[8px] text-zinc-400 font-bold">N/A</div>
+                                <div className="w-10 h-10 flex items-center justify-center bg-zinc-100 dark:bg-zinc-800 rounded-lg text-etiqueta text-texto-tenue font-bold">N/A</div>
                               )}
                               <div>
                                 <p className="font-bold text-zinc-900 dark:text-white line-clamp-1">{d.inv_productos?.nombre}</p>
-                                <p className="text-[10px] text-zinc-500 mt-0.5">
+                                <p className="text-etiqueta text-zinc-500 mt-0.5">
                                   {d.cantidad} ud(s) x {fmtQ(d.precio_aplicado)}
                                 </p>
                               </div>
                             </div>
                             <div className="flex flex-col items-end gap-1">
-                              <span className="font-bold text-[#8DA78E]">{fmtQ(d.subtotal)}</span>
+                              <span className="font-bold text-look-2-salvia-menta">{fmtQ(d.subtotal)}</span>
                               {PERMITIR_EDICION_LINEAS_HISTORIAL ? (
                                 <div className="flex items-center gap-1">
                                   <SigetActionButton
@@ -329,16 +329,16 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
 
             {venta.observaciones && (
               <div className="space-y-1">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Observaciones</h4>
-                <p className="text-xs text-zinc-600 dark:text-zinc-400 italic bg-white dark:bg-zinc-800 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+                <h4 className="text-etiqueta font-black uppercase tracking-widest text-zinc-500">Observaciones</h4>
+                <p className="text-xs text-zinc-600 italic bg-white dark:bg-zinc-800 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
                   {venta.observaciones}
                 </p>
               </div>
             )}
 
             <div className="bg-[#8DA78E]/10 border border-[#8DA78E]/20 p-4 rounded-2xl flex justify-between items-center mt-6 shadow-sm">
-              <span className="text-xs font-black uppercase tracking-wider text-[#8DA78E]">Total de la Venta</span>
-              <span className="text-xl font-black text-[#8DA78E]">{fmtQ(venta.total)}</span>
+              <span className="text-xs font-black uppercase tracking-wider text-look-2-salvia-menta">Total de la Venta</span>
+              <span className="text-xl font-black text-look-2-salvia-menta">{fmtQ(venta.total)}</span>
             </div>
           </div>
 
@@ -411,7 +411,7 @@ export function DetalleVentaModal({ venta, onClose, onPrint }: DetalleVentaModal
               promptModal.onConfirm(promptModal.value);
             }}
           >
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 font-medium whitespace-pre-wrap leading-relaxed">
+            <p className="text-sm text-zinc-600 font-medium whitespace-pre-wrap leading-relaxed">
               {promptModal.message}
             </p>
             <ModalField>
