@@ -160,8 +160,8 @@ export function VerCreditos() {
         <div className="flex items-center gap-3">
           <ModuleHeaderBackButton size="sm" />
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Finanzas</p>
-            <h1 className="text-xl font-black uppercase leading-none tracking-tight text-zinc-900 dark:text-zinc-100 md:text-2xl">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">Finanzas</p>
+            <h1 className="text-xl font-bold uppercase leading-none tracking-tight text-zinc-900 dark:text-zinc-100 md:text-2xl">
               Control de Créditos
             </h1>
           </div>
@@ -207,7 +207,7 @@ export function VerCreditos() {
         >
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-tenue" />
               <input
                 type="text"
                 placeholder="Buscar cliente por nombre o NIT..."
@@ -280,13 +280,13 @@ export function VerCreditos() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="shrink-0 size-10 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center">
-                          <User className="size-5 text-zinc-400" />
+                          <User className="size-5 text-texto-tenue" />
                         </div>
                         <div>
                           <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 leading-tight line-clamp-1">
                             {c.nombre}
                           </h3>
-                          <p className="text-[10px] font-medium text-zinc-500 mt-0.5 uppercase tracking-wider">
+                          <p className="text-etiqueta font-medium text-zinc-500 mt-0.5 uppercase tracking-wider">
                             NIT: {c.nit}
                           </p>
                         </div>
@@ -295,20 +295,20 @@ export function VerCreditos() {
                         <AlertCircle className="size-5 text-rose-500 shrink-0" />
                       )}
                       {c.estado === "Solventado" && (
-                        <CheckCircle2 className="size-5 text-[#8DA78E] shrink-0" />
+                        <CheckCircle2 className="size-5 text-look-2-salvia-menta shrink-0" />
                       )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-700">
                       <div>
-                        <span className="text-[9px] font-bold uppercase text-zinc-400">Total Consumido</span>
+                        <span className="text-etiqueta font-bold uppercase text-texto-tenue">Total Consumido</span>
                         <p className="text-sm font-black text-zinc-700 dark:text-zinc-300">{fmtQ(c.total_consumido)}</p>
                       </div>
                       <div>
-                        <span className="text-[9px] font-bold uppercase text-zinc-400">Saldo Pendiente</span>
+                        <span className="text-etiqueta font-bold uppercase text-texto-tenue">Saldo Pendiente</span>
                         <p className={cn(
                           "text-sm font-black",
-                          c.saldo_pendiente > 0 ? "text-rose-500" : "text-[#8DA78E]"
+                          c.saldo_pendiente > 0 ? "text-rose-500" : "text-look-2-salvia-menta"
                         )}>
                           {fmtQ(c.saldo_pendiente)}
                         </p>
@@ -317,14 +317,14 @@ export function VerCreditos() {
 
                     <div className="flex items-center justify-between pt-1">
                       <span className={cn(
-                        "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
+                        "text-etiqueta font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
                         c.estado === "Al día" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" :
                         c.estado === "Atrasado" ? "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-500" :
-                        "bg-[#8DA78E]/10 text-[#8DA78E]"
+                        "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                       )}>
                         {c.estado}
                       </span>
-                      <button className="text-zinc-400 group-hover:text-[#8DA78E] transition-colors p-1">
+                      <button className="text-texto-tenue group-hover:text-[#8DA78E] transition-colors p-1">
                         <ChevronRight className="size-4" />
                       </button>
                     </div>
@@ -369,7 +369,7 @@ export function VerCreditos() {
                         <td className="px-5 py-4 font-bold text-zinc-900 dark:text-white">
                           <div className="flex items-center gap-3">
                             <div className="shrink-0 size-8 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center">
-                              <User className="size-4 text-zinc-400" />
+                              <User className="size-4 text-texto-tenue" />
                             </div>
                             <span className="line-clamp-1">{c.nombre}</span>
                           </div>
@@ -380,34 +380,34 @@ export function VerCreditos() {
                             (() => {
                               const diasRestantes = diasRestantesMostrar(c);
                               if (diasRestantes < 0) {
-                                return <span className="text-rose-500 font-bold bg-rose-100 dark:bg-rose-900/30 px-2.5 py-1 rounded-md text-[11px] uppercase tracking-wider">Vencido</span>;
+                                return <span className="text-rose-500 font-bold bg-rose-100 dark:bg-rose-900/30 px-2.5 py-1 rounded-md text-etiqueta uppercase tracking-wider">Vencido</span>;
                               }
                               if (diasRestantes <= 7) {
                                 return <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-900/30 px-2 py-1 rounded-md text-xs">{diasRestantes} d</span>;
                               }
-                              return <span className="text-zinc-600 dark:text-zinc-400 font-bold text-xs">{diasRestantes} d</span>;
+                              return <span className="text-zinc-600 font-bold text-xs">{diasRestantes} d</span>;
                             })()
                           ) : (
-                            <span className="text-zinc-400">—</span>
+                            <span className="text-texto-tenue">—</span>
                           )}
                         </td>
                         <td className="px-5 py-4 text-right">{fmtQ(c.total_consumido)}</td>
                         <td className={cn(
                           "px-5 py-4 text-right font-black",
-                          c.saldo_pendiente > 0 ? "text-rose-500" : "text-[#8DA78E]"
+                          c.saldo_pendiente > 0 ? "text-rose-500" : "text-look-2-salvia-menta"
                         )}>{fmtQ(c.saldo_pendiente)}</td>
                         <td className="px-5 py-4 text-center">
                           <span className={cn(
-                            "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
+                            "text-etiqueta font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
                             c.estado === "Al día" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" :
                             c.estado === "Atrasado" ? "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-500" :
-                            "bg-[#8DA78E]/10 text-[#8DA78E]"
+                            "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                           )}>
                             {c.estado}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-center">
-                          <button className="text-zinc-400 group-hover:text-[#8DA78E] transition-colors p-1 rounded-lg hover:bg-[#8DA78E]/10 inline-flex">
+                          <button className="text-texto-tenue group-hover:text-[#8DA78E] transition-colors p-1 rounded-lg hover:bg-[#8DA78E]/10 inline-flex">
                             <ChevronRight className="size-4" />
                           </button>
                         </td>

@@ -60,12 +60,12 @@ export function VerDetalleCredito({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3 shrink-0">
             <div className="bg-zinc-50 dark:bg-zinc-800 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
-              <span className="text-[10px] uppercase font-bold text-zinc-500">Saldo Pendiente</span>
+              <span className="text-etiqueta uppercase font-bold text-zinc-500">Saldo Pendiente</span>
               <p className="text-xl font-black text-rose-500">{fmtQ(cliente.saldo_pendiente)}</p>
             </div>
             <div className="bg-zinc-50 dark:bg-zinc-800 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700">
-              <span className="text-[10px] uppercase font-bold text-zinc-500">Total Consumido</span>
-              <p className="text-xl font-black text-[#8DA78E]">{fmtQ(cliente.total_consumido)}</p>
+              <span className="text-etiqueta uppercase font-bold text-zinc-500">Total Consumido</span>
+              <p className="text-xl font-black text-look-2-salvia-menta">{fmtQ(cliente.total_consumido)}</p>
             </div>
           </div>
 
@@ -108,13 +108,13 @@ export function VerDetalleCredito({
                         <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
                           Recibo {recibo}
                         </span>
-                        <p className="text-[10px] text-zinc-500">
+                        <p className="text-etiqueta text-zinc-500">
                           {new Date(v.created_at).toLocaleDateString("es-GT")}
                         </p>
                         {!isPagado ? (
                           <p
                             className={cn(
-                              "text-[10px] font-bold mt-0.5",
+                              "text-etiqueta font-bold mt-0.5",
                               diasRest < 0
                                 ? "text-rose-500"
                                 : diasRest <= 7
@@ -136,8 +136,8 @@ export function VerDetalleCredito({
                         </span>
                         <p
                           className={cn(
-                            "text-[9px] font-bold uppercase",
-                            isPagado ? "text-[#8DA78E]" : "text-rose-500",
+                            "text-etiqueta font-bold uppercase",
+                            isPagado ? "text-look-2-salvia-menta" : "text-rose-500",
                           )}
                         >
                           {isPagado ? "Cancelado" : `Pendiente: ${fmtQ(saldo)}`}
@@ -151,10 +151,10 @@ export function VerDetalleCredito({
                             key={a.id}
                             className="flex justify-between items-center px-2 py-1 bg-white dark:bg-zinc-900 rounded-lg"
                           >
-                            <span className="text-[10px] text-zinc-500">
+                            <span className="text-etiqueta text-zinc-500">
                               {new Date(a.fecha_movimiento).toLocaleDateString("es-GT")}
                             </span>
-                            <span className="text-[10px] font-bold text-[#8DA78E]">
+                            <span className="text-etiqueta font-bold text-look-2-salvia-menta">
                               + {fmtQ(Number(a.monto))}
                             </span>
                           </div>
