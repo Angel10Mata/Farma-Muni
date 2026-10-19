@@ -17,19 +17,19 @@ export interface AppModuleConfig {
   cardBorder: string;
 }
 
-// MÓDULOS DE NEGOCIO
+// MÓDULOS DE LA FARMACIA
 
 export const APP_MODULES: AppModuleConfig[] = [
   {
     id: "ventas",
     title: "Ventas",
     subtitle: "",
-    desc: "Punto de venta, control de caja diaria, reportes de ingresos y facturación.",
+    desc: "Punto de venta, corte de caja diario, recibos e ingresos.",
     href: `${APP_BASE_PATH}/ventas`,
     allowedRoles: ["super", "admin", "ventas", "user"],
     bento: "col-span-1 row-span-2 md:col-span-2 md:row-span-2",
     size: "hero",
-    tag: "Facturación · Caja",
+    tag: "Recibos · Caja",
     cardBg: "bg-white hover:bg-zinc-50 dark:bg-zinc-900 dark:hover:bg-zinc-800/90",
     cardBorder: "border-zinc-200 dark:border-zinc-800",
   },
@@ -50,7 +50,7 @@ export const APP_MODULES: AppModuleConfig[] = [
     id: "proveedores",
     title: "Proveedores",
     subtitle: "",
-    desc: "Catálogo de proveedores autorizados, órdenes de compra y facturas.",
+    desc: "Catálogo de proveedores autorizados, compras y facturas de proveedor.",
     href: `${APP_BASE_PATH}/proveedores`,
     allowedRoles: ["super", "admin", "proveedores"],
     bento: "col-span-1 row-span-1 md:col-start-3 md:row-start-2",

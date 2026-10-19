@@ -99,7 +99,6 @@ export function CrearComercial({
         isOpen={isOpen && !modalLab}
         onClose={cerrar}
         title="Nueva marca"
-        subtitle="Marca y presentación del producto de inventario. El laboratorio se puede asignar después."
         maxWidth="max-w-lg"
       >
         <ModalForm onSubmit={(e) => e.preventDefault()} className="space-y-4">

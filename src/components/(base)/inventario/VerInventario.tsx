@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, type ReactNode } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Package,
@@ -31,6 +31,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { createClient } from "@/utils/supabase/client";
@@ -40,7 +41,10 @@ import {
   modulePillSwitchShellClass,
 } from "@/components/ui/module-pill-switch";
 import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
-import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
+import {
+  ModuleInformeDropdown,
+  type ModuleInformeOpcion,
+} from "@/components/ui/module-informe-dropdown";
 import { moduleFilterTabUnderlineClass } from "@/components/ui/module-pill-switch";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -72,14 +76,14 @@ import {
 import type { InvGenerico, ProductoComercial } from "./lib/jerarquia-zod";
 import type { LoteInventario } from "./lib/zod";
 import {
-  etiquetaEstadoVencimiento,
   isProductoProximoAVencer,
   isProductoVencido,
   laboratorioNombreDesdeLote,
   lineaGenericaProductoFarmacia,
   nombreComercialSiDistinto,
-  precioVentaEfectivoLote,
   productoCoincideBusquedaInventario,
+  filaCoincideUbicacionInventario,
+  ubicacionesFilaInventario,
   tituloProductoFarmacia,
   inventarioAlertaStockBajo,
   etiquetaLaboratorioComercial,
@@ -158,12 +162,14 @@ function ProductoFarmaciaTitulo({
   tituloClassName,
   comercialClassName,
   comercialPrimero = true,
+  soloLineaPrincipal = false,
 }: {
   producto: Producto;
   className?: string;
   tituloClassName?: string;
   comercialClassName?: string;
   comercialPrimero?: boolean;
+  soloLineaPrincipal?: boolean;
 }) {
   const comercial = nombreComercialSiDistinto(producto);
   const lineaGenerica = lineaGenericaProductoFarmacia(producto);
@@ -179,13 +185,15 @@ function ProductoFarmaciaTitulo({
   return (
     <div className={className}>
       {mostrarComercialPrimero ? <p className={estiloPrincipal}>{comercial}</p> : null}
-      <p
-        className={cn(
-          mostrarComercialPrimero ? estiloSecundario : estiloTitulo,
-        )}
-      >
-        {lineaGenerica}
-      </p>
+      {soloLineaPrincipal && mostrarComercialPrimero ? null : (
+        <p
+          className={cn(
+            mostrarComercialPrimero ? estiloSecundario : estiloTitulo,
+          )}
+        >
+          {lineaGenerica}
+        </p>
+      )}
       {producto.requiere_receta ? (
         <span
           className="mt-1 inline-flex rounded-md bg-amber-500/15 px-1.5 py-0.5 text-etiqueta font-black uppercase tracking-wide text-amber-800 dark:text-amber-300"
@@ -420,6 +428,94 @@ function ProductoAccionesMenu({
   );
 }
 
+const inventarioDetalleMenuContentClass =
+  "z-[200] min-w-[200px] rounded-xl border border-zinc-200 bg-white p-1 opacity-100 shadow-md dark:border-zinc-700 dark:bg-zinc-900";
+
+function InventarioDetalleFilaMenu({
+  existencia,
+  existenciaBaja = false,
+  stockMinimo,
+  precioVenta,
+  activo,
+  ariaLabel = "Detalle y acciones",
+  acciones,
+}: {
+  existencia: number;
+  existenciaBaja?: boolean;
+  stockMinimo?: number | null;
+  precioVenta?: number | null;
+  activo: boolean;
+  ariaLabel?: string;
+  acciones?: ReactNode;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={ariaLabel}
+          className="inline-flex size-9 shrink-0 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <MoreVertical className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className={inventarioDetalleMenuContentClass}>
+        <div className="space-y-1.5 px-2.5 py-2">
+          <div className="flex items-center justify-between gap-4 text-xs">
+            <span className="font-bold uppercase text-slate-500">Existencia</span>
+            <span
+              className={cn(
+                "font-black tabular-nums",
+                existenciaBaja
+                  ? "text-red-500"
+                  : "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
+              )}
+            >
+              {fmtNum(existencia)}
+            </span>
+          </div>
+          {stockMinimo != null ? (
+            <div className="flex items-center justify-between gap-4 text-xs">
+              <span className="font-bold uppercase text-slate-500">Mínimo</span>
+              <span className="font-black tabular-nums text-slate-700 dark:text-slate-200">
+                {fmtNum(stockMinimo)}
+              </span>
+            </div>
+          ) : null}
+          {precioVenta != null ? (
+            <div className="flex items-center justify-between gap-4 text-xs">
+              <span className="font-bold uppercase text-slate-500">Precio</span>
+              <span className="font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
+                {fmtQ(precioVenta)}
+              </span>
+            </div>
+          ) : null}
+          <div className="flex items-center justify-between gap-4 text-xs">
+            <span className="font-bold uppercase text-slate-500">Estado</span>
+            <span
+              className={cn(
+                "font-black uppercase",
+                activo
+                  ? "text-look-2-salvia-menta dark:text-look-1-salvia-suave"
+                  : "text-red-500",
+              )}
+            >
+              {activo ? "Activo" : "Inactivo"}
+            </span>
+          </div>
+        </div>
+        {acciones ? (
+          <>
+            <DropdownMenuSeparator className="bg-zinc-200 dark:bg-zinc-700" />
+            {acciones}
+          </>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 const inventarioTableCellTextoMultilineaClass =
   "block whitespace-normal break-words leading-snug line-clamp-2";
 
@@ -464,7 +560,7 @@ function ProductoCard({
       whileHover={{ y: -1 }}
       onClick={onClick}
       className={cn(
-        "group relative border rounded-xl p-2.5 cursor-pointer hover:border-[#8DA78E] dark:hover:border-[#A3BEB0]/60 flex gap-3 items-center min-h-[96px]",
+        "group relative border rounded-xl p-2.5 cursor-pointer hover:border-[#8DA78E] dark:hover:border-[#A3BEB0]/60 flex gap-3 items-center min-h-[80px]",
         destacarEnfoque
           ? "bg-[#8DA78E]/15 border-[#8DA78E] ring-2 ring-[#8DA78E]/35 dark:bg-[#8DA78E]/20 dark:border-[#A3BEB0] dark:ring-[#A3BEB0]/30"
           : destacarVencido && isVencido
@@ -496,6 +592,7 @@ function ProductoCard({
             <div className="min-w-0 flex-1">
               <ProductoFarmaciaTitulo
                 producto={producto}
+                soloLineaPrincipal
                 tituloClassName="font-black text-xs text-slate-900 dark:text-white truncate uppercase"
               />
             </div>
@@ -504,10 +601,11 @@ function ProductoCard({
               producto.activo ? "bg-[#8DA78E]" : "bg-red-400"
             )} />
           </div>
-          <p className="text-etiqueta font-mono text-slate-500 mt-0.5">
-            CÓD: {producto.codigo || "SIN CÓDIGO"}
-            {producto.numero_lote && ` | LOTE: ${producto.numero_lote}`}
-          </p>
+          {producto.numero_lote ? (
+            <p className="mt-0.5 font-mono text-sm font-bold uppercase text-slate-500 dark:text-slate-400">
+              Lote: {producto.numero_lote}
+            </p>
+          ) : null}
           {producto.fecha_vencimiento && (
             <p
               className={cn(
@@ -521,39 +619,6 @@ function ProductoCard({
             >
               {destacarVencido && isVencido ? "VENCIDO" : "VENCE"}:{" "}
               {new Date(producto.fecha_vencimiento).toLocaleDateString("es-GT")}
-            </p>
-          )}
-          <p className="text-etiqueta font-bold text-texto-tenue mt-1 uppercase">
-            <span className="block text-slate-500 normal-case font-semibold">
-              Lab
-            </span>
-            <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-texto-secundario")}>
-              {etiquetaLaboratorioComercial(producto.laboratorio)}
-            </span>
-          </p>
-          {producto.laboratorio_proveedor_nombre ? (
-            <p className="text-etiqueta font-bold text-texto-tenue mt-1 uppercase">
-              <span className="block text-slate-500 normal-case font-semibold">
-                Prov. lab
-              </span>
-              <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-texto-secundario")}>
-                {producto.laboratorio_proveedor_nombre}
-              </span>
-            </p>
-          ) : null}
-          {producto.inv_proveedores?.nombre ? (
-            <p className="text-etiqueta font-bold text-texto-tenue mt-1 uppercase">
-              <span className="block text-slate-500 normal-case font-semibold">
-                Prov
-              </span>
-              <span className={cn(inventarioTableCellTextoMultilineaClass, "normal-case font-semibold text-texto-secundario")}>
-                {producto.inv_proveedores.nombre}
-              </span>
-            </p>
-          ) : null}
-          {producto.ubicacion && producto.ubicacion !== "Sin asignar" && (
-            <p className="text-etiqueta font-bold text-texto-tenue mt-0.5 uppercase flex items-center gap-1">
-              <Box className="size-3 text-look-2-salvia-menta dark:text-look-1-salvia-suave" /> {producto.ubicacion}
             </p>
           )}
         </div>
@@ -637,7 +702,7 @@ function ProductoDetalle({
       exit={{ opacity: 0, x: 24 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-left animate-fade-in dark:bg-zinc-800"
     >
-      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-6 py-6 md:px-8 md:py-7">
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
@@ -664,14 +729,19 @@ function ProductoDetalle({
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_220px]">
           <div className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_140px]">
-              <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
+              <div className="min-w-0 space-y-2">
                 <h4 className={detalleLabelClass}>Código de barras</h4>
-                <p className={cn(detalleFieldClass, "font-mono text-sm uppercase tracking-wide")}>
+                <p
+                  className={cn(
+                    detalleFieldClass,
+                    "truncate font-mono text-sm uppercase tracking-wide",
+                  )}
+                >
                   {producto.codigo || "Sin código"}
                 </p>
               </div>
-              <div className="space-y-2">
+              <div className="min-w-0 space-y-2">
                 <h4 className={detalleLabelClass}>Estado</h4>
                 <div className={cn(detalleFieldClass, "flex items-center justify-center font-bold uppercase")}>
                   <span className={producto.activo ? "text-look-2-salvia-menta dark:text-look-1-salvia-suave" : "text-red-500"}>
@@ -690,7 +760,7 @@ function ProductoDetalle({
 
             <div className="space-y-3">
               <h4 className={detalleLabelClass}>Inventario y costos</h4>
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                 <div className={detalleMetricClass}>
                   <span className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53] dark:text-look-1-salvia-suave/80">
                     Existencias
@@ -722,7 +792,7 @@ function ProductoDetalle({
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 <div className={detalleMetricClass}>
                   <span className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53] dark:text-look-1-salvia-suave/80">
                     Costo promedio
@@ -749,7 +819,7 @@ function ProductoDetalle({
                     {margenActual != null ? `${margenActual.toFixed(1)}%` : "—"}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
+                <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
                   {bajoMargen ? (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 text-etiqueta font-black uppercase text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
                       Margen bajo
@@ -763,19 +833,17 @@ function ProductoDetalle({
                 </div>
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <h4 className={detalleLabelClass}>Ubicación</h4>
-                  <p
-                    className={cn(
-                      detalleFieldClass,
-                      "flex items-center gap-2 truncate text-sm font-bold text-look-2-salvia-menta dark:text-look-1-salvia-suave",
-                    )}
-                  >
-                    <Box className="size-4 shrink-0 opacity-80" />
-                    {producto.ubicacion || "Sin asignar"}
-                  </p>
-                </div>
+              <div className="space-y-2">
+                <h4 className={detalleLabelClass}>Ubicación</h4>
+                <p
+                  className={cn(
+                    detalleFieldClass,
+                    "flex items-center gap-2 truncate text-sm font-bold text-look-2-salvia-menta dark:text-look-1-salvia-suave",
+                  )}
+                >
+                  <Box className="size-4 shrink-0 opacity-80" />
+                  {producto.ubicacion || "Sin asignar"}
+                </p>
               </div>
 
               <div className="space-y-2">
@@ -797,7 +865,6 @@ function ProductoDetalle({
                           isProductoVencido(lote.fecha_vencimiento) &&
                           (Number(lote.cantidad_actual) || 0) > 0;
                         const proximo = isProductoProximoAVencer(lote.fecha_vencimiento);
-                        const estadoVenc = etiquetaEstadoVencimiento(lote.fecha_vencimiento);
                         const fechaTxt = lote.fecha_vencimiento
                           ? new Date(lote.fecha_vencimiento).toLocaleDateString("es-GT")
                           : "Sin fecha";
@@ -805,60 +872,25 @@ function ProductoDetalle({
                           <li
                             key={lote.id}
                             className={cn(
-                              "flex flex-col gap-1.5 px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-3",
+                              "flex items-center justify-between gap-3 px-3 py-2.5",
                               !lote.activo && "opacity-60",
                             )}
                           >
-                            <div className="min-w-0 flex-1 space-y-0.5">
-                              <p className="truncate text-sm font-black text-slate-800 dark:text-slate-100">
-                                Lote {lote.numero_lote || "—"}
-                              </p>
-                              <p className="text-etiqueta text-texto-tenue">
-                                Lab:{" "}
-                                {etiquetaLaboratorioComercial(laboratorioNombreDesdeLote(lote))}
-                                {lote.inv_proveedores?.nombre
-                                  ? ` · Prov: ${lote.inv_proveedores.nombre}`
-                                  : ""}
-                              </p>
-                              <p className="text-etiqueta font-bold text-look-2-salvia-menta dark:text-look-1-salvia-suave">
-                                Venta {fmtQ(precioVentaEfectivoLote(undefined, producto.precio_base))}
-                                {" · "}
-                                Costo {fmtQ(Number(lote.precio_costo) || 0)}
-                              </p>
-                              <p className="text-etiqueta font-bold uppercase tracking-wide text-[#525D53]/80 dark:text-look-1-salvia-suave/70">
-                                {lote.activo ? "Activo" : "Inactivo"}
-                                {lote.ubicacion ? ` · ${lote.ubicacion}` : ""}
-                              </p>
-                            </div>
-                            <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-                              <span
-                                className={cn(
-                                  "text-xs font-bold tabular-nums",
-                                  vencido
-                                    ? "text-red-500"
-                                    : proximo
-                                      ? "text-amber-600 dark:text-amber-400"
-                                      : "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
-                                )}
-                              >
-                                Vence {fechaTxt}
-                              </span>
-                              <span
-                                className={cn(
-                                  "rounded-md px-1.5 py-0.5 text-etiqueta font-black uppercase tracking-wide",
-                                  vencido
-                                    ? "bg-red-500/10 text-red-600 dark:text-red-400"
-                                    : proximo
-                                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400"
-                                      : "bg-[#8DA78E]/10 text-[#525D53] dark:text-look-1-salvia-suave",
-                                )}
-                              >
-                                {estadoVenc}
-                              </span>
-                              <span className="text-xs font-black tabular-nums text-slate-600 dark:text-slate-300">
-                                {fmtNum(Number(lote.cantidad_actual) || 0)} u.
-                              </span>
-                            </div>
+                            <p className="min-w-0 truncate text-sm font-black text-slate-800 dark:text-slate-100">
+                              Lote {lote.numero_lote || "—"}
+                            </p>
+                            <span
+                              className={cn(
+                                "shrink-0 text-xs font-bold tabular-nums",
+                                vencido
+                                  ? "text-red-500"
+                                  : proximo
+                                    ? "text-amber-600 dark:text-amber-400"
+                                    : "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
+                              )}
+                            >
+                              Vence {fechaTxt}
+                            </span>
                           </li>
                         );
                       })}
@@ -947,7 +979,7 @@ function CatalogoDetalle({
       exit={{ opacity: 0, x: 24 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-left animate-fade-in dark:bg-zinc-800"
     >
-      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-6 py-6 md:px-8 md:py-7">
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
@@ -981,7 +1013,7 @@ function CatalogoDetalle({
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Productos</span>
             <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
@@ -1026,8 +1058,9 @@ function CatalogoDetalle({
                 return (
                   <li
                     key={g.generico_id}
-                    className="flex flex-col gap-3 bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30 sm:flex-row sm:items-center sm:justify-between"
+                    className="bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30"
                   >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
                         {tituloGenericoInventario(g)}
@@ -1038,7 +1071,7 @@ function CatalogoDetalle({
                         {g.precio_desde != null ? ` · Desde ${fmtQ(g.precio_desde)}` : ""}
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
+                    <div className="hidden md:flex shrink-0 flex-wrap items-center justify-end gap-3">
                       <div className="text-right">
                         <p className="text-etiqueta font-bold uppercase text-slate-500">Stock</p>
                         <p
@@ -1075,6 +1108,25 @@ function CatalogoDetalle({
                         onClick={() => onVerGenerico(g)}
                         className="w-auto shrink-0"
                       />
+                    </div>
+                    <div className="shrink-0 md:hidden">
+                      <InventarioDetalleFilaMenu
+                        existencia={g.stock_vendible}
+                        existenciaBaja={isLow}
+                        stockMinimo={g.stock_minimo}
+                        activo={g.activo}
+                        ariaLabel="Existencia y acciones del producto"
+                        acciones={
+                          <DropdownMenuItem
+                            className="cursor-pointer rounded-lg text-xs font-bold"
+                            onSelect={() => onVerGenerico(g)}
+                          >
+                            <Package className="size-3.5" />
+                            Ver marcas
+                          </DropdownMenuItem>
+                        }
+                      />
+                    </div>
                     </div>
                   </li>
                 );
@@ -1114,7 +1166,7 @@ function GenericoDetalle({
       exit={{ opacity: 0, x: 24 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-left animate-fade-in dark:bg-zinc-800"
     >
-      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-6 py-6 md:px-8 md:py-7">
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
@@ -1141,7 +1193,7 @@ function GenericoDetalle({
           </button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Marcas</span>
             <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
@@ -1189,8 +1241,9 @@ function GenericoDetalle({
                 return (
                   <li
                     key={c.producto_id}
-                    className="flex flex-col gap-3 bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30 sm:flex-row sm:items-center sm:justify-between"
+                    className="bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30"
                   >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0 flex-1">
                       <ProductoFarmaciaTitulo
                         producto={productoUi}
@@ -1206,7 +1259,7 @@ function GenericoDetalle({
                           : ""}
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
+                    <div className="hidden md:flex shrink-0 flex-wrap items-center justify-end gap-3">
                       <div className="text-right">
                         <p className="text-etiqueta font-bold uppercase text-slate-500">Stock</p>
                         <p
@@ -1252,6 +1305,34 @@ function GenericoDetalle({
                         className="w-auto shrink-0"
                       />
                     </div>
+                    <div className="shrink-0 md:hidden">
+                      <InventarioDetalleFilaMenu
+                        existencia={c.stock_vendible}
+                        existenciaBaja={isLow}
+                        precioVenta={c.precio_venta}
+                        activo={c.activo}
+                        ariaLabel="Existencia y acciones de la marca"
+                        acciones={
+                          <>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-lg text-xs font-bold"
+                              onSelect={() => onVerLotes(c)}
+                            >
+                              <Box className="size-3.5" />
+                              Lotes
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              className="cursor-pointer rounded-lg text-xs font-bold"
+                              onSelect={() => onEditProducto(c.producto_id)}
+                            >
+                              <PencilIcon className="size-3.5" />
+                              Editar
+                            </DropdownMenuItem>
+                          </>
+                        }
+                      />
+                    </div>
+                    </div>
                   </li>
                 );
               })}
@@ -1287,7 +1368,7 @@ function LaboratorioDetalle({
       exit={{ opacity: 0, x: 24 }}
       className="flex h-full min-h-0 w-full flex-col overflow-hidden bg-white text-left animate-fade-in dark:bg-zinc-800"
     >
-      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto px-6 py-6 md:px-8 md:py-7">
+      <div className="custom-scrollbar flex min-h-0 flex-1 flex-col gap-6 overflow-y-auto overscroll-contain px-6 py-6 md:px-8 md:py-7">
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200/90 pb-5 dark:border-zinc-700/80">
           <div className="flex min-w-0 items-start gap-3">
             <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/25 bg-[#8DA78E]/10">
@@ -1314,7 +1395,7 @@ function LaboratorioDetalle({
           </button>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           <div className={cn(detalleFieldClass, "flex flex-col gap-1")}>
             <span className={detalleLabelClass}>Productos</span>
             <span className="text-lg font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
@@ -1348,8 +1429,9 @@ function LaboratorioDetalle({
                 return (
                   <li
                     key={c.producto_id}
-                    className="flex flex-col gap-3 bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30 sm:flex-row sm:items-center sm:justify-between"
+                    className="bg-zinc-50/50 px-4 py-3 dark:bg-zinc-900/30"
                   >
+                    <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                     <div className="min-w-0 flex-1">
                       <ProductoFarmaciaTitulo
                         producto={productoUi}
@@ -1364,7 +1446,7 @@ function LaboratorioDetalle({
                           : ""}
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap items-center gap-3 sm:justify-end">
+                    <div className="hidden md:flex shrink-0 flex-wrap items-center justify-end gap-3">
                       <div className="text-right">
                         <p className="text-etiqueta font-bold uppercase text-slate-500">Stock</p>
                         <p
@@ -1393,6 +1475,16 @@ function LaboratorioDetalle({
                         {c.activo ? "Activo" : "Inactivo"}
                       </span>
                     </div>
+                    <div className="shrink-0 md:hidden">
+                      <InventarioDetalleFilaMenu
+                        existencia={c.stock_vendible}
+                        existenciaBaja={isLow}
+                        precioVenta={c.precio_venta}
+                        activo={c.activo}
+                        ariaLabel="Existencia de la marca"
+                      />
+                    </div>
+                    </div>
                   </li>
                 );
               })}
@@ -1409,6 +1501,10 @@ const inventarioLotesHeadCellClass = "px-3 py-2.5 whitespace-nowrap tracking-wid
 const inventarioTableHeadCellClass = cn(moduleTableHeadCellClass, "text-center");
 const inventarioTableBodyCellCenterClass = "px-5 py-3.5 text-center align-middle";
 const inventarioTableBodyCellLeftClass = "px-5 py-3.5 text-left align-middle";
+const inventarioLotesTableBodyCellLeftClass = cn(
+  inventarioLotesHeadCellClass,
+  "py-3.5 text-left align-top min-w-0",
+);
 
 const VencimientoFilterSelect = ({
   selectedCategoria,
@@ -1435,14 +1531,14 @@ const VencimientoFilterSelect = ({
     : "Todas las categorías";
 
   return (
-    <div className="relative shrink-0" ref={dropdownRef}>
+    <div className="relative w-full min-w-0 md:w-auto md:shrink-0" ref={dropdownRef}>
       <button
         type="button"
         aria-label="Vencimiento por lote"
         aria-expanded={isOpen}
         onClick={() => setIsOpen((open) => !open)}
         className={cn(
-          "flex h-[44px] min-w-[12rem] max-w-[min(100%,16rem)] items-center gap-2 rounded-xl border px-3 py-2.5 text-etiqueta font-bold shadow-xs transition-all select-none md:text-xs",
+          "flex h-[44px] w-full md:w-auto md:min-w-[12rem] md:max-w-[min(100%,16rem)] items-center gap-2 rounded-xl border px-3 py-2.5 text-etiqueta font-bold shadow-xs transition-all select-none md:text-xs",
           selectedCategoria
             ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:border-[#A3BEB0]/40 dark:bg-[#8DA78E]/20 dark:text-look-1-salvia-suave"
             : "border-slate-200 bg-white text-slate-700 hover:border-[#8DA78E] dark:border-slate-700/60 dark:bg-zinc-900/60 dark:text-slate-300 dark:hover:border-[#A3BEB0]/50",
@@ -1568,8 +1664,9 @@ const LocationFilterDropdown = ({
   const locationCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     products.forEach((p) => {
-      const loc = p.ubicacion || "Sin asignar";
-      counts[loc] = (counts[loc] || 0) + 1;
+      for (const loc of ubicacionesFilaInventario(p.ubicacion)) {
+        counts[loc] = (counts[loc] || 0) + 1;
+      }
     });
     return counts;
   }, [products]);
@@ -1577,19 +1674,19 @@ const LocationFilterDropdown = ({
   const totalProducts = products.length;
 
   return (
-    <div className="relative shrink-0" ref={dropdownRef}>
+    <div className="relative w-full min-w-0 md:w-auto md:shrink-0" ref={dropdownRef}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "px-3 py-2.5 rounded-xl border text-etiqueta md:text-xs font-bold transition-all flex items-center gap-2 cursor-pointer h-full shadow-xs select-none",
+          "w-full md:w-auto px-3 py-2.5 rounded-xl border text-etiqueta md:text-xs font-bold transition-all flex items-center gap-2 cursor-pointer h-[44px] md:h-full shadow-xs select-none",
           selectedLocation
             ? "border-[#8DA78E] bg-[#8DA78E]/10 text-[#525D53] dark:text-look-1-salvia-suave dark:bg-[#8DA78E]/20"
             : "border-slate-200 dark:border-slate-700/60 bg-white dark:bg-zinc-900/60 text-slate-700 dark:text-slate-300 hover:border-[#8DA78E]"
         )}
       >
         <Box className="size-3.5 text-look-2-salvia-menta shrink-0" />
-        <span className="truncate max-w-[140px] md:max-w-[170px]">
+        <span className="min-w-0 flex-1 truncate text-left md:max-w-[170px]">
           {selectedLocation || "Todas las ubicaciones"}
         </span>
 
@@ -1861,12 +1958,33 @@ export function VerInventario() {
     ) {
       return [];
     }
+    const todosLotes = lotes as LoteInventario[];
+    const esFilaLote =
+      vistaInventario === "lotes" ||
+      (productoSeleccionado.numero_lote != null &&
+        productoSeleccionado.producto_maestro_id != null);
+
+    if (esFilaLote) {
+      const porId = todosLotes.find((l) => l.id === productoSeleccionado.id);
+      if (porId) return [porId];
+      const maestroId = productoSeleccionado.producto_maestro_id;
+      const numero = productoSeleccionado.numero_lote;
+      if (maestroId && numero) {
+        const porNumero = todosLotes.find(
+          (l) => l.producto_id === maestroId && l.numero_lote === numero,
+        );
+        if (porNumero) return [porNumero];
+      }
+      return [];
+    }
+
     const productoId = idProductoComercialParaEdicion(productoSeleccionado);
     if (!productoId) return [];
-    return lotesPorProductoId(lotes as LoteInventario[], productoId);
+    return lotesPorProductoId(todosLotes, productoId);
   }, [
     productoSeleccionado,
     lotes,
+    vistaInventario,
     detalleEsLaboratorio,
     detalleEsCatalogo,
     detalleEsGenerico,
@@ -1913,9 +2031,13 @@ export function VerInventario() {
     () =>
       filasJerarquia.map((row) => {
         const idCat = row.producto_maestro_id ?? row.id;
+        const ubicacionFila =
+          vistaInventario === "lotes"
+            ? row.ubicacion ?? null
+            : ubicacionesPorProductoId.get(idCat) ?? row.ubicacion ?? null;
         return {
           ...row,
-          ubicacion: ubicacionesPorProductoId.get(idCat) ?? row.ubicacion ?? null,
+          ubicacion: ubicacionFila,
           laboratorio: etiquetaLaboratorioComercial(
             row.laboratorio ?? laboratorioPorProductoId.get(idCat) ?? null,
           ),
@@ -1924,7 +2046,13 @@ export function VerInventario() {
             : null,
         };
       }),
-    [filasJerarquia, ubicacionesPorProductoId, laboratorioPorProductoId, proveedorPorLaboratorioId],
+    [
+      filasJerarquia,
+      vistaInventario,
+      ubicacionesPorProductoId,
+      laboratorioPorProductoId,
+      proveedorPorLaboratorioId,
+    ],
   );
 
   const isLoading =
@@ -2101,12 +2229,8 @@ export function VerInventario() {
 
   // Filtrado de productos
   const ubicacionesUnicas = Array.from(
-    new Set(
-      productos
-        .map((p) => p.ubicacion || "Sin asignar")
-        .filter(Boolean)
-    )
-  ).sort((a, b) => a.localeCompare(b));
+    new Set(productos.flatMap((p) => ubicacionesFilaInventario(p.ubicacion))),
+  ).sort((a, b) => a.localeCompare(b, "es"));
 
   const productosFiltrados = productos.filter((p) => {
     const matchesSearch = productoCoincideBusquedaInventario(
@@ -2140,7 +2264,7 @@ export function VerInventario() {
         filtroEstado === "activos" ? p.activo :
           !p.activo;
 
-    const matchesUbicacion = !filtroUbicacion || (p.ubicacion || "Sin asignar") === filtroUbicacion;
+    const matchesUbicacion = filaCoincideUbicacionInventario(p.ubicacion, filtroUbicacion);
 
     return (
       matchesSearch &&
@@ -2192,14 +2316,23 @@ export function VerInventario() {
     });
   }, [productosPaginados, inventarioResaltado]);
 
+  useEffect(() => {
+    if (!productoSeleccionado) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [productoSeleccionado]);
+
   const inventarioTableColumnCount =
     vistaInventario === "lotes"
-      ? 10
+      ? 9
       : vistaInventario === "laboratorio"
-        ? 6
+        ? 5
         : vistaInventario === "catalogo"
-          ? 4
-          : 5;
+          ? 3
+          : 4;
   const inventarioPermiteEditarProducto = vistaInventario !== "laboratorio";
 
   const handleNuevoJerarquia = () => {
@@ -2345,6 +2478,74 @@ export function VerInventario() {
     }
   };
 
+  const inventarioInformeItems = useMemo((): ModuleInformeOpcion[] => [
+    {
+      titulo: "Existencias valorizadas",
+      onPdf: () =>
+        void ejecutarInforme(
+          () => ejecutarExistenciasValorizadasPdf(isDemoMode, nombreGeneradorInforme),
+          "PDF descargado.",
+        ),
+      onExcel: () =>
+        void ejecutarInforme(
+          () => ejecutarExistenciasValorizadasExcel(isDemoMode, nombreGeneradorInforme),
+          "Excel descargado.",
+        ),
+    },
+    {
+      titulo: "Vencimientos",
+      onPdf: () =>
+        void ejecutarInforme(
+          () => ejecutarVencimientosPdf(isDemoMode, nombreGeneradorInforme),
+          "PDF descargado.",
+        ),
+      onExcel: () =>
+        void ejecutarInforme(
+          () => ejecutarVencimientosExcel(isDemoMode, nombreGeneradorInforme),
+          "Excel descargado.",
+        ),
+    },
+    {
+      titulo: "Stock bajo y pedido sugerido",
+      onPdf: () =>
+        void ejecutarInforme(
+          () => ejecutarStockBajoPdf(isDemoMode, nombreGeneradorInforme),
+          "PDF descargado.",
+        ),
+      onExcel: () =>
+        void ejecutarInforme(
+          () => ejecutarStockBajoExcel(isDemoMode, nombreGeneradorInforme),
+          "Excel descargado.",
+        ),
+    },
+    {
+      titulo: "Hoja de conteo físico",
+      onPdf: () =>
+        void ejecutarInforme(
+          () =>
+            ejecutarHojaConteoPdf(
+              isDemoMode,
+              nombreGeneradorInforme,
+              filtroUbicacion || null,
+            ),
+          "PDF descargado.",
+        ),
+    },
+    {
+      titulo: "Kardex",
+      onPdf: () =>
+        void ejecutarInforme(
+          () => ejecutarKardexPdf(isDemoMode, nombreGeneradorInforme),
+          "PDF descargado.",
+        ),
+      onExcel: () =>
+        void ejecutarInforme(
+          () => ejecutarKardexExcel(isDemoMode, nombreGeneradorInforme),
+          "Excel descargado.",
+        ),
+    },
+  ], [isDemoMode, nombreGeneradorInforme, filtroUbicacion]);
+
   return (
     <div className={inventarioPageShellClass}>
       <div className="flex shrink-0 flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-0.5">
@@ -2423,7 +2624,78 @@ export function VerInventario() {
             />
           </div>
 
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+          <div className="flex flex-col gap-3 md:hidden">
+            {ubicacionesUnicas.length > 0 ? (
+              <LocationFilterDropdown
+                selectedLocation={filtroUbicacion}
+                onSelectLocation={(loc) => {
+                  setFiltroUbicacion(loc);
+                  setCurrentPage(1);
+                }}
+                locations={ubicacionesUnicas}
+                products={productos}
+              />
+            ) : null}
+            {vistaInventario === "lotes" ? (
+              <VencimientoFilterSelect
+                selectedCategoria={filtroCategoriaVencimiento}
+                onSelectCategoria={(cat) => {
+                  aplicarFiltroCategoriaVencimiento(cat);
+                  setCurrentPage(1);
+                }}
+              />
+            ) : null}
+            <div
+              className={cn(modulePillSwitchShellClass, "w-full gap-1")}
+              role="tablist"
+              aria-label="Estado del producto"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={filtroEstado === "activos"}
+                onClick={() => {
+                  setFiltroEstado("activos");
+                  setCurrentPage(1);
+                }}
+                className={cn(modulePillSwitchBtnClass(filtroEstado === "activos"), "text-center")}
+              >
+                Activos
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={filtroEstado === "inactivos"}
+                onClick={() => {
+                  setFiltroEstado("inactivos");
+                  setCurrentPage(1);
+                }}
+                className={cn(modulePillSwitchBtnClass(filtroEstado === "inactivos"), "text-center")}
+              >
+                Inactivos
+              </button>
+            </div>
+            <div className="grid w-full grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => resetFiltrosAlerta(filtroStockBajo ? null : "stock")}
+                className={cn(
+                  "flex min-h-[42px] w-full items-center justify-center rounded-xl border px-3 py-2 text-sm font-semibold transition-all cursor-pointer whitespace-nowrap",
+                  filtroStockBajo
+                    ? "border-[#8DA78E] bg-[#8DA78E]/15 text-texto-principal shadow-sm dark:border-[#A3BEB0]/60"
+                    : "border-zinc-200 bg-zinc-50 text-texto-secundario hover:bg-zinc-100 dark:border-zinc-600 dark:bg-zinc-900/60 dark:hover:bg-zinc-800",
+                )}
+              >
+                Stock bajo
+              </button>
+              <ModuleInformeDropdown
+                className="w-full min-w-0 [&>button]:w-full [&>button]:justify-center"
+                items={inventarioInformeItems}
+              />
+            </div>
+          </div>
+
+          <div className="hidden flex-col gap-3 md:flex xl:flex-row xl:items-center xl:justify-between">
             <div className="flex min-w-0 flex-1 flex-col gap-2 sm:flex-row sm:items-end sm:gap-3">
               {ubicacionesUnicas.length > 0 ? (
                 <LocationFilterDropdown
@@ -2445,7 +2717,7 @@ export function VerInventario() {
                   }}
                 />
               ) : null}
-              <div className="flex w-fit max-w-full shrink-0 border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10 select-none">
+              <div className="flex w-fit max-w-full shrink-0 select-none border-b border-[#C1D1C5]/30 dark:border-[#A3BEB0]/10">
                 <button
                   type="button"
                   onClick={() => resetFiltrosAlerta(filtroStockBajo ? null : "stock")}
@@ -2455,8 +2727,7 @@ export function VerInventario() {
                 </button>
               </div>
             </div>
-
-            <div className="flex flex-wrap items-center justify-end gap-2 shrink-0">
+            <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               <div
                 className={cn(modulePillSwitchShellClass, "w-full max-w-[14rem] sm:w-auto")}
                 role="tablist"
@@ -2487,83 +2758,7 @@ export function VerInventario() {
                   Inactivos
                 </button>
               </div>
-              <ModuleInformeDropdown
-                items={[
-                  {
-                    titulo: "Existencias valorizadas",
-                    onPdf: () =>
-                      void ejecutarInforme(
-                        () =>
-                          ejecutarExistenciasValorizadasPdf(
-                            isDemoMode,
-                            nombreGeneradorInforme,
-                          ),
-                        "PDF descargado.",
-                      ),
-                    onExcel: () =>
-                      void ejecutarInforme(
-                        () =>
-                          ejecutarExistenciasValorizadasExcel(
-                            isDemoMode,
-                            nombreGeneradorInforme,
-                          ),
-                        "Excel descargado.",
-                      ),
-                  },
-                  {
-                    titulo: "Vencimientos",
-                    onPdf: () =>
-                      void ejecutarInforme(
-                        () => ejecutarVencimientosPdf(isDemoMode, nombreGeneradorInforme),
-                        "PDF descargado.",
-                      ),
-                    onExcel: () =>
-                      void ejecutarInforme(
-                        () => ejecutarVencimientosExcel(isDemoMode, nombreGeneradorInforme),
-                        "Excel descargado.",
-                      ),
-                  },
-                  {
-                    titulo: "Stock bajo y pedido sugerido",
-                    onPdf: () =>
-                      void ejecutarInforme(
-                        () => ejecutarStockBajoPdf(isDemoMode, nombreGeneradorInforme),
-                        "PDF descargado.",
-                      ),
-                    onExcel: () =>
-                      void ejecutarInforme(
-                        () => ejecutarStockBajoExcel(isDemoMode, nombreGeneradorInforme),
-                        "Excel descargado.",
-                      ),
-                  },
-                  {
-                    titulo: "Hoja de conteo físico",
-                    onPdf: () =>
-                      void ejecutarInforme(
-                        () =>
-                          ejecutarHojaConteoPdf(
-                            isDemoMode,
-                            nombreGeneradorInforme,
-                            filtroUbicacion || null,
-                          ),
-                        "PDF descargado.",
-                      ),
-                  },
-                  {
-                    titulo: "Kardex",
-                    onPdf: () =>
-                      void ejecutarInforme(
-                        () => ejecutarKardexPdf(isDemoMode, nombreGeneradorInforme),
-                        "PDF descargado.",
-                      ),
-                    onExcel: () =>
-                      void ejecutarInforme(
-                        () => ejecutarKardexExcel(isDemoMode, nombreGeneradorInforme),
-                        "Excel descargado.",
-                      ),
-                  },
-                ]}
-              />
+              <ModuleInformeDropdown items={inventarioInformeItems} />
             </div>
           </div>
         </div>
@@ -2642,7 +2837,6 @@ export function VerInventario() {
                       className={cn(
                         inventarioTableHeadCellClass,
                         vistaInventario === "lotes" && inventarioLotesHeadCellClass,
-                        vistaInventario === "lotes" && "text-left",
                       )}
                     >
                       Producto
@@ -2656,7 +2850,6 @@ export function VerInventario() {
                           className={cn(
                             inventarioTableHeadCellClass,
                             inventarioLotesHeadCellClass,
-                            "text-left",
                           )}
                           title="Laboratorio"
                         >
@@ -2666,7 +2859,6 @@ export function VerInventario() {
                           className={cn(
                             inventarioTableHeadCellClass,
                             inventarioLotesHeadCellClass,
-                            "text-left",
                           )}
                           title="Proveedor"
                         >
@@ -2700,14 +2892,6 @@ export function VerInventario() {
                       title={vistaInventario === "lotes" ? "Existencias" : undefined}
                     >
                       {vistaInventario === "lotes" ? "Exist." : "Existencias"}
-                    </th>
-                    <th
-                      className={cn(
-                        inventarioTableHeadCellClass,
-                        vistaInventario === "lotes" && inventarioLotesHeadCellClass,
-                      )}
-                    >
-                      Estado
                     </th>
                     {vistaInventario !== "lotes" && vistaInventario !== "catalogo" ? (
                       <th className={inventarioTableHeadCellClass}>P. sugerido</th>
@@ -2815,8 +2999,8 @@ export function VerInventario() {
                             <>
                               <td
                                 className={cn(
-                                  inventarioTableBodyCellLeftClass,
-                                  "text-sm text-slate-600 dark:text-slate-300 max-w-[120px]",
+                                  inventarioLotesTableBodyCellLeftClass,
+                                  "text-sm text-slate-600 dark:text-slate-300",
                                 )}
                               >
                                 <span className={inventarioTableCellTextoMultilineaClass}>
@@ -2825,8 +3009,8 @@ export function VerInventario() {
                               </td>
                               <td
                                 className={cn(
-                                  inventarioTableBodyCellLeftClass,
-                                  "text-sm font-semibold text-texto-tenue max-w-[130px]",
+                                  inventarioLotesTableBodyCellLeftClass,
+                                  "text-sm font-semibold text-texto-tenue",
                                 )}
                               >
                                 <span className={inventarioTableCellTextoMultilineaClass}>
@@ -2893,18 +3077,6 @@ export function VerInventario() {
                                 </span>
                               ) : null}
                             </div>
-                          </td>
-                          <td className={inventarioTableBodyCellCenterClass}>
-                            <span
-                              className={cn(
-                                "inline-flex px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider",
-                                p.activo
-                                  ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                                  : "bg-zinc-100 text-zinc-600 dark:bg-zinc-800 ",
-                              )}
-                            >
-                              {p.activo ? "Activo" : "Inactivo"}
-                            </span>
                           </td>
                           {vistaInventario !== "lotes" && vistaInventario !== "catalogo" ? (
                             <td
@@ -3043,7 +3215,6 @@ export function VerInventario() {
             setBusquedaProductoLote("");
           }}
           title="Nuevo lote"
-          subtitle="Registrar existencias"
           maxWidth="max-w-xl"
           fullHeight
           contentClassName="flex min-h-0 flex-1 flex-col p-4 md:p-6"
@@ -3131,18 +3302,24 @@ export function VerInventario() {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setProductoSeleccionado(null)}
-              className="fixed inset-0 z-[100] hidden cursor-pointer bg-black/40 backdrop-blur-sm md:block"
+              className="fixed inset-0 z-[100] cursor-pointer bg-black/40 backdrop-blur-sm"
             />
-            <div className="pointer-events-none fixed inset-0 z-[101] hidden items-center justify-center p-4 sm:p-5 md:flex">
+            <div
+              className="pointer-events-none fixed inset-x-0 bottom-0 top-[var(--banner-height,0px)] z-[101] flex items-stretch justify-center overflow-hidden p-0 md:items-center md:p-5"
+            >
               <motion.div
                 key="inventario-detalle-panel"
-                initial={{ opacity: 0, scale: 0.96, y: 12 }}
-                animate={{ opacity: 1, scale: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.96, y: 12 }}
-                transition={{ type: "spring", damping: 25, stiffness: 280 }}
-                className="pointer-events-auto flex h-[min(820px,calc(100dvh-var(--banner-height,0px)-2rem))] max-h-[calc(100dvh-var(--banner-height,0px)-2rem)] w-full min-w-[320px] max-w-[min(960px,96vw)] flex-col overflow-hidden rounded-[2rem] bg-white shadow-2xl dark:bg-zinc-900"
+                initial={{ opacity: 0, y: 24 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 24 }}
+                transition={{ type: "spring", damping: 28, stiffness: 320 }}
+                className={cn(
+                  "pointer-events-auto flex w-full min-h-0 min-w-0 flex-col overflow-hidden bg-white shadow-2xl dark:bg-zinc-900",
+                  "h-full max-h-full rounded-none",
+                  "md:h-[min(820px,calc(100dvh-var(--banner-height,0px)-2rem))] md:max-h-[calc(100dvh-var(--banner-height,0px)-2rem)] md:min-w-[320px] md:max-w-[min(960px,96vw)] md:rounded-[2rem]",
+                )}
               >
-                <div className="h-full min-h-0">
+                <div className="flex h-full min-h-0 flex-col overflow-hidden">
                   {detalleEsLaboratorio ? (
                     <LaboratorioDetalle
                       laboratorio={productoSeleccionado}

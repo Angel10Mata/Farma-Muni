@@ -145,6 +145,28 @@ export function comercialAProductoEdicion(c: ProductoComercial): Producto {
   };
 }
 
+function textoIncluyeBusquedaInventario(haystack: string, busqueda: string): boolean {
+  const q = normalizarTextoBusquedaProducto(busqueda);
+  if (!q) return true;
+  return normalizarTextoBusquedaProducto(haystack).includes(q);
+}
+
+export function ubicacionesFilaInventario(ubicacion: string | null | undefined): string[] {
+  const raw = (ubicacion ?? "").trim();
+  if (!raw) return ["Sin asignar"];
+  if (!raw.includes(",")) return [raw];
+  const partes = raw.split(",").map((s) => s.trim()).filter(Boolean);
+  return partes.length > 0 ? partes : ["Sin asignar"];
+}
+
+export function filaCoincideUbicacionInventario(
+  ubicacion: string | null | undefined,
+  filtroUbicacion: string,
+): boolean {
+  if (!filtroUbicacion) return true;
+  return ubicacionesFilaInventario(ubicacion).includes(filtroUbicacion);
+}
+
 export function productoCoincideBusquedaInventario(
   p: {
     nombre?: string;
@@ -155,35 +177,35 @@ export function productoCoincideBusquedaInventario(
   busqueda: string,
   campo: BusquedaInventarioCampo = "todos",
 ): boolean {
-  const q = busqueda.trim().toLowerCase();
+  const q = busqueda.trim();
   if (!q) return true;
   if (campo === "catalogo") {
     const catalogo =
       (p as { catalogo_nombre?: string | null }).catalogo_nombre ||
       (p.nombre_generico || "").split(" ")[0] ||
       "";
-    return catalogo.toLowerCase().includes(q) || (p.nombre || "").toLowerCase().includes(q);
+    return textoIncluyeBusquedaInventario(catalogo, q) || textoIncluyeBusquedaInventario(p.nombre || "", q);
   }
   if (campo === "generico") {
     return (
-      (p.nombre_generico || "").toLowerCase().includes(q) ||
-      (p.codigo || "").toLowerCase().includes(q)
+      textoIncluyeBusquedaInventario(p.nombre_generico || "", q) ||
+      textoIncluyeBusquedaInventario(p.codigo || "", q)
     );
   }
   if (campo === "comercial") {
     return (
-      (p.nombre || "").toLowerCase().includes(q) ||
-      (p.codigo || "").toLowerCase().includes(q)
+      textoIncluyeBusquedaInventario(p.nombre || "", q) ||
+      textoIncluyeBusquedaInventario(p.codigo || "", q)
     );
   }
   if (campo === "laboratorio") {
-    return (p.laboratorio || "").toLowerCase().includes(q);
+    return textoIncluyeBusquedaInventario(p.laboratorio || "", q);
   }
   return (
-    (p.nombre || "").toLowerCase().includes(q) ||
-    (p.nombre_generico || "").toLowerCase().includes(q) ||
-    (p.codigo || "").toLowerCase().includes(q) ||
-    (p.laboratorio || "").toLowerCase().includes(q)
+    textoIncluyeBusquedaInventario(p.nombre || "", q) ||
+    textoIncluyeBusquedaInventario(p.nombre_generico || "", q) ||
+    textoIncluyeBusquedaInventario(p.codigo || "", q) ||
+    textoIncluyeBusquedaInventario(p.laboratorio || "", q)
   );
 }
 

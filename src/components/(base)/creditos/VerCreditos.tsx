@@ -171,7 +171,7 @@ export function VerCreditos() {
           <div
             className={cn(
               modulePillSwitchShellClass,
-              "w-full max-w-sm sm:w-auto sm:min-w-[15.5rem]",
+              "w-full max-w-sm sm:w-auto sm:min-w-[15.5rem] gap-1",
             )}
             role="tablist"
             aria-label="Sección de créditos"
@@ -181,7 +181,7 @@ export function VerCreditos() {
               role="tab"
               aria-selected={tab === "cobrar"}
               onClick={() => setTab("cobrar")}
-              className={modulePillSwitchBtnClass(tab === "cobrar", { grow: false })}
+              className={cn(modulePillSwitchBtnClass(tab === "cobrar"), "text-center")}
             >
               Por cobrar
             </button>
@@ -190,7 +190,7 @@ export function VerCreditos() {
               role="tab"
               aria-selected={tab === "pagados"}
               onClick={() => setTab("pagados")}
-              className={modulePillSwitchBtnClass(tab === "pagados", { grow: false })}
+              className={cn(modulePillSwitchBtnClass(tab === "pagados"), "text-center")}
             >
               Pagados
             </button>

@@ -299,52 +299,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
           </div>
 
           <div
-            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-end sm:justify-end"
+            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between"
           >
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                <input
-                  type="checkbox"
-                  className="size-4 rounded"
-                  checked={soloSaldoPendienteReporte}
-                  onChange={(e) => setSoloSaldoPendienteReporte(e.target.checked)}
-                />
-                Solo con saldo pendiente
-              </label>
-              <ModuleInformeDropdown
-                busy={exportandoReporte}
-                items={[
-                  {
-                    titulo: "Compras por proveedor",
-                    onPdf: () => void exportarComprasProveedorPdf(),
-                    onExcel: () => void exportarComprasProveedorExcel(),
-                  },
-                ]}
-              />
-              <ModuleFilterUnderlineTabs
-                ariaLabel="Estado de pago"
-                value={filtroPago}
-                options={[
-                  { id: "todos", label: "Todos" },
-                  { id: "Pagado", label: "Pagado" },
-                  { id: "Pendiente", label: "Pendiente" },
-                ]}
-                onChange={(id) => {
-                  setFiltroPago(id);
-                  setCurrentPageCompras(1);
-                }}
-                className="sm:justify-end"
-              />
-            </div>
-          </div>
-        </div>
-      </section>
-
-        <div className={cn(moduleTableShellClass, "mt-0 p-0")}>
-        <div
-          className="shrink-0 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800 md:px-5 md:pt-4 md:pb-3"
-        >
             <ModuleDateFilterLayout
+              className="max-lg:mx-auto"
               periodValue={tipoFiltroFechaCompras}
               periodOptions={[
                 { id: "dia", label: "Día" },
@@ -577,7 +535,53 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
               )}
             </AnimatePresence>
             </ModuleDateFilterLayout>
+            <div className="flex w-full min-w-0 flex-col gap-2 max-lg:max-w-none lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-2">
+              <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:gap-2">
+                <label
+                  className="flex min-w-0 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 lg:w-auto lg:justify-start lg:px-3"
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 shrink-0 rounded"
+                    checked={soloSaldoPendienteReporte}
+                    onChange={(e) => setSoloSaldoPendienteReporte(e.target.checked)}
+                  />
+                  <span className="min-w-0 text-center leading-tight lg:text-left">
+                    Solo con saldo pendiente
+                  </span>
+                </label>
+                <ModuleInformeDropdown
+                  className="min-w-0 w-full max-lg:[&>button]:w-full lg:w-auto"
+                  busy={exportandoReporte}
+                  items={[
+                    {
+                      titulo: "Compras por proveedor",
+                      onPdf: () => void exportarComprasProveedorPdf(),
+                      onExcel: () => void exportarComprasProveedorExcel(),
+                    },
+                  ]}
+                />
+              </div>
+              <ModuleFilterUnderlineTabs
+                ariaLabel="Estado de pago"
+                value={filtroPago}
+                options={[
+                  { id: "todos", label: "Todos" },
+                  { id: "Pagado", label: "Pagado" },
+                  { id: "Pendiente", label: "Pendiente" },
+                ]}
+                onChange={(id) => {
+                  setFiltroPago(id);
+                  setCurrentPageCompras(1);
+                }}
+                className="w-full max-lg:[&>button]:min-w-0 max-lg:[&>button]:flex-1 max-lg:[&>button]:shrink lg:w-fit lg:justify-end lg:[&>button]:flex-none"
+              />
+            </div>
+          </div>
         </div>
+      </section>
+
+        <div className={cn(moduleTableShellClass, "mt-0 p-0")}>
         <div className={cn(moduleTableScrollClass, "pr-1 min-h-0")}>
           {comprasPaginadas.length === 0 ? (
             <div className={moduleTableEmptyClass}>
@@ -600,71 +604,72 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                     key={c.id}
                     className="bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/30 dark:border-zinc-800/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs text-left"
                   >
-                    {/* Mobile View Item */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-slate-900 dark:text-white">
-                        Compra #{obtenerCodigoCompra(c.id)}
-                      </span>
-                      {(() => {
-                        const abonos = totalPagadoCompra(c.fin_transacciones);
-                        const isPaid = abonos >= c.total || c.estado_pago === "Pagado";
-                        const vencido = compraPagoVencido(c);
-                        return (
-                          <span className="inline-flex flex-wrap items-center gap-1">
-                            <span
-                              className={`px-2.5 py-1 rounded-full text-etiqueta font-bold uppercase tracking-wider ${
-                                isPaid
-                                  ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                              }`}
+                    {(() => {
+                      const abonos = totalPagadoCompra(c.fin_transacciones);
+                      const isPaid = abonos >= c.total || c.estado_pago === "Pagado";
+                      const vencido = compraPagoVencido(c);
+                      const saldoCompra = saldoPendienteCompra(c);
+                      const montoMostrar =
+                        saldoCompra < c.total && saldoCompra > 0 ? saldoCompra : c.total;
+                      const etiquetaMonto =
+                        saldoCompra < c.total && saldoCompra > 0 ? "Saldo pendiente" : "Total";
+
+                      return (
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                              <span className="text-xs font-black text-slate-900 dark:text-white">
+                                Compra #{obtenerCodigoCompra(c.id)}
+                              </span>
+                              <span className="inline-flex flex-wrap items-center gap-1">
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-etiqueta font-bold uppercase tracking-wider ${
+                                    isPaid
+                                      ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                                      : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+                                  }`}
+                                >
+                                  {isPaid ? "Pagado" : "Pendiente"}
+                                </span>
+                                {vencido ? <InsigniaPagoVencidoCompra /> : null}
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => cargarDetallesCompra(c)}
+                              className="shrink-0 px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-look-2-salvia-menta dark:text-look-1-salvia-suave font-bold rounded-lg transition-colors cursor-pointer text-etiqueta uppercase border border-[#8DA78E]/20"
                             >
-                              {isPaid ? "Pagado" : "Pendiente"}
-                            </span>
-                            {vencido && <InsigniaPagoVencidoCompra />}
-                          </span>
-                        );
-                      })()}
-                    </div>
+                              Ver detalle
+                            </button>
+                          </div>
 
-                    <div className="flex flex-col gap-1 text-xs">
-                      <p className="font-bold text-slate-800 dark:text-zinc-200">
-                        {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
-                      </p>
-                      <p className="text-etiqueta text-texto-tenue flex items-center gap-1.5 mt-0.5">
-                        <Calendar className="size-3.5 text-look-2-salvia-menta" /> {date}
-                      </p>
-                      {c.observaciones && (
-                        <p className="text-etiqueta text-slate-550 dark:text-slate-400 italic mt-1 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40 truncate">
-                          {c.observaciones}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-900 mt-1">
-                      {(() => {
-                        const saldoCompra = saldoPendienteCompra(c);
-                        return (
-                          <>
-                            <div className="flex flex-col">
-                              <span className="text-etiqueta font-bold text-slate-450 uppercase leading-none">
-                                {saldoCompra < c.total && saldoCompra > 0 ? "Saldo Pendiente" : "Total"}
+                          <div className="flex items-start justify-between gap-3 text-xs">
+                            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                              <p className="font-bold text-slate-800 dark:text-zinc-200">
+                                {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
+                              </p>
+                              <p className="text-etiqueta text-texto-tenue flex items-center gap-1.5">
+                                <Calendar className="size-3.5 shrink-0 text-look-2-salvia-menta" />
+                                {date}
+                              </p>
+                              {c.observaciones ? (
+                                <p className="text-etiqueta text-slate-550 dark:text-slate-400 italic mt-0.5 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40 truncate">
+                                  {c.observaciones}
+                                </p>
+                              ) : null}
+                            </div>
+                            <div className="flex shrink-0 flex-col items-end text-right">
+                              <span className="text-etiqueta font-bold uppercase leading-none text-slate-450">
+                                {etiquetaMonto}
                               </span>
-                              <span className="text-xs font-black text-look-2-salvia-menta mt-1">
-                                {fmtQ(saldoCompra < c.total && saldoCompra > 0 ? saldoCompra : c.total)}
+                              <span className="mt-1 text-xs font-black text-look-2-salvia-menta">
+                                {fmtQ(montoMostrar)}
                               </span>
                             </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => cargarDetallesCompra(c)}
-                                className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-look-2-salvia-menta dark:text-look-1-salvia-suave font-bold rounded-lg transition-colors cursor-pointer text-etiqueta uppercase border border-[#8DA78E]/20"
-                              >
-                                Ver Detalle
-                              </button>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 );
               })}

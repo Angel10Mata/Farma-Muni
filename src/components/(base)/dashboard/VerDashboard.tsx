@@ -226,8 +226,8 @@ function DashboardModuleCard({
                 className={cn(
                   "text-texto-tenue font-medium mt-2 leading-snug",
                   featured
-                    ? "text-sm max-w-sm line-clamp-3"
-                    : "text-etiqueta leading-tight line-clamp-2",
+                    ? "text-sm md:text-base max-w-sm line-clamp-3"
+                    : "text-xs sm:text-sm leading-snug line-clamp-2",
                 )}
               >
                 {mod.desc}

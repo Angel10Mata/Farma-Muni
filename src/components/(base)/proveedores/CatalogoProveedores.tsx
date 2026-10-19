@@ -1,17 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Search, Phone, Mail } from "lucide-react";
-import {
-  Ban as BanNode,
-  Check as CheckNode,
-  Pencil as PencilNode,
-  Power as PowerNode,
-  SquarePen as SquarePenNode,
-  Trash as TrashNode,
-  Trash2 as Trash2Node,
-  UserPlus as UserPlusNode,
-} from "lucide";
+import { Ban, Mail, MoreVertical, Pencil, Phone, Power, Search, Trash2 } from "lucide-react";
+import { Check as CheckNode, UserPlus as UserPlusNode } from "lucide";
 import { toast } from "react-toastify";
 import Swal from "sweetalert2";
 import { Proveedor } from "./lib/zod";
@@ -38,6 +29,76 @@ import {
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+
+function ProveedorCatalogoAccionesMenu({
+  proveedor,
+  puedeEliminar,
+  onEditar,
+  onEliminar,
+  onToggleActivo,
+}: {
+  proveedor: Proveedor;
+  puedeEliminar: boolean;
+  onEditar: () => void;
+  onEliminar: () => void;
+  onToggleActivo: () => void;
+}) {
+  const activo = proveedor.activo !== false;
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          aria-label={`Acciones de ${proveedor.nombre}`}
+          className="inline-flex size-9 items-center justify-center rounded-xl border border-zinc-200 bg-white text-texto-tenue transition-colors hover:bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800"
+        >
+          <MoreVertical className="size-4" />
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="z-[250] min-w-[11rem] rounded-xl border border-zinc-200 bg-white p-1.5 text-zinc-800 opacity-100 shadow-md dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+      >
+        <DropdownMenuItem
+          className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2 text-xs font-bold text-zinc-800 focus:bg-zinc-100 focus:text-zinc-900 dark:text-zinc-100 dark:focus:bg-zinc-800 dark:focus:text-white"
+          onSelect={onEditar}
+        >
+          <Pencil className="size-3.5 shrink-0 text-texto-tenue" />
+          Editar
+        </DropdownMenuItem>
+        {puedeEliminar ? (
+          <DropdownMenuItem
+            variant="destructive"
+            className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2 text-xs font-bold focus:bg-rose-50 focus:text-rose-700 dark:focus:bg-rose-950/40 dark:focus:text-rose-300"
+            onSelect={onEliminar}
+          >
+            <Trash2 className="size-3.5 shrink-0" />
+            Quitar
+          </DropdownMenuItem>
+        ) : (
+          <DropdownMenuItem
+            className="cursor-pointer gap-2.5 rounded-lg px-2.5 py-2 text-xs font-bold text-zinc-800 focus:bg-zinc-100 focus:text-zinc-900 dark:text-zinc-100 dark:focus:bg-zinc-800 dark:focus:text-white"
+            onSelect={onToggleActivo}
+          >
+            {activo ? (
+              <Ban className="size-3.5 shrink-0 text-texto-tenue" />
+            ) : (
+              <Power className="size-3.5 shrink-0 text-texto-tenue" />
+            )}
+            {activo ? "Inactivar" : "Activar"}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 // Props
 interface CatalogoProveedoresProps {
@@ -252,53 +313,34 @@ export function CatalogoProveedores({
                             <span className="text-slate-300">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5 text-texto-tenue max-w-[200px]">
+                        <td className="px-5 py-3.5 align-top text-texto-tenue min-w-[12rem] max-w-md whitespace-normal break-words">
                           {p.descripcion ? (
-                            <span className="line-clamp-1 italic">{p.descripcion}</span>
+                            <span className="block italic leading-snug">{p.descripcion}</span>
                           ) : (
                             <span className="text-slate-300">—</span>
                           )}
                         </td>
-                        <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex items-center justify-center gap-2">
-                            <SigetActionButton
-                              label="Editar"
-                              accentColor={sigetAccent.editar}
-                              morphFrom={PencilNode}
-                              morphTo={SquarePenNode}
-                              onClick={() => {
+                        <td
+                          className="px-3 py-3.5 w-14 align-middle"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="flex justify-center">
+                            <ProveedorCatalogoAccionesMenu
+                              proveedor={p}
+                              puedeEliminar={puedeEliminar}
+                              onEditar={() => {
                                 setProveedorSeleccionado(p);
                                 setModoEdicionProveedor(true);
                               }}
-                              className="w-auto shrink-0"
+                              onEliminar={() => handleEliminarProveedor(p.id, p.nombre)}
+                              onToggleActivo={() =>
+                                handleToggleProveedorActivo(
+                                  p.id,
+                                  p.nombre,
+                                  p.activo !== false,
+                                )
+                              }
                             />
-                            {puedeEliminar ? (
-                              <SigetActionButton
-                                label="Quitar"
-                                accentColor={sigetAccent.quitar}
-                                morphFrom={TrashNode}
-                                morphTo={Trash2Node}
-                                onClick={() => handleEliminarProveedor(p.id, p.nombre)}
-                                className="w-auto shrink-0"
-                              />
-                            ) : (
-                              <SigetActionButton
-                                label={p.activo !== false ? "Inactiva" : "Activa"}
-                                accentColor={
-                                  p.activo !== false ? sigetAccent.inactiva : sigetAccent.activa
-                                }
-                                morphFrom={BanNode}
-                                morphTo={PowerNode}
-                                onClick={() =>
-                                  handleToggleProveedorActivo(
-                                    p.id,
-                                    p.nombre,
-                                    p.activo !== false,
-                                  )
-                                }
-                                className="w-auto shrink-0"
-                              />
-                            )}
                           </div>
                         </td>
                       </tr>
@@ -358,41 +400,27 @@ export function CatalogoProveedores({
                       <p className="flex items-center gap-1.5 truncate"><Mail className="size-3.5 text-look-2-salvia-menta" /> {p.correo}</p>
                     )}
                   </div>
-                  <div className="flex gap-2 justify-end pt-3 border-t border-slate-100 dark:border-zinc-800" onClick={(e) => e.stopPropagation()}>
-                    <SigetActionButton
-                      label="Editar"
-                      accentColor={sigetAccent.editar}
-                      morphFrom={PencilNode}
-                      morphTo={SquarePenNode}
-                      onClick={() => {
+                  {p.descripcion ? (
+                    <p className="text-xs italic leading-snug text-texto-tenue whitespace-normal break-words">
+                      {p.descripcion}
+                    </p>
+                  ) : null}
+                  <div
+                    className="flex justify-end pt-3 border-t border-slate-100 dark:border-zinc-800"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ProveedorCatalogoAccionesMenu
+                      proveedor={p}
+                      puedeEliminar={puedeEliminar}
+                      onEditar={() => {
                         setProveedorSeleccionado(p);
                         setModoEdicionProveedor(true);
                       }}
-                      className="w-auto shrink-0"
+                      onEliminar={() => handleEliminarProveedor(p.id, p.nombre)}
+                      onToggleActivo={() =>
+                        handleToggleProveedorActivo(p.id, p.nombre, p.activo !== false)
+                      }
                     />
-                    {puedeEliminar ? (
-                      <SigetActionButton
-                        label="Quitar"
-                        accentColor={sigetAccent.quitar}
-                        morphFrom={TrashNode}
-                        morphTo={Trash2Node}
-                        onClick={() => handleEliminarProveedor(p.id, p.nombre)}
-                        className="w-auto shrink-0"
-                      />
-                    ) : (
-                      <SigetActionButton
-                        label={p.activo !== false ? "Inactiva" : "Activa"}
-                        accentColor={
-                          p.activo !== false ? sigetAccent.inactiva : sigetAccent.activa
-                        }
-                        morphFrom={BanNode}
-                        morphTo={PowerNode}
-                        onClick={() =>
-                          handleToggleProveedorActivo(p.id, p.nombre, p.activo !== false)
-                        }
-                        className="w-auto shrink-0"
-                      />
-                    )}
                   </div>
                 </div>
               ))

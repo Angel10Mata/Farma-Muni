@@ -12,6 +12,7 @@ import {
   ModalInput,
   ModalLabel,
   ModalShell,
+  ModalTextarea,
 } from "@/components/ui/general-modal";
 import { actionErrorMessage } from "@/components/ui/modal-toast";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
@@ -32,10 +33,12 @@ export function CrearCatalogo({
   onAgregarGenerico,
 }: CrearCatalogoProps) {
   const [nombre, setNombre] = useState("");
+  const [descripcion, setDescripcion] = useState("");
   const { mutateAsync: guardarCatalogo, isPending } = useGuardarCatalogoInventario();
 
   const cerrar = () => {
     setNombre("");
+    setDescripcion("");
     onClose();
   };
 
@@ -46,13 +49,19 @@ export function CrearCatalogo({
       return;
     }
     try {
+      const descTrim = descripcion.trim();
       const res = await guardarCatalogo({
-        data: { nombre: trimmed, activo: true },
+        data: {
+          nombre: trimmed,
+          descripcion: descTrim.length > 0 ? descTrim : null,
+          activo: true,
+        },
       });
       const id = res.id;
       toast.success(`«${trimmed}» quedó registrado en el catálogo.`);
       onSuccess();
       setNombre("");
+      setDescripcion("");
       if (onAgregarGenerico && id) {
         const follow = await Swal.fire({
           title: "¿Agregar concentración y forma?",
@@ -87,18 +96,27 @@ export function CrearCatalogo({
       isOpen={isOpen}
       onClose={cerrar}
       title="Registrar producto de catálogo"
-      subtitle="Solo el principio activo (ej. Neomicina, Acetaminofén). Sin laboratorio, comercial ni lote."
       maxWidth="max-w-md"
     >
       <ModalForm onSubmit={(e) => e.preventDefault()} className="space-y-4">
         <ModalField>
-          <ModalLabel htmlFor="cat-nombre">Nombre del principio activo *</ModalLabel>
+          <ModalLabel htmlFor="cat-nombre">Nombre del catálogo *</ModalLabel>
           <ModalInput
             id="cat-nombre"
             value={nombre}
             onChange={(e) => setNombre(e.target.value)}
             placeholder="Ej. Neomicina"
             autoFocus
+          />
+        </ModalField>
+        <ModalField>
+          <ModalLabel htmlFor="cat-descripcion">Descripción</ModalLabel>
+          <ModalTextarea
+            id="cat-descripcion"
+            value={descripcion}
+            onChange={(e) => setDescripcion(e.target.value)}
+            placeholder="Comentario o notas sobre este catálogo (opcional)"
+            rows={3}
           />
         </ModalField>
         <ModalFooter className="justify-between gap-2">

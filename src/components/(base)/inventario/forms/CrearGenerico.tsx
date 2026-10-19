@@ -119,7 +119,6 @@ export function CrearGenerico({
       isOpen={isOpen}
       onClose={cerrar}
       title="Nuevo producto"
-      subtitle="Catálogo + concentración + forma farmacéutica"
       maxWidth="max-w-lg"
     >
       <ModalForm onSubmit={(e) => e.preventDefault()} className="space-y-4">

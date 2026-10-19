@@ -283,12 +283,15 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
           : cppActual ?? 0;
       const sugerido =
         cppNuevo > 0 ? precioSugerido(cppNuevo, margenGanancia) : precioActual;
+      const precioAutollenadoCompra =
+        costoUnit > 0 ? precioSugerido(costoUnit, margenMinimo) : precioActual;
       const subirSugerido = sugerido > precioActual + 0.001;
       return {
         precioActual,
         cppActual,
         cppNuevo,
         sugerido,
+        precioAutollenadoCompra,
         subirSugerido,
         margenActual:
           cppActual != null && cppActual > 0 ? margenPct(precioActual, cppActual) : null,
@@ -327,13 +330,11 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
       context.setActualizarPrecioVenta(false);
       return;
     }
-    if (escenarioPrecio.subirSugerido) {
-      context.setPrecioVentaEditado(escenarioPrecio.sugerido);
-      context.setActualizarPrecioVenta(true);
-    } else {
-      context.setPrecioVentaEditado(escenarioPrecio.precioActual);
-      context.setActualizarPrecioVenta(false);
-    }
+    const autoPrecio = escenarioPrecio.precioAutollenadoCompra;
+    context.setPrecioVentaEditado(autoPrecio);
+    context.setActualizarPrecioVenta(
+      Math.abs(autoPrecio - escenarioPrecio.precioActual) > 0.001,
+    );
   }, [escenarioPrecio, cantNumForm, costoNumForm, context.comercialSeleccionado?.id]);
 
   useEffect(() => {
@@ -535,8 +536,8 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Buscar producto genérico o marca
             </label>
-            <div className="flex gap-2 items-stretch">
-              <div className="relative min-w-0 flex-1">
+            <div className="flex flex-col gap-2 md:flex-row md:items-stretch">
+              <div className="relative min-w-0 w-full md:flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-texto-tenue pointer-events-none z-[1]" />
               <input
                 type="text"
@@ -664,7 +665,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
               )}
             </AnimatePresence>
               </div>
-              <div className="flex shrink-0 items-stretch gap-1">
+              <div className="grid w-full grid-cols-2 gap-2 md:flex md:w-auto md:shrink-0 md:items-stretch md:gap-1">
                 <SigetActionButton
                   label="Detalle"
                   accentColor={sigetAccent.editar}
@@ -673,7 +674,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                   onClick={() => setModalDetalleComercialOpen(true)}
                   disabled={!puedeBuscarProducto || !context.comercialSeleccionado}
                   ariaLabel="Ver detalle del producto comercial"
-                  className="w-auto shrink-0 self-stretch min-h-[42px]"
+                  className="w-full min-w-0 md:w-auto md:shrink-0 md:self-stretch md:min-h-[42px]"
                 />
                 <SigetActionButton
                   label="Nuevo"
@@ -683,7 +684,7 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                   onClick={abrirNuevoComercial}
                   disabled={!puedeBuscarProducto}
                   ariaLabel="Nuevo producto comercial"
-                  className="w-auto shrink-0 self-stretch min-h-[42px]"
+                  className="w-full min-w-0 md:w-auto md:shrink-0 md:self-stretch md:min-h-[42px]"
                 />
               </div>
             </div>

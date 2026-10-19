@@ -119,7 +119,7 @@ export function VerDetalleCredito({
                                 ? "text-rose-500"
                                 : diasRest <= 7
                                   ? "text-amber-600 dark:text-amber-400"
-                                  : "text-zinc-500",
+                                  : "text-zinc-900 dark:text-white",
                             )}
                           >
                             Vence {formatFechaCortaGt(fechaVence)} ·{" "}

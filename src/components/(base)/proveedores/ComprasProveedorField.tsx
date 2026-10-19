@@ -87,8 +87,8 @@ export function ComprasProveedorField({
       <label className="block text-xs font-bold text-texto-tenue uppercase mb-1">
         Seleccionar proveedor
       </label>
-      <div className="flex flex-col sm:flex-row gap-2 sm:items-stretch max-w-3xl">
-        <div className="relative flex-1 min-w-0">
+      <div className="flex max-w-3xl flex-col gap-2 sm:flex-row sm:items-stretch">
+        <div className="relative min-w-0 w-full sm:flex-1">
         <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-texto-tenue" />
         <input
           type="text"
@@ -132,7 +132,7 @@ export function ComprasProveedorField({
           </span>
         ) : null}
         </div>
-        <div className="flex gap-2 shrink-0 sm:items-center">
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:gap-2">
           <SigetActionButton
             label="Proveedor"
             accentColor={sigetAccent.crear}
@@ -140,7 +140,7 @@ export function ComprasProveedorField({
             morphTo={Check}
             onClick={onCrearProveedor}
             ariaLabel="Crear proveedor"
-            className="w-auto shrink-0"
+            className="w-full min-w-0 sm:w-auto sm:shrink-0"
           />
           <SigetActionButton
             label="Laboratorio"
@@ -149,7 +149,7 @@ export function ComprasProveedorField({
             morphTo={TestTubeDiagonal}
             onClick={onCrearLaboratorio}
             ariaLabel="Crear laboratorio"
-            className="w-auto shrink-0"
+            className="w-full min-w-0 sm:w-auto sm:shrink-0"
           />
         </div>
       </div>

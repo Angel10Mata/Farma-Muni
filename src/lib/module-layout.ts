@@ -16,7 +16,7 @@ export const modulePageShellFixedClass = [
   moduleContentMaxWidth,
   "mx-auto flex flex-col gap-3",
   "px-3 sm:px-4 md:px-5",
-  "pt-24 pb-4 md:pt-20",
+  "pt-32 pb-6 md:pt-20 md:pb-4",
   "relative flex-1 min-h-0 h-screen",
 ].join(" ");
 
@@ -60,7 +60,7 @@ export const moduleListPageShellClass = [
   moduleContentMaxWidth,
   "mx-auto flex flex-col gap-3",
   "px-3 sm:px-4 md:px-5",
-  "pt-28 pb-6 md:pt-24 md:pb-8",
+  "pt-32 pb-6 md:pt-24 md:pb-8",
 ].join(" ");
 
 export const inventarioPageShellClass = [
@@ -68,5 +68,5 @@ export const inventarioPageShellClass = [
   moduleContentMaxWidth,
   "mx-auto flex flex-col gap-3",
   "px-3 sm:px-4 md:px-5",
-  "pt-28 pb-10 md:pt-24 md:pb-12",
+  "pt-32 pb-10 md:pt-24 md:pb-12",
 ].join(" ");

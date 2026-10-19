@@ -121,7 +121,7 @@ function VerProveedoresInner() {
 
   return (
     <div className={modulePageShellFixedClass}>
-      <div className="flex shrink-0 flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex shrink-0 flex-col gap-3 px-1 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <ModuleHeaderBackButton />
           <div className="min-w-0">
@@ -134,11 +134,11 @@ function VerProveedoresInner() {
           </div>
         </div>
 
-        <div className="flex w-full shrink-0 justify-end sm:w-auto">
+        <div className="flex w-full shrink-0 justify-end md:w-auto">
           <div
             className={cn(
               modulePillSwitchShellClass,
-              "relative z-30 w-fit max-w-full flex-nowrap",
+              "relative z-30 flex w-full max-w-full flex-nowrap md:w-fit",
             )}
             role="tablist"
             aria-label="Secciones de compras"
@@ -152,7 +152,10 @@ function VerProveedoresInner() {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setActiveTab(tab.id)}
-                  className={modulePillSwitchBtnClass(isActive, { grow: false })}
+                  className={cn(
+                    modulePillSwitchBtnClass(isActive, { grow: false }),
+                    "min-w-0 flex-1 text-center md:flex-none",
+                  )}
                 >
                   {tab.label}
                 </button>
