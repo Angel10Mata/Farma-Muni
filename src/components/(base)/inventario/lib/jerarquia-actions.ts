@@ -13,6 +13,7 @@ import {
 import {
   catalogoInputSchema,
   comercialInputSchema,
+  imagenesMarcaInputSchema,
   DUPLICATE_CATALOGO_MSG,
   DUPLICATE_COMERCIAL_MSG,
   DUPLICATE_GENERICO_MSG,
@@ -29,6 +30,7 @@ import {
   productoComercialSchema,
   type CatalogoInput,
   type ComercialInput,
+  type ImagenesMarcaInput,
   type GenericoInput,
   type InvCatalogo,
   type InvCatalogoResumen,
@@ -47,7 +49,7 @@ const LABORATORIO_SELECT =
   "id, nombre, activo, created_at, proveedor_id, inv_proveedores(nombre)";
 
 const V_INV_COMERCIALES_SELECT =
-  "producto_id, nombre_comercial, presentacion, precio_venta, imagen_url, activo, generico_id, generico_nombre, requiere_receta, catalogo_id, catalogo_nombre, laboratorio_id, laboratorio_nombre, stock_vendible, proximo_vencimiento, lotes_vendibles, concentracion, forma_farmaceutica, unidad_venta, stock_minimo, generico_activo, descripcion, created_at";
+  "producto_id, nombre_comercial, presentacion, precio_venta, imagen_url, imagen_url_2, imagen_url_3, activo, generico_id, generico_nombre, requiere_receta, catalogo_id, catalogo_nombre, laboratorio_id, laboratorio_nombre, stock_vendible, proximo_vencimiento, lotes_vendibles, concentracion, forma_farmaceutica, unidad_venta, stock_minimo, generico_activo, descripcion, created_at";
 
 const V_INV_GENERICOS_SELECT =
   "generico_id, catalogo_id, catalogo_nombre, concentracion, forma_farmaceutica, generico_nombre, requiere_receta, stock_minimo, activo, comerciales, comerciales_con_stock, stock_vendible, precio_desde, bajo_minimo";
@@ -153,6 +155,8 @@ function mapFilaComercial(row: Record<string, unknown>): ProductoComercial | nul
     presentacion: row.presentacion,
     precio_venta: Number(row.precio_venta) || 0,
     imagen_url: row.imagen_url ?? null,
+    imagen_url_2: row.imagen_url_2 ?? null,
+    imagen_url_3: row.imagen_url_3 ?? null,
     activo: Boolean(row.activo),
     generico_id: genericoId,
     generico_nombre: row.generico_nombre,
@@ -875,6 +879,8 @@ export async function guardarComercial(id: string | undefined, input: ComercialI
       activo: parsed.data.activo,
       descripcion: parsed.data.descripcion?.trim() || null,
       imagen_url: parsed.data.imagen_url ?? null,
+      imagen_url_2: parsed.data.imagen_url_2 ?? null,
+      imagen_url_3: parsed.data.imagen_url_3 ?? null,
     };
 
     if (id) {
@@ -899,6 +905,35 @@ export async function guardarComercial(id: string | undefined, input: ComercialI
     revalidatePath(INVENTARIO_PATH);
     revalidatePath("/farmamuni/proveedores");
     return { success: true as const, id: inserted.id as string };
+  } catch {
+    return { code: "INTERNAL" as const };
+  }
+}
+
+export async function actualizarImagenesMarca(
+  productoId: string,
+  input: ImagenesMarcaInput,
+) {
+  try {
+    const guard = await requireRole([...COMERCIAL_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
+
+    const parsed = imagenesMarcaInputSchema.safeParse(input);
+    if (!parsed.success) return { code: "VALIDATION" as const };
+
+    const { error } = await supabase
+      .from("inv_productos")
+      .update({
+        imagen_url: parsed.data.imagen_url,
+        imagen_url_2: parsed.data.imagen_url_2,
+        imagen_url_3: parsed.data.imagen_url_3,
+      })
+      .eq("id", productoId);
+
+    if (error) return mapJerarquiaDbError(error);
+    revalidatePath(INVENTARIO_PATH);
+    return { success: true as const };
   } catch {
     return { code: "INTERNAL" as const };
   }

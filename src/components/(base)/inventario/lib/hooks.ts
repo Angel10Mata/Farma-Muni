@@ -38,6 +38,7 @@ import {
   guardarCatalogo,
   asignarLaboratorioComercial,
   guardarComercial,
+  actualizarImagenesMarca,
   guardarGenerico,
   crearProveedorYLaboratorio,
   desligarLaboratorioDeProveedor,
@@ -54,6 +55,7 @@ import {
 import type {
   CatalogoInput,
   ComercialInput,
+  ImagenesMarcaInput,
   GenericoInput,
   InventarioJerarquiaFiltros,
   LaboratorioInput,
@@ -444,6 +446,31 @@ export function useGuardarComercialInventario() {
     mutationFn: async ({ id, data }: { id?: string; data: ComercialInput }) => {
       assertWritableDemo(isDemoMode);
       const res = await guardarComercial(id, data);
+      if (!("success" in res) || !res.success) {
+        const code = "code" in res ? res.code : "ERROR";
+        const err = new Error(code) as Error & { detail?: string };
+        if ("detail" in res && res.detail) err.detail = res.detail;
+        throw err;
+      }
+      return res;
+    },
+    onSuccess: () => invalidateJerarquiaInventario(queryClient),
+  });
+}
+
+export function useActualizarImagenesMarcaInventario() {
+  const { isDemoMode } = useDemoMode();
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      productoId,
+      data,
+    }: {
+      productoId: string;
+      data: ImagenesMarcaInput;
+    }) => {
+      assertWritableDemo(isDemoMode);
+      const res = await actualizarImagenesMarca(productoId, data);
       if (!("success" in res) || !res.success) {
         const code = "code" in res ? res.code : "ERROR";
         const err = new Error(code) as Error & { detail?: string };

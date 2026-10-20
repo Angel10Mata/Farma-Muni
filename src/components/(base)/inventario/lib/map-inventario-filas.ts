@@ -38,6 +38,8 @@ export type FilaInventarioUi = {
   stock_minimo: number;
   activo: boolean;
   imagen_url?: string | null;
+  imagen_url_2?: string | null;
+  imagen_url_3?: string | null;
   fecha_vencimiento?: string | null;
   numero_lote?: string | null;
   ubicacion?: string | null;
@@ -148,6 +150,8 @@ export function filasDesdeComerciales(items: ProductoComercial[]): FilaInventari
     stock_minimo: c.stock_minimo,
     activo: c.activo,
     imagen_url: c.imagen_url ?? null,
+    imagen_url_2: c.imagen_url_2 ?? null,
+    imagen_url_3: c.imagen_url_3 ?? null,
     fecha_vencimiento: c.proximo_vencimiento,
     bajo_minimo: c.stock_minimo > 0 && c.stock_vendible <= c.stock_minimo,
   }));

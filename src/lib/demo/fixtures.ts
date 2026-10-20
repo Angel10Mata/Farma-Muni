@@ -633,6 +633,8 @@ export function demoProductosPos() {
       generico_id: c.generico_id,
       stock_vendible: c.stock_vendible,
       imagen_url: c.imagen_url,
+      imagen_url_2: null,
+      imagen_url_3: null,
       activo: c.activo,
       costo_promedio: null as number | null,
     }),

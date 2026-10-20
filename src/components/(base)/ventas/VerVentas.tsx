@@ -13,7 +13,7 @@ import { anularVenta, validarCredencialesAdmin } from "./lib/actions";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { fetchDetalleVenta } from "@/lib/demo/resolve-actions";
-import { ReciboVenta, buildReciboProps } from "./ReciboVenta";
+import { ReciboVenta, buildReciboProps, lineasReciboDesdeEntrada } from "./ReciboVenta";
 import { carritoRequiereReceta, codigoReciboVenta, mensajeCreditoVencidoCliente } from "./lib/helpers";
 import { ModalField, ModalInput, ModalLabel } from "@/components/ui/general-modal";
 import { HistorialVentas } from "./HistorialVentas";
@@ -343,7 +343,8 @@ function VerVentasInner({
   const exportarReciboPdfVenta = async (venta: Venta, detalles: any[]) => {
     try {
       const settings = await obtenerFarmaciaReciboSettings();
-      await exportarReciboPdf(venta, detalles, settings);
+      const lineas = lineasReciboDesdeEntrada(detalles);
+      await exportarReciboPdf(venta, lineas, settings);
     } catch (error) {
       console.error("Error al exportar recibo PDF:", error);
     }
@@ -354,10 +355,10 @@ function VerVentasInner({
       const code = codigoReciboVenta(venta);
       const clientName = clienteCompleto?.nombre || venta.ven_clientes?.nombre || "Consumidor final";
 
+      const lineas = lineasReciboDesdeEntrada(detalles);
       let productListText = "";
-      detalles.forEach(d => {
-        const nombreProducto = d.producto?.nombre || d.ven_productos?.nombre || "Producto desconocido";
-        productListText += "* " + d.cantidad + "x - " + nombreProducto + " - " + fmtQ(d.subtotal || 0) + "\n";
+      lineas.forEach((d) => {
+        productListText += `* ${d.cantidad}x - ${d.nombre} - ${fmtQ(d.subtotal)}\n`;
       });
 
       const emojiData = await fetch("data:application/json;base64,eyJ3YXZlIjoi8J+RiyIsImhvc3BpdGFsIjoi8J+PpSIsInJlY2VpcHQiOiLwn6e+IiwicGVyc29uIjoi8J+RpCIsImNhcnQiOiLwn5uSIiwibW9uZXkiOiLwn5KwIiwic3BhcmtsZSI6IuKcqCIsInNlZWRsaW5nIjoi8J+MsSIsImdyZWVuIjoi8J+SmiJ9").then(r => r.json());

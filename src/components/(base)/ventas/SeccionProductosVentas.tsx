@@ -3,8 +3,11 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, Plus, Minus, Package, Check, ChevronDown, UserPlus, X, AlertTriangle, User } from "lucide-react";
-import { createClient } from "@/utils/supabase/client";
 import { fmtQ } from "@/lib/utils";
+import {
+  pathsMarcaImagenes,
+  productoImagenDisplayUrl,
+} from "@/lib/producto-imagenes";
 import { ComercialVenta, GenericoVenta, Cliente } from "./lib/zod";
 import { useVentas } from "./ContextoVentas";
 import { toast } from "@/components/ui/general-modal";
@@ -414,38 +417,46 @@ export function SeccionProductosVentas({
           </button>
         </div>
 
-        {/* Galería de Imágenes (Si existe) */}
         <AnimatePresence>
-          {ventas.comercialSeleccionado?.imagen_url && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="w-full overflow-hidden mt-1"
-            >
-              <div className="flex flex-col gap-2 bg-white dark:bg-zinc-900 border border-[#E5E9E5] dark:border-[#3D473F] rounded-xl p-3 shadow-sm w-full">
-                <span className="text-etiqueta uppercase tracking-widest font-black text-texto-tenue">
-                  Imagen del comercial
-                </span>
-                <img
-                  src={
-                    createClient()
-                      .storage.from("Imagenes_Farmacia")
-                      .getPublicUrl(ventas.comercialSeleccionado.imagen_url).data.publicUrl
-                  }
-                  alt={ventas.comercialSeleccionado.nombre_comercial}
-                  onClick={() =>
-                    ventas.setImagenAmpliadaUrl(
-                      createClient()
-                        .storage.from("Imagenes_Farmacia")
-                        .getPublicUrl(ventas.comercialSeleccionado!.imagen_url!).data.publicUrl,
-                    )
-                  }
-                  className="aspect-square max-h-32 w-auto object-cover rounded-lg border border-slate-200 dark:border-slate-700 cursor-pointer"
-                />
-              </div>
-            </motion.div>
-          )}
+          {(() => {
+            const com = ventas.comercialSeleccionado;
+            if (!com) return null;
+            const urls = pathsMarcaImagenes(com)
+              .map((path) => productoImagenDisplayUrl(path))
+              .filter((url): url is string => Boolean(url));
+            if (urls.length === 0) return null;
+            return (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="w-full overflow-hidden mt-1"
+              >
+                <div className="flex flex-col gap-2 bg-white dark:bg-zinc-900 border border-[#E5E9E5] dark:border-[#3D473F] rounded-xl p-3 shadow-sm w-full">
+                  <span className="text-etiqueta uppercase tracking-widest font-black text-texto-tenue">
+                    Imágenes del comercial
+                  </span>
+                  <div className="grid grid-cols-3 gap-2">
+                    {urls.map((url, idx) => (
+                      <button
+                        key={`${com.producto_id}-img-${idx}`}
+                        type="button"
+                        onClick={() => ventas.setImagenAmpliadaUrl(url)}
+                        className="aspect-square overflow-hidden rounded-lg border border-slate-200 bg-zinc-50 dark:border-slate-700 dark:bg-zinc-800 cursor-zoom-in"
+                        aria-label={`Ampliar imagen ${idx + 1}`}
+                      >
+                        <img
+                          src={url}
+                          alt={`${com.nombre_comercial} - ${idx + 1}`}
+                          className="size-full object-cover"
+                        />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </motion.div>
+            );
+          })()}
         </AnimatePresence>
 
       </div>

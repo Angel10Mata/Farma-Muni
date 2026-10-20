@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import { createClient } from '@/utils/supabase/client';
 import imageCompression from 'browser-image-compression';
 import ImageEditorModal from './ImageEditorModal';
+import { ImagenAmpliadaOverlay } from './ImagenAmpliadaOverlay';
 import { Loader2, Upload, Camera, Trash2, Image as ImageIcon } from 'lucide-react';
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 
@@ -40,6 +41,9 @@ interface ImageUploaderProps {
   compact?: boolean;
   /** Variante visual optimizada para foto de producto (cuadrado, drop zone ampliada) */
   variant?: 'default' | 'product';
+  /** Tamaño máximo del JPEG comprimido (bytes); si no se define, 200 KB por imagen */
+  maxCompressedBytes?: number;
+  onUploadedBytes?: (bytes: number) => void;
 }
 
 const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(function ImageUploader({
@@ -57,6 +61,8 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
   previewClassName,
   compact = false,
   variant = 'default',
+  maxCompressedBytes,
+  onUploadedBytes,
 }, ref) {
   const supabase = createClient();
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -66,6 +72,7 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
   const [editingFile, setEditingFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragCounter, setDragCounter] = useState(0);
+  const [imagenAmpliadaUrl, setImagenAmpliadaUrl] = useState<string | null>(null);
   const { effectiveRole: rol } = useUserContext();
   const tienePermisoSubir = permitirTodos || rol === 'SUPER' || rol === 'ADMINISTRADOR' || rol === 'SECRETARIO';
 
@@ -172,12 +179,31 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
     setUploading(true);
     setEditingFile(null);
     try {
-      const compressed = await imageCompression(editedFile, {
-        maxSizeMB: 0.2,
+      const maxBytes = maxCompressedBytes ?? 200 * 1024;
+      const maxSizeMB = Math.max(maxBytes / (1024 * 1024), 0.01);
+
+      let compressed = await imageCompression(editedFile, {
+        maxSizeMB,
         maxWidthOrHeight: 1024,
         useWebWorker: true,
         fileType: 'image/jpeg',
       });
+
+      if (compressed.size > maxBytes) {
+        compressed = await imageCompression(editedFile, {
+          maxSizeMB: maxSizeMB * 0.85,
+          maxWidthOrHeight: 800,
+          useWebWorker: true,
+          fileType: 'image/jpeg',
+        });
+      }
+
+      if (compressed.size > maxBytes) {
+        alert(
+          `La imagen comprimida supera el límite (${Math.round(maxBytes / 1024)} KB). Quita otras fotos o usa una imagen más pequeña.`,
+        );
+        return;
+      }
 
       const jpegBlob = compressed.type === 'image/jpeg'
         ? compressed
@@ -193,16 +219,24 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
 
       if (uploadError) throw uploadError;
 
-      // 4. Borrar anterior si existe
       if (currentImagePath) {
         await supabase.storage.from(bucketName).remove([currentImagePath]);
       }
 
-      // 5. Callback
+      onUploadedBytes?.(jpegBlob.size);
       await onUploadSuccess(newPath);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error al subir imagen:', err);
-      alert('Error al subir la imagen: ' + (err?.message || 'Error desconocido'));
+      const message = err instanceof Error ? err.message : 'Error desconocido';
+      if (message.toLowerCase().includes('bucket not found')) {
+        alert(
+          `El bucket de Storage "${bucketName}" no existe en este proyecto Supabase. ` +
+            'Ejecuta db/migrations/20261019_storage_farmamuni_bucket.sql en el SQL Editor, ' +
+            'o define NEXT_PUBLIC_PRODUCTO_IMAGENES_BUCKET con el nombre de tu bucket.',
+        );
+        return;
+      }
+      alert('Error al subir la imagen: ' + message);
     } finally {
       setUploading(false);
     }
@@ -277,15 +311,10 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
             e.stopPropagation();
             return;
           }
-          if (isProductVariant && canOpenGallery) {
-            openGallery();
-          }
         }}
         className={
           isProductVariant
-            ? `relative w-full h-[156px] rounded-2xl overflow-hidden transition-all duration-300 ${
-                canOpenGallery ? 'cursor-pointer' : ''
-              } ${
+            ? `relative w-full h-[156px] max-md:min-h-[10.5rem] max-md:h-auto rounded-2xl overflow-hidden transition-all duration-300 ${
                 isDragging
                   ? 'ring-2 ring-[#8DA78E] ring-offset-2 ring-offset-white dark:ring-offset-zinc-950 scale-[1.02]'
                   : ''
@@ -323,27 +352,42 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
               ref={imgRef}
               src={previewUrl}
               alt="Vista previa del producto"
-              className="w-full h-full object-contain select-none"
+              className="w-full h-full cursor-zoom-in object-contain select-none"
               draggable={false}
+              onClick={(e) => {
+                e.stopPropagation();
+                setImagenAmpliadaUrl(previewUrl);
+              }}
               onMouseMove={(e) => updateMagnifier(e.clientX, e.clientY)}
               onMouseLeave={() => setMagnifier(m => ({ ...m, show: false }))}
             />
             <div className="absolute inset-x-0 bottom-0 p-2 bg-gradient-to-t from-black/70 via-black/40 to-transparent">
-              <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+              <div className="flex gap-1.5" onClick={(e) => e.stopPropagation()}>
                 <button
                   type="button"
                   onClick={openGallery}
                   disabled={isProcessing}
-                  className="flex-1 flex items-center justify-center gap-1 px-2.5 py-1.5 text-etiqueta font-bold rounded-lg bg-white/95 text-[#525D53] transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex flex-1 items-center justify-center gap-1 px-2 py-1.5 text-etiqueta font-bold rounded-lg bg-white/95 text-[#525D53] transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Upload size={12} />
-                  Cambiar
+                  <span className="hidden sm:inline">Galería</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={openCamera}
+                  disabled={isProcessing}
+                  aria-label="Tomar foto con la cámara"
+                  className="flex flex-1 items-center justify-center gap-1 px-2 py-1.5 text-etiqueta font-bold rounded-lg bg-white/95 text-[#525D53] transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Camera size={12} className="text-look-2-salvia-menta" />
+                  <span className="hidden sm:inline">Cámara</span>
                 </button>
                 <button
                   type="button"
                   onClick={handleDelete}
                   disabled={isProcessing}
-                  className="flex items-center justify-center px-2.5 py-1.5 text-etiqueta font-bold rounded-lg bg-red-500/90 text-white transition-all disabled:opacity-50 cursor-pointer"
+                  className="flex shrink-0 items-center justify-center px-2.5 py-1.5 text-etiqueta font-bold rounded-lg bg-red-500/90 text-white transition-all disabled:opacity-50 cursor-pointer"
+                  aria-label="Eliminar imagen"
                 >
                   {deleting ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
                 </button>
@@ -413,42 +457,40 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
         ) : null}
 
         {isProductVariant && !currentImagePath && !uploading && (
-          <div className="relative z-10 flex items-center gap-3 h-full w-full px-4 py-3 pointer-events-none">
-            <div className={`size-11 shrink-0 rounded-xl flex items-center justify-center transition-transform duration-300 ${
-              isDragging ? 'scale-105' : ''
-            } bg-[#8DA78E]/15 dark:bg-[#8DA78E]/10 border border-[#8DA78E]/25 text-look-2-salvia-menta`}>
-              <ImageIcon className="size-5" />
+          <div
+            className="absolute inset-0 z-10 flex min-h-0 flex-col items-center justify-center gap-1.5 p-2 pointer-events-none"
+          >
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-lg border border-[#8DA78E]/25 bg-[#8DA78E]/15 text-look-2-salvia-menta dark:bg-[#8DA78E]/10">
+              <ImageIcon className="size-4" />
             </div>
-            <div className="flex-1 min-w-0 text-left">
-              <p className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate">
-                {isDragging ? 'Suelta la imagen aquí' : 'Arrastra tu imagen'}
-              </p>
-              <p className="text-etiqueta text-texto-tenue mt-0.5 truncate">
-                4:3 vertical · JPG, PNG o WebP
-              </p>
-            </div>
-            {tienePermisoSubir && (
-              <div className="flex shrink-0 gap-2 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+            <p className="max-w-full truncate px-1 text-center text-[10px] font-bold leading-tight text-slate-700 dark:text-slate-200">
+              {isDragging ? "Suelta aquí" : "Foto de marca"}
+            </p>
+            {tienePermisoSubir ? (
+              <div
+                className="grid w-full max-w-full grid-cols-2 gap-1 pointer-events-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <button
                   type="button"
                   onClick={openGallery}
                   disabled={isProcessing}
-                  className="flex items-center justify-center gap-1 px-3 py-2 text-etiqueta font-bold rounded-lg bg-[#8DA78E] text-white transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="flex min-w-0 items-center justify-center gap-1 rounded-lg bg-[#8DA78E] px-1 py-2 text-[10px] font-bold leading-none text-white transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
                 >
-                  <Upload size={13} />
-                  Galería
+                  <Upload size={12} className="shrink-0" />
+                  <span className="truncate">Galería</span>
                 </button>
                 <button
                   type="button"
                   onClick={openCamera}
                   disabled={isProcessing}
-                  className="flex items-center justify-center gap-1 px-3 py-2 text-etiqueta font-bold rounded-lg bg-white/90 dark:bg-zinc-800/90 border border-[#C1D1C5]/60 dark:border-zinc-700 text-[#525D53] dark:text-slate-200 transition-all active:scale-95 disabled:opacity-50 cursor-pointer"
+                  className="flex min-w-0 items-center justify-center gap-1 rounded-lg border border-[#C1D1C5]/60 bg-white/95 px-1 py-2 text-[10px] font-bold leading-none text-[#525D53] transition-all active:scale-95 disabled:opacity-50 cursor-pointer dark:border-zinc-700 dark:bg-zinc-800/95 dark:text-slate-200"
                 >
-                  <Camera size={13} className="text-look-2-salvia-menta" />
-                  Cámara
+                  <Camera size={12} className="shrink-0 text-look-2-salvia-menta" />
+                  <span className="truncate">Cámara</span>
                 </button>
               </div>
-            )}
+            ) : null}
           </div>
         )}
 
@@ -591,6 +633,12 @@ const ImageUploader = forwardRef<ImageUploaderHandle, ImageUploaderProps>(functi
           onCancel={() => setEditingFile(null)}
         />
       )}
+
+      <ImagenAmpliadaOverlay
+        imageUrl={imagenAmpliadaUrl}
+        alt="Vista previa del producto"
+        onClose={() => setImagenAmpliadaUrl(null)}
+      />
 
       {magnifier.show && previewUrl && typeof document !== 'undefined' && createPortal(
         <div

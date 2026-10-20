@@ -131,6 +131,8 @@ import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderB
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
 import { InventarioSubnav } from "./InventarioSubnav";
+import { ProductoMarcaImagenes } from "./ProductoMarcaImagenes";
+import { productoImagenDisplayUrl } from "@/lib/producto-imagenes";
 import {
   LoteOperacionesModals,
   type LoteOperacionTarget,
@@ -574,9 +576,9 @@ function ProductoCard({
     >
       {/* Thumbnail Left */}
       <div className="shrink-0 size-20 rounded-lg bg-white dark:bg-zinc-900/60 border border-[#C1D1C5]/30 dark:border-[#A3BEB0]/20 flex items-center justify-center overflow-hidden">
-        {producto.imagen_url ? (
+        {productoImagenDisplayUrl(producto.imagen_url) ? (
           <img
-            src={createClient().storage.from("Imagenes_Farmacia").getPublicUrl(producto.imagen_url).data.publicUrl}
+            src={productoImagenDisplayUrl(producto.imagen_url)!}
             alt={producto.nombre}
             className="w-full h-full object-cover"
           />
@@ -671,12 +673,22 @@ function ProductoDetalle({
   onClose,
   onEditClick,
   puedeEditar,
+  mostrarImagenesMarca,
+  imagenesMarcaEditable,
+  onImagenesMarcaChange,
 }: {
   producto: Producto;
   lotesProducto: LoteInventario[];
   onClose: () => void;
   onEditClick: () => void;
   puedeEditar: boolean;
+  mostrarImagenesMarca?: boolean;
+  imagenesMarcaEditable?: boolean;
+  onImagenesMarcaChange?: (paths: {
+    imagen_url: string | null;
+    imagen_url_2: string | null;
+    imagen_url_3: string | null;
+  }) => void;
 }) {
   const { data: costos } = useCostosComercial(producto.id);
   const { data: margenes } = useMargenesPrecio();
@@ -727,7 +739,12 @@ function ProductoDetalle({
           </button>
         </div>
 
-        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_220px]">
+        <div
+          className={cn(
+            "grid gap-8",
+            mostrarImagenesMarca && "lg:grid-cols-[minmax(0,1fr)_220px]",
+          )}
+        >
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_140px]">
               <div className="min-w-0 space-y-2">
@@ -901,32 +918,14 @@ function ProductoDetalle({
             </div>
           </div>
 
-          <div className="space-y-3">
-            <h4 className={detalleLabelClass}>Galería</h4>
-            <div className="grid grid-cols-3 gap-2 lg:grid-cols-1">
-              {[producto.imagen_url, producto.imagen_url_2, producto.imagen_url_3].map((imgUrl, idx) => {
-                const publicUrl = imgUrl
-                  ? createClient().storage.from("Imagenes_Farmacia").getPublicUrl(imgUrl).data.publicUrl
-                  : null;
-                return (
-                  <div
-                    key={idx}
-                    className="flex aspect-[4/5] items-center justify-center overflow-hidden rounded-xl border border-[#C1D1C5]/35 bg-white dark:border-[#A3BEB0]/20 dark:bg-zinc-900/60 lg:aspect-[5/4]"
-                  >
-                    {publicUrl ? (
-                      <img
-                        src={publicUrl}
-                        alt={`${producto.nombre} - img ${idx + 1}`}
-                        className="size-full object-cover"
-                      />
-                    ) : (
-                      <Package className="size-6 text-slate-300" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
+          {mostrarImagenesMarca ? (
+            <ProductoMarcaImagenes
+              productoId={producto.id}
+              producto={producto}
+              editable={Boolean(imagenesMarcaEditable && puedeEditar)}
+              onPathsUpdated={onImagenesMarcaChange}
+            />
+          ) : null}
         </div>
       </div>
 
@@ -3358,6 +3357,13 @@ export function VerInventario() {
                       onClose={() => setProductoSeleccionado(null)}
                       puedeEditar={
                         idProductoComercialParaEdicion(productoSeleccionado) !== null
+                      }
+                      mostrarImagenesMarca={vistaInventario === "comercial"}
+                      imagenesMarcaEditable={vistaInventario === "comercial"}
+                      onImagenesMarcaChange={(paths) =>
+                        setProductoSeleccionado((prev) =>
+                          prev ? { ...prev, ...paths } : null,
+                        )
                       }
                       onEditClick={() => irAEditarProducto(productoSeleccionado, false)}
                     />

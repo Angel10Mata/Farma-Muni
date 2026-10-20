@@ -2,10 +2,12 @@ import { APP_LOGO_PATH } from "@/lib/app-config";
 import { cn, fmtQ } from "@/lib/utils";
 import { etiquetaLaboratorioComercial } from "@/components/(base)/inventario/lib/helpers";
 import {
+  agruparLineasCarritoVenta,
   codigoReciboVenta,
   formatFechaRecibo,
   formatMonedaRecibo,
 } from "./lib/helpers";
+import type { ItemCarrito } from "./lib/zod";
 
 // Datos del comprobante
 export interface ReciboVentaItem {
@@ -164,66 +166,107 @@ function lineaGenericoDesdeDetalle(d: Record<string, unknown>): string {
   return String(prod?.nombre ?? "Producto");
 }
 
-function lineaComercialDesdeDetalle(d: Record<string, unknown>): string {
+function lineaComercialReciboClienteDesdeDetalle(d: Record<string, unknown>): string {
   const prod = d.inv_productos as Record<string, unknown> | null | undefined;
   const labRaw = prod?.inv_laboratorios;
   const lab = Array.isArray(labRaw) ? labRaw[0] : labRaw;
-  const lote = d.inv_lotes as Record<string, unknown> | null | undefined;
   const marca = String(prod?.nombre ?? "").trim();
   const labNombre = (lab as { nombre?: string } | null)?.nombre?.trim() ?? "";
   const presentacion = String(prod?.presentacion ?? "").trim();
-  const barras = String(lote?.codigo_barras ?? "").trim();
-  const numeroLote = String(lote?.numero_lote ?? "").trim();
   const trozos = [
     marca ? `Marca: ${marca}` : "",
-    labNombre ? `Lab: ${labNombre}` : "",
+    labNombre ? `Lab: ${etiquetaLaboratorioComercial(labNombre)}` : "",
     presentacion ? `Pres: ${presentacion}` : "",
-    barras ? `Barras: ${barras}` : "",
-    numeroLote ? `Lote: ${numeroLote}` : "",
   ].filter(Boolean);
   return trozos.join(" · ");
 }
 
-export function mapDetallesToReciboItems(detalles: unknown[]): ReciboVentaItem[] {
-  return detalles.map((d) => {
-    const row = d as Record<string, unknown>;
-    return {
-      cantidad: Number(row.cantidad) || 0,
-      nombre: lineaGenericoDesdeDetalle(row),
-      descripcion: lineaComercialDesdeDetalle(row),
-      subtotal: Number(row.subtotal) || 0,
-    };
-  });
+function descripcionComercialReciboCliente(
+  nombreComercial: string,
+  laboratorioNombre: string | null,
+  presentacion: string,
+): string {
+  return [
+    nombreComercial ? `Marca: ${nombreComercial}` : "",
+    laboratorioNombre
+      ? `Lab: ${etiquetaLaboratorioComercial(laboratorioNombre)}`
+      : "",
+    presentacion ? `Pres: ${presentacion}` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
 }
 
-export function mapCarritoToReciboItems(carrito: {
-  cantidad: number;
-  subtotal: number;
-  precio_aplicado: number;
-  generico: { generico_nombre: string; concentracion: string; forma_farmaceutica: string };
-  comercial: {
-    nombre_comercial: string;
-    laboratorio_nombre: string | null;
-    presentacion: string;
-  };
-  codigo_barras_lote?: string;
-  numero_lote?: string | null;
-}[]): ReciboVentaItem[] {
-  return carrito.map((i) => ({
-    cantidad: i.cantidad,
-    nombre: `${i.generico.generico_nombre}`.trim() ||
-      `${i.generico.concentracion} ${i.generico.forma_farmaceutica}`.trim(),
-    descripcion: [
-      `Marca: ${i.comercial.nombre_comercial}`,
-      `Lab: ${etiquetaLaboratorioComercial(i.comercial.laboratorio_nombre)}`,
-      `Pres: ${i.comercial.presentacion}`,
-      i.codigo_barras_lote ? `Barras: ${i.codigo_barras_lote}` : "",
-      i.numero_lote ? `Lote: ${i.numero_lote}` : "",
-    ]
-      .filter(Boolean)
-      .join(" · "),
-    subtotal: i.subtotal,
-  }));
+function nombreGenericoReciboDesdeCarrito(item: ItemCarrito): string {
+  const nombre = `${item.generico.generico_nombre}`.trim();
+  if (nombre) return nombre;
+  return `${item.generico.concentracion} ${item.generico.forma_farmaceutica}`.trim();
+}
+
+function productoIdDesdeDetalle(row: Record<string, unknown>): string {
+  const prod = row.inv_productos as Record<string, unknown> | null | undefined;
+  const id = prod?.id;
+  if (id != null && String(id).trim()) return String(id);
+  const lote = row.inv_lotes as Record<string, unknown> | null | undefined;
+  const loteProd = lote?.producto_id;
+  if (loteProd != null && String(loteProd).trim()) return String(loteProd);
+  return "";
+}
+
+export function esDetalleVentaDb(linea: unknown): boolean {
+  const row = linea as Record<string, unknown>;
+  return Boolean(row.inv_productos ?? row.inv_lotes);
+}
+
+export function lineasReciboDesdeEntrada(detalles: unknown[]): ReciboVentaItem[] {
+  if (detalles.length === 0) return [];
+  if (esDetalleVentaDb(detalles[0])) return mapDetallesToReciboItems(detalles);
+  return detalles as ReciboVentaItem[];
+}
+
+export function mapDetallesToReciboItems(detalles: unknown[]): ReciboVentaItem[] {
+  const orden: ReciboVentaItem[] = [];
+  const porProducto = new Map<string, ReciboVentaItem>();
+
+  for (const d of detalles) {
+    const row = d as Record<string, unknown>;
+    const productoId = productoIdDesdeDetalle(row);
+    const key = productoId || `__linea_${orden.length}`;
+    const cantidad = Number(row.cantidad) || 0;
+    const subtotal = Number(row.subtotal) || 0;
+    const existente = porProducto.get(key);
+    if (existente) {
+      existente.cantidad += cantidad;
+      existente.subtotal += subtotal;
+      continue;
+    }
+    const item: ReciboVentaItem = {
+      cantidad,
+      nombre: lineaGenericoDesdeDetalle(row),
+      descripcion: lineaComercialReciboClienteDesdeDetalle(row),
+      subtotal,
+    };
+    porProducto.set(key, item);
+    orden.push(item);
+  }
+
+  return orden;
+}
+
+export function mapCarritoToReciboItems(carrito: ItemCarrito[]): ReciboVentaItem[] {
+  return agruparLineasCarritoVenta(carrito).map((grupo) => {
+    const item = grupo.item;
+    return {
+      cantidad: grupo.cantidadTotal,
+      nombre: nombreGenericoReciboDesdeCarrito(item),
+      descripcion: descripcionComercialReciboCliente(
+        item.comercial.nombre_comercial,
+        item.comercial.laboratorio_nombre,
+        item.comercial.presentacion,
+      ),
+      subtotal: grupo.subtotalTotal,
+    };
+  });
 }
 
 export function buildReciboProps(

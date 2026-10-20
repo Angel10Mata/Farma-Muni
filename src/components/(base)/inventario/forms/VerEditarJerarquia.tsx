@@ -12,22 +12,20 @@ import {
   ModalLabel,
   ModalSelect,
   ModalShell,
+  ModalSwitch,
   modalAccentClass,
   modalActionMessage,
 } from "@/components/ui/general-modal";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { cn } from "@/lib/utils";
 import {
-  useCostosComercial,
   useGuardarComercialInventario,
   useGuardarGenericoInventario,
   useLaboratoriosInventario,
 } from "../lib/hooks";
-import { useMargenesPrecio } from "@/components/(base)/(settings)/hooks";
-import { precioBajoCostoPromedio, precioBajoMargenMinimo, precioMinimoMargen } from "@/lib/precios";
-import { fmtQ } from "@/lib/utils";
 import { laboratoriosParaSeleccionComercial } from "../lib/helpers";
 import { CrearLaboratorio } from "./CrearLaboratorio";
+import { ProductoMarcaImagenes } from "../ProductoMarcaImagenes";
 import {
   EDITAR_PRODUCTO_WIZARD_PASOS,
   EDITAR_PRODUCTO_WIZARD_PASOS_META,
@@ -53,10 +51,14 @@ export function EditarJerarquia({
 
   const [nombreComercial, setNombreComercial] = useState(producto.nombre);
   const [presentacion, setPresentacion] = useState(producto.presentacion);
-  const [precioVenta, setPrecioVenta] = useState(String(producto.precio_base ?? 0));
   const [activo, setActivo] = useState(producto.activo);
   const [laboratorioId, setLaboratorioId] = useState(producto.laboratorio_id ?? "");
   const [modalLab, setModalLab] = useState(false);
+  const [imagenesMarca, setImagenesMarca] = useState({
+    imagen_url: producto.imagen_url ?? null,
+    imagen_url_2: producto.imagen_url_2 ?? null,
+    imagen_url_3: producto.imagen_url_3 ?? null,
+  });
 
   const [concentracion, setConcentracion] = useState(producto.concentracion);
   const [formaFarmaceutica, setFormaFarmaceutica] = useState<FormaFarmaceutica>(
@@ -70,10 +72,6 @@ export function EditarJerarquia({
   const { mutateAsync: guardarGenerico, isPending: guardandoGenerico } =
     useGuardarGenericoInventario();
   const { data: laboratorios = [] } = useLaboratoriosInventario();
-  const { data: costos } = useCostosComercial(producto.id);
-  const { data: margenes } = useMargenesPrecio();
-  const margenMinimo = margenes?.margen_minimo_pct ?? 10;
-  const cpp = costos?.costo_promedio ?? null;
 
   const laboratoriosSelect = laboratoriosParaSeleccionComercial(laboratorios);
 
@@ -89,19 +87,9 @@ export function EditarJerarquia({
       toast.error("Falta el producto de inventario.");
       return false;
     }
-    const precio = parseFloat(precioVenta);
-    if (!nombreComercial.trim() || !presentacion.trim() || Number.isNaN(precio)) {
-      toast.warn("Completa nombre, presentación y precio.");
+    if (!nombreComercial.trim() || !presentacion.trim()) {
+      toast.warn("Completa nombre comercial y presentación.");
       return false;
-    }
-    if (cpp != null && cpp > 0 && precioBajoCostoPromedio(precio, cpp)) {
-      toast.error(`Venderías con pérdida: el precio no puede ser menor que ${fmtQ(cpp)} (costo promedio).`);
-      return false;
-    }
-    if (cpp != null && cpp > 0 && precioBajoMargenMinimo(precio, cpp, margenMinimo)) {
-      toast.warn(
-        `Margen bajo el mínimo (${margenMinimo}%). Se recomienda al menos ${fmtQ(precioMinimoMargen(cpp, margenMinimo))}.`,
-      );
     }
     await guardarComercial({
       id: producto.id,
@@ -110,10 +98,12 @@ export function EditarJerarquia({
         laboratorio_id: laboratorioId ? laboratorioId : null,
         nombre_comercial: nombreComercial.trim(),
         presentacion: presentacion.trim(),
-        precio_venta: precio,
+        precio_venta: producto.precio_base ?? 0,
         activo,
         descripcion: producto.descripcion || null,
-        imagen_url: producto.imagen_url ?? null,
+        imagen_url: imagenesMarca.imagen_url,
+        imagen_url_2: imagenesMarca.imagen_url_2,
+        imagen_url_3: imagenesMarca.imagen_url_3,
       },
     });
     return true;
@@ -212,39 +202,6 @@ export function EditarJerarquia({
               />
             </ModalField>
             <ModalField>
-              <ModalLabel htmlFor="edit-com-precio">Precio de venta</ModalLabel>
-              <ModalInput
-                id="edit-com-precio"
-                type="number"
-                step="0.01"
-                min="0"
-                value={precioVenta}
-                onChange={(e) => setPrecioVenta(e.target.value)}
-              />
-            </ModalField>
-            <ModalField>
-              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
-                <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">Activo</span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={activo}
-                  onClick={() => setActivo((v) => !v)}
-                  className={cn(
-                    "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-                    activo ? "bg-[#2c5f9b] dark:bg-[#6f9fd4]" : "bg-zinc-300 dark:bg-zinc-600",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
-                      activo ? "translate-x-5" : "translate-x-0.5",
-                    )}
-                  />
-                </button>
-              </label>
-            </ModalField>
-            <ModalField>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <ModalLabel htmlFor="edit-com-lab">Laboratorio</ModalLabel>
                 <button
@@ -268,9 +225,22 @@ export function EditarJerarquia({
                 ))}
               </ModalSelect>
             </ModalField>
+            <ProductoMarcaImagenes
+              productoId={producto.id}
+              producto={imagenesMarca}
+              editable
+              layout="modal"
+              onPathsUpdated={setImagenesMarca}
+            />
+            <ModalField>
+              <ModalSwitch
+                label="Activo"
+                checked={activo}
+                onCheckedChange={setActivo}
+              />
+            </ModalField>
             <p className="text-xs text-zinc-500">
-              Los lotes se editan desde Inventario → vista Lotes (código, vencimiento, costo,
-              ubicación). No incluyen laboratorio ni precio de venta.
+              El precio de venta se define al registrar o editar lotes en Inventario → Lotes.
             </p>
           </div>
         ) : null}
@@ -319,30 +289,11 @@ export function EditarJerarquia({
               />
             </ModalField>
             <ModalField>
-              <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
-                <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">
-                  Requiere receta
-                </span>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={requiereReceta}
-                  onClick={() => setRequiereReceta((v) => !v)}
-                  className={cn(
-                    "relative h-6 w-11 shrink-0 rounded-full transition-colors",
-                    requiereReceta
-                      ? "bg-[#2c5f9b] dark:bg-[#6f9fd4]"
-                      : "bg-zinc-300 dark:bg-zinc-600",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform",
-                      requiereReceta ? "translate-x-5" : "translate-x-0.5",
-                    )}
-                  />
-                </button>
-              </label>
+              <ModalSwitch
+                label="Requiere receta"
+                checked={requiereReceta}
+                onCheckedChange={setRequiereReceta}
+              />
             </ModalField>
           </div>
         ) : null}

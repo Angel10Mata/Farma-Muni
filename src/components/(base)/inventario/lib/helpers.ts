@@ -135,6 +135,8 @@ export function comercialAProductoEdicion(c: ProductoComercial): Producto {
     stock_minimo: c.stock_minimo,
     activo: c.activo,
     imagen_url: c.imagen_url ?? null,
+    imagen_url_2: c.imagen_url_2 ?? null,
+    imagen_url_3: c.imagen_url_3 ?? null,
     generico_id: c.generico_id,
     laboratorio_id: c.laboratorio_id ?? undefined,
     catalogo_id: c.catalogo_id,

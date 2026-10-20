@@ -85,6 +85,8 @@ export const productoComercialSchema = z.object({
   presentacion: z.string(),
   precio_venta: z.number(),
   imagen_url: z.string().nullable().optional(),
+  imagen_url_2: z.string().nullable().optional(),
+  imagen_url_3: z.string().nullable().optional(),
   activo: z.boolean(),
   generico_id: z.string().uuid(),
   generico_nombre: z.string(),
@@ -189,9 +191,19 @@ export const comercialInputSchema = z.object({
   activo: z.boolean().default(true),
   descripcion: z.string().nullable().optional(),
   imagen_url: z.string().nullable().optional(),
+  imagen_url_2: z.string().nullable().optional(),
+  imagen_url_3: z.string().nullable().optional(),
 });
 
 export type ComercialInput = z.infer<typeof comercialInputSchema>;
+
+export const imagenesMarcaInputSchema = z.object({
+  imagen_url: z.string().nullable(),
+  imagen_url_2: z.string().nullable(),
+  imagen_url_3: z.string().nullable(),
+});
+
+export type ImagenesMarcaInput = z.infer<typeof imagenesMarcaInputSchema>;
 
 export const inventarioJerarquiaFiltrosSchema = z.object({
   catalogo_id: z.string().uuid().optional(),

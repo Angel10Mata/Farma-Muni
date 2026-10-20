@@ -23,6 +23,10 @@ import {
 } from "../lib/hooks";
 import { laboratoriosParaSeleccionComercial } from "../lib/helpers";
 import { CrearLaboratorio } from "./CrearLaboratorio";
+import {
+  ProductoMarcaImagenes,
+  type MarcaImagenesPaths,
+} from "../ProductoMarcaImagenes";
 
 export interface CrearComercialProps {
   isOpen?: boolean;
@@ -42,6 +46,11 @@ export function CrearComercial({
   const [nombreComercial, setNombreComercial] = useState("");
   const [presentacion, setPresentacion] = useState("");
   const [modalLab, setModalLab] = useState(false);
+  const [imagenesMarca, setImagenesMarca] = useState<MarcaImagenesPaths>({
+    imagen_url: null,
+    imagen_url_2: null,
+    imagen_url_3: null,
+  });
 
   const { data: genericos = [] } = useGenericosInventario();
   const { data: laboratorios = [] } = useLaboratoriosInventario();
@@ -56,6 +65,11 @@ export function CrearComercial({
     setLaboratorioId("");
     setNombreComercial("");
     setPresentacion("");
+    setImagenesMarca({
+      imagen_url: null,
+      imagen_url_2: null,
+      imagen_url_3: null,
+    });
     onClose();
   };
 
@@ -77,6 +91,9 @@ export function CrearComercial({
           presentacion: presentacion.trim(),
           precio_venta: 0,
           activo: true,
+          imagen_url: imagenesMarca.imagen_url,
+          imagen_url_2: imagenesMarca.imagen_url_2,
+          imagen_url_3: imagenesMarca.imagen_url_3,
         },
       });
       toast.success("Marca registrada.");
@@ -99,7 +116,7 @@ export function CrearComercial({
         isOpen={isOpen && !modalLab}
         onClose={cerrar}
         title="Nueva marca"
-        maxWidth="max-w-lg"
+        maxWidth="max-w-2xl"
       >
         <ModalForm onSubmit={(e) => e.preventDefault()} className="space-y-4">
           {genericos.length === 0 ? (
@@ -169,6 +186,12 @@ export function CrearComercial({
               onChange={(e) => setPresentacion(e.target.value)}
             />
           </ModalField>
+          <ProductoMarcaImagenes
+            producto={imagenesMarca}
+            editable
+            layout="modal"
+            onPathsUpdated={setImagenesMarca}
+          />
           <ModalFooter className="justify-between gap-2">
             <ModalCancelButton onClick={cerrar} />
             <SigetActionButton

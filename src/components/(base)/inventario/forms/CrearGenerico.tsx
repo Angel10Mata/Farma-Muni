@@ -13,6 +13,7 @@ import {
   ModalLabel,
   ModalSelect,
   ModalShell,
+  ModalSwitch,
 } from "@/components/ui/general-modal";
 import { actionErrorMessage } from "@/components/ui/modal-toast";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
@@ -202,20 +203,11 @@ export function CrearGenerico({
           </ModalField>
         </div>
         <ModalField>
-          <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-700">
-            <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">Requiere receta</span>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={requiereReceta}
-              onClick={() => setRequiereReceta((v) => !v)}
-              className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${requiereReceta ? "bg-[#2c5f9b] dark:bg-[#6f9fd4]" : "bg-zinc-300 dark:bg-zinc-600"}`}
-            >
-              <span
-                className={`absolute top-0.5 size-5 rounded-full bg-white shadow transition-transform ${requiereReceta ? "translate-x-5" : "translate-x-0.5"}`}
-              />
-            </button>
-          </label>
+          <ModalSwitch
+            label="Requiere receta"
+            checked={requiereReceta}
+            onCheckedChange={setRequiereReceta}
+          />
         </ModalField>
         <ModalFooter className="justify-between gap-2">
           <ModalCancelButton onClick={cerrar} />

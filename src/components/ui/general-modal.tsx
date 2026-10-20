@@ -95,6 +95,48 @@ export function ModalLabel({
   );
 }
 
+export function ModalSwitch({
+  checked,
+  onCheckedChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label
+      className={cn(
+        "flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-700",
+        disabled && "cursor-not-allowed opacity-60",
+      )}
+    >
+      <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onCheckedChange(!checked)}
+        className={cn(
+          "relative inline-flex h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors",
+          checked ? "bg-[#2c5f9b] dark:bg-[#6f9fd4]" : "bg-zinc-300 dark:bg-zinc-600",
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform",
+            checked ? "translate-x-[1.125rem]" : "translate-x-0",
+          )}
+        />
+      </button>
+    </label>
+  );
+}
+
 export function ModalInput({
   className,
   ...props

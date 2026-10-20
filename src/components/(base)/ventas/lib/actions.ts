@@ -54,7 +54,7 @@ const V_INV_GENERICOS_POS =
   "generico_id, catalogo_id, catalogo_nombre, concentracion, forma_farmaceutica, generico_nombre, requiere_receta, stock_minimo, activo, comerciales, comerciales_con_stock, stock_vendible, precio_desde, bajo_minimo";
 
 const V_INV_COMERCIALES_POS =
-  "producto_id, nombre_comercial, presentacion, precio_venta, imagen_url, activo, generico_id, generico_nombre, requiere_receta, catalogo_id, catalogo_nombre, laboratorio_id, laboratorio_nombre, stock_vendible, proximo_vencimiento, lotes_vendibles, concentracion, forma_farmaceutica, unidad_venta, stock_minimo, generico_activo";
+  "producto_id, nombre_comercial, presentacion, precio_venta, imagen_url, imagen_url_2, imagen_url_3, activo, generico_id, generico_nombre, requiere_receta, catalogo_id, catalogo_nombre, laboratorio_id, laboratorio_nombre, stock_vendible, proximo_vencimiento, lotes_vendibles, concentracion, forma_farmaceutica, unidad_venta, stock_minimo, generico_activo";
 
 function mapFilaGenericoVenta(row: Record<string, unknown>): GenericoVenta {
   return {
@@ -85,6 +85,8 @@ function mapFilaComercialVenta(row: Record<string, unknown>): ComercialVenta {
     generico_id: String(row.generico_id),
     stock_vendible: Number(row.stock_vendible) || 0,
     imagen_url: (row.imagen_url as string | null) ?? null,
+    imagen_url_2: (row.imagen_url_2 as string | null) ?? null,
+    imagen_url_3: (row.imagen_url_3 as string | null) ?? null,
     activo: Boolean(row.activo),
     costo_promedio: null,
   };

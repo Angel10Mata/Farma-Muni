@@ -23,6 +23,8 @@ export const ComercialVentaSchema = z.object({
   generico_id: z.string().uuid(),
   stock_vendible: z.number(),
   imagen_url: z.string().nullable().optional(),
+  imagen_url_2: z.string().nullable().optional(),
+  imagen_url_3: z.string().nullable().optional(),
   activo: z.boolean(),
   costo_promedio: z.number().nullable().optional(),
 });

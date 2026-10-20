@@ -260,6 +260,8 @@ export interface Producto {
   activo: boolean;
   created_at?: string;
   imagen_url?: string | null;
+  imagen_url_2?: string | null;
+  imagen_url_3?: string | null;
   generico_id?: string;
   laboratorio_id?: string;
   catalogo_id?: string;
