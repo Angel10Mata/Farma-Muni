@@ -284,25 +284,41 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
         )}
       >
         <div className="flex flex-col gap-3">
-          <div className="relative w-full min-w-0 text-left lg:max-w-xl">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
-            <input
-              type="text"
-              value={busquedaHistorial}
-              onChange={(e) => {
-                setBusquedaHistorial(e.target.value);
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+            <div className="relative w-full min-w-0 text-left lg:flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
+              <input
+                type="text"
+                value={busquedaHistorial}
+                onChange={(e) => {
+                  setBusquedaHistorial(e.target.value);
+                  setCurrentPageCompras(1);
+                }}
+                placeholder="Buscar por código, proveedor..."
+                className={cn(moduleTableSearchClass, "py-2 pl-9")}
+              />
+            </div>
+            <ModuleFilterUnderlineTabs
+              ariaLabel="Estado de pago"
+              value={filtroPago}
+              options={[
+                { id: "todos", label: "Todos" },
+                { id: "Pagado", label: "Pagado" },
+                { id: "Pendiente", label: "Pendiente" },
+              ]}
+              onChange={(id) => {
+                setFiltroPago(id);
                 setCurrentPageCompras(1);
               }}
-              placeholder="Buscar por código, proveedor..."
-              className={cn(moduleTableSearchClass, "py-2 pl-9")}
+              className="hidden lg:flex shrink-0 justify-end"
             />
           </div>
 
           <div
-            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 lg:flex-row lg:flex-wrap lg:items-end lg:justify-between"
+            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 lg:flex-row lg:flex-nowrap lg:items-center lg:justify-between lg:gap-4"
           >
             <ModuleDateFilterLayout
-              className="max-lg:mx-auto"
+              className="max-lg:mx-auto lg:shrink-0"
               periodValue={tipoFiltroFechaCompras}
               periodOptions={[
                 { id: "dia", label: "Día" },
@@ -511,7 +527,6 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   exit={{ opacity: 0, x: -10 }}
                   className="flex items-center gap-2 flex-wrap max-w-full"
                 >
-                  <span className="text-etiqueta font-bold text-texto-tenue">Desde:</span>
                   <CustomDatePicker
                     value={fechaRangoDesdeCompras}
                     onChange={(val) => {
@@ -521,7 +536,6 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                     placeholder="Desde"
                     align="left"
                   />
-                  <span className="text-etiqueta font-bold text-texto-tenue">Hasta:</span>
                   <CustomDatePicker
                     value={fechaRangoHastaCompras}
                     onChange={(val) => {
@@ -535,10 +549,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
               )}
             </AnimatePresence>
             </ModuleDateFilterLayout>
-            <div className="flex w-full min-w-0 flex-col gap-2 max-lg:max-w-none lg:flex-row lg:flex-wrap lg:items-center lg:justify-end lg:gap-2">
-              <div className="grid w-full grid-cols-2 gap-2 lg:flex lg:w-auto lg:flex-wrap lg:items-center lg:gap-2">
+            <div className="flex w-full min-w-0 flex-col gap-2 max-lg:max-w-none lg:w-auto lg:min-w-0 lg:flex-1 lg:flex-row lg:flex-nowrap lg:items-center lg:justify-end lg:gap-2">
+              <div className="grid w-full grid-cols-2 items-stretch gap-2 lg:contents">
                 <label
-                  className="flex min-w-0 w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-2 py-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 lg:w-auto lg:justify-start lg:px-3"
+                  className="flex h-full min-h-10 min-w-0 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-2 text-xs font-semibold text-texto-principal dark:border-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300 lg:h-auto lg:w-auto lg:shrink-0 lg:justify-start lg:rounded-lg lg:bg-white lg:px-3 lg:font-bold lg:text-zinc-700 lg:dark:border-zinc-700 lg:dark:bg-zinc-900"
                 >
                   <input
                     type="checkbox"
@@ -551,7 +565,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   </span>
                 </label>
                 <ModuleInformeDropdown
-                  className="min-w-0 w-full max-lg:[&>button]:w-full lg:w-auto"
+                  className="flex h-full min-h-10 min-w-0 w-full max-lg:[&>button]:h-full max-lg:[&>button]:min-h-10 max-lg:[&>button]:w-full lg:min-h-0 lg:h-auto lg:w-auto lg:shrink-0"
                   busy={exportandoReporte}
                   items={[
                     {
@@ -574,7 +588,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   setFiltroPago(id);
                   setCurrentPageCompras(1);
                 }}
-                className="w-full max-lg:[&>button]:min-w-0 max-lg:[&>button]:flex-1 max-lg:[&>button]:shrink lg:w-fit lg:justify-end lg:[&>button]:flex-none"
+                className="lg:hidden w-full max-lg:[&>button]:min-w-0 max-lg:[&>button]:flex-1 max-lg:[&>button]:shrink"
               />
             </div>
           </div>

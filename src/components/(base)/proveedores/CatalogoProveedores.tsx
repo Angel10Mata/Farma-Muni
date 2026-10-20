@@ -212,8 +212,8 @@ export function CatalogoProveedores({
             "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
           )}
         >
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="relative w-full min-w-0 text-left sm:max-w-xl">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-3">
+            <div className="relative w-full min-w-0 flex-1 text-left">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
               <input
                 type="text"
@@ -370,16 +370,32 @@ export function CatalogoProveedores({
                     proveedorSeleccionado?.id === p.id && "border-[#8DA78E] ring-1 ring-[#8DA78E]/30"
                   )}
                 >
-                  <div>
-                    <h4 className="font-bold text-sm text-slate-900 dark:text-white inline-flex flex-wrap items-center gap-2">
-                      {p.nombre}
-                      {p.activo === false ? (
-                        <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-etiqueta font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-                          Inactivo
-                        </span>
-                      ) : null}
-                    </h4>
-                    <p className="text-etiqueta text-texto-tenue mt-0.5">NIT: {p.nit || "C/F"}</p>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <h4 className="font-bold text-sm text-slate-900 dark:text-white inline-flex flex-wrap items-center gap-2">
+                        {p.nombre}
+                        {p.activo === false ? (
+                          <span className="rounded-md bg-zinc-200 px-2 py-0.5 text-etiqueta font-bold uppercase tracking-wide text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                            Inactivo
+                          </span>
+                        ) : null}
+                      </h4>
+                      <p className="text-etiqueta text-texto-tenue mt-0.5">NIT: {p.nit || "C/F"}</p>
+                    </div>
+                    <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
+                      <ProveedorCatalogoAccionesMenu
+                        proveedor={p}
+                        puedeEliminar={puedeEliminar}
+                        onEditar={() => {
+                          setProveedorSeleccionado(p);
+                          setModoEdicionProveedor(true);
+                        }}
+                        onEliminar={() => handleEliminarProveedor(p.id, p.nombre)}
+                        onToggleActivo={() =>
+                          handleToggleProveedorActivo(p.id, p.nombre, p.activo !== false)
+                        }
+                      />
+                    </div>
                   </div>
                   <div className="flex flex-col gap-1 text-xs text-texto-tenue">
                     {p.telefono && (
@@ -405,23 +421,6 @@ export function CatalogoProveedores({
                       {p.descripcion}
                     </p>
                   ) : null}
-                  <div
-                    className="flex justify-end pt-3 border-t border-slate-100 dark:border-zinc-800"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <ProveedorCatalogoAccionesMenu
-                      proveedor={p}
-                      puedeEliminar={puedeEliminar}
-                      onEditar={() => {
-                        setProveedorSeleccionado(p);
-                        setModoEdicionProveedor(true);
-                      }}
-                      onEliminar={() => handleEliminarProveedor(p.id, p.nombre)}
-                      onToggleActivo={() =>
-                        handleToggleProveedorActivo(p.id, p.nombre, p.activo !== false)
-                      }
-                    />
-                  </div>
                 </div>
               ))
             )}

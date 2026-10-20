@@ -17,7 +17,7 @@ export function TarjetaCuentasPorPagar({
   return (
     <div
       className={cn(
-        "bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 rounded-2xl p-4 md:p-5 shadow-sm",
+        "bg-white dark:bg-[#171a17] border border-[#C1D1C5]/30 dark:border-[#525D53]/30 rounded-2xl p-3 md:p-4 lg:p-5 shadow-sm min-w-0",
         className,
       )}
     >
@@ -29,7 +29,7 @@ export function TarjetaCuentasPorPagar({
           Cuentas por pagar
         </h3>
       </div>
-      <p className="text-lg md:text-2xl font-black text-zinc-900 dark:text-white tracking-tight">
+      <p className="text-[12px] min-[380px]:text-sm sm:text-base md:text-lg lg:text-2xl font-black text-zinc-900 dark:text-white max-md:tracking-tighter max-md:break-words max-md:whitespace-normal max-md:leading-tight md:tracking-tight">
         {fmtQ(totalPendiente)}
       </p>
       <p className="text-xs font-bold text-rose-500 mt-1">

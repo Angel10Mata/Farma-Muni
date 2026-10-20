@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import {
   modulePillSwitchBtnClass,
   modulePillSwitchShellClass,
+  modulePillSwitchTabBtnClass,
 } from "@/components/ui/module-pill-switch";
 import { ModalAutorizacionRebajaVentas } from "./ModalAutorizacionRebajaVentas";
 import { PanelSolicitudesRebajaVentas } from "./PanelSolicitudesRebajaVentas";
@@ -608,11 +609,57 @@ function VerVentasInner({
         )}
       </ModalShell>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 md:hidden">
+        <div className="flex items-center gap-3">
+          <ModuleHeaderBackButton />
+          <div className="min-w-0 flex-1">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">
+              Módulo
+            </p>
+            <h1 className="text-2xl font-bold uppercase tracking-tight text-slate-900 dark:text-white leading-none truncate">
+              Área de Ventas
+            </h1>
+          </div>
+          <PanelSolicitudesRebajaVentas
+            onRevisarAdmin={(id) => router.replace(`/farmamuni/ventas?rebaja=${id}`)}
+          />
+        </div>
+
+        <div
+          className={cn(modulePillSwitchShellClass, "flex w-full max-w-full")}
+          role="tablist"
+          aria-label="Sección de ventas"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={ventas.activeTab === "pos"}
+            onClick={() => ventas.setActiveTab("pos")}
+            className={modulePillSwitchTabBtnClass(ventas.activeTab === "pos")}
+          >
+            Punto de venta
+          </button>
+          {puedeVerHistorial ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={ventas.activeTab === "historial"}
+              onClick={() => ventas.setActiveTab("historial")}
+              className={modulePillSwitchTabBtnClass(ventas.activeTab === "historial")}
+            >
+              Historial
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="hidden md:flex md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-4">
           <ModuleHeaderBackButton />
           <div>
-            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">Módulo</p>
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">
+              Módulo
+            </p>
             <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight text-slate-900 dark:text-white leading-none">
               Área de Ventas
             </h1>

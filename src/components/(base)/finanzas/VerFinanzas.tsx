@@ -308,7 +308,7 @@ export function VerFinanzas() {
           <TarjetaCuentasPorPagar
             totalPendiente={resumenPagar.totalPendiente}
             totalVencido={resumenPagar.totalVencido}
-            className="col-span-2 md:col-span-1"
+            className="min-w-0"
           />
         </div>
 
@@ -321,14 +321,26 @@ export function VerFinanzas() {
         )}
       >
         <div className="flex flex-col gap-3">
-          <div className="relative w-full min-w-0 text-left lg:max-w-xl">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
-            <input
-              type="text"
-              placeholder="Buscar por concepto o categoría..."
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              className={cn(moduleTableSearchClass, "py-2 pl-9")}
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between md:gap-4">
+            <div className="relative w-full min-w-0 text-left md:flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
+              <input
+                type="text"
+                placeholder="Buscar por concepto o categoría..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                className={cn(moduleTableSearchClass, "py-2 pl-9")}
+              />
+            </div>
+            <ModuleFilterUnderlineTabs
+              ariaLabel="Tipo de movimiento"
+              value={filtroTipo}
+              options={FILTROS_TIPO.map((tipo) => ({ id: tipo, label: tipo }))}
+              onChange={(tipo) => {
+                setPage(1);
+                setFiltroTipo(tipo);
+              }}
+              className="hidden md:flex shrink-0 justify-end"
             />
           </div>
 
@@ -342,7 +354,7 @@ export function VerFinanzas() {
               className="w-full shrink-0 sm:w-auto"
             />
 
-            <div className="flex flex-wrap items-end justify-end gap-2 sm:shrink-0">
+            <div className="hidden md:flex flex-wrap items-end justify-end gap-2 sm:shrink-0">
               <ModuleInformeDropdown
                 busy={exportandoInforme}
                 items={[
@@ -363,17 +375,44 @@ export function VerFinanzas() {
                 ariaLabel="Ver gráficas del período"
                 className="w-auto shrink-0"
               />
-              <ModuleFilterUnderlineTabs
-                ariaLabel="Tipo de movimiento"
-                value={filtroTipo}
-                options={FILTROS_TIPO.map((tipo) => ({ id: tipo, label: tipo }))}
-                onChange={(tipo) => {
-                  setPage(1);
-                  setFiltroTipo(tipo);
-                }}
-                className="sm:justify-end"
+            </div>
+          </div>
+
+          <div className="md:hidden flex flex-col gap-3">
+            <div className="grid w-full grid-cols-2 gap-2">
+              <ModuleInformeDropdown
+                className="min-w-0 w-full [&>button]:w-full [&>button]:justify-center"
+                busy={exportandoInforme}
+                items={[
+                  {
+                    titulo: "Ingresos y egresos del período",
+                    onPdf: () => void exportarInformePdf(),
+                    onExcel: () => void exportarInformeExcel(),
+                  },
+                ]}
+              />
+              <SigetActionButton
+                label="Gráficas"
+                accentColor={sigetAccent.abrir}
+                morphFrom={BarChart3}
+                morphTo={ChartPie}
+                type="button"
+                onClick={() => setGraficasOpen(true)}
+                ariaLabel="Ver gráficas del período"
+                className="w-full min-w-0"
               />
             </div>
+
+            <ModuleFilterUnderlineTabs
+              ariaLabel="Tipo de movimiento"
+              value={filtroTipo}
+              options={FILTROS_TIPO.map((tipo) => ({ id: tipo, label: tipo }))}
+              onChange={(tipo) => {
+                setPage(1);
+                setFiltroTipo(tipo);
+              }}
+              className="w-full [&>button]:min-w-0 [&>button]:flex-1"
+            />
           </div>
         </div>
       </section>

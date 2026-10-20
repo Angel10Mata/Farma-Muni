@@ -217,26 +217,52 @@ export function VerCreditos() {
               />
             </div>
             <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
-              <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
-                <input
-                  type="checkbox"
-                  className="size-4 rounded"
-                  checked={soloVencidos}
-                  onChange={(e) => {
-                    setSoloVencidos(e.target.checked);
-                    setCurrentPage(1);
-                  }}
-                />
-                Solo vencidos
-              </label>
+              <div className="hidden md:flex flex-wrap items-center gap-2">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded"
+                    checked={soloVencidos}
+                    onChange={(e) => {
+                      setSoloVencidos(e.target.checked);
+                      setCurrentPage(1);
+                    }}
+                  />
+                  Solo vencidos
+                </label>
+                <select
+                  value={criterioOrden}
+                  onChange={(e) => setCriterioOrden(e.target.value as typeof criterioOrden)}
+                  className="h-9 min-w-0 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 w-[230px]"
+                >
+                  <option value="saldo-desc">Mayor Saldo Pendiente</option>
+                  <option value="saldo-asc">Menor Saldo Pendiente</option>
+                  <option value="nombre-asc">Nombre (A-Z)</option>
+                </select>
+              </div>
               <select
-                value={criterioOrden}
-                onChange={(e) => setCriterioOrden(e.target.value as typeof criterioOrden)}
-                className="h-9 min-w-0 flex-1 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 sm:w-[230px] sm:flex-none"
+                value={soloVencidos ? "solo-vencidos" : criterioOrden}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "solo-vencidos") {
+                    setSoloVencidos(true);
+                  } else {
+                    setSoloVencidos(false);
+                    setCriterioOrden(v as typeof criterioOrden);
+                  }
+                  setCurrentPage(1);
+                }}
+                className="md:hidden h-9 min-w-0 w-full flex-1 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                aria-label="Ordenar y filtrar cuentas por cobrar"
               >
-                <option value="saldo-desc">Mayor Saldo Pendiente</option>
-                <option value="saldo-asc">Menor Saldo Pendiente</option>
-                <option value="nombre-asc">Nombre (A-Z)</option>
+                <optgroup label="Ordenar">
+                  <option value="saldo-desc">Mayor saldo pendiente</option>
+                  <option value="saldo-asc">Menor saldo pendiente</option>
+                  <option value="nombre-asc">Nombre (A-Z)</option>
+                </optgroup>
+                <optgroup label="Filtrar">
+                  <option value="solo-vencidos">Solo vencidos</option>
+                </optgroup>
               </select>
               <ModuleInformeDropdown
                 busy={exportando}

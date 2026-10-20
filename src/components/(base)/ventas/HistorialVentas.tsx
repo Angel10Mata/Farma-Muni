@@ -400,6 +400,215 @@ export function HistorialVentas({
     }
   };
 
+  const historialInformeBusy =
+    isLoading ||
+    exportandoCortePdf ||
+    exportandoCorteExcel ||
+    exportandoReceta ||
+    exportandoRecetaExcel ||
+    exportandoInforme ||
+    exportandoInformeExcel;
+
+  const historialInformeItems = [
+    {
+      titulo: "Corte de caja",
+      onPdf: () => void exportarCorteCajaPdf(),
+      onExcel: () => void exportarCorteCajaExcel(),
+      pdfDisabled: exportandoCortePdf,
+      excelDisabled: exportandoCorteExcel,
+    },
+    ...(mostrarInformesAdmin
+      ? [
+          {
+            titulo: "Ventas con receta",
+            onPdf: () => void exportarVentasReceta(),
+            onExcel: () => void exportarVentasRecetaExcel(),
+            pdfDisabled: exportandoReceta || isDemoMode,
+            excelDisabled: exportandoRecetaExcel || isDemoMode,
+          },
+          {
+            titulo: "Ventas del mes",
+            onPdf: () => void exportarInformeVentasMes(),
+            onExcel: () => void exportarInformeVentasMesExcel(),
+            pdfDisabled: exportandoInforme,
+            excelDisabled: exportandoInformeExcel,
+          },
+        ]
+      : []),
+  ];
+
+  const historialFiltroFechaPickers = (etiquetasRango: boolean) => (
+    <AnimatePresence mode="wait">
+      {tipoFiltroFecha === "dia" && (
+        <motion.div
+          key="dia"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -10 }}
+          className="flex items-center gap-2"
+        >
+          <CustomDatePicker
+            value={fechaDia}
+            onChange={(val) => {
+              setFechaDia(val);
+              setCurrentPage(1);
+            }}
+            placeholder="Elegir día"
+            align="left"
+          />
+        </motion.div>
+      )}
+
+      {tipoFiltroFecha === "semana" && (
+        <motion.div
+          key="semana"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -10 }}
+          className="flex flex-row items-center gap-2"
+        >
+          <div className="flex h-[42px] shrink-0 items-center gap-1 rounded-xl border border-zinc-200 bg-white px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900">
+            <button
+              onClick={() => {
+                activeMonth === 0
+                  ? (setActiveMonth(11), setActiveYear(activeYear - 1))
+                  : setActiveMonth(activeMonth - 1);
+                setCurrentPage(1);
+              }}
+              className="size-4.5 rounded flex items-center justify-center text-zinc-500 cursor-pointer"
+            >
+              <ChevronLeft className="size-3" />
+            </button>
+            <div className="relative">
+              <button
+                onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)}
+                className="text-etiqueta font-bold text-zinc-700 dark:text-zinc-300 px-2 py-1 flex items-center gap-1 cursor-pointer rounded-lg transition-colors"
+              >
+                <Calendar className="size-3 text-look-2-salvia-menta" />{" "}
+                {new Date(activeYear, activeMonth).toLocaleString("es-GT", {
+                  month: "short",
+                })}{" "}
+                {activeYear}
+              </button>
+              <AnimatePresence>
+                {mostrarMesDropdown && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 4 }}
+                    transition={{ duration: 0.15 }}
+                    className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-1 grid grid-cols-3 gap-1 min-w-[240px]"
+                  >
+                    {[
+                      "Ene",
+                      "Feb",
+                      "Mar",
+                      "Abr",
+                      "May",
+                      "Jun",
+                      "Jul",
+                      "Ago",
+                      "Sep",
+                      "Oct",
+                      "Nov",
+                      "Dic",
+                    ].map((mName, mIdx) => (
+                      <button
+                        key={mIdx}
+                        type="button"
+                        onClick={() => {
+                          setActiveMonth(mIdx);
+                          setCurrentPage(1);
+                          setMostrarMesDropdown(false);
+                        }}
+                        className={`w-full px-2 py-1.5 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
+                          activeMonth === mIdx
+                            ? "bg-[#8DA78E] text-white"
+                            : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/60"
+                        }`}
+                      >
+                        {mName}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+            <button
+              onClick={() => {
+                activeMonth === 11
+                  ? (setActiveMonth(0), setActiveYear(activeYear + 1))
+                  : setActiveMonth(activeMonth + 1);
+                setCurrentPage(1);
+              }}
+              className="size-4.5 rounded flex items-center justify-center text-zinc-500 cursor-pointer"
+            >
+              <ChevronRight className="size-3" />
+            </button>
+          </div>
+        </motion.div>
+      )}
+
+      {tipoFiltroFecha === "rango" && (
+        <motion.div
+          key="rango"
+          initial={{ opacity: 0, x: -10 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -10 }}
+          className="flex flex-wrap items-center gap-2"
+        >
+          {etiquetasRango ? (
+            <span className="text-etiqueta font-bold text-texto-tenue shrink-0">Desde:</span>
+          ) : null}
+          <CustomDatePicker
+            value={fechaRangoDesde}
+            onChange={(val) => {
+              setFechaRangoDesde(val);
+              setCurrentPage(1);
+            }}
+            placeholder={etiquetasRango ? "Calendario" : "Desde"}
+            align="left"
+          />
+          {etiquetasRango ? (
+            <span className="text-etiqueta font-bold text-texto-tenue shrink-0">Hasta:</span>
+          ) : null}
+          <CustomDatePicker
+            value={fechaRangoHasta}
+            onChange={(val) => {
+              setFechaRangoHasta(val);
+              setCurrentPage(1);
+            }}
+            placeholder={etiquetasRango ? "Calendario" : "Hasta"}
+            align="right"
+          />
+          <button
+            type="button"
+            onClick={aplicarRangoMesActual}
+            className="text-etiqueta font-bold text-look-2-salvia-menta hover:underline cursor-pointer px-1"
+          >
+            Mes actual
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+
+  const historialFiltroFechaLayoutProps = {
+    periodValue: tipoFiltroFecha,
+    periodOptions: [
+      { id: "dia", label: "Día" },
+      { id: "semana", label: "Mes" },
+      { id: "rango", label: "Rango" },
+    ] as const,
+    onPeriodChange: (id: string) => {
+      setTipoFiltroFecha(id as "dia" | "semana" | "rango");
+      if (id === "rango" && !fechaRangoDesde && !fechaRangoHasta) {
+        aplicarRangoMesActual();
+      }
+      setCurrentPage(1);
+    },
+  };
+
   // Pantalla del historial
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3">
@@ -410,7 +619,78 @@ export function HistorialVentas({
         )}
       >
         <div className="flex flex-col gap-3">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 lg:hidden">
+            <div className="relative w-full min-w-0">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
+              <input
+                type="text"
+                placeholder="Buscar recibo o cliente..."
+                value={busquedaHistorial}
+                onChange={(e) => {
+                  setBusquedaHistorial(e.target.value);
+                  setCurrentPage(1);
+                }}
+                className={cn(moduleTableSearchClass, "py-2 pl-9")}
+              />
+            </div>
+            <ModuleFilterUnderlineTabs
+              ariaLabel="Tipo de pago"
+              value={tipoPagoSwitch}
+              options={[
+                { id: "todos", label: "Todos" },
+                { id: "contado", label: "Contado" },
+                { id: "credito", label: "Crédito" },
+              ]}
+              onChange={(id) => {
+                setTipoPagoSwitch(id);
+                setCurrentPage(1);
+              }}
+              className="w-full [&>button]:min-w-0 [&>button]:flex-1"
+            />
+            <div className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+              <ModuleDateFilterLayout className="mx-auto" {...historialFiltroFechaLayoutProps}>
+                {historialFiltroFechaPickers(false)}
+              </ModuleDateFilterLayout>
+              <div className="grid w-full grid-cols-2 items-stretch gap-2">
+                <span className="text-etiqueta font-bold uppercase tracking-wide text-texto-tenue flex min-h-[42px] items-center">
+                  Corte de caja
+                </span>
+                <div className="min-w-0 w-full [&_button]:w-full [&_button]:min-w-0">
+                  <CustomDatePicker
+                    value={fechaCorte}
+                    onChange={setFechaCorte}
+                    placeholder="Fecha corte"
+                    align="left"
+                  />
+                </div>
+                {esAdminHistorial ? (
+                  <select
+                    value={usuarioCorteId}
+                    onChange={(e) => setUsuarioCorteId(e.target.value)}
+                    className="h-[42px] min-w-0 w-full rounded-xl border border-zinc-200 bg-white px-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
+                    aria-label="Vendedor del corte"
+                  >
+                    <option value="">Todos los vendedores</option>
+                    {vendedoresCorte.map((v) => (
+                      <option key={v.id} value={v.id}>
+                        {v.nombre}
+                      </option>
+                    ))}
+                  </select>
+                ) : null}
+                <ModuleInformeDropdown
+                  className={cn(
+                    "min-w-0 w-full [&>button]:w-full [&>button]:min-h-[42px]",
+                    !esAdminHistorial && "col-span-2",
+                  )}
+                  busy={historialInformeBusy}
+                  items={historialInformeItems}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="hidden lg:flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div className="relative w-full min-w-0 flex-1 lg:max-w-xl">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
               <input
@@ -425,44 +705,7 @@ export function HistorialVentas({
               />
             </div>
             <div className="flex w-full shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto">
-              <ModuleInformeDropdown
-                busy={
-                  isLoading ||
-                  exportandoCortePdf ||
-                  exportandoCorteExcel ||
-                  exportandoReceta ||
-                  exportandoRecetaExcel ||
-                  exportandoInforme ||
-                  exportandoInformeExcel
-                }
-                items={[
-                  {
-                    titulo: "Corte de caja",
-                    onPdf: () => void exportarCorteCajaPdf(),
-                    onExcel: () => void exportarCorteCajaExcel(),
-                    pdfDisabled: exportandoCortePdf,
-                    excelDisabled: exportandoCorteExcel,
-                  },
-                  ...(mostrarInformesAdmin
-                    ? [
-                        {
-                          titulo: "Ventas con receta",
-                          onPdf: () => void exportarVentasReceta(),
-                          onExcel: () => void exportarVentasRecetaExcel(),
-                          pdfDisabled: exportandoReceta || isDemoMode,
-                          excelDisabled: exportandoRecetaExcel || isDemoMode,
-                        },
-                        {
-                          titulo: "Ventas del mes",
-                          onPdf: () => void exportarInformeVentasMes(),
-                          onExcel: () => void exportarInformeVentasMesExcel(),
-                          pdfDisabled: exportandoInforme,
-                          excelDisabled: exportandoInformeExcel,
-                        },
-                      ]
-                    : []),
-                ]}
-              />
+              <ModuleInformeDropdown busy={historialInformeBusy} items={historialInformeItems} />
               <ModuleFilterUnderlineTabs
                 ariaLabel="Tipo de pago"
                 value={tipoPagoSwitch}
@@ -480,7 +723,7 @@ export function HistorialVentas({
           </div>
 
           <div
-            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
+            className="hidden lg:flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between"
           >
             <div className="flex flex-wrap items-center gap-2 shrink-0">
               <span className="text-etiqueta font-bold uppercase tracking-wide text-texto-tenue">
@@ -514,122 +757,10 @@ export function HistorialVentas({
 
       <div className={cn(moduleTableShellClass, "overflow-visible p-0")}>
         <div
-          className="flex shrink-0 flex-col gap-3 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800 md:px-5 md:pt-4 md:pb-3 xl:flex-row xl:items-center xl:justify-between"
+          className="hidden lg:flex shrink-0 flex-col gap-3 border-b border-zinc-200 px-3 py-3 dark:border-zinc-800 md:px-5 md:pt-4 md:pb-3 xl:flex-row xl:items-center xl:justify-between"
         >
-            <ModuleDateFilterLayout
-              periodValue={tipoFiltroFecha}
-              periodOptions={[
-                { id: "dia", label: "Día" },
-                { id: "semana", label: "Mes" },
-                { id: "rango", label: "Rango" },
-              ]}
-              onPeriodChange={(id) => {
-                setTipoFiltroFecha(id as "dia" | "semana" | "rango");
-                if (id === "rango" && !fechaRangoDesde && !fechaRangoHasta) {
-                  aplicarRangoMesActual();
-                }
-                setCurrentPage(1);
-              }}
-            >
-          <AnimatePresence mode="wait">
-            {tipoFiltroFecha === "dia" && (
-              <motion.div key="dia" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex items-center gap-2">
-                <CustomDatePicker
-                  value={fechaDia}
-                  onChange={(val) => {
-                    setFechaDia(val);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Elegir día"
-                  align="left"
-                />
-              </motion.div>
-            )}
-
-            {tipoFiltroFecha === "semana" && (
-              <motion.div key="semana" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-row items-center gap-2">
-                {/* Mes selector */}
-                <div className="flex h-[42px] shrink-0 items-center gap-1 rounded-xl border border-zinc-200 bg-white px-1.5 py-0.5 dark:border-zinc-700 dark:bg-zinc-900">
-                  <button onClick={() => { activeMonth === 0 ? (setActiveMonth(11), setActiveYear(activeYear - 1)) : setActiveMonth(activeMonth - 1); setCurrentPage(1); }} className="size-4.5 rounded flex items-center justify-center text-zinc-500 cursor-pointer">
-                    <ChevronLeft className="size-3" />
-                  </button>
-                  <div className="relative">
-                    <button onClick={() => setMostrarMesDropdown(!mostrarMesDropdown)} className="text-etiqueta font-bold text-zinc-700 dark:text-zinc-300 px-2 py-1 flex items-center gap-1 cursor-pointer rounded-lg transition-colors">
-                      <Calendar className="size-3 text-look-2-salvia-menta" /> {new Date(activeYear, activeMonth).toLocaleString("es-GT", { month: "short" })} {activeYear}
-                    </button>
-                    <AnimatePresence>
-                      {mostrarMesDropdown && (
-                        <motion.div
-                          initial={{ opacity: 0, y: 4 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 4 }}
-                          transition={{ duration: 0.15 }}
-                          className="absolute left-1/2 -translate-x-1/2 top-full mt-1.5 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl z-50 p-1 grid grid-cols-3 gap-1 min-w-[240px]"
-                        >
-                          {[
-                            "Ene", "Feb", "Mar", "Abr", "May", "Jun",
-                            "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"
-                          ].map((mName, mIdx) => (
-                            <button
-                              key={mIdx}
-                              type="button"
-                              onClick={() => {
-                                setActiveMonth(mIdx);
-                                setCurrentPage(1);
-                                setMostrarMesDropdown(false);
-                              }}
-                              className={`w-full px-2 py-1.5 rounded-lg text-xs font-bold transition-all text-center cursor-pointer ${
-                                activeMonth === mIdx
-                                  ? "bg-[#8DA78E] text-white"
-                                  : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/60"
-                              }`}
-                            >
-                              {mName}
-                            </button>
-                          ))}
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                  <button onClick={() => { activeMonth === 11 ? (setActiveMonth(0), setActiveYear(activeYear + 1)) : setActiveMonth(activeMonth + 1); setCurrentPage(1); }} className="size-4.5 rounded flex items-center justify-center text-zinc-500 cursor-pointer">
-                    <ChevronRight className="size-3" />
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {tipoFiltroFecha === "rango" && (
-              <motion.div key="rango" initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="flex flex-wrap items-center gap-2">
-                <span className="text-etiqueta font-bold text-texto-tenue shrink-0">Desde:</span>
-                <CustomDatePicker
-                  value={fechaRangoDesde}
-                  onChange={(val) => {
-                    setFechaRangoDesde(val);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Calendario"
-                  align="left"
-                />
-                <span className="text-etiqueta font-bold text-texto-tenue shrink-0">Hasta:</span>
-                <CustomDatePicker
-                  value={fechaRangoHasta}
-                  onChange={(val) => {
-                    setFechaRangoHasta(val);
-                    setCurrentPage(1);
-                  }}
-                  placeholder="Calendario"
-                  align="right"
-                />
-                <button
-                  type="button"
-                  onClick={aplicarRangoMesActual}
-                  className="text-etiqueta font-bold text-look-2-salvia-menta hover:underline cursor-pointer px-1"
-                >
-                  Mes actual
-                </button>
-              </motion.div>
-            )}
-          </AnimatePresence>
+            <ModuleDateFilterLayout {...historialFiltroFechaLayoutProps}>
+              {historialFiltroFechaPickers(true)}
             </ModuleDateFilterLayout>
             {filtered.length > 0 ? (
               <div
@@ -645,6 +776,23 @@ export function HistorialVentas({
               </div>
             ) : null}
         </div>
+        {filtered.length > 0 ? (
+          <div
+            className="flex shrink-0 justify-end border-b border-zinc-200 px-3 py-3 dark:border-zinc-800 lg:hidden"
+          >
+            <div
+              className={cn(
+                moduleDateFilterShellClass,
+                "h-[58px] w-full shrink-0 items-center justify-center",
+              )}
+            >
+              <span className="text-xl font-black text-[#3B523D] dark:text-[#A0BCA2]">Total:</span>
+              <span className="ml-2 text-xl font-black tracking-wide text-look-2-salvia-menta">
+                {fmtQ(totalVentas)}
+              </span>
+            </div>
+          </div>
+        ) : null}
       <div className={moduleTableScrollClass}>
         {isLoading ? (
           <div className="flex justify-center p-12"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#8DA78E]"></div></div>

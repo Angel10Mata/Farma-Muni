@@ -99,7 +99,7 @@ export function CuentasPorPagar({ compras, cargarDatos }: CuentasPorPagarProps) 
           "relative z-30 shrink-0 overflow-visible p-3 md:p-4",
         )}
       >
-        <div className="relative w-full min-w-0 text-left lg:max-w-xl">
+        <div className="relative w-full min-w-0 text-left">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
           <input
             type="text"
