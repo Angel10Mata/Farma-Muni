@@ -47,6 +47,7 @@ import {
 import { CrearLaboratorio } from "@/components/(base)/inventario/forms/CrearLaboratorio";
 import { ComprasProveedorField } from "./ComprasProveedorField";
 import { cn } from "@/lib/utils";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface ComprasProductSectionProps {
   comerciales: ComercialCompra[];
@@ -135,6 +136,77 @@ type GrupoComercialCompra = {
   marcas: ComercialCompra[];
   puntajeGenerico: number;
 };
+
+function PrecioVentaAlertaPunto({
+  tone,
+  message,
+}: {
+  tone: "red" | "amber";
+  message: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleClose = () => {
+    if (closeTimerRef.current) clearTimeout(closeTimerRef.current);
+    closeTimerRef.current = setTimeout(() => setOpen(false), 120);
+  };
+
+  const cancelClose = () => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  };
+
+  const show = () => {
+    cancelClose();
+    setOpen(true);
+  };
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-[#8DA78E]"
+          aria-label={message}
+          onMouseEnter={show}
+          onMouseLeave={scheduleClose}
+          onFocus={show}
+          onBlur={scheduleClose}
+        >
+          <span
+            className={cn(
+              "size-2.5 rounded-full ring-2 ring-white dark:ring-zinc-900",
+              tone === "red" && "bg-red-500 dark:bg-red-400",
+              tone === "amber" && "bg-amber-500 dark:bg-amber-400",
+            )}
+          />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="top"
+        align="center"
+        sideOffset={8}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onMouseEnter={cancelClose}
+        onMouseLeave={scheduleClose}
+        className="z-[200] w-72 max-w-[min(18rem,calc(100vw-2rem))] border border-slate-200 bg-white p-3 opacity-100 shadow-none dark:border-zinc-700 dark:bg-zinc-900"
+      >
+        <p
+          className={cn(
+            "text-xs font-semibold leading-snug",
+            tone === "red" && "text-red-700 dark:text-red-300",
+            tone === "amber" && "text-amber-900 dark:text-amber-200",
+          )}
+        >
+          {message}
+        </p>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 export function ComprasProductSection({ comerciales, proveedores }: ComprasProductSectionProps) {
   const context = useCompras();
@@ -376,6 +448,12 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
     evaluarPrecioVentaFormulario &&
     !bloqueoPrecioVenta &&
     precioBajoMargenMinimo(precioEditadoNum, escenarioPrecio.cppNuevo, margenMinimo);
+  const advertenciaCostoPromedioBajo =
+    escenarioPrecio !== null &&
+    cantNumForm > 0 &&
+    costoNumForm > 0 &&
+    !escenarioPrecio.subirSugerido &&
+    escenarioPrecio.sugerido < escenarioPrecio.precioActual - 0.001;
 
   const handleAgregarAlCarrito = async () => {
     if (!context.comercialSeleccionado) return;
@@ -803,8 +881,8 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
             <label className="block text-xs font-bold text-texto-tenue uppercase mb-1 text-left">
               Actualizar precio de venta
             </label>
-            <div className="flex gap-2 items-center">
-              <div className="relative min-w-0 flex-1">
+            <div className="flex flex-wrap gap-2 items-center">
+              <div className="relative min-w-0 flex-1 basis-[8rem]">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-texto-tenue">
                   Q
                 </span>
@@ -836,47 +914,45 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                   className="w-full pl-7 pr-3 py-2 border rounded-lg text-sm bg-white dark:bg-zinc-900 border-slate-200 dark:border-slate-800 text-slate-900 dark:text-white focus:ring-1 focus:ring-[#8DA78E] focus:outline-none transition-colors disabled:opacity-50 tabular-nums"
                 />
               </div>
-              <label
-                className={cn(
-                  "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm leading-none dark:border-zinc-800 dark:bg-zinc-900",
-                  !context.comercialSeleccionado && "opacity-50 pointer-events-none",
-                )}
-                title="Guardar nuevo precio en el comercial al registrar la compra"
-              >
-                <input
-                  type="checkbox"
-                  checked={context.actualizarPrecioVenta}
-                  disabled={!context.comercialSeleccionado}
-                  onChange={(e) => context.setActualizarPrecioVenta(e.target.checked)}
-                  className="size-3.5 shrink-0 rounded border-slate-300"
-                />
-                <span className="text-etiqueta font-bold uppercase leading-tight text-texto-tenue">
-                  Guardar
-                </span>
-              </label>
+              <div className="flex shrink-0 items-center gap-0.5">
+                <label
+                  className={cn(
+                    "flex shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-2 text-sm leading-none dark:border-zinc-800 dark:bg-zinc-900",
+                    !context.comercialSeleccionado && "opacity-50 pointer-events-none",
+                  )}
+                  title="Guardar nuevo precio en el comercial al registrar la compra"
+                >
+                  <input
+                    type="checkbox"
+                    checked={context.actualizarPrecioVenta}
+                    disabled={!context.comercialSeleccionado}
+                    onChange={(e) => context.setActualizarPrecioVenta(e.target.checked)}
+                    className="size-3.5 shrink-0 rounded border-slate-300"
+                  />
+                  <span className="text-etiqueta font-bold uppercase leading-tight text-texto-tenue">
+                    Guardar
+                  </span>
+                </label>
+                {bloqueoPrecioVenta && escenarioPrecio ? (
+                  <PrecioVentaAlertaPunto
+                    tone="red"
+                    message={`Venderías con pérdida: el precio no puede ser menor que ${fmtQ(escenarioPrecio.cppNuevo)}.`}
+                  />
+                ) : null}
+                {advertenciaCostoPromedioBajo && escenarioPrecio ? (
+                  <PrecioVentaAlertaPunto
+                    tone="amber"
+                    message={`El costo promedio bajó. Se recomienda mantener el precio actual; si lo bajas, no lo pongas bajo ${fmtQ(escenarioPrecio.precioMinimo)}.`}
+                  />
+                ) : null}
+                {advertenciaMargenBajo && escenarioPrecio ? (
+                  <PrecioVentaAlertaPunto
+                    tone="amber"
+                    message={`Margen bajo el mínimo (${margenMinimo}%). Mínimo recomendado: ${fmtQ(escenarioPrecio.precioMinimo)}.`}
+                  />
+                ) : null}
+              </div>
             </div>
-            {bloqueoPrecioVenta && escenarioPrecio ? (
-              <p className="text-etiqueta text-red-600 dark:text-red-400 mt-1 font-bold">
-                Venderías con pérdida: el precio no puede ser menor que{" "}
-                {fmtQ(escenarioPrecio.cppNuevo)}.
-              </p>
-            ) : null}
-            {advertenciaMargenBajo && escenarioPrecio ? (
-              <p className="text-etiqueta text-amber-600 dark:text-amber-400 mt-1 font-semibold">
-                Margen bajo el mínimo ({margenMinimo}%). Mínimo recomendado:{" "}
-                {fmtQ(escenarioPrecio.precioMinimo)}.
-              </p>
-            ) : null}
-            {escenarioPrecio &&
-            cantNumForm > 0 &&
-            costoNumForm > 0 &&
-            !escenarioPrecio.subirSugerido &&
-            escenarioPrecio.sugerido < escenarioPrecio.precioActual - 0.001 ? (
-              <p className="text-etiqueta text-amber-700 dark:text-amber-300 mt-1 font-semibold">
-                El costo promedio bajó. Se recomienda mantener el precio actual; si lo bajas, no lo
-                pongas bajo {fmtQ(escenarioPrecio.precioMinimo)}.
-              </p>
-            ) : null}
           </div>
         </div>
 
@@ -1043,11 +1119,29 @@ export function ComprasProductSection({ comerciales, proveedores }: ComprasProdu
                 {context.comercialSeleccionado.presentacion}
               </p>
             </div>
-            <div className="sm:col-span-2">
+            <div>
+              <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-etiqueta">
+                Costo promedio
+              </p>
+              <p className="text-slate-900 dark:text-white font-black text-lg mt-1 tabular-nums">
+                {costosComercial?.costo_promedio != null
+                  ? fmtQ(costosComercial.costo_promedio)
+                  : "—"}
+              </p>
+              {escenarioPrecio && cantNumForm > 0 && costoNumForm > 0 ? (
+                <p className="text-xs text-texto-tenue mt-1 tabular-nums">
+                  Tras esta compra:{" "}
+                  <span className="font-semibold text-slate-800 dark:text-slate-200">
+                    {fmtQ(escenarioPrecio.cppNuevo)}
+                  </span>
+                </p>
+              ) : null}
+            </div>
+            <div>
               <p className="font-bold text-[#2c5f9b] dark:text-[#6f9fd4] uppercase text-etiqueta">
                 Precio de venta (catálogo)
               </p>
-              <p className="text-slate-900 dark:text-white font-black text-lg mt-1">
+              <p className="text-slate-900 dark:text-white font-black text-lg mt-1 tabular-nums">
                 {fmtQ(context.comercialSeleccionado.precio_venta)}
               </p>
             </div>
