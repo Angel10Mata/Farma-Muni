@@ -7,7 +7,7 @@ const privateVapidKey = process.env.VAPID_PRIVATE_KEY || '';
 
 if (publicVapidKey && privateVapidKey) {
   webpush.setVapidDetails(
-    'mailto:contacto@kore.com', // Cambiar por tu correo
+    'mailto:contacto@farmamuni.com',
     publicVapidKey,
     privateVapidKey
   );

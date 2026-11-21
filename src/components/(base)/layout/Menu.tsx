@@ -635,20 +635,12 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
         <div className="mt-auto border-t border-zinc-800 px-5 py-4">
           <div className="flex flex-col items-center justify-center gap-1.5">
             <p className="text-etiqueta font-bold uppercase tracking-[0.28em] text-texto-tenue">
-              © 2026 KoreAPP
+              © 2026 FarmaMuni
             </p>
             <div className="text-etiqueta font-bold uppercase tracking-widest text-texto-tenue flex items-center gap-1">
-              Powered by{" "}
-              <a
-                href="https://www.oscar27jimenez.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline cursor-pointer inline-flex items-center"
-              >
-                <AuroraText className="text-etiqueta whitespace-nowrap">
-                  Kore | Ing. de Software
-                </AuroraText>
-              </a>
+              <AuroraText className="text-etiqueta whitespace-nowrap">
+                FarmaMuni | Sistema de Gestión
+              </AuroraText>
             </div>
           </div>
         </div>

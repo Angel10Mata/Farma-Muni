@@ -1,10 +1,8 @@
 "use server";
 
 import { unstable_rethrow } from "next/navigation";
-import { createClient } from "@/utils/supabase/server";
 import { requireSuper } from "@/lib/auth-guards";
 
-// Dispositivos pendientes de autorizar
 export async function getPendingDevicesCount() {
   try {
     const guard = await requireSuper();

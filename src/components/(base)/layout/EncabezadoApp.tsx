@@ -15,7 +15,7 @@ import { navIconColors, navMorphIcons } from "@/lib/morph-icons";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { BreadcrumbNav } from "@/components/ui/breadcrumb-nav";
 import Menu from "./Menu";
-import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
+import { getPendingDevicesCount } from "@/components/(base)/admin/lib/actions";
 import { createPortal } from "react-dom";
 import { LogoMuniFullscreen } from "@/components/(base)/layout/LogoMuniFullscreen";
 import { APP_LOGO_PATH } from "@/lib/app-config";
@@ -108,7 +108,7 @@ export default function EncabezadoApp() {
             <button
               id="refresh-btn"
               onClick={() => window.location.reload()}
-              className="flex items-center justify-center text-black hover:text-celeste-kore dark:text-white dark:hover:text-celeste-kore cursor-pointer transition-colors active:scale-95"
+              className="flex items-center justify-center text-black hover:text-celeste-farmamuni dark:text-white dark:hover:text-celeste-farmamuni cursor-pointer transition-colors active:scale-95"
             >
               <MorphIconBox
                 from={navMorphIcons.refresh.from}
@@ -169,7 +169,7 @@ export default function EncabezadoApp() {
                 </AnimatePresence>
               </button>
               {!isOpen && canSeePendingDevices && pendingDevices > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-celeste-kore text-etiqueta font-bold text-white animate-pulse pointer-events-none">
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-celeste-farmamuni text-etiqueta font-bold text-white animate-pulse pointer-events-none">
                   {pendingDevices}
                 </span>
               )}
