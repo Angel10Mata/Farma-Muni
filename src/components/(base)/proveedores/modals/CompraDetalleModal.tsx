@@ -1,9 +1,22 @@
 "use client";
 
+import { useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { ModalShell } from "@/components/ui/general-modal";
+import { Download as DownloadNode, FileDown } from "lucide";
+import { ModalShell, ModalFooter } from "@/components/ui/general-modal";
+import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { toast } from "react-toastify";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
 import { Compra } from "../lib/zod";
 import { fmtQ } from "@/lib/utils";
+import { obtenerDetalleCompra } from "../lib/actions";
+import { descargarReporteCompraDetallePdf } from "../lib/export-reporte-compra-detalle-pdf";
+import {
+  compraPagoVencido,
+  formatearFechaCompraGt,
+  totalPagadoCompra,
+} from "../lib/compras-helpers";
+import { InsigniaPagoVencidoCompra } from "../InsigniaPagoVencidoCompra";
 
 // Tipos
 type TransaccionCompra = {
@@ -51,11 +64,36 @@ export function CompraDetalleModal({
   isLoadingDetalles,
   detallesDeCompra,
 }: CompraDetalleModalProps) {
+  const [exportandoPdf, setExportandoPdf] = useState(false);
+
   if (!compra) return null;
 
-  const abonos = sumAbonosProveedor(compra.fin_transacciones);
+  const abonos = totalPagadoCompra(compra.fin_transacciones);
   const isPaid = abonos >= compra.total;
   const pagos = pagosProveedor(compra.fin_transacciones);
+  const pagoVencido = compraPagoVencido(compra);
+
+  const exportarPdf = async () => {
+    setExportandoPdf(true);
+    try {
+      const res = await obtenerDetalleCompra(compra.id);
+      if (!("success" in res) || !res.success) {
+        toast.error("No se pudo cargar el detalle de la compra.");
+        return;
+      }
+      const meta = await construirMetaInforme("Usuario");
+      descargarReporteCompraDetallePdf(
+        compra,
+        res.data as CompraDetalleModalProps["detallesDeCompra"],
+        meta,
+      );
+      toast.success("PDF generado.");
+    } catch {
+      toast.error("No se pudo generar el PDF.");
+    } finally {
+      setExportandoPdf(false);
+    }
+  };
 
   return (
     <ModalShell
@@ -68,35 +106,46 @@ export function CompraDetalleModal({
     >
       <div className="flex flex-col gap-4 text-left">
         <div className="rounded-2xl border border-zinc-200/80 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800">
-          <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500">Proveedor</p>
+          <p className="text-etiqueta font-bold uppercase tracking-wider text-zinc-500">Proveedor</p>
           <h4 className="text-base font-black text-zinc-900 dark:text-white">
             {compra.inv_proveedores?.nombre || "Proveedor Desconocido"}
           </h4>
           <p className="mt-0.5 text-xs text-zinc-500">
             NIT: {compra.inv_proveedores?.nit || "C/F"}
           </p>
-          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zinc-200/80 pt-3 text-[11px] text-zinc-500 dark:border-zinc-700">
+          <div className="mt-3 grid grid-cols-2 gap-2 border-t border-zinc-200/80 pt-3 text-etiqueta text-zinc-500 dark:border-zinc-700">
             <div>
-              <span className="block font-bold text-zinc-400">Fecha Registro</span>
+              <span className="block font-bold text-texto-tenue">Factura</span>
+              {compra.numero_factura?.trim() || "—"}
+            </div>
+            <div>
+              <span className="block font-bold text-texto-tenue">Vence pago</span>
+              {formatearFechaCompraGt(compra.fecha_vencimiento_pago)}
+            </div>
+            <div>
+              <span className="block font-bold text-texto-tenue">Fecha Registro</span>
               {new Date(compra.created_at).toLocaleString("es-GT")}
             </div>
             <div>
-              <span className="block font-bold text-zinc-400">Estado Pago</span>
-              <span
-                className={`mt-0.5 inline-block rounded px-2 py-0.5 text-[9px] font-bold uppercase ${
-                  isPaid
-                    ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                }`}
-              >
-                {isPaid ? "Pagado" : "Pendiente"}
+              <span className="block font-bold text-texto-tenue">Estado Pago</span>
+              <span className="mt-0.5 inline-flex flex-wrap items-center gap-1">
+                <span
+                  className={`inline-block rounded px-2 py-0.5 text-etiqueta font-bold uppercase ${
+                    isPaid
+                      ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                      : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+                  }`}
+                >
+                  {isPaid ? "Pagado" : "Pendiente"}
+                </span>
+                {pagoVencido && <InsigniaPagoVencidoCompra />}
               </span>
             </div>
           </div>
         </div>
 
         <div className="flex flex-col gap-2">
-          <h4 className="text-xs font-black uppercase tracking-wider text-zinc-400">
+          <h4 className="text-xs font-black uppercase tracking-wider text-texto-tenue">
             Detalle de Artículos
           </h4>
           {isLoadingDetalles ? (
@@ -114,7 +163,7 @@ export function CompraDetalleModal({
                     <p className="truncate font-bold text-zinc-900 dark:text-white">
                       {d.inv_productos?.nombre || "Pedido"}
                     </p>
-                    <p className="mt-0.5 text-[10px] text-zinc-400">
+                    <p className="mt-0.5 text-etiqueta text-texto-tenue">
                       Costo: {fmtQ(d.precio_costo)} | Cant: {d.cantidad}
                     </p>
                   </div>
@@ -128,7 +177,7 @@ export function CompraDetalleModal({
         </div>
 
         <div className="flex flex-col gap-2">
-          <h4 className="text-xs font-black uppercase tracking-wider text-zinc-400">
+          <h4 className="text-xs font-black uppercase tracking-wider text-texto-tenue">
             Historial de Pagos
           </h4>
           <div className="overflow-hidden rounded-2xl border border-zinc-200/80 bg-white text-xs dark:border-zinc-700 dark:bg-zinc-900">
@@ -152,7 +201,7 @@ export function CompraDetalleModal({
                     >
                       <div>
                         <p className="font-bold text-zinc-900 dark:text-white">{pago.concepto}</p>
-                        <p className="mt-0.5 text-[10px] text-zinc-400">
+                        <p className="mt-0.5 text-etiqueta text-texto-tenue">
                           Fecha: {dateStr} a las {timeStr}
                         </p>
                       </div>
@@ -164,10 +213,10 @@ export function CompraDetalleModal({
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center gap-1.5 p-4 text-center text-zinc-400">
+              <div className="flex flex-col items-center justify-center gap-1.5 p-4 text-center text-texto-tenue">
                 <AlertTriangle className="size-5 animate-pulse text-amber-500/80" />
-                <p className="text-[11px] font-bold text-zinc-500">Pendiente de pago</p>
-                <p className="text-[9px] text-zinc-400">
+                <p className="text-etiqueta font-bold text-zinc-500">Pendiente de pago</p>
+                <p className="text-etiqueta text-texto-tenue">
                   No se registran transacciones para esta compra.
                 </p>
               </div>
@@ -177,10 +226,10 @@ export function CompraDetalleModal({
 
         {compra.observaciones ? (
           <div className="text-xs">
-            <h4 className="mb-1 font-black uppercase tracking-wider text-zinc-400">
+            <h4 className="mb-1 font-black uppercase tracking-wider text-texto-tenue">
               Notas / Observaciones
             </h4>
-            <p className="rounded-xl border border-zinc-200/80 bg-white p-3 italic text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-400">
+            <p className="rounded-xl border border-zinc-200/80 bg-white p-3 italic text-zinc-600 dark:border-zinc-700 dark:bg-zinc-900">
               {compra.observaciones}
             </p>
           </div>
@@ -195,6 +244,19 @@ export function CompraDetalleModal({
           </span>
         </div>
       </div>
+
+      <ModalFooter>
+        <SigetActionButton
+          label="Exportar"
+          accentColor={sigetAccent.excel}
+          morphFrom={DownloadNode}
+          morphTo={FileDown}
+          onClick={() => void exportarPdf()}
+          disabled={exportandoPdf || isLoadingDetalles}
+          ariaBusy={exportandoPdf}
+          className="w-auto shrink-0"
+        />
+      </ModalFooter>
     </ModalShell>
   );
 }

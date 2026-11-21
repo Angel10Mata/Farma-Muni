@@ -1,6 +1,12 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { fechaCalendarioGt } from "@/lib/fechas-gt";
+import { diasRestantesVencimientoGt } from "@/lib/vencimientos-gt";
+import {
+  PLAZO_CREDITO_DIAS,
+  fechaVenceCreditoDesdeVenta,
+} from "./creditos-reporte-helpers";
 
 import type { CreditoResumen, VentaCreditoDetalle } from "./zod";
 
@@ -17,15 +23,34 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
 
     if (cliError) throw new Error(cliError.message);
 
-    // Ventas al crédito
-    const { data: ventasData, error: ventasError } = await supabase
-      .from("ventas")
-      .select("id, cliente_id, total, tipo_venta, created_at")
-      .eq("tipo_venta", "Crédito")
-      .order("created_at", { ascending: false })
-      .limit(2000);
+    const diasCreditoPlazo = PLAZO_CREDITO_DIAS;
+    const hoyCal = fechaCalendarioGt();
 
-    if (ventasError) throw new Error(ventasError.message);
+    const ventasData: Array<{
+      id: string;
+      cliente_id: string | null;
+      total: number | null;
+      tipo_venta: string | null;
+      created_at: string;
+      fecha_credito_vencimiento: string | null;
+    }> = [];
+    const PAGE = 500;
+    let offset = 0;
+    while (true) {
+      const { data: page, error: ventasError } = await supabase
+        .from("ventas")
+        .select("id, cliente_id, total, tipo_venta, created_at, fecha_credito_vencimiento, estado")
+        .eq("tipo_venta", "Crédito")
+        .neq("estado", "anulada")
+        .order("created_at", { ascending: false })
+        .range(offset, offset + PAGE - 1);
+
+      if (ventasError) throw new Error(ventasError.message);
+      if (!page?.length) break;
+      ventasData.push(...page);
+      if (page.length < PAGE) break;
+      offset += PAGE;
+    }
 
     // Abonos y cargos de esas ventas
     const ventasIds = ventasData ? ventasData.map((v: any) => v.id) : [];
@@ -68,17 +93,20 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
           cliente_id: row.id,
           nombre: row.nombre || "Cliente sin nombre",
           nit: row.nit || "C/F",
+          telefono: row.telefono?.trim() || "No registrado",
           limite_credito: "N/A",
           total_consumido: 0,
           saldo_pendiente: 0,
           estado: "Solventado",
           dias_atraso: 0,
+          dias_restantes: diasCreditoPlazo,
+          credito_vencido: false,
+          monto_credito_vencido: 0,
         });
       });
     }
 
     if (ventasData) {
-      const now = new Date().getTime();
       ventasData.forEach((v: any) => {
         if (!v.cliente_id) return;
         const c = clientCreditosMap.get(v.cliente_id);
@@ -93,9 +121,29 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
         c.saldo_pendiente += saldoVenta;
 
         if (saldoVenta > 0) {
-          const dias = Math.floor((now - new Date(v.created_at).getTime()) / (1000 * 3600 * 24));
-          if (dias > c.dias_atraso) {
-             c.dias_atraso = dias;
+          const fechaVenceIso = fechaVenceCreditoDesdeVenta(
+            v.created_at,
+            v.fecha_credito_vencimiento,
+          );
+          const diasRestantes = diasRestantesVencimientoGt(fechaVenceIso, hoyCal);
+          if (diasRestantes === null) return;
+
+          if (
+            c.dias_restantes === undefined ||
+            diasRestantes < c.dias_restantes
+          ) {
+            c.dias_restantes = diasRestantes;
+          }
+
+          const diasTranscurridos = diasCreditoPlazo - diasRestantes;
+          if (diasTranscurridos > c.dias_atraso) {
+            c.dias_atraso = Math.max(0, diasTranscurridos);
+          }
+
+          if (diasRestantes < 0) {
+            c.credito_vencido = true;
+            c.monto_credito_vencido =
+              (c.monto_credito_vencido ?? 0) + saldoVenta;
           }
         }
       });
@@ -107,7 +155,10 @@ export async function obtenerResumenCreditos(): Promise<CreditoResumen[]> {
       if (c.total_consumido > 0) {
         if (c.saldo_pendiente <= 0) {
            c.estado = "Solventado";
-        } else if (c.dias_atraso > 30) {
+        } else if (
+          c.credito_vencido ||
+          (c.dias_restantes ?? diasCreditoPlazo) < 0
+        ) {
            c.estado = "Atrasado";
         } else {
            c.estado = "Al día";
@@ -128,9 +179,12 @@ export async function obtenerDetalleCredito(clienteId: string): Promise<VentaCre
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("ventas")
-    .select("id, created_at, tipo_venta, total, observaciones, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)")
+    .select(
+      "id, created_at, numero_recibo, tipo_venta, total, estado, observaciones, fecha_credito_vencimiento, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
+    )
     .eq("cliente_id", clienteId)
     .eq("tipo_venta", "Crédito")
+    .neq("estado", "anulada")
     .order("created_at", { ascending: false });
 
   if (error) {

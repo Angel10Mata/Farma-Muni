@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Truck } from "lucide-react";
+import { toast } from "react-toastify";
+import { modalActionMessage } from "@/components/ui/general-modal";
 import { cn } from "@/lib/utils";
 import {
   modulePillSwitchBtnClass,
@@ -9,15 +11,14 @@ import {
 } from "@/components/ui/module-pill-switch";
 import { modulePageShellFixedClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
-import { ComprasProvider } from "./ComprasContext";
+import { ComprasProvider, useCompras } from "./ComprasContext";
 import { ComprasProductSection } from "./ComprasProductSection";
 import { ComprasCartSidebar } from "./ComprasCartSidebar";
 import { HistorialCompras } from "./HistorialCompras";
 import { CuentasPorPagar } from "./CuentasPorPagar";
 import { CatalogoProveedores } from "./CatalogoProveedores";
 import { CrearProveedor } from "./forms/Crear";
-import { useProveedoresYProductos, useHistorialCompras } from "./lib/hooks";
-
+import { useHistorialCompras, useProveedores, useProveedoresYProductos } from "./lib/hooks";
 // Tabs
 const COMPRAS_TABS = [
   { id: "ingresar_compra" as const, label: "Registrar" },
@@ -31,21 +32,66 @@ type ComprasTabId = (typeof COMPRAS_TABS)[number]["id"];
 function VerProveedoresInner() {
   // Estado
   const [activeTab, setActiveTab] = useState<ComprasTabId>("ingresar_compra");
-  const [isCrearOpen, setIsCrearOpen] = useState(false);
+  const { isCrearOpen, setIsCrearOpen } = useCompras();
 
   // Datos
   const { data: dataPP, isLoading: isLoadingPP, refetch: refetchPP } = useProveedoresYProductos();
-  const productos = dataPP?.productos || [];
-  const proveedores = dataPP?.proveedores || [];
-  
+  const {
+    data: proveedoresCatalogo = [],
+    isLoading: isLoadingProveedoresCatalogo,
+    isError: isErrorProveedoresCatalogo,
+    error: errorProveedoresCatalogo,
+    isFetched: proveedoresCatalogoFetched,
+    refetch: refetchProveedoresCatalogo,
+  } = useProveedores();
+  const comerciales = dataPP?.comerciales || [];
+  const proveedoresCompra = useMemo(
+    () => (dataPP?.proveedores ?? []).filter((p) => p.activo !== false),
+    [dataPP?.proveedores],
+  );
+
   const { data: compras = [], isLoading: isLoadingCompras, refetch: refetchCompras } = useHistorialCompras();
 
   const cargarDatos = () => {
     refetchPP();
+    refetchProveedoresCatalogo();
     refetchCompras();
   };
 
-  const isLoading = isLoadingPP || isLoadingCompras;
+  const isLoading = isLoadingPP || isLoadingProveedoresCatalogo || isLoadingCompras;
+
+  const mensajeListaProveedores = useMemo(() => {
+    if (isErrorProveedoresCatalogo) {
+      const code =
+        errorProveedoresCatalogo instanceof Error
+          ? errorProveedoresCatalogo.message
+          : undefined;
+      return modalActionMessage(
+        code,
+        "No se pudo cargar el catálogo de proveedores. Revisa la conexión con Supabase.",
+      );
+    }
+    if (proveedoresCatalogoFetched && proveedoresCatalogo.length === 0) {
+      return (
+        "En Supabase Table Editor ves todos los registros; en la app solo los que tu usuario puede leer. " +
+        "Confirma en profiles que tu rol sea super, admin, inventario, proveedores, finanzas o ventas, " +
+        "y que Vercel use el mismo proyecto Supabase (.env)."
+      );
+    }
+    return null;
+  }, [
+    isErrorProveedoresCatalogo,
+    errorProveedoresCatalogo,
+    proveedoresCatalogoFetched,
+    proveedoresCatalogo,
+  ]);
+
+  useEffect(() => {
+    if (!isErrorProveedoresCatalogo) return;
+    const code =
+      errorProveedoresCatalogo instanceof Error ? errorProveedoresCatalogo.message : undefined;
+    toast.error(modalActionMessage(code, "No se pudieron cargar los proveedores."));
+  }, [isErrorProveedoresCatalogo, errorProveedoresCatalogo]);
 
   if (isLoading) {
     return (
@@ -53,7 +99,7 @@ function VerProveedoresInner() {
         <div className="flex flex-col items-center justify-center gap-4">
           <div className="relative">
             <div className="absolute inset-0 bg-[#8DA78E] blur-xl opacity-20 rounded-full animate-pulse" />
-            <Truck className="size-12 text-[#8DA78E] animate-bounce" />
+            <Truck className="size-12 text-look-2-salvia-menta animate-bounce" />
           </div>
           <div className="flex flex-col items-center gap-2">
             <p className="text-slate-800 dark:text-slate-200 font-black text-xl uppercase tracking-widest">
@@ -75,24 +121,24 @@ function VerProveedoresInner() {
 
   return (
     <div className={modulePageShellFixedClass}>
-      <div className="flex shrink-0 flex-col gap-3 px-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+      <div className="flex shrink-0 flex-col gap-3 px-1 md:flex-row md:items-center md:justify-between md:gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <ModuleHeaderBackButton />
           <div className="min-w-0">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">
               Compras
             </p>
-            <h1 className="mt-1 truncate text-2xl font-black uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-3xl">
+            <h1 className="truncate text-2xl font-bold uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-3xl">
               Gestión de compra
             </h1>
           </div>
         </div>
 
-        <div className="flex w-full shrink-0 justify-end sm:w-auto">
+        <div className="flex w-full shrink-0 justify-end md:w-auto">
           <div
             className={cn(
               modulePillSwitchShellClass,
-              "relative z-30 w-fit max-w-full flex-nowrap",
+              "relative z-30 flex w-full max-w-full flex-nowrap md:w-fit",
             )}
             role="tablist"
             aria-label="Secciones de compras"
@@ -106,7 +152,10 @@ function VerProveedoresInner() {
                   role="tab"
                   aria-selected={isActive}
                   onClick={() => setActiveTab(tab.id)}
-                  className={modulePillSwitchBtnClass(isActive, { grow: false })}
+                  className={cn(
+                    modulePillSwitchBtnClass(isActive, { grow: false }),
+                    "min-w-0 flex-1 text-center md:flex-none",
+                  )}
                 >
                   {tab.label}
                 </button>
@@ -116,16 +165,16 @@ function VerProveedoresInner() {
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col pt-1">
+      <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex-1 min-h-0 h-full">
         {/* TAB 1: INGRESAR COMPRA */}
         {activeTab === "ingresar_compra" && (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start flex-1 min-h-0 h-full">
-            <div className="lg:col-span-8 flex flex-col gap-6 h-full min-h-0 overflow-y-auto pb-4 pr-1">
-              <ComprasProductSection productos={productos} proveedores={proveedores} />
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start flex-1 min-h-0 h-full">
+            <div className="lg:col-span-8 flex flex-col gap-4 h-full min-h-0 overflow-y-auto pb-2 pr-1">
+              <ComprasProductSection comerciales={comerciales} proveedores={proveedoresCompra} />
             </div>
             <div className="lg:col-span-4 h-full flex flex-col gap-4">
-              <ComprasCartSidebar proveedores={proveedores} cargarDatos={cargarDatos} />
+              <ComprasCartSidebar cargarDatos={cargarDatos} />
             </div>
           </div>
         )}
@@ -138,7 +187,8 @@ function VerProveedoresInner() {
         {/* TAB 3: CATÁLOGO DE PROVEEDORES */}
         {activeTab === "proveedores" && (
           <CatalogoProveedores
-            proveedores={proveedores}
+            proveedores={proveedoresCatalogo}
+            mensajeListaVacia={mensajeListaProveedores}
             cargarDatos={cargarDatos}
             setIsCrearOpen={setIsCrearOpen}
           />

@@ -1,26 +1,55 @@
 import webpush from "web-push";
 import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { isAdminRole } from "@/lib/user-role";
+import { requireApiSession } from "@/lib/api-session";
 
-// Enviar notificación push
 export async function POST(req: Request) {
-  if (process.env.APP_ENV !== 'production') {
-    return NextResponse.json({ error: 'Push notifications are disabled in non-production environments.' }, { status: 503 })
+  if (process.env.APP_ENV !== "production") {
+    return NextResponse.json(
+      { error: "Push notifications are disabled in non-production environments." },
+      { status: 503 },
+    );
   }
+
+  const session = await requireApiSession();
+  if (!session.ok) {
+    return session.response;
+  }
+
   try {
-    const { title, body, url, userId, broadcast } = await req.json();
-    const supabase = await createClient();
+    const body = (await req.json()) as {
+      title?: string;
+      body?: string;
+      url?: string;
+      userId?: string;
+      broadcast?: boolean;
+    };
+
+    const { title, body: messageBody, url, userId: bodyUserId, broadcast } = body;
+    const { supabase, user, role } = session;
+    const isAdmin = isAdminRole(role);
+
+    if (broadcast && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (bodyUserId && bodyUserId !== user.id && !isAdmin) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     webpush.setVapidDetails(
       "mailto:soporte@cermad.com",
       process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY as string,
-      process.env.VAPID_PRIVATE_KEY as string
+      process.env.VAPID_PRIVATE_KEY as string,
     );
 
     let query = supabase.from("push_subscriptions").select("*");
 
-    if (!broadcast && userId) {
-      query = query.eq("user_id", userId);
+    if (broadcast && isAdmin) {
+      // todas las suscripciones
+    } else {
+      const targetUserId = bodyUserId && isAdmin ? bodyUserId : user.id;
+      query = query.eq("user_id", targetUserId);
     }
 
     const { data: subscriptions, error } = await query;
@@ -33,11 +62,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ message: "No subscriptions found" });
     }
 
-    const payload = JSON.stringify({ 
-      title: title || "Nueva Notificación", 
-      body: body || "Tienes un nuevo mensaje", 
-      url: url || "/", 
-      icon: "/icon-192x192.png" 
+    const payload = JSON.stringify({
+      title: title || "Nueva Notificación",
+      body: messageBody || "Tienes un nuevo mensaje",
+      url: url || "/",
+      icon: "/icon-192x192.png",
     });
 
     const sendPromises = subscriptions.map(async (sub) => {
@@ -52,8 +81,10 @@ export async function POST(req: Request) {
       try {
         await webpush.sendNotification(pushSubscription, payload);
       } catch (err: unknown) {
-        if ((err as { statusCode?: number }).statusCode === 410 || (err as { statusCode?: number }).statusCode === 404) {
-          // Subscription expired or invalid
+        if (
+          (err as { statusCode?: number }).statusCode === 410 ||
+          (err as { statusCode?: number }).statusCode === 404
+        ) {
           await supabase.from("push_subscriptions").delete().eq("id", sub.id);
         } else {
           console.error("Error sending push to endpoint", sub.id, err);
@@ -63,7 +94,10 @@ export async function POST(req: Request) {
 
     await Promise.all(sendPromises);
 
-    return NextResponse.json({ success: true, message: `Notifications sent to ${subscriptions.length} devices.` });
+    return NextResponse.json({
+      success: true,
+      message: `Notifications sent to ${subscriptions.length} devices.`,
+    });
   } catch (err: unknown) {
     console.error("Push Error: ", err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });

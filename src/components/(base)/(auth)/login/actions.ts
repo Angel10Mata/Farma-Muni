@@ -21,7 +21,7 @@ export async function login(
   let email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
-  // Si el usuario ingresa solo "kore" (u otro usuario sin arroba), auto-completamos el correo
+  // Si el usuario ingresa solo su nombre de usuario (sin arroba), auto-completamos el correo
   if (email && !email.includes("@")) {
     email = `${email}@app.com`;
   }

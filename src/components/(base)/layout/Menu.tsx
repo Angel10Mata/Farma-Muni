@@ -14,7 +14,7 @@ import { AuroraText } from "@/components/ui/aurora-text";
 import { PushNotificationToggle } from "@/components/ui/PushNotificationToggle";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
-import { ADMIN_MENU_ITEMS, APP_MODULES } from "@/lib/app-modules";
+import { adminMenuItemsForRole, APP_MODULES } from "@/lib/app-modules";
 import {
   adminIconColors,
   adminMorphIcons,
@@ -46,7 +46,7 @@ function MenuSectionLabel({
   return (
     <div className="flex items-center gap-2 px-1 mb-3">
       <span className={cn("size-2 rounded-full shrink-0", dotClass)} />
-      <span className="text-[10px] font-black uppercase tracking-[0.22em] text-zinc-400">
+      <span className="text-etiqueta font-bold uppercase tracking-[0.22em] text-texto-tenue">
         {children}
       </span>
     </div>
@@ -57,7 +57,7 @@ function MenuAccordionChevron({ open }: { open: boolean }) {
   return (
     <ChevronDown
       className={cn(
-        "size-4 text-zinc-500 transition-transform duration-200 shrink-0",
+        "size-4 text-texto-tenue transition-transform duration-200 shrink-0",
         open && "rotate-180",
       )}
     />
@@ -80,6 +80,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
 
   const isRoot = pathname === "/farmamuni";
   const isSuperOrAdmin = ["super", "admin"].includes(effectiveRole);
+  const adminMenuItems = adminMenuItemsForRole(realRole);
   const mobileTop = isRoot ? "top-14" : "top-[6.5rem]";
   const mobileHeight = isRoot
     ? "h-[calc(100vh-3.5rem)]"
@@ -183,7 +184,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/70 p-4 space-y-3">
                 <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                   <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500 mb-1">
+                    <p className="text-etiqueta font-bold uppercase tracking-[0.18em] text-texto-tenue mb-1">
                       Usuario
                     </p>
                     <p className="text-sm font-bold text-[#6f9fd4] truncate">
@@ -191,7 +192,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                     </p>
                   </div>
                   <div>
-                    <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500 mb-1">
+                    <p className="text-etiqueta font-bold uppercase tracking-[0.18em] text-texto-tenue mb-1">
                       Rol
                     </p>
                     <p className="text-sm font-bold text-[#6f9fd4] uppercase">
@@ -200,7 +201,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                   </div>
                 </div>
                 <div>
-                  <p className="text-[9px] font-bold uppercase tracking-[0.18em] text-zinc-500 mb-1">
+                  <p className="text-etiqueta font-bold uppercase tracking-[0.18em] text-texto-tenue mb-1">
                     Nombre
                   </p>
                   <p className="text-base font-bold text-white truncate">
@@ -240,7 +241,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                     >
                       Inicio
                     </p>
-                    <p className="text-xs text-zinc-500 mt-0.5 leading-snug">
+                    <p className="text-xs text-texto-tenue mt-0.5 leading-snug">
                       Panel principal y acceso a los módulos del sistema.
                     </p>
                   </div>
@@ -273,7 +274,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                           <p className="text-sm font-black uppercase tracking-wide text-white">
                             FarmaMuni
                           </p>
-                          <p className="text-xs text-zinc-500 truncate">
+                          <p className="text-xs text-texto-tenue truncate">
                             Ventas, inventario, clientes y más.
                           </p>
                         </div>
@@ -315,7 +316,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                                 <p className="text-sm font-bold text-white">
                                   {mod.title}
                                 </p>
-                                <p className="text-[11px] text-zinc-500 line-clamp-1">
+                                <p className="text-etiqueta text-texto-tenue line-clamp-1">
                                   {mod.desc}
                                 </p>
                               </div>
@@ -363,7 +364,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                         <p className="text-sm font-black uppercase tracking-wide text-white">
                           Mi Perfil y Ajustes
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-texto-tenue">
                           Opciones de cuenta y seguridad.
                         </p>
                       </div>
@@ -394,7 +395,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                           <p className="text-sm font-bold text-white">
                             Mi Perfil
                           </p>
-                          <p className="text-[11px] text-zinc-500">
+                          <p className="text-etiqueta text-texto-tenue">
                             Datos personales y credenciales.
                           </p>
                         </div>
@@ -421,7 +422,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                           <p className="text-sm font-bold text-white">
                             Ingreso Seguro
                           </p>
-                          <p className="text-[11px] text-zinc-500">
+                          <p className="text-etiqueta text-texto-tenue">
                             Passkeys y acceso sin contraseña.
                           </p>
                         </div>
@@ -457,7 +458,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                           <p className="text-sm font-black uppercase tracking-wide text-[#6f9fd4]">
                             Ajustes Administrador
                           </p>
-                          <p className="text-xs text-zinc-500">
+                          <p className="text-xs text-texto-tenue">
                             Panel de administración de FarmaMuni.
                           </p>
                         </div>
@@ -490,12 +491,12 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                             <p className="text-sm font-bold text-white">
                               Panel Admin
                             </p>
-                            <p className="text-[11px] text-zinc-500">
+                            <p className="text-etiqueta text-texto-tenue">
                               Vista general de administración.
                             </p>
                           </div>
                         </Link>
-                        {ADMIN_MENU_ITEMS.map((item) => {
+                        {adminMenuItems.map((item) => {
                           const pair = adminMorphIcons[item.id];
                           const palette = adminIconColors[item.id];
                           const active = isActivePath(item.href);
@@ -528,7 +529,7 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                                 <p className="text-sm font-bold text-white">
                                   {item.title}
                                 </p>
-                                <p className="text-[11px] text-zinc-500 line-clamp-1">
+                                <p className="text-etiqueta text-texto-tenue line-clamp-1">
                                   {item.desc}
                                 </p>
                               </div>
@@ -554,17 +555,17 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
                         <p className="text-sm font-black uppercase tracking-wide text-violet-300">
                           Simular datos
                         </p>
-                        <p className="text-xs text-zinc-500">
+                        <p className="text-xs text-texto-tenue">
                           Vista previa con datos de ejemplo.
                         </p>
                       </div>
                     </div>
                     <span
                       className={cn(
-                        "text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg border shrink-0",
+                        "text-etiqueta font-bold uppercase tracking-wider px-2.5 py-1 rounded-lg border shrink-0",
                         isDemoMode
                           ? "border-violet-400/60 bg-violet-500/20 text-violet-200"
-                          : "border-zinc-700 bg-zinc-900 text-zinc-500",
+                          : "border-zinc-700 bg-zinc-900 text-texto-tenue",
                       )}
                     >
                       {isDemoMode ? "Activo" : "Off"}
@@ -633,21 +634,13 @@ export default function Menu({ isOpen, setIsOpen, user }: MenuProps) {
 
         <div className="mt-auto border-t border-zinc-800 px-5 py-4">
           <div className="flex flex-col items-center justify-center gap-1.5">
-            <p className="text-[10px] font-black uppercase tracking-[0.28em] text-zinc-500">
-              © 2026 KoreAPP
+            <p className="text-etiqueta font-bold uppercase tracking-[0.28em] text-texto-tenue">
+              © 2026 FarmaMuni
             </p>
-            <div className="text-[10px] font-bold uppercase tracking-widest text-zinc-500 flex items-center gap-1">
-              Powered by{" "}
-              <a
-                href="https://www.oscar27jimenez.com"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:underline cursor-pointer inline-flex items-center"
-              >
-                <AuroraText className="text-[10px] whitespace-nowrap">
-                  Kore | Ing. de Software
-                </AuroraText>
-              </a>
+            <div className="text-etiqueta font-bold uppercase tracking-widest text-texto-tenue flex items-center gap-1">
+              <AuroraText className="text-etiqueta whitespace-nowrap">
+                FarmaMuni | Sistema de Gestión
+              </AuroraText>
             </div>
           </div>
         </div>

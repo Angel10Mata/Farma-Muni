@@ -1,16 +1,34 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CrearProducto } from "./forms/Crear";
+import { CrearCatalogo, CrearGenerico } from "./forms/Crear";
 
-// Página para dar de alta un producto
 export function NuevoProducto() {
   const router = useRouter();
+  const [genericoAbierto, setGenericoAbierto] = useState(false);
+  const [catalogoTrasAlta, setCatalogoTrasAlta] = useState<string | undefined>();
 
   return (
-    <CrearProducto
-      onClose={() => router.push("/farmamuni/inventario")}
-      onSuccess={() => router.push("/farmamuni/inventario")}
-    />
+    <>
+      <CrearCatalogo
+        onClose={() => router.push("/farmamuni/inventario")}
+        onSuccess={() => {}}
+        onAgregarGenerico={(catalogoId) => {
+          setCatalogoTrasAlta(catalogoId);
+          setGenericoAbierto(true);
+        }}
+      />
+      {genericoAbierto ? (
+        <CrearGenerico
+          catalogoIdInicial={catalogoTrasAlta}
+          onClose={() => {
+            setGenericoAbierto(false);
+            router.push("/farmamuni/inventario");
+          }}
+          onSuccess={() => router.push("/farmamuni/inventario")}
+        />
+      ) : null}
+    </>
   );
 }

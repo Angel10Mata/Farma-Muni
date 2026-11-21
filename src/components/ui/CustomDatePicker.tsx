@@ -222,12 +222,12 @@ export const CustomDatePicker = ({
         className="flex h-[42px] min-w-[8.75rem] shrink-0 items-center justify-between rounded-xl border border-slate-200 bg-white px-2.5 py-1.5 text-left shadow-xs transition-all select-none hover:border-[#8DA78E] focus:outline-none focus:ring-1 focus:ring-[#8DA78E] dark:border-slate-800 dark:bg-zinc-900"
       >
         <div className="flex items-center">
-          <Calendar className="size-3.5 text-[#8DA78E] mr-1.5 shrink-0" />
+          <Calendar className="size-3.5 text-texto-acento mr-1.5 shrink-0" />
           <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
             {getDisplayDate()}
           </span>
         </div>
-        <ChevronDown className="size-3 text-slate-400 ml-1.5 shrink-0" />
+        <ChevronDown className="size-3 text-texto-tenue ml-1.5 shrink-0" />
       </button>
 
       <AnimatePresence>
@@ -271,7 +271,7 @@ export const CustomDatePicker = ({
                     <button
                       type="button"
                       onClick={() => setViewMode("months")}
-                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-texto-acento dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
                     >
                       {nombresMeses[navMonth]}
                       <ChevronDown className="size-3 opacity-60" />
@@ -279,7 +279,7 @@ export const CustomDatePicker = ({
                     <button
                       type="button"
                       onClick={() => setViewMode("years")}
-                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
+                      className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-texto-acento dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
                     >
                       {navYear}
                       <ChevronDown className="size-3 opacity-60" />
@@ -302,19 +302,19 @@ export const CustomDatePicker = ({
                   <button
                     type="button"
                     onClick={() => setViewMode("years")}
-                    className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 dark:text-[#A3BEB0] bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E] dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
+                    className="px-2.5 py-1 rounded-xl text-xs font-bold text-slate-800 bg-slate-100/80 dark:bg-zinc-900 hover:bg-[#8DA78E]/15 hover:text-texto-acento dark:hover:bg-[#8DA78E]/20 transition-all flex items-center gap-1 cursor-pointer"
                   >
                     {navYear}
                     <ChevronDown className="size-3 opacity-60" />
                   </button>
-                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0] px-1">
+                  <span className="text-xs font-bold text-slate-700 px-1">
                     {granularity === "month" ? "Seleccionar mes" : `Seleccionar mes (${navYear})`}
                   </span>
                   {granularity === "day" ? (
                     <button
                       type="button"
                       onClick={() => setViewMode("days")}
-                      className="text-xs font-bold text-[#8DA78E] hover:underline px-2 py-1 cursor-pointer"
+                      className="text-xs font-bold text-texto-acento hover:underline px-2 py-1 cursor-pointer"
                     >
                       Volver
                     </button>
@@ -334,7 +334,7 @@ export const CustomDatePicker = ({
                     <ChevronLeft className="size-4" />
                   </button>
 
-                  <span className="text-xs font-bold text-slate-700 dark:text-[#A3BEB0]">
+                  <span className="text-xs font-bold text-slate-700">
                     {yearRangeStart} - {yearRangeStart + 11}
                   </span>
 
@@ -352,7 +352,7 @@ export const CustomDatePicker = ({
             {/* DAYS VIEW */}
             {viewMode === "days" && granularity === "day" && (
               <>
-                <div className="grid grid-cols-7 gap-1 text-center mb-2 text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider select-none">
+                <div className="grid grid-cols-7 gap-1 text-center mb-2 text-etiqueta font-semibold text-texto-tenue uppercase tracking-wide select-none">
                   {["Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sa"].map((dayName) => (
                     <div key={dayName} className="py-1">{dayName}</div>
                   ))}
@@ -382,9 +382,9 @@ export const CustomDatePicker = ({
                             ? "bg-[#8DA78E] text-white shadow-sm shadow-[#8DA78E]/30 scale-105 font-bold"
                             : cell.isCurrentMonth
                             ? isToday()
-                              ? "border border-[#8DA78E] text-[#8DA78E] dark:text-[#A3BEB0] font-bold bg-[#8DA78E]/5 hover:bg-[#8DA78E]/10"
+                              ? "border border-[#8DA78E] text-texto-acento font-bold bg-[#8DA78E]/5 hover:bg-[#8DA78E]/10"
                               : "text-slate-800 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-zinc-900/60"
-                            : "text-slate-400/50 dark:text-slate-650/30 hover:bg-slate-50/50 dark:hover:bg-zinc-900/10"
+                            : "text-texto-tenue hover:bg-slate-50/50 dark:hover:bg-zinc-900/10"
                         }`}
                       >
                         {cell.day}
@@ -416,7 +416,7 @@ export const CustomDatePicker = ({
                         "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
                         isCurrentNavMonth
                           ? "bg-[#8DA78E] text-white shadow-md shadow-[#8DA78E]/30 scale-105"
-                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
+                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-texto-acento"
                       )}
                     >
                       {nombresMesesCortos[idx]}
@@ -443,7 +443,7 @@ export const CustomDatePicker = ({
                         "py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer",
                         isCurrentNavYear
                           ? "bg-[#8DA78E] text-white shadow-md shadow-[#8DA78E]/30 scale-105"
-                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-[#8DA78E]"
+                          : "bg-slate-50 dark:bg-zinc-900 text-slate-700 dark:text-slate-200 hover:bg-[#8DA78E]/15 hover:text-texto-acento"
                       )}
                     >
                       {y}
@@ -480,7 +480,7 @@ export const CustomDatePicker = ({
                   }
                   setIsOpen(false);
                 }}
-                className="px-2.5 py-1 text-[#8DA78E] dark:text-[#A3BEB0] hover:bg-[#8DA78E]/10 font-bold transition-colors cursor-pointer rounded-md"
+                className="px-2.5 py-1 text-texto-acento hover:bg-[#8DA78E]/10 font-bold transition-colors cursor-pointer rounded-md"
               >
                 {granularity === "month" ? "Mes actual" : "Hoy"}
               </button>

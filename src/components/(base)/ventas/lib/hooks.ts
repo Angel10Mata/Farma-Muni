@@ -1,4 +1,9 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  useQuery,
+  useMutation,
+  useQueryClient,
+  type QueryClient,
+} from "@tanstack/react-query";
 import { toast } from "@/components/ui/general-modal";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import {
@@ -11,6 +16,7 @@ import {
   demoQueryKey,
   resolveDemoData,
 } from "@/lib/demo/helpers";
+import { demoInvCostosComercial } from "@/lib/demo/inv-costos";
 import {
   obtenerHistorialVentas,
   obtenerDetalleVenta,
@@ -35,7 +41,16 @@ export function useDatosVentas() {
       resolveDemoData(
         isDemoMode,
         () => obtenerProductosYClientes(),
-        demoProductosPos,
+        () => {
+          const base = demoProductosPos();
+          return {
+            ...base,
+            comerciales: base.comerciales.map((c) => ({
+              ...c,
+              costo_promedio: demoInvCostosComercial(c.producto_id)?.costo_promedio ?? null,
+            })),
+          };
+        },
       ),
     staleTime: 1000 * 60 * 5,
   });
@@ -141,6 +156,39 @@ export function useEditarDetalleVenta() {
   });
 }
 
+const REBAJA_POLL_MS = 2500;
+
+export async function refrescarQueriesRebajaVentas(
+  queryClient: QueryClient,
+  solicitudId?: string | null,
+) {
+  await Promise.all([
+    queryClient.invalidateQueries({ queryKey: ["ventas", "rebajas-pendientes"] }),
+    queryClient.invalidateQueries({ queryKey: ["ventas", "mi-rebaja-pendiente"] }),
+    solicitudId
+      ? queryClient.invalidateQueries({
+          queryKey: ["ventas", "rebaja-estado", solicitudId],
+        })
+      : Promise.resolve(),
+  ]);
+  await Promise.all([
+    queryClient.refetchQueries({
+      queryKey: ["ventas", "rebajas-pendientes"],
+      type: "active",
+    }),
+    queryClient.refetchQueries({
+      queryKey: ["ventas", "mi-rebaja-pendiente"],
+      type: "active",
+    }),
+    solicitudId
+      ? queryClient.refetchQueries({
+          queryKey: ["ventas", "rebaja-estado", solicitudId],
+          type: "active",
+        })
+      : Promise.resolve(),
+  ]);
+}
+
 // Rebajas de precio
 export function useMiSolicitudRebajaPendiente(enabled: boolean) {
   const { isDemoMode } = useDemoMode();
@@ -153,6 +201,13 @@ export function useMiSolicitudRebajaPendiente(enabled: boolean) {
       return res.solicitud;
     },
     enabled: enabled && !isDemoMode,
+    refetchInterval: (query) => {
+      if (!enabled || isDemoMode) return false;
+      const estado = query.state.data?.estado;
+      if (estado === "pendiente") return REBAJA_POLL_MS;
+      return REBAJA_POLL_MS * 2;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -167,6 +222,8 @@ export function useSolicitudesRebajaPendientes(enabled: boolean) {
       return res.solicitudes;
     },
     enabled: enabled && !isDemoMode,
+    refetchInterval: enabled && !isDemoMode ? REBAJA_POLL_MS : false,
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -181,6 +238,12 @@ export function useEstadoSolicitudRebaja(solicitudId: string | null) {
       return res.solicitud;
     },
     enabled: !!solicitudId && !isDemoMode,
+    refetchInterval: (query) => {
+      const estado = query.state.data?.estado;
+      if (estado === "pendiente" || estado === undefined) return REBAJA_POLL_MS;
+      return false;
+    },
+    refetchOnWindowFocus: true,
   });
 }
 
@@ -192,11 +255,10 @@ export function useAprobarSolicitudRebaja() {
       assertWritableDemo(isDemoMode);
       return await aprobarSolicitudRebaja(solicitudId);
     },
-    onSuccess: (res) => {
+    onSuccess: (res, solicitudId) => {
       if (res.success) {
         toast.success("Rebaja autorizada");
-        queryClient.invalidateQueries({ queryKey: ["ventas", "rebajas-pendientes"] });
-        queryClient.invalidateQueries({ queryKey: ["ventas", "mi-rebaja-pendiente"] });
+        void refrescarQueriesRebajaVentas(queryClient, solicitudId);
       } else {
         toast.error(res.error ?? "No se pudo aprobar");
       }
@@ -215,11 +277,10 @@ export function useRechazarSolicitudRebaja() {
       assertWritableDemo(isDemoMode);
       return await rechazarSolicitudRebaja(params.solicitudId, params.motivo);
     },
-    onSuccess: (res) => {
+    onSuccess: (res, params) => {
       if (res.success) {
         toast.success("Solicitud rechazada");
-        queryClient.invalidateQueries({ queryKey: ["ventas", "rebajas-pendientes"] });
-        queryClient.invalidateQueries({ queryKey: ["ventas", "mi-rebaja-pendiente"] });
+        void refrescarQueriesRebajaVentas(queryClient, params.solicitudId);
       } else {
         toast.error(res.error ?? "No se pudo rechazar");
       }

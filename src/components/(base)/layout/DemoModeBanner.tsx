@@ -22,7 +22,7 @@ export default function DemoModeBanner() {
         <button
           type="button"
           onClick={() => setDemoMode(false)}
-          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-white/30 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide hover:bg-white/10 transition-colors cursor-pointer"
+          className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-white/30 px-2.5 py-1 text-etiqueta font-bold uppercase tracking-wide hover:bg-white/10 transition-colors cursor-pointer"
         >
           <X className="size-3.5" />
           Salir

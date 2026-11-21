@@ -97,7 +97,7 @@ export function SolicitudPasskey() {
       {isVisible && (
         <ModalForm onSubmit={handleRegister}>
           {passkeyCount !== null && (
-            <p className="text-xs font-semibold text-muted-foreground text-center">
+            <p className="text-xs font-semibold text-texto-tenue text-center">
               Dispositivos registrados: {passkeyCount} / 3
             </p>
           )}
@@ -130,7 +130,7 @@ export function SolicitudPasskey() {
               onChange={(e) => setDontShowAgain(e.target.checked)}
               className="size-4 rounded border-input bg-background"
             />
-            <span className="text-xs text-muted-foreground group-hover:text-foreground transition-colors">
+            <span className="text-xs text-texto-tenue group-hover:text-foreground transition-colors">
               No volver a preguntar en este dispositivo
             </span>
           </label>

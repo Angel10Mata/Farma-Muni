@@ -16,6 +16,7 @@ import { toast } from "react-toastify";
 import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
 import { useQueryClient } from "@tanstack/react-query";
 import { updateProfile } from "../lib/actions";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 import { useProfile } from "../lib/hooks";
 import { cn } from "@/lib/utils";
 
@@ -58,7 +59,7 @@ const Select = ({
         className,
       )}
     />
-    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+    <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-texto-tenue">
       <svg
         width="10"
         height="6"
@@ -114,7 +115,11 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
     setSaving(true);
 
     try {
-      await updateProfile(userId, formData);
+      const result = await updateProfile(userId, formData);
+      if (result && "code" in result) {
+        toast.error(modalActionMessage(result.code, "No se pudo guardar el perfil."));
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: ["profile", userId] });
       setHasChanges(false);
       toast.success("Guardado correctamente.");
@@ -126,7 +131,7 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
   };
 
   const NavButtons = (
-    <div className="flex md:hidden items-center gap-2 text-muted-foreground/60">
+    <div className="flex md:hidden items-center gap-2 text-texto-tenue/60">
       <button
         onClick={() => setStep((s) => Math.max(1, s - 1))}
         disabled={step === 1}
@@ -170,7 +175,7 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
           <div className="relative">
             <Fingerprint
               size={14}
-              className="absolute left-3 top-3 text-muted-foreground"
+              className="absolute left-3 top-3 text-texto-tenue"
             />
             <Input
               name="dpi"
@@ -205,7 +210,7 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
           >
             <Calendar
               size={14}
-              className="absolute left-3 text-muted-foreground pointer-events-none z-10"
+              className="absolute left-3 text-texto-tenue pointer-events-none z-10"
             />
             <Input
               type="date"
@@ -306,7 +311,7 @@ export const CamposPerfil = ({ userId, canEdit }: InfoPerfilProps) => {
   );
 
   return (
-    <div className="w-full flex flex-col h-full animate-in fade-in duration-300 ">
+    <div className="w-full flex flex-col h-full animate-in fade-in duration-300">
       <div className="hidden md:grid md:grid-cols-3 md:mx-20 gap-10 pb-6">
         {SectionPersonal}
         {SectionContacto}

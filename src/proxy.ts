@@ -1,6 +1,7 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { isAdminRole, resolveUserRole } from "@/lib/user-role";
 import { createClient } from "@/utils/supabase/proxy";
+import { isStaleRefreshTokenError } from "@/lib/supabase-session";
 
 // MIDDLEWARE: AUTH, DISPOSITIVOS Y ADMIN
 
@@ -8,10 +9,18 @@ export async function proxy(request: NextRequest) {
   const { supabase, response } = createClient(request);
   let user = null;
   try {
-    const { data } = await supabase.auth.getUser();
-    user = data.user;
+    const { data, error } = await supabase.auth.getUser();
+    if (error && isStaleRefreshTokenError(error)) {
+      await supabase.auth.signOut();
+    } else {
+      user = data.user;
+    }
   } catch (error) {
-    console.error("Supabase auth error in proxy:", error);
+    if (!isStaleRefreshTokenError(error)) {
+      console.error("Supabase auth error in proxy:", error);
+    } else {
+      await supabase.auth.signOut();
+    }
   }
   const pathname = request.nextUrl.pathname;
 

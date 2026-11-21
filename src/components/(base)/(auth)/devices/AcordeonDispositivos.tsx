@@ -64,7 +64,7 @@ export function AcordeonDispositivos({ groups }: { groups: UserGroup[] }) {
     <div className="w-full lg:w-4/5 mx-auto space-y-4">
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-texto-tenue" />
         <input
           type="text"
           value={search}
@@ -76,7 +76,7 @@ export function AcordeonDispositivos({ groups }: { groups: UserGroup[] }) {
 
       {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="p-12 text-center text-muted-foreground italic text-sm">
+        <div className="p-12 text-center text-texto-tenue italic text-sm">
           {search ? "Sin resultados para esa búsqueda." : "No hay registros de dispositivos."}
         </div>
       )}
@@ -97,11 +97,11 @@ export function AcordeonDispositivos({ groups }: { groups: UserGroup[] }) {
             >
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-muted">
-                  <User className="size-4 text-muted-foreground" />
+                  <User className="size-4 text-texto-tenue" />
                 </div>
                 <div className="text-left">
                   <p className="text-sm font-bold">{group.name}</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="text-etiqueta text-texto-tenue">
                     {group.devices.length} dispositivo{group.devices.length !== 1 && "s"}
                     {pending > 0 && (
                       <span className="ml-2 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold">
@@ -113,13 +113,13 @@ export function AcordeonDispositivos({ groups }: { groups: UserGroup[] }) {
               </div>
               <div className="flex items-center gap-3">
                 {pending > 0 && (
-                  <span className="flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-500 text-[11px] font-bold text-white animate-pulse">
+                  <span className="flex items-center justify-center min-w-[22px] h-[22px] px-1.5 rounded-full bg-amber-500 text-etiqueta font-bold text-white animate-pulse">
                     {pending}
                   </span>
                 )}
                 <ChevronDown
                   className={cn(
-                    "size-4 text-muted-foreground transition-transform duration-300",
+                    "size-4 text-texto-tenue transition-transform duration-300",
                     isOpen && "rotate-180"
                   )}
                 />
@@ -163,7 +163,7 @@ export function AcordeonDispositivos({ groups }: { groups: UserGroup[] }) {
                             )}
                             <span
                               className={cn(
-                                "text-[8px] font-bold uppercase tracking-widest leading-none",
+                                "text-etiqueta font-bold uppercase tracking-widest leading-none",
                                 dev.is_authorized
                                   ? "text-emerald-600 dark:text-emerald-400"
                                   : "text-amber-600 dark:text-amber-400"
@@ -181,10 +181,10 @@ export function AcordeonDispositivos({ groups }: { groups: UserGroup[] }) {
                         {/* Row 1: device icons · date */}
                         <div className="flex items-center justify-between px-3 py-2 border-b border-border/50">
                           <div className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-background border border-border">
-                            <Monitor className="size-3.5 text-muted-foreground" />
-                            <Smartphone className="size-3 text-muted-foreground" />
+                            <Monitor className="size-3.5 text-texto-tenue" />
+                            <Smartphone className="size-3 text-texto-tenue" />
                           </div>
-                          <div className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                          <div className="flex items-center gap-1 text-etiqueta text-texto-tenue">
                             <Calendar className="size-3 shrink-0" />
                             {format(new Date(dev.created_at), "dd/MM/yyyy HH:mm", {
                               locale: es,
@@ -198,7 +198,7 @@ export function AcordeonDispositivos({ groups }: { groups: UserGroup[] }) {
                             {dev.friendly_name || dev.device_name}
                           </p>
                           {dev.friendly_name && (
-                            <p className="text-[10px] text-muted-foreground break-words leading-snug mt-0.5">
+                            <p className="text-etiqueta text-texto-tenue break-words leading-snug mt-0.5">
                               {dev.device_name}
                             </p>
                           )}

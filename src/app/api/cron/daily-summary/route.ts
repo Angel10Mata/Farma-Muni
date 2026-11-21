@@ -1,60 +1,72 @@
-import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import { sendPushNotification } from '@/utils/pushServer';
+import { NextResponse } from "next/server";
+import { createAdminClient } from "@/utils/supabase/admin";
+import { sendPushNotification } from "@/utils/pushServer";
+import { assertCronAuthorized } from "@/lib/api-cron-auth";
+import { obtenerResumenLotesVencimiento } from "@/lib/resumen-lotes-vencimiento";
 
-// Resumen diario (tarea programada)
 export async function GET(request: Request) {
+  const denied = assertCronAuthorized(request);
+  if (denied) {
+    return denied;
+  }
+
   try {
-    // Para seguridad, podrías validar un Header Authorization de tu servicio Cron.
-    // Por simplicidad, aquí procesamos directamente.
+    const supabase = createAdminClient();
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-    const supabaseServiceRole = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-
-    const supabase = createClient(supabaseUrl, supabaseServiceRole, {
-      auth: { autoRefreshToken: false, persistSession: false }
-    });
-
-    // Obtener ventas del día de hoy
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
 
     const endOfDay = new Date();
     endOfDay.setHours(23, 59, 59, 999);
 
-    const { data: ventas, error } = await supabase
-      .from('ven_ventas')
-      .select('total, estado')
-      .gte('fecha', startOfDay.toISOString())
-      .lte('fecha', endOfDay.toISOString())
-      .eq('estado', 'completada');
+    const { data: ventasRaw, error } = await supabase
+      .from("ventas")
+      .select("total, estado")
+      .gte("created_at", startOfDay.toISOString())
+      .lte("created_at", endOfDay.toISOString());
 
     if (error) {
-      console.error('Error obteniendo ventas:', error);
+      console.error("Error obteniendo ventas:", error);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    const totalVentas = ventas?.length || 0;
-    const totalIngresos = ventas?.reduce((sum, v) => sum + Number(v.total), 0) || 0;
-
-    // Enviar notificación a Admin y Super
-    await sendPushNotification(
-      {
-        title: '📊 Corte de Caja Diario',
-        body: `Se realizaron ${totalVentas} ventas hoy con un total de Q${totalIngresos.toFixed(2)}.`,
-        url: '/farmamuni/finanzas' // URL al hacer clic en la notificación
-      },
-      ['admin', 'super']
+    const ventas = (ventasRaw ?? []).filter(
+      (v) => (v.estado ?? "activa") !== "anulada",
     );
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Corte de caja procesado y notificado',
-      stats: { totalVentas, totalIngresos }
-    });
+    const totalVentas = ventas.length;
+    const totalIngresos = ventas.reduce((sum, v) => sum + Number(v.total), 0);
 
-  } catch (error: any) {
-    console.error('Error en el cron de reporte diario:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    let lotesPorVencer30 = 0;
+    try {
+      const venc = await obtenerResumenLotesVencimiento(supabase);
+      lotesPorVencer30 = venc.lotesPorVencer30;
+    } catch (vencErr) {
+      console.error("Error resumen vencimientos:", vencErr);
+    }
+
+    const parteVenc =
+      lotesPorVencer30 > 0
+        ? ` ${lotesPorVencer30} lote(s) vencen en los próximos 30 días.`
+        : "";
+
+    await sendPushNotification(
+      {
+        title: "📊 Corte de Caja Diario",
+        body: `Se realizaron ${totalVentas} ventas hoy con un total de Q${totalIngresos.toFixed(2)}.${parteVenc}`,
+        url: "/farmamuni/finanzas",
+      },
+      ["admin", "super"],
+    );
+
+    return NextResponse.json({
+      success: true,
+      message: "Corte de caja procesado y notificado",
+      stats: { totalVentas, totalIngresos, lotesPorVencer30 },
+    });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Error inesperado";
+    console.error("Error en el cron de reporte diario:", error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

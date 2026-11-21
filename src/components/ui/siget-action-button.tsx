@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 
 // Colores por tipo de acción
 export const sigetBtnSurface =
-  "h-9 min-w-0 border-2 border-border bg-white px-2.5 py-0 text-xs font-bold shadow-none hover:bg-zinc-50 dark:border-zinc-700 dark:bg-card dark:hover:bg-zinc-800";
+  "h-9 min-w-0 border-2 border-border bg-white px-2.5 py-0 text-sm font-semibold shadow-none hover:bg-zinc-50 dark:border-zinc-700 dark:bg-card dark:hover:bg-zinc-800";
 
 export const sigetAccent = {
   abrir: "#2E9BD0",

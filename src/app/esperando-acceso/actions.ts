@@ -6,7 +6,7 @@ import { sendPushToRoles } from "@/utils/push-utils";
 
 // Aviso a administradores
 async function notifySpecialRoles(userName: string, isResend: boolean) {
-  const roles = ["super", "admin"];
+  const roles = ["super"];
   const title = isResend ? "Nueva Solicitud de Acceso" : "Usuario Esperando Acceso";
   const body = isResend 
     ? `${userName} ha vuelto a enviar su solicitud para autorizar este dispositivo.`

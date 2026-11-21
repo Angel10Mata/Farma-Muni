@@ -1,21 +1,27 @@
 import ExcelJS from "exceljs";
-import { saveAs } from "file-saver";
+import { hexArgb, PALETA, type MetaInforme } from "@/lib/reportes/identidad";
+import {
+  crearLibro,
+  guardarLibro,
+  hojaConEncabezado,
+} from "@/lib/reportes/excel-base";
+import { nombreArchivo } from "@/lib/reportes/nombres";
 import { fmtQ } from "@/lib/utils";
 import type { ReporteVentasMes } from "./reporte-ventas-mes";
 
-const VERDE = "FF8DA78E";
-const VERDE_OSCURO = "FF3B523D";
-const VERDE_SUAVE = "FFE8F0E9";
+const VERDE = hexArgb(PALETA.secundario);
+const VERDE_OSCURO = hexArgb(PALETA.primario);
+const VERDE_SUAVE = hexArgb(PALETA.claro);
 const VERDE_PALIDO = "FFF4F7F4";
 const NARANJA = "FFC28A38";
-const GRIS = "FF71717A";
+const GRIS = hexArgb(PALETA.gris);
 const GRIS_CLARO = "FFF4F4F5";
 const GRIS_BORDE = "FFE4E4E7";
-const TEXTO = "FF18181B";
+const TEXTO = hexArgb(PALETA.texto);
 const BADGE_OK = "FFDCEBDF";
 const BADGE_OK_TXT = "FF15803D";
 const BADGE_ANUL = "FFFECACA";
-const BADGE_ANUL_TXT = "FFB91C1C";
+const BADGE_ANUL_TXT = hexArgb(PALETA.rojo);
 const BLANCO = "FFFFFFFF";
 
 const bordeFino: Partial<ExcelJS.Borders> = {
@@ -25,51 +31,14 @@ const bordeFino: Partial<ExcelJS.Borders> = {
   right: { style: "thin", color: { argb: GRIS_BORDE } },
 };
 
-function subtituloGeneracion(reporte: ReporteVentasMes): string {
-  const fechaGen = new Date().toLocaleString("es-GT", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-  return `${reporte.periodoLabel} — generado el ${fechaGen} — realizado por ${reporte.generadoPor}`;
-}
-
-function encabezadoInforme(
-  ws: ExcelJS.Worksheet,
-  reporte: ReporteVentasMes,
-  anchoMerge: number,
-) {
-  ws.mergeCells(1, 1, 1, anchoMerge);
-  const marca = ws.getCell(1, 1);
-  marca.value = "FARMAMUNI  ·  SISTEMA DE FARMACIA";
-  marca.font = { bold: true, size: 9, color: { argb: VERDE } };
-  marca.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
-  ws.getRow(1).height = 16;
-
-  ws.mergeCells(2, 1, 2, anchoMerge);
-  const titulo = ws.getCell(2, 1);
-  titulo.value = "Reporte mensual de ventas";
-  titulo.font = { bold: true, size: 16, color: { argb: TEXTO } };
-  titulo.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
-  ws.getRow(2).height = 24;
-
-  ws.mergeCells(3, 1, 3, anchoMerge);
-  const sub = ws.getCell(3, 1);
-  sub.value = subtituloGeneracion(reporte);
-  sub.font = { size: 10, color: { argb: GRIS } };
-  sub.alignment = { vertical: "middle", horizontal: "left", indent: 1 };
-  ws.getRow(3).height = 18;
-
-  for (let c = 1; c <= anchoMerge; c++) {
-    const linea = ws.getCell(4, c);
-    linea.border = {
-      bottom: { style: "medium", color: { argb: VERDE } },
-    };
-  }
-  ws.getRow(4).height = 6;
+function encabezadoOpts(reporte: ReporteVentasMes, meta: MetaInforme) {
+  return {
+    titulo: "Reporte mensual de ventas",
+    periodo: reporte.periodoLabel,
+    generadoPor: meta.generadoPor,
+    institucion: meta.institucion,
+    columnasMerge: 8,
+  };
 }
 
 function tituloSeccion(ws: ExcelJS.Worksheet, fila: number, texto: string) {
@@ -135,12 +104,13 @@ function barraProgreso(
   ws.getRow(fila).height = 20;
 }
 
-function hojaResumen(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
-  const ws = wb.addWorksheet("Resumen", {
-    views: [{ showGridLines: false }],
-  });
-  encabezadoInforme(ws, reporte, 8);
-  let r = tituloSeccion(ws, 6, "Resumen del mes");
+function hojaResumen(
+  wb: ExcelJS.Workbook,
+  reporte: ReporteVentasMes,
+  meta: MetaInforme,
+) {
+  const { ws, filaInicio } = hojaConEncabezado(wb, "Resumen", encabezadoOpts(reporte, meta));
+  let r = tituloSeccion(ws, filaInicio, "Resumen del mes");
 
   const ticket =
     reporte.resumen.ventasActivas > 0
@@ -238,23 +208,46 @@ function hojaResumen(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
   ws.getColumn(8).width = 14;
 }
 
-function hojaFormaPago(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
-  const ws = wb.addWorksheet("Forma de pago", {
-    views: [{ showGridLines: false }],
-  });
-  encabezadoInforme(ws, reporte, 8);
-  let r = tituloSeccion(ws, 6, "Forma de pago");
-
-  const max = Math.max(
-    reporte.resumen.porContado,
-    reporte.resumen.porCredito,
-    reporte.resumen.porTarjeta,
-    1,
+function hojaFormaPago(
+  wb: ExcelJS.Workbook,
+  reporte: ReporteVentasMes,
+  meta: MetaInforme,
+) {
+  const { ws, filaInicio } = hojaConEncabezado(
+    wb,
+    "Forma de pago",
+    encabezadoOpts(reporte, meta),
   );
-  barraProgreso(ws, r, "Contado", reporte.resumen.porContado, max, VERDE);
-  barraProgreso(ws, r + 1, "Crédito", reporte.resumen.porCredito, max, NARANJA);
-  barraProgreso(ws, r + 2, "Tarjeta", reporte.resumen.porTarjeta, max, GRIS_BORDE);
-  ws.getColumn(1).width = 12;
+  let r = tituloSeccion(ws, filaInicio, "Forma de pago");
+
+  encabezadoTabla(ws, r, ["FORMA", "VENTAS", "MONTO"]);
+  cuerpoTabla(ws, r + 1, [
+    [
+      "Contado",
+      reporte.resumen.porContado.cantidad,
+      reporte.resumen.porContado.monto,
+    ],
+    [
+      "Tarjeta",
+      reporte.resumen.porTarjeta.cantidad,
+      reporte.resumen.porTarjeta.monto,
+    ],
+    [
+      "Crédito",
+      reporte.resumen.porCredito.cantidad,
+      reporte.resumen.porCredito.monto,
+    ],
+  ]);
+  for (let i = 0; i < 3; i++) {
+    const row = ws.getRow(r + 1 + i);
+    row.getCell(2).numFmt = "#,##0";
+    row.getCell(3).numFmt = '"Q"#,##0.00';
+    row.getCell(2).alignment = { horizontal: "right", vertical: "middle" };
+    row.getCell(3).alignment = { horizontal: "right", vertical: "middle" };
+  }
+  ws.getColumn(1).width = 14;
+  ws.getColumn(2).width = 12;
+  ws.getColumn(3).width = 16;
 }
 
 function encabezadoTabla(ws: ExcelJS.Worksheet, fila: number, titulos: string[]) {
@@ -303,12 +296,13 @@ function cuerpoTabla(
   });
 }
 
-function hojaAnuladas(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
-  const ws = wb.addWorksheet("Anuladas", {
-    views: [{ showGridLines: false }],
-  });
-  encabezadoInforme(ws, reporte, 8);
-  let r = tituloSeccion(ws, 6, "Ventas anuladas");
+function hojaAnuladas(
+  wb: ExcelJS.Workbook,
+  reporte: ReporteVentasMes,
+  meta: MetaInforme,
+) {
+  const { ws, filaInicio } = hojaConEncabezado(wb, "Anuladas", encabezadoOpts(reporte, meta));
+  let r = tituloSeccion(ws, filaInicio, "Ventas anuladas");
 
   if (!reporte.anulaciones.length) {
     ws.mergeCells(r, 1, r, 8);
@@ -344,12 +338,14 @@ function hojaAnuladas(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
   ws.getColumn(5).width = 40;
 }
 
-function hojaHistorial(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
-  const ws = wb.addWorksheet("Historial", {
-    views: [{ state: "frozen", ySplit: 10, showGridLines: false }],
-  });
-  encabezadoInforme(ws, reporte, 8);
-  const r = tituloSeccion(ws, 6, "Historial de ventas");
+function hojaHistorial(
+  wb: ExcelJS.Workbook,
+  reporte: ReporteVentasMes,
+  meta: MetaInforme,
+) {
+  const { ws, filaInicio } = hojaConEncabezado(wb, "Historial", encabezadoOpts(reporte, meta));
+  ws.views = [{ state: "frozen", ySplit: filaInicio, showGridLines: false }];
+  const r = tituloSeccion(ws, filaInicio, "Historial de ventas");
 
   encabezadoTabla(ws, r, [
     "RECIBO",
@@ -369,7 +365,11 @@ function hojaHistorial(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
   ]);
   cuerpoTabla(ws, r + 1, filas);
   filas.forEach((fila, idx) => {
-    const cell = ws.getRow(r + 1 + idx).getCell(6);
+    const row = ws.getRow(r + 1 + idx);
+    const totalCell = row.getCell(5);
+    totalCell.numFmt = '"Q"#,##0.00';
+    totalCell.alignment = { horizontal: "right", vertical: "middle" };
+    const cell = row.getCell(6);
     const estado = String(fila[5]);
     if (estado === "Vigente") {
       cell.fill = {
@@ -398,12 +398,44 @@ function hojaHistorial(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
   ws.getColumn(6).width = 12;
 }
 
-function hojaMasVendidos(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
-  const ws = wb.addWorksheet("Más vendidos", {
-    views: [{ showGridLines: false }],
+function hojaVendedores(
+  wb: ExcelJS.Workbook,
+  reporte: ReporteVentasMes,
+  meta: MetaInforme,
+) {
+  const { ws, filaInicio } = hojaConEncabezado(
+    wb,
+    "Vendedores",
+    encabezadoOpts(reporte, meta),
+  );
+  const r = tituloSeccion(ws, filaInicio, "Resumen por vendedor");
+  encabezadoTabla(ws, r, ["VENDEDOR", "VENTAS", "MONTO"]);
+  cuerpoTabla(
+    ws,
+    r + 1,
+    reporte.porVendedor.map((v) => [v.vendedor, v.ventas, v.monto]),
+  );
+  reporte.porVendedor.forEach((_, idx) => {
+    const row = ws.getRow(r + 1 + idx);
+    row.getCell(2).numFmt = "#,##0";
+    row.getCell(3).numFmt = '"Q"#,##0.00';
   });
-  encabezadoInforme(ws, reporte, 8);
-  let r = tituloSeccion(ws, 6, "Medicamentos más vendidos (vigentes)");
+  ws.getColumn(1).width = 28;
+  ws.getColumn(2).width = 12;
+  ws.getColumn(3).width = 16;
+}
+
+function hojaMasVendidos(
+  wb: ExcelJS.Workbook,
+  reporte: ReporteVentasMes,
+  meta: MetaInforme,
+) {
+  const { ws, filaInicio } = hojaConEncabezado(
+    wb,
+    "Más vendidos",
+    encabezadoOpts(reporte, meta),
+  );
+  let r = tituloSeccion(ws, filaInicio, "Medicamentos más vendidos (vigentes)");
 
   const items = reporte.topProductos;
   if (!items.length) {
@@ -413,47 +445,52 @@ function hojaMasVendidos(wb: ExcelJS.Workbook, reporte: ReporteVentasMes) {
     return;
   }
 
-  const max = Math.max(...items.map((p) => p.cantidad), 1);
-  items.forEach((prod, i) => {
-    const fila = r + i;
-    ws.getCell(fila, 1).value = prod.nombre;
-    ws.getCell(fila, 1).font = { size: 9, color: { argb: TEXTO } };
-    ws.getCell(fila, 1).alignment = { vertical: "middle" };
-
-    const t = items.length > 1 ? i / (items.length - 1) : 0;
-    const rC = Math.round(141 + (248 - 141) * t);
-    const gC = Math.round(167 + (250 - 167) * t);
-    const bC = Math.round(142 + (248 - 142) * t);
-    const colorBarra =
-      `FF${rC.toString(16).padStart(2, "0")}${gC.toString(16).padStart(2, "0")}${bC.toString(16).padStart(2, "0")}`.toUpperCase();
-
-    const llenos = Math.round((prod.cantidad / max) * 12);
-    for (let s = 0; s < 12; s++) {
-      rellenoCelda(ws.getCell(fila, 3 + s), s < llenos ? colorBarra : GRIS_CLARO);
+  encabezadoTabla(ws, r, [
+    "PRODUCTO",
+    "MARCA",
+    "CANT.",
+    "MONTO",
+    "COSTO",
+    "GANANCIA",
+  ]);
+  cuerpoTabla(
+    ws,
+    r + 1,
+    items.map((p) => [
+      p.producto,
+      p.marca,
+      p.cantidad,
+      p.monto,
+      p.costo,
+      p.ganancia,
+    ]),
+  );
+  items.forEach((_, idx) => {
+    const row = ws.getRow(r + 1 + idx);
+    row.getCell(3).numFmt = "#,##0";
+    for (let c = 4; c <= 6; c++) {
+      row.getCell(c).numFmt = '"Q"#,##0.00';
     }
-    ws.getCell(fila, 16).value = prod.cantidad;
-    ws.getCell(fila, 16).font = { bold: true, size: 9 };
-    ws.getRow(fila).height = 18;
   });
-
-  ws.getColumn(1).width = 38;
-  ws.getColumn(2).width = 2;
+  ws.getColumn(1).width = 32;
+  ws.getColumn(2).width = 22;
 }
 
-export async function descargarReporteVentasMesExcel(reporte: ReporteVentasMes) {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "FarmaMuni";
-  wb.created = new Date();
+export async function descargarReporteVentasMesExcel(
+  reporte: ReporteVentasMes,
+  meta: MetaInforme,
+) {
+  const wb = crearLibro();
 
-  hojaResumen(wb, reporte);
-  hojaFormaPago(wb, reporte);
-  hojaAnuladas(wb, reporte);
-  hojaHistorial(wb, reporte);
-  hojaMasVendidos(wb, reporte);
+  hojaResumen(wb, reporte, meta);
+  hojaFormaPago(wb, reporte, meta);
+  hojaAnuladas(wb, reporte, meta);
+  hojaHistorial(wb, reporte, meta);
+  hojaVendedores(wb, reporte, meta);
+  hojaMasVendidos(wb, reporte, meta);
 
-  const buffer = await wb.xlsx.writeBuffer();
-  const blob = new Blob([buffer], {
-    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-  });
-  saveAs(blob, `Reporte_Ventas_${reporte.periodoClave}.xlsx`);
+  await guardarLibro(
+    wb,
+    nombreArchivo("Reporte_Ventas", reporte.periodoClave, "xlsx"),
+  );
 }

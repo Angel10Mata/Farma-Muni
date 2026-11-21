@@ -7,9 +7,8 @@ import type {
   TransaccionFinanciera,
 } from "@/components/(base)/finanzas/lib/zod";
 import { productoFarmaciaDesdeLegacy } from "@/components/(base)/inventario/lib/helpers";
-import type { Producto } from "@/components/(base)/inventario/lib/zod";
+import type { KardexFila, Producto } from "@/components/(base)/inventario/lib/zod";
 import type { Compra, Proveedor } from "@/components/(base)/proveedores/lib/zod";
-
 // HELPERS Y CATÁLOGOS BASE
 
 const now = new Date();
@@ -113,33 +112,256 @@ export const DEMO_PROVEEDORES: Proveedor[] = PROVEEDORES_DATA.map((p, i) => ({
   nit: p.nit,
   telefono: p.tel,
   correo: p.correo,
+  activo: true,
 }));
 
 const RECETA_CODIGOS = new Set(["AMOX-500", "AZI-500", "CIP-500", "FLU-150", "INS-NPH", "LEV-500", "PRED-5"]);
 
-export const DEMO_PRODUCTOS: Producto[] = PRODUCTOS_CATALOGO.map((p, i) => {
-  const farmacia = productoFarmaciaDesdeLegacy(p.nombre, p.desc);
-  return {
-    id: `demo-prod-${pad(i + 1)}`,
-    nombre: p.nombre,
-    nombre_generico: farmacia.nombre_generico,
-    concentracion: farmacia.concentracion,
-    forma_farmaceutica: farmacia.forma_farmaceutica,
-    presentacion: farmacia.presentacion,
-    unidad_venta: "unidad",
-    requiere_receta: RECETA_CODIGOS.has(p.codigo),
-    descripcion: p.desc,
-    precio_base: p.precio,
-    stock_actual: p.stock,
-    stock_minimo: p.minimo,
-    activo: true,
-    created_at: daysAgo(30 - (i % 25)),
-    imagen_url: null,
-  };
-});
+const DEMO_LABORATORIOS_NOMBRES = [
+  "Laboratorios Centroamérica",
+  "Pharma Express",
+  "BioSalud Guatemala",
+  "MediCorp",
+  "Droguería Nacional",
+  "Genfar GT",
+];
 
-export const DEMO_LOW_STOCK_COUNT = DEMO_PRODUCTOS.filter(
-  (p) => p.stock_actual <= p.stock_minimo,
+type DemoJerarquia = {
+  catalogos: Array<{ id: string; nombre: string; descripcion: string | null; activo: boolean }>;
+  laboratorios: Array<{
+    id: string;
+    nombre: string;
+    activo: boolean;
+    proveedor_id?: string | null;
+    proveedor_nombre?: string | null;
+  }>;
+  genericos: Array<{
+    generico_id: string;
+    catalogo_id: string;
+    catalogo_nombre: string;
+    concentracion: string;
+    forma_farmaceutica: string;
+    generico_nombre: string;
+    requiere_receta: boolean;
+    stock_minimo: number;
+    activo: boolean;
+    comerciales: number;
+    comerciales_con_stock: number;
+    stock_vendible: number;
+    precio_desde: number | null;
+    bajo_minimo: boolean;
+  }>;
+  comerciales: Array<{
+    producto_id: string;
+    nombre_comercial: string;
+    presentacion: string;
+    precio_venta: number;
+    imagen_url: string | null;
+    activo: boolean;
+    generico_id: string;
+    generico_nombre: string;
+    requiere_receta: boolean;
+    catalogo_id: string;
+    catalogo_nombre: string;
+    laboratorio_id: string | null;
+    laboratorio_nombre: string | null;
+    stock_vendible: number;
+    proximo_vencimiento: string | null;
+    lotes_vendibles: number;
+    concentracion: string;
+    forma_farmaceutica: string;
+    unidad_venta: string;
+    stock_minimo: number;
+    generico_activo: boolean;
+    ultimo_proveedor_id?: string | null;
+  }>;
+  lotes: Array<Record<string, unknown>>;
+  productos: Producto[];
+};
+
+function buildDemoJerarquia(): DemoJerarquia {
+  const laboratorios = DEMO_LABORATORIOS_NOMBRES.map((nombre, i) => ({
+    id: `demo-lab-${pad(i + 1)}`,
+    nombre,
+    activo: true,
+    proveedor_id: DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length]?.id ?? null,
+    proveedor_nombre: DEMO_PROVEEDORES[i % DEMO_PROVEEDORES.length]?.nombre ?? null,
+  }));
+
+  const catalogosMap = new Map<string, { id: string; nombre: string }>();
+  const genericosMap = new Map<
+    string,
+    DemoJerarquia["genericos"][number] & { unidad_venta: string }
+  >();
+  const comerciales: DemoJerarquia["comerciales"] = [];
+  const lotes: Array<Record<string, unknown>> = [];
+  const productos: Producto[] = [];
+
+  PRODUCTOS_CATALOGO.forEach((p, i) => {
+    const farmacia = productoFarmaciaDesdeLegacy(p.nombre, p.desc);
+    const catalogoNombre = farmacia.nombre_generico.split(/\s+/)[0] ?? farmacia.nombre_generico;
+    let catalogo = catalogosMap.get(catalogoNombre);
+    if (!catalogo) {
+      catalogo = { id: `demo-cat-${pad(catalogosMap.size + 1)}`, nombre: catalogoNombre };
+      catalogosMap.set(catalogoNombre, catalogo);
+    }
+
+    const genKey = `${catalogo.id}|${farmacia.concentracion}|${farmacia.forma_farmaceutica}`;
+    const lab = laboratorios[i % laboratorios.length];
+    const sinLaboratorioComercial = i === 0;
+    const prov = DEMO_PROVEEDORES[p.provIdx ?? i % DEMO_PROVEEDORES.length];
+    const genericoNombre = `${catalogo.nombre} ${farmacia.concentracion} ${farmacia.forma_farmaceutica}`.trim();
+    const requiereReceta = RECETA_CODIGOS.has(p.codigo);
+    const productoId = `demo-prod-${pad(i + 1)}`;
+
+    let generico = genericosMap.get(genKey);
+    if (!generico) {
+      generico = {
+        generico_id: `demo-gen-${pad(genericosMap.size + 1)}`,
+        catalogo_id: catalogo.id,
+        catalogo_nombre: catalogo.nombre,
+        concentracion: farmacia.concentracion,
+        forma_farmaceutica: farmacia.forma_farmaceutica,
+        generico_nombre: genericoNombre,
+        requiere_receta: requiereReceta,
+        stock_minimo: p.minimo,
+        activo: true,
+        comerciales: 0,
+        comerciales_con_stock: 0,
+        stock_vendible: 0,
+        precio_desde: null,
+        bajo_minimo: false,
+        unidad_venta: "unidad",
+      };
+      genericosMap.set(genKey, generico);
+    } else if (p.minimo > generico.stock_minimo) {
+      generico.stock_minimo = p.minimo;
+    }
+
+    generico.comerciales += 1;
+    if (p.stock > 0) generico.comerciales_con_stock += 1;
+    generico.stock_vendible += p.stock;
+    generico.precio_desde =
+      generico.precio_desde == null
+        ? p.precio
+        : Math.min(generico.precio_desde, p.precio);
+    generico.bajo_minimo = generico.stock_vendible <= generico.stock_minimo;
+    if (requiereReceta) generico.requiere_receta = true;
+
+    comerciales.push({
+      producto_id: productoId,
+      nombre_comercial: p.nombre,
+      presentacion: farmacia.presentacion,
+      precio_venta: p.precio,
+      imagen_url: null,
+      activo: true,
+      generico_id: generico.generico_id,
+      generico_nombre: generico.generico_nombre,
+      requiere_receta: requiereReceta,
+      catalogo_id: catalogo.id,
+      catalogo_nombre: catalogo.nombre,
+      laboratorio_id: sinLaboratorioComercial ? null : lab.id,
+      laboratorio_nombre: sinLaboratorioComercial ? null : lab.nombre,
+      stock_vendible: p.stock,
+      proximo_vencimiento: `2026-${String((i % 12) + 1).padStart(2, "0")}-28`,
+      lotes_vendibles: p.stock > 0 ? 1 : 0,
+      concentracion: farmacia.concentracion,
+      forma_farmaceutica: farmacia.forma_farmaceutica,
+      unidad_venta: "unidad",
+      stock_minimo: generico.stock_minimo,
+      generico_activo: true,
+      ultimo_proveedor_id: prov.id,
+    });
+
+    productos.push({
+      id: productoId,
+      nombre: p.nombre,
+      nombre_generico: generico.generico_nombre,
+      concentracion: farmacia.concentracion,
+      forma_farmaceutica: farmacia.forma_farmaceutica,
+      presentacion: farmacia.presentacion,
+      unidad_venta: "unidad",
+      requiere_receta: requiereReceta,
+      descripcion: p.desc,
+      precio_base: p.precio,
+      stock_actual: p.stock,
+      stock_minimo: generico.stock_minimo,
+      activo: true,
+      created_at: daysAgo(30 - (i % 25)),
+      imagen_url: null,
+      generico_id: generico.generico_id,
+      laboratorio_id: sinLaboratorioComercial ? undefined : lab.id,
+      catalogo_id: catalogo.id,
+      catalogo_nombre: catalogo.nombre,
+      laboratorio_nombre: sinLaboratorioComercial ? undefined : lab.nombre,
+      laboratorio: sinLaboratorioComercial ? undefined : lab.nombre,
+    });
+
+    lotes.push({
+      id: `demo-lote-${productoId}`,
+      producto_id: productoId,
+      codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
+      numero_lote: `L-${2400 + i}`,
+      cantidad_inicial: p.stock,
+      cantidad_actual: p.stock,
+      precio_costo: Math.round(p.precio * 0.65 * 100) / 100,
+      proveedor_id: prov.id,
+      fecha_vencimiento: `2026-${String((i % 12) + 1).padStart(2, "0")}-28`,
+      ubicacion: p.ubicacion,
+      activo: true,
+      inv_proveedores: { nombre: prov.nombre },
+      inv_productos: {
+        id: productoId,
+        nombre: p.nombre,
+        presentacion: farmacia.presentacion,
+        precio_base: p.precio,
+        stock_actual: p.stock,
+        activo: true,
+        inv_laboratorios: sinLaboratorioComercial ? null : { nombre: lab.nombre },
+        inv_genericos: {
+          concentracion: farmacia.concentracion,
+          forma_farmaceutica: farmacia.forma_farmaceutica,
+          requiere_receta: requiereReceta,
+          unidad_venta: "unidad",
+          stock_minimo: generico.stock_minimo,
+          inv_catalogos: { nombre: catalogo.nombre },
+        },
+      },
+    });
+  });
+
+  const catalogos = [...catalogosMap.values()].map((c) => ({
+    id: c.id,
+    nombre: c.nombre,
+    descripcion: null,
+    activo: true,
+  }));
+
+  return {
+    catalogos,
+    laboratorios,
+    genericos: [...genericosMap.values()].map((g) => {
+      const { unidad_venta: _omit, ...rest } = g;
+      void _omit;
+      return rest;
+    }),
+    comerciales,
+    lotes,
+    productos,
+  };
+}
+
+const DEMO_JERARQUIA = buildDemoJerarquia();
+
+export const DEMO_CATALOGOS = DEMO_JERARQUIA.catalogos;
+export const DEMO_LABORATORIOS = DEMO_JERARQUIA.laboratorios;
+export const DEMO_GENERICOS_INVENTARIO = DEMO_JERARQUIA.genericos;
+export const DEMO_COMERCIALES_INVENTARIO = DEMO_JERARQUIA.comerciales;
+export const DEMO_LOTES_INVENTARIO = DEMO_JERARQUIA.lotes;
+export const DEMO_PRODUCTOS: Producto[] = DEMO_JERARQUIA.productos;
+
+export const DEMO_LOW_STOCK_COUNT = DEMO_GENERICOS_INVENTARIO.filter(
+  (g) => g.bajo_minimo,
 ).length;
 
 export const DEMO_UBICACIONES = [
@@ -180,15 +402,22 @@ export const DEMO_VENTAS_HISTORIAL = Array.from({ length: 55 }, (_, i) => {
   const cliente = DEMO_CLIENTES_DB[i % DEMO_CLIENTES_DB.length];
   const esCredito = i % 4 === 0;
   const total = Math.round((15 + (i * 17.3) % 480) * 100) / 100;
+  const esAnulada = i === 50;
   return {
     id: `demo-venta-${pad(i + 1)}`,
     created_at: daysAgo(i % 45),
+    numero_recibo: 1000 + i,
     tipo_venta: esCredito ? "credito" : "contado",
     total,
+    estado: esAnulada ? "anulada" : "activa",
     observaciones: i % 6 === 0 ? "Cliente frecuente" : i % 9 === 0 ? "Entrega a domicilio" : null,
     cliente_id: cliente.id,
     usuario_id: "demo-user",
-    anulada: i === 50,
+    anulada: esAnulada,
+    anulada_por: esAnulada ? "demo-user" : null,
+    anulada_at: esAnulada ? daysAgo(2) : null,
+    motivo_anulacion: esAnulada ? "Error en el registro de la venta (demo)" : null,
+    anulada_por_profile: esAnulada ? { nombre: "Admin Sistema" } : null,
     ven_clientes: { nombre: cliente.nombre, nit: cliente.nit },
     profiles: { nombre: CAJEROS[i % CAJEROS.length] },
   };
@@ -217,9 +446,7 @@ export const DEMO_VENTA_DETALLE = DEMO_VENTAS_HISTORIAL.flatMap((venta, vi) => {
       inv_lotes: {
         codigo_barras: codigo,
         numero_lote: `L-${2400 + vi + j}`,
-        precio_venta: precio,
         precio_costo: Math.round(precio * 0.65 * 100) / 100,
-        laboratorio: null,
       },
     };
   });
@@ -252,6 +479,12 @@ export const DEMO_COMPRAS: Compra[] = Array.from({ length: 28 }, (_, i) => {
     total: Math.round((400 + (i * 127.5) % 3500) * 100) / 100,
     estado_pago: pagado ? "Pagado" : "Pendiente",
     fecha_pago: pagado ? daysAgo(Math.max(0, (i % 40) - 2)) : null,
+    numero_factura: `FAC-${1000 + i}`,
+    fecha_vencimiento_pago: pagado
+      ? null
+      : new Date(Date.now() + (i % 5 === 0 ? -5 : 14) * 86400000)
+          .toISOString()
+          .slice(0, 10),
     observaciones: i % 4 === 0 ? "Pedido mensual" : i % 5 === 0 ? "Urgente" : null,
     fin_transacciones: [],
     inv_proveedores: { nombre: prov.nombre, nit: prov.nit ?? null },
@@ -342,7 +575,9 @@ export const DEMO_CUENTAS_PAGAR: CuentaPorPagar[] = DEMO_COMPRAS.filter(
   compra_id: c.id,
   proveedor_id: c.proveedor_id,
   proveedor_nombre: c.inv_proveedores?.nombre ?? "Proveedor",
+  numero_factura: c.numero_factura ?? null,
   fecha_compra: c.created_at,
+  fecha_vencimiento_pago: c.fecha_vencimiento_pago ?? null,
   total: c.total,
   total_pagado: 0,
   saldo_pendiente: c.total,
@@ -388,23 +623,28 @@ export const DEMO_CREDITO_DETALLE: VentaCreditoDetalle[] = DEMO_VENTAS_HISTORIAL
 // HELPERS POS Y LISTADOS
 
 export function demoProductosPos() {
+  const comerciales = DEMO_COMERCIALES_INVENTARIO.filter((c) => c.stock_vendible > 0).map(
+    (c) => ({
+      producto_id: c.producto_id,
+      nombre_comercial: c.nombre_comercial,
+      presentacion: c.presentacion,
+      laboratorio_nombre: c.laboratorio_nombre,
+      precio_venta: c.precio_venta,
+      generico_id: c.generico_id,
+      stock_vendible: c.stock_vendible,
+      imagen_url: c.imagen_url,
+      imagen_url_2: null,
+      imagen_url_3: null,
+      activo: c.activo,
+      costo_promedio: null as number | null,
+    }),
+  );
+
+  const genericos = DEMO_GENERICOS_INVENTARIO.filter((g) => g.stock_vendible > 0);
+
   return {
-    productos: DEMO_PRODUCTOS.filter((p) => p.activo).map((p, i) => ({
-      id: p.id,
-      codigo: `DEMO-${String(i + 1).padStart(4, "0")}`,
-      nombre: p.nombre,
-      nombre_generico: p.nombre_generico,
-      descripcion: p.descripcion,
-      precio_base: p.precio_base,
-      precio_venta_fefo: p.precio_base,
-      precio_venta_desde: i % 7 === 0 ? Math.round(p.precio_base * 0.95 * 100) / 100 : undefined,
-      precio_venta_varios: i % 7 === 0,
-      stock_actual: p.stock_actual,
-      stock_minimo: p.stock_minimo,
-      imagen_url: p.imagen_url ?? null,
-      ubicacion: "Demo",
-      activo: p.activo,
-    })),
+    genericos,
+    comerciales,
     clientes: DEMO_CLIENTES_DB,
   };
 }
@@ -412,18 +652,23 @@ export function demoProductosPos() {
 export function demoProveedoresYProductos() {
   return {
     proveedores: DEMO_PROVEEDORES,
-    productos: DEMO_PRODUCTOS.map((p, i) => {
-      const cat = PRODUCTOS_CATALOGO[i];
-      const prov = DEMO_PROVEEDORES[cat?.provIdx ?? i % DEMO_PROVEEDORES.length];
-      return {
-        id: p.id,
-        nombre: p.nombre,
-        precio_base: p.precio_base,
-        stock_actual: p.stock_actual,
-        activo: p.activo,
-        ultimo_proveedor_id: prov.id,
-      };
-    }),
+    comerciales: DEMO_COMERCIALES_INVENTARIO.map((c) => ({
+      id: c.producto_id,
+      nombre_comercial: c.nombre_comercial,
+      presentacion: c.presentacion,
+      precio_venta: c.precio_venta,
+      activo: c.activo,
+      catalogo_id: c.catalogo_id,
+      catalogo_nombre: c.catalogo_nombre,
+      generico_id: c.generico_id,
+      generico_nombre: c.generico_nombre,
+      concentracion: c.concentracion,
+      forma_farmaceutica: c.forma_farmaceutica,
+      laboratorio_id: c.laboratorio_id,
+      laboratorio_nombre: c.laboratorio_nombre,
+      stock_vendible: c.stock_vendible,
+      ultimo_proveedor_id: c.ultimo_proveedor_id ?? null,
+    })),
   };
 }
 
@@ -435,5 +680,147 @@ export function demoMovimientosFinancieros(page = 1, pageSize = 50) {
     count: data.length,
     page,
     pageSize,
+  };
+}
+
+export const DEMO_KARDEX_MOVIMIENTOS: KardexFila[] = DEMO_PRODUCTOS.slice(0, 8).flatMap(
+  (p, i) => {
+    const loteId = `demo-lote-${p.id}`;
+    const baseStock = p.stock_actual;
+    const t0 = daysAgo(12 - i);
+    const t1 = daysAgo(8 - i);
+    const t2 = daysAgo(3 - i);
+    return [
+      {
+        id: `demo-kardex-ini-${p.id}`,
+        created_at: t0,
+        tipo: "entrada_manual" as const,
+        cantidad: baseStock + (i % 3) * 2,
+        saldo_lote: baseStock + (i % 3) * 2,
+        saldo_producto: baseStock + (i % 3) * 2,
+        referencia_tipo: null,
+        referencia_id: null,
+        motivo: "Saldo inicial (demo)",
+        producto_id: p.id,
+        producto_nombre: p.nombre,
+        producto_nombre_generico: p.nombre_generico,
+        producto_concentracion: p.concentracion,
+        lote_id: loteId,
+        lote_numero: `L-${2400 + i}`,
+        lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? null,
+        lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
+        usuario_id: null,
+        usuario_nombre: "Usuario demo",
+      },
+      {
+        id: `demo-kardex-venta-${p.id}`,
+        created_at: t1,
+        tipo: "salida_venta" as const,
+        cantidad: -Math.min(2, baseStock),
+        saldo_lote: Math.max(0, baseStock - 2),
+        saldo_producto: Math.max(0, baseStock - 2),
+        referencia_tipo: "venta",
+        referencia_id: `a0000000-0000-4000-8000-${String(i + 1).padStart(12, "0")}`,
+        motivo: null,
+        producto_id: p.id,
+        producto_nombre: p.nombre,
+        producto_nombre_generico: p.nombre_generico,
+        producto_concentracion: p.concentracion,
+        lote_id: loteId,
+        lote_numero: `L-${2400 + i}`,
+        lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? null,
+        lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
+        usuario_id: null,
+        usuario_nombre: "Usuario demo",
+      },
+      ...(i % 4 === 0
+        ? [
+            {
+              id: `demo-kardex-ajuste-${p.id}`,
+              created_at: t2,
+              tipo: "ajuste_conteo" as const,
+              cantidad: 1,
+              saldo_lote: Math.max(0, baseStock - 1),
+              saldo_producto: Math.max(0, baseStock - 1),
+              referencia_tipo: null,
+              referencia_id: null,
+              motivo: "Conteo físico mensual (demo)",
+              producto_id: p.id,
+              producto_nombre: p.nombre,
+              producto_nombre_generico: p.nombre_generico,
+              producto_concentracion: p.concentracion,
+              lote_id: loteId,
+              lote_numero: `L-${2400 + i}`,
+              lote_laboratorio: DEMO_PRODUCTOS[i]?.laboratorio_nombre ?? null,
+              lote_codigo_barras: `DEMO-${String(i + 1).padStart(4, "0")}`,
+              usuario_id: null,
+              usuario_nombre: "Usuario demo",
+            } satisfies KardexFila,
+          ]
+        : []),
+    ];
+  },
+);
+
+export function demoKardexMovimientos(params: {
+  productoId?: string;
+  loteId?: string;
+  tipo?: KardexFila["tipo"];
+  desde?: string;
+  hasta?: string;
+  pagina?: number;
+  pageSize?: number;
+}) {
+  const pageSize = params.pageSize ?? 50;
+  const pagina = params.pagina ?? 1;
+  let rows = [...DEMO_KARDEX_MOVIMIENTOS].sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
+
+  if (params.productoId) {
+    rows = rows.filter((r) => r.producto_id === params.productoId);
+  }
+  if (params.loteId) {
+    rows = rows.filter((r) => r.lote_id === params.loteId);
+  }
+  if (params.tipo) {
+    rows = rows.filter((r) => r.tipo === params.tipo);
+  }
+  if (params.desde) {
+    const d = new Date(`${params.desde}T00:00:00`).getTime();
+    rows = rows.filter((r) => new Date(r.created_at).getTime() >= d);
+  }
+  if (params.hasta) {
+    const h = new Date(`${params.hasta}T23:59:59`).getTime();
+    rows = rows.filter((r) => new Date(r.created_at).getTime() <= h);
+  }
+
+  const total = rows.length;
+  const from = (pagina - 1) * pageSize;
+  const filas = rows.slice(from, from + pageSize);
+
+  let stockProductoActual: number | null = null;
+  let ultimoSaldoProductoKardex: number | null = null;
+  let saldoCoincide: boolean | null = null;
+
+  if (params.productoId) {
+    const prod = DEMO_PRODUCTOS.find((p) => p.id === params.productoId);
+    stockProductoActual = prod?.stock_actual ?? 0;
+    const ultimo = rows.find((r) => r.producto_id === params.productoId);
+    ultimoSaldoProductoKardex = ultimo?.saldo_producto ?? null;
+    if (ultimoSaldoProductoKardex != null) {
+      saldoCoincide =
+        Math.abs(stockProductoActual - ultimoSaldoProductoKardex) < 0.0001;
+    }
+  }
+
+  return {
+    filas,
+    total,
+    pagina,
+    pageSize,
+    stockProductoActual,
+    ultimoSaldoProductoKardex,
+    saldoCoincide,
   };
 }

@@ -1,13 +1,60 @@
-import type { ItemCarrito, Producto, SolicitudRebajaPayload, VentaBitacoraEntry } from "./zod";
+import type {
+  ComercialVenta,
+  GenericoVenta,
+  ItemCarrito,
+  SolicitudRebajaPayload,
+  VentaBitacoraEntry,
+} from "./zod";
 import { fechaCalendarioGt } from "@/lib/fechas-gt";
 import type { LoteAsignadoVenta } from "./lotes-venta";
+import {
+  etiquetaFormaFarmaceutica,
+  normalizarTextoBusquedaProducto,
+} from "@/components/(base)/inventario/lib/helpers";
+import { lineaGenericaCompraDisplay } from "@/components/(base)/proveedores/lib/compras-helpers";
 
-// Formato del recibo
+export type GrupoComercialVenta = {
+  generico_id: string;
+  lineaGenerica: string;
+  catalogo_nombre: string;
+  marcas: ComercialVenta[];
+  puntajeGenerico: number;
+};
+
+export function formatNumeroRecibo(numero: number | null | undefined): string {
+  if (numero == null || Number.isNaN(Number(numero))) return "";
+  return `FM-${String(Math.trunc(Number(numero))).padStart(6, "0")}`;
+}
+
 export const obtenerCodigoRecibo = (id: string) => {
   if (!id) return "N/A";
   const cleanId = id.replace(/-/g, "").toUpperCase();
   return `${cleanId.substring(0, 3)}-${cleanId.substring(3, 6)}`;
 };
+
+export function codigoReciboVenta(venta: {
+  id: string;
+  numero_recibo?: number | null;
+}): string {
+  const fm = formatNumeroRecibo(venta.numero_recibo);
+  if (fm) return fm;
+  return obtenerCodigoRecibo(venta.id);
+}
+
+export function mensajeCreditoVencidoCliente(total: number, desde: string): string {
+  const fecha = desde
+    ? new Date(`${desde}T12:00:00`).toLocaleDateString("es-GT", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : "—";
+  return `Cliente con crédito vencido por Q${total.toFixed(2)} desde ${fecha}`;
+}
+
+export function carritoRequiereReceta(carrito: ItemCarrito[]): boolean {
+  return carrito.some((i) => i.generico.requiere_receta);
+}
 
 export const formatFechaRecibo = (dateStr: string) => {
   const date = new Date(dateStr);
@@ -44,22 +91,28 @@ export function precioMenorQueCosto(
   return precioAplicado < costo - PRECIO_EPSILON;
 }
 
+export function costoReferenciaVentaItem(item: ItemCarrito): number {
+  const cpp = item.costo_promedio ?? item.comercial.costo_promedio;
+  if (cpp != null && cpp > 0) return cpp;
+  return costoUnitarioProducto(item.precio_costo_lote);
+}
+
 export function mensajePrecioBajoCosto(nombre: string, costo: number): string {
-  return `El precio de "${nombre}" no puede ser menor al costo (Q${costo.toFixed(2)}).`;
+  return `El precio de "${nombre}" no puede ser menor al costo promedio (Q${costo.toFixed(2)}).`;
 }
 
 export function validarCarritoPrecioCosto(carrito: ItemCarrito[]): string | null {
   for (const item of carrito) {
-    const costo = costoUnitarioProducto(item.precio_costo_lote);
+    const costo = costoReferenciaVentaItem(item);
     if (precioMenorQueCosto(item.precio_aplicado, costo)) {
-      return mensajePrecioBajoCosto(item.producto.nombre, costo);
+      return mensajePrecioBajoCosto(item.comercial.nombre_comercial, costo);
     }
   }
   return null;
 }
 
 export function precioReferenciaRebajaItem(item: ItemCarrito): number {
-  return item.precio_venta_lote;
+  return item.precio_venta_referencia;
 }
 
 export function precioReferenciaRebajaPayload(item: {
@@ -69,36 +122,188 @@ export function precioReferenciaRebajaPayload(item: {
   return item.precio_venta_referencia ?? item.precio_base ?? 0;
 }
 
-export function etiquetaPrecioPos(producto: Producto): string {
-  if (producto.precio_venta_varios && producto.precio_venta_desde != null) {
-    return `desde ${formatMonedaRecibo(producto.precio_venta_desde)}`;
-  }
-  const precio = producto.precio_venta_fefo ?? producto.precio_base;
-  return formatMonedaRecibo(precio);
+export function etiquetaPrecioComercial(comercial: ComercialVenta): string {
+  return formatMonedaRecibo(comercial.precio_venta);
 }
 
-export function productoCoincideBusquedaPos(producto: Producto, query: string): boolean {
+export function genericoCoincideBusquedaPos(generico: GenericoVenta, query: string): boolean {
   const q = query.toLowerCase();
   return (
-    (producto.nombre || "").toLowerCase().includes(q) ||
-    (producto.nombre_generico || "").toLowerCase().includes(q) ||
-    (producto.codigo || "").toLowerCase().includes(q)
+    generico.generico_nombre.toLowerCase().includes(q) ||
+    generico.catalogo_nombre.toLowerCase().includes(q) ||
+    generico.concentracion.toLowerCase().includes(q) ||
+    generico.forma_farmaceutica.toLowerCase().includes(q)
   );
 }
 
-export function demoAsignarLotes(producto: Producto, cantidad: number): LoteAsignadoVenta[] | null {
+export function lineaGenericaVentaDisplay(generico: GenericoVenta): string {
+  return lineaGenericaCompraDisplay({
+    catalogo_nombre: generico.catalogo_nombre,
+    concentracion: generico.concentracion,
+    forma_farmaceutica: generico.forma_farmaceutica,
+  });
+}
+
+export function comercialVentaDisponible(comercial: ComercialVenta): boolean {
+  return comercial.activo && comercial.stock_vendible > 0;
+}
+
+export function comercialCoincideBusquedaVenta(
+  comercial: ComercialVenta,
+  generico: GenericoVenta | null,
+  busqueda: string,
+): boolean {
+  const needle = normalizarTextoBusquedaProducto(busqueda);
+  if (!needle) return true;
+  if (!generico) return false;
+  const forma = etiquetaFormaFarmaceutica(generico.forma_farmaceutica);
+  const haystack = [
+    generico.generico_nombre,
+    generico.catalogo_nombre,
+    generico.concentracion,
+    generico.forma_farmaceutica,
+    forma,
+    lineaGenericaVentaDisplay(generico),
+    comercial.nombre_comercial,
+    comercial.presentacion,
+    comercial.laboratorio_nombre ?? "",
+  ];
+  return haystack.some((t) => normalizarTextoBusquedaProducto(t).includes(needle));
+}
+
+function puntajeCoincidenciaGenericoVenta(
+  generico: GenericoVenta,
+  comercial: ComercialVenta,
+  busqueda: string,
+): number {
+  const needle = normalizarTextoBusquedaProducto(busqueda);
+  if (!needle) return 0;
+  let score = 0;
+  const forma = etiquetaFormaFarmaceutica(generico.forma_farmaceutica);
+  const camposGenerico = [
+    generico.generico_nombre,
+    generico.catalogo_nombre,
+    generico.concentracion,
+    generico.forma_farmaceutica,
+    forma,
+    lineaGenericaVentaDisplay(generico),
+  ];
+  for (const campo of camposGenerico) {
+    if (normalizarTextoBusquedaProducto(campo).includes(needle)) score += 10;
+  }
+  if (normalizarTextoBusquedaProducto(comercial.nombre_comercial).includes(needle)) score += 1;
+  if (normalizarTextoBusquedaProducto(comercial.laboratorio_nombre ?? "").includes(needle)) {
+    score += 1;
+  }
+  return score;
+}
+
+export function agruparComercialesVentaBusqueda(
+  comerciales: ComercialVenta[],
+  genericos: GenericoVenta[],
+  busqueda: string,
+): GrupoComercialVenta[] {
+  const porGenerico = new Map(genericos.map((g) => [g.generico_id, g]));
+  const q = busqueda.trim();
+  const disponibles = comerciales.filter(comercialVentaDisponible);
+  const matches = q
+    ? disponibles.filter((c) =>
+        comercialCoincideBusquedaVenta(c, porGenerico.get(c.generico_id) ?? null, q),
+      )
+    : disponibles;
+
+  const map = new Map<string, GrupoComercialVenta>();
+  for (const c of matches) {
+    const generico = porGenerico.get(c.generico_id);
+    if (!generico) continue;
+    let grupo = map.get(c.generico_id);
+    if (!grupo) {
+      grupo = {
+        generico_id: c.generico_id,
+        lineaGenerica: lineaGenericaVentaDisplay(generico),
+        catalogo_nombre: generico.catalogo_nombre,
+        marcas: [],
+        puntajeGenerico: 0,
+      };
+      map.set(c.generico_id, grupo);
+    }
+    grupo.marcas.push(c);
+    grupo.puntajeGenerico = Math.max(
+      grupo.puntajeGenerico,
+      puntajeCoincidenciaGenericoVenta(generico, c, q),
+    );
+  }
+
+  return Array.from(map.values()).sort((a, b) => {
+    if (b.puntajeGenerico !== a.puntajeGenerico) return b.puntajeGenerico - a.puntajeGenerico;
+    return a.lineaGenerica.localeCompare(b.lineaGenerica, "es");
+  });
+}
+
+export function buscarGenericoPorId(genericos: GenericoVenta[], genericoId: string) {
+  return genericos.find((g) => g.generico_id === genericoId) ?? null;
+}
+
+export function comercialesDelGenerico(comerciales: ComercialVenta[], genericoId: string) {
+  return comerciales.filter(
+    (c) => c.generico_id === genericoId && c.activo && c.stock_vendible > 0,
+  );
+}
+
+export type LineaCarritoVentaAgrupada = {
+  key: string;
+  indices: number[];
+  item: ItemCarrito;
+  cantidadTotal: number;
+  subtotalTotal: number;
+};
+
+export function agruparLineasCarritoVenta(carrito: ItemCarrito[]): LineaCarritoVentaAgrupada[] {
+  const orden: LineaCarritoVentaAgrupada[] = [];
+  const porClave = new Map<string, LineaCarritoVentaAgrupada>();
+
+  carrito.forEach((item, index) => {
+    const key = item.comercial.producto_id;
+    const existente = porClave.get(key);
+    if (existente) {
+      existente.indices.push(index);
+      existente.cantidadTotal += item.cantidad;
+      existente.subtotalTotal += item.subtotal;
+      return;
+    }
+    const linea: LineaCarritoVentaAgrupada = {
+      key,
+      indices: [index],
+      item,
+      cantidadTotal: item.cantidad,
+      subtotalTotal: item.subtotal,
+    };
+    porClave.set(key, linea);
+    orden.push(linea);
+  });
+
+  return orden;
+}
+
+export function demoAsignarLotes(
+  comercial: ComercialVenta,
+  cantidad: number,
+): LoteAsignadoVenta[] | null {
   if (cantidad <= 0) return null;
-  if (cantidad > producto.stock_actual) return null;
-  const precio = producto.precio_venta_fefo ?? producto.precio_base;
+  if (cantidad > comercial.stock_vendible) return null;
+  const precio = comercial.precio_venta;
+  const vence = new Date();
+  vence.setDate(vence.getDate() + 18);
   return [
     {
-      lote_id: `demo-lote-${producto.id}`,
+      lote_id: `demo-lote-${comercial.producto_id}`,
       cantidad,
-      stock_lote: producto.stock_actual,
+      stock_lote: comercial.stock_vendible,
       precio_venta: precio,
       precio_costo: Math.round(precio * 0.65 * 100) / 100,
-      codigo_barras: producto.codigo ?? `DEMO-${producto.id}`,
-      laboratorio: null,
+      codigo_barras: `DEMO-${comercial.producto_id}`,
+      numero_lote: "DEMO-001",
+      fecha_vencimiento: vence.toISOString().slice(0, 10),
     },
   ];
 }
@@ -122,16 +327,16 @@ export function buildSolicitudRebajaPayload(params: {
     total: params.total,
     observaciones: params.observaciones,
     items: params.carrito.map((i) => ({
-      producto_id: i.producto.id,
+      producto_id: i.comercial.producto_id,
       lote_id: i.lote_id,
       cantidad: i.cantidad,
       precio_aplicado: i.precio_aplicado,
-      precio_venta_referencia: i.precio_venta_lote,
-      precio_base: i.precio_venta_lote,
+      precio_venta_referencia: i.precio_venta_referencia,
+      precio_base: i.precio_venta_referencia,
       precio_costo: costoUnitarioProducto(i.precio_costo_lote),
       subtotal: i.subtotal,
-      producto_nombre: i.producto.nombre,
-      producto_codigo: i.codigo_barras_lote ?? i.producto.codigo ?? "",
+      producto_nombre: i.comercial.nombre_comercial,
+      producto_codigo: i.codigo_barras_lote ?? "",
     })),
   };
 }
@@ -247,7 +452,9 @@ export function ventaCoincideFiltroPagoHistorial(
 export function ventaEstaAnulada(venta: {
   observaciones?: string | null;
   anulada?: boolean | null;
+  estado?: string | null;
 }): boolean {
+  if ((venta.estado ?? "activa") === "anulada") return true;
   if (venta.anulada === true) return true;
   return (venta.observaciones ?? "").includes("[ANULADA]");
 }
@@ -257,6 +464,19 @@ export function ventaEsTarjetaHistorial(
 ): boolean {
   return claveTipoVentaHistorial(tipoVenta) === "tarjeta";
 }
+
+export type FormaPagoReporte = "contado" | "tarjeta" | "credito";
+
+export function clasificarFormaPagoReporte(
+  tipoVenta: string | null | undefined,
+): FormaPagoReporte | null {
+  if (ventaEsCreditoHistorial(tipoVenta)) return "credito";
+  if (ventaEsTarjetaHistorial(tipoVenta)) return "tarjeta";
+  if (ventaEsContadoHistorial(tipoVenta)) return "contado";
+  return null;
+}
+
+export const ETIQUETA_CONSUMIDOR_FINAL = "Consumidor final";
 
 export function ventaPerteneceMesCalendarioGt(
   createdAt: string,

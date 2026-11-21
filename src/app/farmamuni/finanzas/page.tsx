@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 import { VerFinanzas } from "@/components/(base)/finanzas/VerFinanzas";
+import { requireFinanzasPageAccess } from "@/lib/user-role";
 
-// Módulo finanzas
-export default function FinanzasPage() {
+export default async function FinanzasPage() {
+  await requireFinanzasPageAccess();
+
   return (
     <Suspense fallback={null}>
       <VerFinanzas />

@@ -15,9 +15,10 @@ import { navIconColors, navMorphIcons } from "@/lib/morph-icons";
 import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler";
 import { BreadcrumbNav } from "@/components/ui/breadcrumb-nav";
 import Menu from "./Menu";
-import { getPendingDevicesCount } from "@/components/(Kore)/admin/lib/actions";
+import { getPendingDevicesCount } from "@/components/(base)/admin/lib/actions";
 import { createPortal } from "react-dom";
-import AnimacionLogoKore from "@/components/(Kore)/logo/AnimacionLogoKore";
+import { LogoMuniFullscreen } from "@/components/(base)/layout/LogoMuniFullscreen";
+import { APP_LOGO_PATH } from "@/lib/app-config";
 
 // COMPONENTE PRINCIPAL
 
@@ -32,17 +33,17 @@ export default function EncabezadoApp() {
   const pathname = usePathname();
   const isRoot = pathname === "/farmamuni";
   const canSimulate = ["super", "admin"].includes(effectiveRole);
-  const canManage = canSimulate;
+  const canSeePendingDevices = effectiveRole === "super";
 
   useEffect(() => {
     const init = async () => {
       setMounted(true);
-      if (!canManage) return;
+      if (!canSeePendingDevices) return;
       const c = await getPendingDevicesCount();
       setPendingDevices(c ?? 0);
     };
     init();
-  }, [canManage]);
+  }, [canSeePendingDevices]);
 
   const handleLogoClick = (e: React.MouseEvent) => {
     // Prevent default navigation to show the animation instead
@@ -62,12 +63,12 @@ export default function EncabezadoApp() {
                 className="flex flex-row items-center shrink-0 group gap-1 md:gap-1.5 cursor-pointer"
               >
                 <motion.img 
-                  src="/farmamuni/logo.png"
+                  src={APP_LOGO_PATH}
                   alt="FarmaMuni"
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="h-16 md:h-20 w-16 md:w-20 object-contain transition-transform duration-300 group-hover:scale-105 origin-left"
+                  className="h-11 w-11 md:h-12 md:w-12 object-contain transition-transform duration-300 group-hover:scale-105 origin-left"
                 />
                 <motion.span
                   initial={{ opacity: 0, x: -10 }}
@@ -75,8 +76,8 @@ export default function EncabezadoApp() {
                   transition={{ duration: 0.6, delay: 0.15, ease: "easeOut" }}
                   className="flex flex-col leading-none"
                 >
-                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farma</span>
-                  <span className="text-[11px] sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Muni</span>
+                  <span className="text-xs sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#1a6aa5] dark:text-[#4da8da]">Farma</span>
+                  <span className="text-xs sm:text-[15px] md:text-[17px] font-black uppercase tracking-tight text-[#4caf50] dark:text-[#66bb6a]">Muni</span>
                 </motion.span>
               </Link>
             </div>
@@ -107,7 +108,7 @@ export default function EncabezadoApp() {
             <button
               id="refresh-btn"
               onClick={() => window.location.reload()}
-              className="flex items-center justify-center text-black hover:text-celeste-kore dark:text-white dark:hover:text-celeste-kore cursor-pointer transition-colors active:scale-95"
+              className="flex items-center justify-center text-black hover:text-celeste-farmamuni dark:text-white dark:hover:text-celeste-farmamuni cursor-pointer transition-colors active:scale-95"
             >
               <MorphIconBox
                 from={navMorphIcons.refresh.from}
@@ -167,8 +168,8 @@ export default function EncabezadoApp() {
                   )}
                 </AnimatePresence>
               </button>
-              {!isOpen && canManage && pendingDevices > 0 && (
-                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-celeste-kore text-[10px] font-bold text-white animate-pulse pointer-events-none">
+              {!isOpen && canSeePendingDevices && pendingDevices > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-celeste-farmamuni text-etiqueta font-bold text-white animate-pulse pointer-events-none">
                   {pendingDevices}
                 </span>
               )}
@@ -186,7 +187,7 @@ export default function EncabezadoApp() {
       <Menu isOpen={isOpen} setIsOpen={setIsOpen} user={user} />
 
       {mounted && createPortal(
-        <AnimacionLogoKore isOpen={isFullScreen} onClose={() => setIsFullScreen(false)} />,
+        <LogoMuniFullscreen isOpen={isFullScreen} onClose={() => setIsFullScreen(false)} />,
         document.body
       )}
     </>

@@ -30,7 +30,7 @@ export function ModuleHeaderBackButton({
       aria-label="Regresar"
       className={cn(
         "flex shrink-0 items-center justify-center rounded-2xl border border-[#8DA78E]/20 bg-[#8DA78E]/10",
-        "text-[#8DA78E] transition-colors hover:bg-[#8DA78E]/20 dark:text-[#A3BEB0] cursor-pointer",
+        "text-look-2-salvia-menta transition-colors hover:bg-[#8DA78E]/20 dark:text-look-1-salvia-suave cursor-pointer",
         boxClass,
         className,
       )}

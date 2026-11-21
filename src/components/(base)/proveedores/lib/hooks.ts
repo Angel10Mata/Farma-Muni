@@ -183,6 +183,7 @@ export function useCrearCompra() {
       queryClient.invalidateQueries({ queryKey: ["compras-historial"] });
       queryClient.invalidateQueries({ queryKey: ["inventario", "lotes"] });
       queryClient.invalidateQueries({ queryKey: ["productos"] });
+      queryClient.invalidateQueries({ queryKey: ["inv-costos-comercial"] });
     },
   });
 }

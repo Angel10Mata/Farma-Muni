@@ -7,6 +7,7 @@ import { authSchema, INITIAL_USER_PASSWORD } from "./zod";
 import { mensajeErrorEs } from "@/lib/supabase-errors-es";
 import { mensajeSiServiceRoleKeyInvalida } from "@/lib/supabase-service-role-env";
 import { canAssignRole, canCreateUsers } from "@/components/(base)/(users)/usuarios/lib/permissions";
+import { resolveUserRole } from "@/lib/user-role";
 
 // Helpers
 function getAdminClient() {
@@ -42,13 +43,7 @@ async function obtenerRolCreador(): Promise<
     return { ok: false, message: "Debes iniciar sesión para crear usuarios." };
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("rol")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const rol = profile?.rol ?? user.user_metadata?.rol ?? "user";
+  const rol = await resolveUserRole(supabase, user);
   if (!canCreateUsers(rol)) {
     return {
       ok: false,

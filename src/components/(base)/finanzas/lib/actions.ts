@@ -10,11 +10,27 @@ import {
   type CuentaPorCobrar,
   type CuentaPorPagar,
 } from "./zod";
+import { requireFinanzas } from "@/lib/auth-guards";
+import { enLotes, traerTodo } from "@/lib/reportes/paginacion";
+import {
+  calcularRangoPeriodoAnterior,
+  construirReporteIngresosEgresos,
+  normalizarTipoMovimientoFinanza,
+  type ReferenciasFinanzas,
+  type ReporteIngresosEgresos,
+} from "./reporte-ingresos-egresos";
+import { MotivoModificacionVentaSchema } from "@/components/(base)/ventas/lib/zod";
+import { modalActionMessage } from "@/components/ui/modal-toast";
+import {
+  diasRestantesCredito,
+  fechaVenceCreditoDesdeVenta,
+} from "@/components/(base)/creditos/lib/creditos-reporte-helpers";
 
 // Utilidades internas
 const FINANZAS_PATH = "/farmamuni/finanzas";
 const DEFAULT_PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 200;
+const GRAFICA_MOVIMIENTOS_LIMIT = 2500;
 
 function toErrorMessage(error: unknown, fallback: string): string {
   if (error instanceof Error) return error.message;
@@ -37,8 +53,39 @@ function ventaEsCreditoFinanzas(tipoVenta: string | null | undefined): boolean {
   return t === "crédito" || t === "credito";
 }
 
-function ventaAnuladaFinanzas(observaciones: string | null | undefined): boolean {
-  return (observaciones ?? "").includes("[ANULADA]");
+function ventaAnuladaFinanzas(estado: string | null | undefined): boolean {
+  return (estado ?? "activa") === "anulada";
+}
+
+function parseMotivoReverso(motivo: string): string {
+  const parsed = MotivoModificacionVentaSchema.safeParse(motivo);
+  if (!parsed.success) {
+    throw new Error("El motivo es obligatorio (mínimo 5 caracteres).");
+  }
+  return parsed.data;
+}
+
+function mensajeErrorRpcReversarMovimiento(message: string): string {
+  const m = message.toUpperCase();
+  if (m.includes("FORBIDDEN")) {
+    return "No tienes permiso para reversar movimientos.";
+  }
+  if (m.includes("MOTIVO_REQUERIDO")) {
+    return "El motivo del reverso es obligatorio (mínimo 5 caracteres).";
+  }
+  if (m.includes("NO_ENCONTRADA")) {
+    return "No se encontró el movimiento.";
+  }
+  if (m.includes("ES_REVERSO")) {
+    return "No se puede reversar un movimiento que ya es un reverso.";
+  }
+  if (m.includes("YA_REVERSADO")) {
+    return "Este movimiento ya fue reversado.";
+  }
+  if (m.includes("USAR_ANULAR_VENTA")) {
+    return "Este ingreso pertenece a una venta: anula la venta desde Ventas.";
+  }
+  return message || "No se pudo reversar el movimiento.";
 }
 
 // Fallback sin RPC
@@ -48,7 +95,7 @@ async function listarCuentasPorCobrarFallback(
   const { data: ventas, error } = await supabase
     .from("ventas")
     .select(
-      "id, cliente_id, numero_recibo, created_at, total, observaciones, tipo_venta, ven_clientes(nombre)",
+      "id, cliente_id, numero_recibo, created_at, total, estado, tipo_venta, fecha_credito_vencimiento, ven_clientes(nombre)",
     )
     .not("cliente_id", "is", null);
 
@@ -57,7 +104,7 @@ async function listarCuentasPorCobrarFallback(
   const creditoVentas = (ventas ?? []).filter(
     (v) =>
       ventaEsCreditoFinanzas(v.tipo_venta as string) &&
-      !ventaAnuladaFinanzas(v.observaciones as string | null) &&
+      !ventaAnuladaFinanzas(v.estado as string | null) &&
       v.cliente_id,
   );
 
@@ -91,6 +138,10 @@ async function listarCuentasPorCobrarFallback(
     if (saldo <= 0) continue;
 
     const cliente = v.ven_clientes as { nombre?: string } | null;
+    const fechaVence = fechaVenceCreditoDesdeVenta(
+      v.created_at as string,
+      v.fecha_credito_vencimiento as string | null | undefined,
+    );
     resultado.push({
       venta_id: v.id as string,
       cliente_id: v.cliente_id as string,
@@ -101,6 +152,11 @@ async function listarCuentasPorCobrarFallback(
       total,
       total_cobrado: totalCobrado,
       saldo_pendiente: saldo,
+      fecha_vencimiento_credito: fechaVence,
+      dias_restantes: diasRestantesCredito(
+        v.created_at as string,
+        v.fecha_credito_vencimiento as string | null | undefined,
+      ),
     });
   }
 
@@ -117,7 +173,9 @@ async function listarCuentasPorPagarFallback(
 ): Promise<CuentaPorPagar[]> {
   const { data: compras, error } = await supabase
     .from("inv_compras")
-    .select("id, proveedor_id, created_at, total, inv_proveedores(nombre)");
+    .select(
+      "id, proveedor_id, created_at, total, numero_factura, fecha_vencimiento_pago, inv_proveedores(nombre)",
+    );
 
   if (error) throw new Error(error.message);
 
@@ -138,7 +196,7 @@ async function listarCuentasPorPagarFallback(
     for (const tx of txs ?? []) {
       if (!tx.compra_id) continue;
       const prev = pagadoPorCompra.get(tx.compra_id) ?? 0;
-      pagadoPorCompra.set(tx.compra_id, prev + Math.abs(Number(tx.monto)));
+      pagadoPorCompra.set(tx.compra_id, prev + Number(tx.monto));
     }
   }
 
@@ -155,7 +213,9 @@ async function listarCuentasPorPagarFallback(
       compra_id: c.id as string,
       proveedor_id: c.proveedor_id as string,
       proveedor_nombre: prov?.nombre?.trim() || "Proveedor sin nombre",
+      numero_factura: (c.numero_factura as string | null) ?? null,
       fecha_compra: c.created_at as string,
+      fecha_vencimiento_pago: (c.fecha_vencimiento_pago as string | null) ?? null,
       total,
       total_pagado: totalPagado,
       saldo_pendiente: saldo,
@@ -255,6 +315,49 @@ export async function obtenerMovimientosFinancieros(
   }
 }
 
+export async function obtenerMovimientosGraficaFinanzas(
+  params: Pick<ObtenerMovimientosParams, "tipo" | "search" | "desde" | "hasta"> = {},
+): Promise<TransaccionFinanciera[]> {
+  const tipo = params.tipo ?? "todos";
+  const search = params.search ?? "";
+  const desde = params.desde;
+  const hasta = params.hasta;
+
+  try {
+    const supabase = await createClient();
+
+    let query = supabase
+      .from("fin_transacciones")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .limit(GRAFICA_MOVIMIENTOS_LIMIT);
+
+    if (tipo !== "todos") {
+      query = query.eq("tipo_movimiento", tipo);
+    }
+    if (desde) {
+      query = query.gte("created_at", desde);
+    }
+    if (hasta) {
+      query = query.lte("created_at", hasta);
+    }
+    if (search.trim().length > 0) {
+      const term = sanitizeSearchTerm(search);
+      query = query.or(`descripcion.ilike.%${term}%,categoria.ilike.%${term}%`);
+    }
+
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+
+    return (data ?? []) as TransaccionFinanciera[];
+  } catch (error: unknown) {
+    console.error("Error en obtenerMovimientosGraficaFinanzas:", error);
+    throw new Error(
+      toErrorMessage(error, "No se pudieron cargar los datos para las gráficas."),
+    );
+  }
+}
+
 export async function obtenerResumenFinanciero(desde?: string, hasta?: string): Promise<ResumenFinanciero> {
   try {
     const supabase = await createClient();
@@ -292,12 +395,17 @@ export async function registrarMovimiento(
   input: unknown
 ): Promise<{ success: true; data: TransaccionFinanciera } | { success: false; error: string }> {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) throw new Error("Sesión no válida o expirada.");
+    const guard = await requireFinanzas();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error: modalActionMessage(
+          guard.code,
+          "No se pudo registrar el movimiento.",
+        ),
+      };
+    }
+    const { supabase, user } = guard;
 
     const parsed = registrarMovimientoSchema.safeParse(input);
 
@@ -336,61 +444,58 @@ export async function registrarMovimiento(
   }
 }
 
-export async function eliminarMovimiento(id: string): Promise<{ success: true } | { success: false; error: string }> {
+export async function reversarMovimiento(
+  id: string,
+  motivo: string,
+): Promise<{ success: true } | { success: false; error: string }> {
   try {
     if (!id || typeof id !== "string") {
       throw new Error("ID de movimiento inválido.");
     }
 
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) throw new Error("Sesión no válida o expirada.");
-
-    // Obtener la transacción original
-    const { data: original, error: fetchError } = await supabase
-      .from("fin_transacciones")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (fetchError || !original) {
-      throw new Error("No se encontró el movimiento a anular.");
+    const guard = await requireFinanzas();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error: modalActionMessage(
+          guard.code,
+          "No se pudo reversar el movimiento.",
+        ),
+      };
     }
+    const { supabase } = guard;
+    const motivoLimpio = parseMotivoReverso(motivo);
 
-    // Insertar la transacción inversa (monto negativo)
-    const { error: insertError } = await supabase.from("fin_transacciones").insert({
-      tipo_movimiento: original.tipo_movimiento,
-      categoria: original.categoria,
-      monto: -Math.abs(original.monto), // Monto negativo para revertir saldos
-      descripcion: `Anulación: ${original.descripcion}`,
-      fecha_movimiento: new Date().toISOString(),
-      usuario_id: user.id,
-      venta_id: original.venta_id,
-      compra_id: original.compra_id,
-      gasto_fijo_id: original.gasto_fijo_id,
+    const { error: rpcError } = await supabase.rpc("reversar_movimiento", {
+      p_mov_id: id,
+      p_motivo: motivoLimpio,
     });
 
-    if (insertError) throw new Error(insertError.message);
-
-    // Si es una venta, sincronizar el estado [ANULADA] en el módulo de Ventas
-    if (original.venta_id) {
-      const { data: v } = await supabase.from("ventas").select("observaciones").eq("id", original.venta_id).single();
-      const obs = v?.observaciones || "";
-      if (!obs.includes("[ANULADA]")) {
-        await supabase.from("ventas").update({ observaciones: `${obs} [ANULADA]`.trim() }).eq("id", original.venta_id);
-      }
+    if (rpcError) {
+      return {
+        success: false,
+        error: mensajeErrorRpcReversarMovimiento(rpcError.message),
+      };
     }
 
     revalidatePath(FINANZAS_PATH);
     revalidatePath("/farmamuni/ventas");
+    revalidatePath("/farmamuni/proveedores");
     return { success: true };
   } catch (error: unknown) {
-    console.error("Error al anular movimiento:", error);
-    return { success: false, error: toErrorMessage(error, "No se pudo anular el movimiento.") };
+    console.error("Error al reversar movimiento:", error);
+    return {
+      success: false,
+      error: toErrorMessage(error, "No se pudo reversar el movimiento."),
+    };
   }
+}
+
+export async function eliminarMovimiento(
+  id: string,
+  motivo: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  return reversarMovimiento(id, motivo);
 }
 
 // Cuentas por cobrar y por pagar
@@ -409,6 +514,142 @@ export async function obtenerCuentasPorCobrar(): Promise<CuentaPorCobrar[]> {
   } catch (error: unknown) {
     console.error("Error en obtenerCuentasPorCobrar:", error);
     throw new Error("No se pudieron cargar las cuentas por cobrar.");
+  }
+}
+
+async function listarMovimientosFinanzasRango(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  desde: string,
+  hasta: string,
+): Promise<TransaccionFinanciera[]> {
+  const filas = await traerTodo<TransaccionFinanciera>(async (from, to) => {
+    const { data, error } = await supabase
+      .from("fin_transacciones")
+      .select("*")
+      .gte("created_at", desde)
+      .lte("created_at", hasta)
+      .order("created_at", { ascending: true })
+      .range(from, to);
+    return { data, error };
+  });
+
+  return filas.map((row) => ({
+    ...row,
+    tipo_movimiento: normalizarTipoMovimientoFinanza(row.tipo_movimiento),
+  }));
+}
+
+async function cargarReferenciasFinanzas(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  movimientos: readonly TransaccionFinanciera[],
+): Promise<ReferenciasFinanzas> {
+  const ventaIds = [
+    ...new Set(
+      movimientos.map((m) => m.venta_id).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const compraIds = [
+    ...new Set(
+      movimientos.map((m) => m.compra_id).filter((id): id is string => Boolean(id)),
+    ),
+  ];
+
+  const recibosPorVenta = new Map<string, string>();
+  const facturasPorCompra = new Map<string, string>();
+
+  for (const lote of enLotes(ventaIds)) {
+    const { data, error } = await supabase
+      .from("ventas")
+      .select("id, numero_recibo")
+      .in("id", lote);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      const id = row.id as string;
+      const recibo = row.numero_recibo != null ? String(row.numero_recibo) : "";
+      if (recibo) recibosPorVenta.set(id, recibo);
+    }
+  }
+
+  for (const lote of enLotes(compraIds)) {
+    const { data, error } = await supabase
+      .from("inv_compras")
+      .select("id, numero_factura")
+      .in("id", lote);
+    if (error) throw new Error(error.message);
+    for (const row of data ?? []) {
+      const id = row.id as string;
+      const factura = (row.numero_factura as string | null)?.trim();
+      if (factura) facturasPorCompra.set(id, factura);
+    }
+  }
+
+  return { recibosPorVenta, facturasPorCompra };
+}
+
+export async function obtenerReporteIngresosEgresos(
+  desde: string,
+  hasta: string,
+): Promise<
+  | { success: true; data: ReporteIngresosEgresos }
+  | { success: false; error: string }
+> {
+  try {
+    if (!desde || !hasta) {
+      return { success: false, error: "Selecciona un período válido." };
+    }
+
+    const guard = await requireFinanzas();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error:
+          guard.code === "UNAUTHORIZED"
+            ? "Sesión no válida o expirada."
+            : "No tienes permiso para exportar este informe.",
+      };
+    }
+
+    const { supabase, user } = guard;
+    const { data: perfil } = await supabase
+      .from("profiles")
+      .select("nombre")
+      .eq("id", user.id)
+      .maybeSingle();
+    const generadoPor = perfil?.nombre?.trim() || "Usuario";
+
+    const anterior = calcularRangoPeriodoAnterior(desde, hasta);
+    if (!anterior) {
+      return { success: false, error: "No se pudo calcular el período anterior." };
+    }
+
+    const [movimientos, movimientosAnterior] = await Promise.all([
+      listarMovimientosFinanzasRango(supabase, desde, hasta),
+      listarMovimientosFinanzasRango(supabase, anterior.desde, anterior.hasta),
+    ]);
+
+    const referencias = await cargarReferenciasFinanzas(
+      supabase,
+      [...movimientos, ...movimientosAnterior],
+    );
+
+    const data = construirReporteIngresosEgresos({
+      movimientos,
+      movimientosAnterior,
+      desde,
+      hasta,
+      desdeAnterior: anterior.desde,
+      hastaAnterior: anterior.hasta,
+      referencias,
+      generadoPor,
+    });
+
+    return { success: true, data };
+  } catch (error: unknown) {
+    console.error("Error en obtenerReporteIngresosEgresos:", error);
+    return {
+      success: false,
+      error: toErrorMessage(error, "No se pudo generar el informe de ingresos y egresos."),
+    };
   }
 }
 

@@ -137,7 +137,7 @@ export default function ModalPasskeys({
       {isOpen && (
         <div className="space-y-4">
           {passkeys.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-8 text-center text-muted-foreground">
+            <div className="flex flex-col items-center justify-center py-8 text-center text-texto-tenue">
               <FingerprintIcon className="size-12 mb-3 opacity-20" />
               <p className="text-sm font-medium">No hay dispositivos registrados.</p>
               <p className="text-xs opacity-70 mt-1 max-w-[250px]">
@@ -156,7 +156,7 @@ export default function ModalPasskeys({
                     <span className="text-sm font-bold text-foreground truncate">
                       {pk.device_name}
                     </span>
-                    <span className="text-xs text-muted-foreground mt-0.5">
+                    <span className="text-xs text-texto-tenue mt-0.5">
                       {new Date(pk.created_at).toLocaleDateString()}
                     </span>
                   </div>
@@ -237,7 +237,7 @@ export default function ModalPasskeys({
           )}
 
           {passkeyCount >= 3 && !showAddForm && (
-            <p className="text-[10px] text-center text-muted-foreground px-2">
+            <p className="text-etiqueta text-center text-texto-tenue px-2">
               Has alcanzado el límite de 3 dispositivos. Elimina uno para
               agregar otro.
             </p>

@@ -1,9 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { patchInvLoteCantidadActual, patchInvProductoStockActual } from "@/components/(base)/inventario/lib/helpers";
-import { syncInvProductoCatalogoDesdeLotes } from "@/components/(base)/inventario/lib/sync-producto-catalogo";
+import {
+  activarProductoCatalogoPorNuevoLote,
+  syncInvProductoCatalogoDesdeLotes,
+} from "@/components/(base)/inventario/lib/sync-producto-catalogo";
 
-// Costo del producto o lote
-export async function obtenerCostoProductoOLote(
+async function costoLoteFallback(
   supabase: SupabaseClient,
   productoId: string,
   loteId?: string | null,
@@ -26,6 +28,21 @@ export async function obtenerCostoProductoOLote(
     .limit(1)
     .maybeSingle();
   return Math.max(0, Number(loteFallback?.precio_costo) || 0);
+}
+
+export async function obtenerCostoReferenciaVenta(
+  supabase: SupabaseClient,
+  productoId: string,
+  loteId?: string | null,
+): Promise<number> {
+  const { data: cpp, error } = await supabase.rpc("inv_costo_promedio", {
+    p_producto_id: productoId,
+  });
+  if (!error && cpp != null) {
+    const n = Number(cpp);
+    if (n > 0) return n;
+  }
+  return costoLoteFallback(supabase, productoId, loteId);
 }
 
 // Existencias al vender o devolver
@@ -66,7 +83,11 @@ export async function ajustarStockPorVenta(
       throw new Error(`Error al actualizar stock del lote: ${updateError.message}`);
     }
 
-    await syncInvProductoCatalogoDesdeLotes(supabase, params.producto_id);
+    if (nuevo > 0) {
+      await activarProductoCatalogoPorNuevoLote(supabase, params.producto_id);
+    } else {
+      await syncInvProductoCatalogoDesdeLotes(supabase, params.producto_id);
+    }
     return;
   }
 

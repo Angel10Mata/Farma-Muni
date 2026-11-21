@@ -2,35 +2,61 @@
 
 import { useState, useEffect } from "react";
 import { useAppSettings, useUpdateAppSettings } from "./hooks";
-import { Shield, Key, Loader2 } from "lucide-react";
-import LogoKore from "@/components/(Kore)/logo/LogoKore";
+import { Shield, Key, Loader2, Building2 } from "lucide-react";
+import Image from "next/image";
+import { APP_LOGO_PATH, APP_NAME } from "@/lib/app-config";
 import { Card } from "@/components/ui/card";
 import { modulePageCenteredClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
+import {
+  ModalField,
+  ModalInput,
+  ModalLabel,
+  ModalTextarea,
+} from "@/components/ui/general-modal";
 
-// Configuración
 export default function VerConfiguraciones() {
   const { data: settings, isLoading, isError } = useAppSettings();
   const { mutate: updateSettings, isPending } = useUpdateAppSettings();
 
-  // Estado
   const [requireAuth, setRequireAuth] = useState<boolean>(false);
   const [enablePasskeys, setEnablePasskeys] = useState<boolean>(false);
+  const [farmaciaNombre, setFarmaciaNombre] = useState("");
+  const [farmaciaDireccion, setFarmaciaDireccion] = useState("");
+  const [farmaciaTelefono, setFarmaciaTelefono] = useState("");
+  const [diasCredito, setDiasCredito] = useState(30);
+  const [margenGanancia, setMargenGanancia] = useState(30);
+  const [margenMinimo, setMargenMinimo] = useState(10);
 
   useEffect(() => {
-    const applySettings = async () => {
-      if (settings) {
-        setRequireAuth(settings.require_device_authorization);
-        setEnablePasskeys(settings.enable_passkeys);
-      }
-    };
-    applySettings();
+    if (settings) {
+      setRequireAuth(settings.require_device_authorization);
+      setEnablePasskeys(settings.enable_passkeys);
+      setFarmaciaNombre(settings.farmacia_nombre ?? "FarmaMuni");
+      setFarmaciaDireccion(settings.farmacia_direccion ?? "");
+      setFarmaciaTelefono(settings.farmacia_telefono ?? "");
+      setDiasCredito(settings.dias_credito ?? 30);
+      setMargenGanancia(settings.margen_ganancia_pct ?? 30);
+      setMargenMinimo(settings.margen_minimo_pct ?? 10);
+    }
   }, [settings]);
+
+  const payloadBase = () => ({
+    id: settings?.id,
+    require_device_authorization: requireAuth,
+    enable_passkeys: enablePasskeys,
+    farmacia_nombre: farmaciaNombre.trim() || "FarmaMuni",
+    farmacia_direccion: farmaciaDireccion.trim() || null,
+    farmacia_telefono: farmaciaTelefono.trim() || null,
+    dias_credito: diasCredito,
+    margen_ganancia_pct: margenGanancia,
+    margen_minimo_pct: margenMinimo,
+  });
 
   if (isLoading) {
     return (
       <div className="flex items-center justify-center w-full h-40">
-        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+        <Loader2 className="w-8 h-8 animate-spin text-texto-tenue" />
       </div>
     );
   }
@@ -43,29 +69,33 @@ export default function VerConfiguraciones() {
     );
   }
 
-const handleAuthChange = (checked: boolean) => {
+  const handleAuthChange = (checked: boolean) => {
     setRequireAuth(checked);
-    updateSettings({
-      id: settings?.id,
-      require_device_authorization: checked,
-      enable_passkeys: enablePasskeys,
-    });
+    updateSettings({ ...payloadBase(), require_device_authorization: checked });
   };
 
   const handlePasskeysChange = (checked: boolean) => {
     setEnablePasskeys(checked);
-    updateSettings({
-      id: settings?.id,
-      require_device_authorization: requireAuth,
-      enable_passkeys: checked,
-    });
+    updateSettings({ ...payloadBase(), enable_passkeys: checked });
+  };
+
+  const guardarFarmacia = () => {
+    if (margenMinimo > margenGanancia) {
+      return;
+    }
+    updateSettings(payloadBase());
   };
 
   return (
     <div className={modulePageCenteredClass}>
-      {/* LOGO CENTRADO */}
       <div className="w-full flex justify-center mb-4">
-        <LogoKore scale={0.7} backgroundEffect="none" />
+        <Image
+          src={APP_LOGO_PATH}
+          alt={APP_NAME}
+          width={160}
+          height={160}
+          className="h-28 w-28 object-contain md:h-32 md:w-32"
+        />
       </div>
 
       <div className="flex flex-col gap-1 w-full text-center items-center">
@@ -75,7 +105,7 @@ const handleAuthChange = (checked: boolean) => {
             Configuraciones
           </h1>
         </div>
-        <p className="text-sm text-muted-foreground ml-0.5">
+        <p className="text-sm text-texto-tenue ml-0.5">
           Ajustes generales del sistema y seguridad.
         </p>
       </div>
@@ -89,7 +119,7 @@ const handleAuthChange = (checked: boolean) => {
               </div>
               <div className="space-y-0.5 text-left">
                 <h3 className="text-base font-semibold text-foreground">Autorización de dispositivos</h3>
-                <p className="text-xs text-muted-foreground">Requerir aprobación manual para nuevos dispositivos.</p>
+                <p className="text-xs text-texto-tenue">Requerir aprobación manual para nuevos dispositivos.</p>
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -111,7 +141,7 @@ const handleAuthChange = (checked: boolean) => {
               </div>
               <div className="space-y-0.5 text-left">
                 <h3 className="text-base font-semibold text-foreground">Habilitar Passkeys</h3>
-                <p className="text-xs text-muted-foreground">Permitir el inicio de sesión sin contraseña.</p>
+                <p className="text-xs text-texto-tenue">Permitir el inicio de sesión sin contraseña.</p>
               </div>
             </div>
             <label className="relative inline-flex items-center cursor-pointer">
@@ -124,6 +154,101 @@ const handleAuthChange = (checked: boolean) => {
               />
               <div className="w-11 h-6 bg-muted border border-border peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
             </label>
+          </div>
+
+          <div className="p-4 rounded-xl border border-border/50 bg-background space-y-4 text-left">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-[#2c5f9b]/10 rounded-lg">
+                <Building2 className="size-5 text-[#2c5f9b]" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Datos del recibo</h3>
+                <p className="text-xs text-texto-tenue">
+                  Nombre, dirección y teléfono que aparecen en el ticket de venta.
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <ModalField>
+                <ModalLabel>Nombre de la farmacia</ModalLabel>
+                <ModalInput
+                  value={farmaciaNombre}
+                  onChange={(e) => setFarmaciaNombre(e.target.value)}
+                  disabled={isPending}
+                />
+              </ModalField>
+              <ModalField>
+                <ModalLabel>Teléfono</ModalLabel>
+                <ModalInput
+                  value={farmaciaTelefono}
+                  onChange={(e) => setFarmaciaTelefono(e.target.value)}
+                  disabled={isPending}
+                />
+              </ModalField>
+              <ModalField className="sm:col-span-2">
+                <ModalLabel>Dirección</ModalLabel>
+                <ModalTextarea
+                  value={farmaciaDireccion}
+                  onChange={(e) => setFarmaciaDireccion(e.target.value)}
+                  disabled={isPending}
+                  rows={2}
+                />
+              </ModalField>
+              <ModalField>
+                <ModalLabel>Días de crédito (morosidad)</ModalLabel>
+                <ModalInput
+                  type="number"
+                  min={1}
+                  max={365}
+                  value={diasCredito}
+                  onChange={(e) =>
+                    setDiasCredito(Math.max(1, Number(e.target.value) || 30))
+                  }
+                  disabled={isPending}
+                />
+              </ModalField>
+              <ModalField>
+                <ModalLabel>Margen de ganancia sugerido (%)</ModalLabel>
+                <ModalInput
+                  type="number"
+                  min={0}
+                  max={500}
+                  step={0.1}
+                  value={margenGanancia}
+                  onChange={(e) =>
+                    setMargenGanancia(Math.min(500, Math.max(0, Number(e.target.value) || 0)))
+                  }
+                  disabled={isPending}
+                />
+              </ModalField>
+              <ModalField>
+                <ModalLabel>Margen mínimo (%)</ModalLabel>
+                <ModalInput
+                  type="number"
+                  min={0}
+                  max={500}
+                  step={0.1}
+                  value={margenMinimo}
+                  onChange={(e) =>
+                    setMargenMinimo(Math.min(500, Math.max(0, Number(e.target.value) || 0)))
+                  }
+                  disabled={isPending}
+                />
+              </ModalField>
+            </div>
+            {margenMinimo > margenGanancia ? (
+              <p className="text-xs font-bold text-red-500">
+                El margen mínimo no puede ser mayor que el margen de ganancia sugerido.
+              </p>
+            ) : null}
+            <button
+              type="button"
+              onClick={guardarFarmacia}
+              disabled={isPending || margenMinimo > margenGanancia}
+              className="text-sm font-bold text-[#2c5f9b] hover:underline disabled:opacity-50"
+            >
+              Guardar datos de farmacia, crédito y márgenes
+            </button>
           </div>
         </div>
       </Card>

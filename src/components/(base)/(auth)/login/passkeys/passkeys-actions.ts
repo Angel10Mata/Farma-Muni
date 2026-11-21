@@ -21,7 +21,7 @@ import type {
 } from "@simplewebauthn/server";
 
 const rpID = process.env.NEXT_PUBLIC_RP_ID as string;
-const rpName = "Kore Auth";
+const rpName = "FarmaMuni Auth";
 const origin = process.env.NEXT_PUBLIC_RP_ORIGIN as string;
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;

@@ -53,9 +53,10 @@ import {
   moduleTableSearchClass,
   moduleTableShellClass,
 } from "@/components/ui/module-table";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
 
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
+import { descargarReporteClientesExcel } from "./lib/export-reporte-clientes-xlsx";
 import { CustomDatePicker } from "@/components/ui/CustomDatePicker";
 import { obtenerSemanasDelMes } from "@/lib/fechas-gt";
 import { CrearCliente } from "./forms/Crear";
@@ -89,7 +90,7 @@ function ClienteDetalle({
       <div className="flex items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="flex size-10 shrink-0 items-center justify-center rounded-xl border border-[#8DA78E]/20 bg-[#8DA78E]/10">
-            <Users className="size-5 text-[#8DA78E]" />
+            <Users className="size-5 text-look-2-salvia-menta" />
           </div>
           <div className="min-w-0">
             <h2 className="text-lg font-black leading-snug text-slate-900 dark:text-white md:text-xl">
@@ -99,20 +100,20 @@ function ClienteDetalle({
         </div>
         <button
           onClick={onClose}
-          className="cursor-pointer px-2 text-xl font-bold text-slate-400 transition-colors"
+          className="cursor-pointer px-2 text-xl font-bold text-texto-tenue transition-colors"
         >
           ✕
         </button>
       </div>
 
       <div className="space-y-2.5">
-        <h4 className="text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Contacto</h4>
+        <h4 className="text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-look-1-salvia-suave/70">Contacto</h4>
         <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
-          <Mail className="size-5 shrink-0 text-[#8DA78E]" />
+          <Mail className="size-5 shrink-0 text-look-2-salvia-menta" />
           <span className="truncate">{cliente.email || "No registrado"}</span>
         </div>
         <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
-          <Phone className="size-5 shrink-0 text-[#8DA78E]" />
+          <Phone className="size-5 shrink-0 text-look-2-salvia-menta" />
           {cliente.telefono && cliente.telefono !== "No registrado" ? (
             <a
               href={getWhatsappUrl(cliente.telefono)}
@@ -123,23 +124,23 @@ function ClienteDetalle({
               {formatPhoneDisplay(cliente.telefono)}
             </a>
           ) : (
-            <span className="truncate text-slate-400">No registrado</span>
+            <span className="truncate text-texto-tenue">No registrado</span>
           )}
         </div>
         <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
-          <MapPin className="size-5 shrink-0 text-[#8DA78E]" />
+          <MapPin className="size-5 shrink-0 text-look-2-salvia-menta" />
           <span className="truncate">{cliente.direccion || "No registrada"}</span>
         </div>
         <div className="flex items-center gap-2.5 text-base text-slate-600 dark:text-slate-300">
-          <CreditCard className="size-5 shrink-0 text-[#8DA78E]" />
+          <CreditCard className="size-5 shrink-0 text-look-2-salvia-menta" />
           <span className="truncate">NIT: {cliente.nit || "C/F"}</span>
         </div>
       </div>
 
       <div className="space-y-3 border-t border-[#C1D1C5]/20 pt-3">
-        <h4 className="text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Estado Financiero</h4>
+        <h4 className="text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-look-1-salvia-suave/70">Estado Financiero</h4>
         {loadingVentas ? (
-          <p className="text-sm text-slate-400">Cargando transacciones...</p>
+          <p className="text-sm text-texto-tenue">Cargando transacciones...</p>
         ) : (() => {
           const ventasPendientes = (ventas as VentaCliente[]).filter((v) => {
             if (v.tipo_venta !== "Crédito") return false;
@@ -165,7 +166,7 @@ function ClienteDetalle({
           return (
             <div className="space-y-1.5">
               <div className="flex items-center justify-start rounded-xl border border-[#8DA78E]/20 bg-[#8DA78E]/10 px-3.5 py-3.5 dark:border-[#A3BEB0]/15 dark:bg-[#8DA78E]/5">
-                <span className="text-xs font-bold uppercase text-[#525D53] dark:text-[#A3BEB0]">Pendiente ({ventasPendientes.length} {ventasPendientes.length === 1 ? "crédito" : "créditos"})</span>
+                <span className="text-xs font-bold uppercase text-[#525D53] dark:text-look-1-salvia-suave">Pendiente ({ventasPendientes.length} {ventasPendientes.length === 1 ? "crédito" : "créditos"})</span>
               </div>
             </div>
           );
@@ -173,17 +174,22 @@ function ClienteDetalle({
       </div>
 
       <div>
-        <h4 className="mb-2.5 text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-[#A3BEB0]/70">Estadísticas</h4>
+        <h4 className="mb-2.5 text-xs uppercase tracking-widest font-black text-[#525D53] dark:text-look-1-salvia-suave/70">Estadísticas</h4>
         <div className="grid grid-cols-3 gap-2.5">
           {[
-            { icon: ShoppingBag, label: "Total Compras", value: cliente.totalCompras, color: "text-[#8DA78E] dark:text-[#A3BEB0]" },
+            {
+              icon: ShoppingBag,
+              label: "Total Compras",
+              value: loadingVentas ? cliente.totalCompras : ventas.length,
+              color: "text-look-2-salvia-menta dark:text-look-1-salvia-suave",
+            },
             { icon: TrendingUp, label: "Pendiente", value: `${cliente.creditosPendientes || 0} créditos`, color: "text-rose-500" },
-            { icon: Calendar, label: "Última Compra", value: cliente.ultimaCompra ? (() => { const parts = cliente.ultimaCompra.split("T")[0].split("-"); return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).toLocaleDateString("es-GT"); })() : "Sin compras", color: "text-[#8DA78E] dark:text-[#A3BEB0]" },
+            { icon: Calendar, label: "Última Compra", value: cliente.ultimaCompra ? (() => { const parts = cliente.ultimaCompra.split("T")[0].split("-"); return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])).toLocaleDateString("es-GT"); })() : "Sin compras", color: "text-look-2-salvia-menta dark:text-look-1-salvia-suave" },
           ].map(({ icon: Icon, label, value, color }) => (
             <div key={label} className="flex flex-col justify-center rounded-xl border border-[#C1D1C5]/30 bg-white p-2.5 dark:border-[#A3BEB0]/10 dark:bg-[#525D53]/10">
               <div className="mb-1 flex items-center gap-1.5">
                 <Icon className={`size-4 shrink-0 ${color}`} />
-                <span className="truncate text-[10px] font-bold uppercase leading-tight tracking-wider text-[#525D53] dark:text-[#A3BEB0]/70">{label}</span>
+                <span className="truncate text-etiqueta font-bold uppercase leading-tight tracking-wider text-[#525D53] dark:text-look-1-salvia-suave/70">{label}</span>
               </div>
               <p className={`text-sm font-black leading-snug ${color} truncate`}>{value}</p>
             </div>
@@ -293,6 +299,8 @@ function HistorialComprasPanel({
   }, [ventas, tipoFiltroFecha, fechaDia, activeMonth, activeYear, selectedWeekIndex, fechaRangoDesde, fechaRangoHasta]);
 
   const chartData = useMemo(() => {
+    const fuente = ventasFiltradas;
+
     if (tipoFiltroFecha === "dia") {
       const parts = fechaDia.split("-").map(Number);
       if (parts.length < 3) return [];
@@ -302,7 +310,7 @@ function HistorialComprasPanel({
       const data = [];
       for (let i = 1; i <= daysInMonth; i++) {
         const dayStr = `${year}-${String(month).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
-        const total = ventas
+        const total = fuente
           .filter(v => v.created_at.split("T")[0] === dayStr)
           .reduce((acc, curr) => acc + curr.total, 0);
         data.push({
@@ -312,21 +320,38 @@ function HistorialComprasPanel({
       }
       return data;
     } else if (tipoFiltroFecha === "semana") {
+      const year = activeYear;
+      const month = activeMonth + 1;
+      let desde: string;
+      let hasta: string;
+      if (selectedWeekIndex !== -1) {
+        const semanas = obtenerSemanasDelMes(activeMonth, activeYear);
+        const semanaSeleccionada = semanas[selectedWeekIndex];
+        if (!semanaSeleccionada) return [];
+        desde = semanaSeleccionada.desde;
+        hasta = semanaSeleccionada.hasta;
+      } else {
+        const daysInMonth = new Date(year, month, 0).getDate();
+        desde = `${year}-${String(month).padStart(2, "0")}-01`;
+        hasta = `${year}-${String(month).padStart(2, "0")}-${String(daysInMonth).padStart(2, "0")}`;
+      }
       const data = [];
-      for (let i = 0; i < 12; i++) {
-        const monthDate = new Date(activeYear, i, 1);
-        const monthName = monthDate.toLocaleDateString("es-GT", { month: "short" });
-        const monthStr = String(i + 1).padStart(2, "0");
+      const start = new Date(`${desde}T00:00:00`);
+      const end = new Date(`${hasta}T00:00:00`);
+      const current = new Date(start);
+      while (current <= end) {
+        const y = current.getFullYear();
+        const m = String(current.getMonth() + 1).padStart(2, "0");
+        const d = String(current.getDate()).padStart(2, "0");
+        const dayStr = `${y}-${m}-${d}`;
         const total = ventas
-          .filter(v => {
-            const [vy, vm] = v.created_at.split("T")[0].split("-");
-            return vy === String(activeYear) && vm === monthStr;
-          })
+          .filter(v => v.created_at.split("T")[0] === dayStr)
           .reduce((acc, curr) => acc + curr.total, 0);
         data.push({
-          fecha: monthName.charAt(0).toUpperCase() + monthName.slice(1),
-          total
+          fecha: current.toLocaleDateString("es-GT", { month: "short", day: "numeric" }),
+          total,
         });
+        current.setDate(current.getDate() + 1);
       }
       return data;
     } else if (tipoFiltroFecha === "rango") {
@@ -344,7 +369,7 @@ function HistorialComprasPanel({
         const m = String(current.getMonth() + 1).padStart(2, "0");
         const d = String(current.getDate()).padStart(2, "0");
         const dayStr = `${y}-${m}-${d}`;
-        const total = ventas
+        const total = fuente
           .filter(v => v.created_at.split("T")[0] === dayStr)
           .reduce((acc, curr) => acc + curr.total, 0);
 
@@ -358,7 +383,17 @@ function HistorialComprasPanel({
       return data;
     }
     return [];
-  }, [ventas, tipoFiltroFecha, fechaDia, activeYear, fechaRangoDesde, fechaRangoHasta]);
+  }, [
+    ventas,
+    ventasFiltradas,
+    tipoFiltroFecha,
+    fechaDia,
+    activeMonth,
+    activeYear,
+    selectedWeekIndex,
+    fechaRangoDesde,
+    fechaRangoHasta,
+  ]);
 
   return (
       <motion.div
@@ -409,12 +444,12 @@ function HistorialComprasPanel({
                         className={cn(moduleDateFilterControlButtonClass, "sm:w-[8.75rem]")}
                       >
                         <div className="flex items-center gap-1.5">
-                          <Calendar className="size-3.5 text-[#8DA78E]" />
+                          <Calendar className="size-3.5 text-look-2-salvia-menta" />
                           <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">
                             {["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"][activeMonth]} {activeYear}
                           </span>
                         </div>
-                        <ChevronDown className="size-3 text-slate-400" />
+                        <ChevronDown className="size-3 text-texto-tenue" />
                       </button>
 
                       <AnimatePresence>
@@ -453,7 +488,7 @@ function HistorialComprasPanel({
                                     setSelectedWeekIndex(-1);
                                   }}
                                   className={cn(
-                                    "px-1 py-1.5 rounded-lg text-[10px] font-bold transition-all cursor-pointer",
+                                    "px-1 py-1.5 rounded-lg text-etiqueta font-bold transition-all cursor-pointer",
                                     activeMonth === idx
                                       ? "bg-[#8DA78E] text-white"
                                       : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-900"
@@ -477,7 +512,7 @@ function HistorialComprasPanel({
                         <span className="text-xs font-semibold text-slate-800 dark:text-slate-200 truncate">
                           {selectedWeekIndex === -1 ? "Todo el mes" : obtenerSemanasDelMes(activeMonth, activeYear)[selectedWeekIndex]?.label || "Semana"}
                         </span>
-                        <ChevronDown className="size-3 text-slate-400 shrink-0" />
+                        <ChevronDown className="size-3 text-texto-tenue shrink-0" />
                       </button>
 
                       <AnimatePresence>
@@ -497,7 +532,7 @@ function HistorialComprasPanel({
                               className={cn(
                                 "w-full text-left px-3 py-2 text-xs font-bold flex items-center justify-between cursor-pointer",
                                 selectedWeekIndex === -1
-                                  ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                                  ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                                   : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-900"
                               )}
                             >
@@ -516,7 +551,7 @@ function HistorialComprasPanel({
                                 className={cn(
                                   "w-full text-left px-3 py-2 text-xs font-semibold flex items-center justify-between cursor-pointer",
                                   selectedWeekIndex === idx
-                                    ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                                    ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                                     : "text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-zinc-900"
                                 )}
                               >
@@ -540,7 +575,7 @@ function HistorialComprasPanel({
                       align="left"
                       dropDirection="down"
                     />
-                    <span className="text-xs text-slate-400">-</span>
+                    <span className="text-xs text-texto-tenue">-</span>
                     <CustomDatePicker
                       value={fechaRangoHasta}
                       onChange={setFechaRangoHasta}
@@ -553,7 +588,7 @@ function HistorialComprasPanel({
             </ModuleDateFilterLayout>
           </div>
 
-          <button onClick={onClose} className="text-zinc-400 ml-auto md:ml-0 cursor-pointer">
+          <button onClick={onClose} className="text-texto-tenue ml-auto md:ml-0 cursor-pointer">
             <X className="size-5" />
           </button>
         </div>
@@ -573,9 +608,11 @@ function HistorialComprasPanel({
             </ResponsiveContainer>
           </div>
           <div className="mt-8 space-y-2">
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-[#525D53] dark:text-[#A3BEB0] mb-3">Detalle de Compras</h4>
+            <h4 className="text-etiqueta font-black uppercase tracking-widest text-[#525D53] dark:text-look-1-salvia-suave mb-3">
+              Detalle de Compras ({ventasFiltradas.length} de {ventas.length})
+            </h4>
             {ventasFiltradas.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-zinc-400">
+              <div className="flex flex-col items-center justify-center py-12 text-texto-tenue">
                 <ShoppingBag className="size-12 mb-3 opacity-20" />
                 <p className="text-sm font-bold">No hay compras registradas en este período.</p>
               </div>
@@ -584,9 +621,9 @@ function HistorialComprasPanel({
                 <div key={v.id} className="flex justify-between items-center p-3 rounded-xl border border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-800/30">
                   <div>
                     <p className="font-black text-sm text-zinc-800 dark:text-zinc-100">{fmtQ(v.total)}</p>
-                    <p className="text-[10px] text-zinc-500 font-medium flex items-center gap-1 mt-0.5"><Clock className="size-3" /> {new Date(v.created_at).toLocaleString("es-GT")}</p>
+                    <p className="text-etiqueta text-zinc-500 font-medium flex items-center gap-1 mt-0.5"><Clock className="size-3" /> {new Date(v.created_at).toLocaleString("es-GT")}</p>
                   </div>
-                  <span className={cn("text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md", v.tipo_venta === "Crédito" ? "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400" : "bg-[#8DA78E]/10 text-[#8DA78E] dark:bg-[#A3BEB0]/10 dark:text-[#A3BEB0]")}>
+                  <span className={cn("text-etiqueta font-bold uppercase tracking-wider px-2 py-1 rounded-md", v.tipo_venta === "Crédito" ? "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400" : "bg-[#8DA78E]/10 text-look-2-salvia-menta dark:bg-[#A3BEB0]/10 dark:text-look-1-salvia-suave")}>
                     {v.tipo_venta}
                   </span>
                 </div>
@@ -645,46 +682,13 @@ export function VerClientes() {
     currentPage * pageSize
   );
 
-  // Exportar PDF
-  const handleExportarPDF = () => {
+  const handleExportarExcel = async () => {
     try {
-      const doc = new jsPDF();
-      doc.text("Reporte General de Clientes", 14, 15);
-
-      const tableData = clientesOrdenados.map((c) => [
-        c.nombre,
-        c.telefono,
-        c.email,
-        c.nit,
-        c.totalCompras.toString(),
-        `${fmtQ(c.saldo)}`
-      ]);
-
-      autoTable(doc, {
-        head: [["Nombre", "Teléfono", "Email", "NIT", "Compras", "Saldo Pendiente"]],
-        body: tableData,
-        startY: 22,
-        theme: "striped",
-        headStyles: {
-          fillColor: [141, 167, 142],
-          textColor: [245, 245, 241],
-          fontStyle: "bold",
-          fontSize: 10
-        },
-        alternateRowStyles: {
-          fillColor: [245, 245, 241]
-        },
-        margin: { top: 40 },
-        styles: {
-          fontSize: 9,
-          cellPadding: 3
-        }
-      });
-
-      doc.save(`Reporte_Clientes_${new Date().toISOString().slice(0, 10)}.pdf`);
-      toast.success("PDF exportado correctamente.");
+      const meta = await construirMetaInforme("Usuario");
+      await descargarReporteClientesExcel(clientesOrdenados, meta);
+      toast.success("Excel exportado correctamente.");
     } catch {
-      toast.error("No se pudo generar el archivo PDF.");
+      toast.error("No se pudo generar el archivo Excel.");
     }
   };
 
@@ -694,8 +698,8 @@ export function VerClientes() {
         <div className="flex items-center gap-3">
           <ModuleHeaderBackButton size="sm" />
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
-            <h1 className="text-xl font-black uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-2xl">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">Módulo</p>
+            <h1 className="text-xl font-bold uppercase leading-none tracking-tight text-slate-900 dark:text-white md:text-2xl">
               Clientes
             </h1>
           </div>
@@ -719,7 +723,7 @@ export function VerClientes() {
       >
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-slate-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-texto-tenue" />
             <input
               type="text"
               value={busqueda}
@@ -743,13 +747,13 @@ export function VerClientes() {
                 <SelectItem value="saldo-desc" className="text-xs font-semibold cursor-pointer">Saldo Pendiente (Mayor a Menor)</SelectItem>
               </SelectContent>
             </Select>
-            <SigetActionButton
-              label="Exportar"
-              accentColor={sigetAccent.excel}
-              morphFrom={DownloadNode}
-              morphTo={FileDown}
-              onClick={handleExportarPDF}
-              className="w-auto shrink-0"
+            <ModuleInformeDropdown
+              items={[
+                {
+                  titulo: "Listado de clientes",
+                  onExcel: () => void handleExportarExcel(),
+                },
+              ]}
             />
           </div>
         </div>
@@ -784,7 +788,7 @@ export function VerClientes() {
                       "relative border rounded-xl p-3 flex gap-3 items-center min-h-[96px] transition-all bg-white dark:bg-[#525D53]/10 border-[#C1D1C5]/60 dark:border-[#A3BEB0]/20 hover:border-[#8DA78E] dark:hover:border-[#A3BEB0]/60"
                     )}
                   >
-                    <div className="shrink-0 size-10 rounded-xl flex items-center justify-center border bg-[#8DA78E]/10 border-[#8DA78E]/20 text-[#8DA78E] dark:text-[#A3BEB0]">
+                    <div className="shrink-0 size-10 rounded-xl flex items-center justify-center border bg-[#8DA78E]/10 border-[#8DA78E]/20 text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                       <User className="size-5" />
                     </div>
 
@@ -794,12 +798,12 @@ export function VerClientes() {
                           <h3 className="font-black text-xs text-slate-900 dark:text-white truncate uppercase leading-tight">
                             {cliente.nombre}
                           </h3>
-                          <span className="text-[8px] font-bold uppercase tracking-wider px-2 py-0.5 bg-slate-100 dark:bg-zinc-850 text-slate-500 rounded-full shrink-0 leading-none">
+                          <span className="text-etiqueta font-bold uppercase tracking-wider px-2 py-0.5 bg-slate-100 dark:bg-zinc-850 text-slate-500 rounded-full shrink-0 leading-none">
                             NIT: {cliente.nit || "C/F"}
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-3 mt-1 text-[10px]">
+                        <div className="flex items-center gap-3 mt-1 text-etiqueta">
                           {cliente.telefono && cliente.telefono !== "No registrado" && (
                             <a
                               href={getWhatsappUrl(cliente.telefono)}
@@ -811,7 +815,7 @@ export function VerClientes() {
                             </a>
                           )}
                           {cliente.email && cliente.email !== "No registrado" && (
-                            <span className="text-slate-400 dark:text-slate-500 truncate flex items-center gap-0.5">
+                            <span className="text-texto-tenue truncate flex items-center gap-0.5">
                               <Mail className="size-3 shrink-0" /> {cliente.email}
                             </span>
                           )}
@@ -819,16 +823,16 @@ export function VerClientes() {
                       </div>
 
                       <div className="mt-2 flex items-center justify-between gap-2 pt-1.5 border-t border-[#C1D1C5]/20 dark:border-[#A3BEB0]/10">
-                        <div className="flex gap-2.5 text-[9px] leading-none">
+                        <div className="flex gap-2.5 text-etiqueta leading-none">
                           <div>
-                            <span className="text-[#525D53]/60 dark:text-[#A3BEB0]/50 font-bold uppercase">Compras:</span>
+                            <span className="text-[#525D53]/60 dark:text-look-1-salvia-suave/50 font-bold uppercase">Compras:</span>
                             <span className="font-bold ml-0.5 text-zinc-700 dark:text-zinc-200 tabular-nums">
                               {cliente.totalCompras}
                             </span>
                           </div>
                           <div>
-                            <span className="text-[#525D53]/60 dark:text-[#A3BEB0]/50 font-bold uppercase">Saldo:</span>
-                            <span className="font-black ml-0.5 text-[#8DA78E] dark:text-[#A3BEB0] tabular-nums tracking-tight">
+                            <span className="text-[#525D53]/60 dark:text-look-1-salvia-suave/50 font-bold uppercase">Saldo:</span>
+                            <span className="font-black ml-0.5 text-look-2-salvia-menta dark:text-look-1-salvia-suave tabular-nums tracking-tight">
                               {fmtQ(cliente.saldo)}
                             </span>
                           </div>
@@ -891,7 +895,7 @@ export function VerClientes() {
                           clienteSeleccionado?.id === cliente.id && "bg-[#8DA78E]/20 dark:bg-[#8DA78E]/25"
                         )}
                       >
-                        <td className="px-5 py-3.5 text-center font-bold text-slate-400 dark:text-slate-500">
+                        <td className="px-5 py-3.5 text-center font-bold text-texto-tenue">
                           {(currentPage - 1) * pageSize + index + 1}
                         </td>
                         <td className="px-5 py-3.5 text-center font-bold text-slate-900 dark:text-white">
@@ -908,7 +912,7 @@ export function VerClientes() {
                               <Phone className="size-3" /> {formatPhoneDisplay(cliente.telefono)}
                             </a>
                           ) : (
-                            <span className="text-slate-400">—</span>
+                            <span className="text-texto-tenue">—</span>
                           )}
                         </td>
                         <td className="px-5 py-3.5 text-center text-slate-500">{cliente.email}</td>
@@ -916,7 +920,7 @@ export function VerClientes() {
                         <td className="px-5 py-3.5 text-center font-bold tabular-nums text-slate-900 dark:text-white">
                           {cliente.totalCompras}
                         </td>
-                        <td className="px-5 py-3.5 text-center font-black tabular-nums text-[#8DA78E] dark:text-[#A3BEB0]">
+                        <td className="px-5 py-3.5 text-center font-black tabular-nums text-look-2-salvia-menta dark:text-look-1-salvia-suave">
                           {fmtQ(cliente.saldo)}
                         </td>
                         <td className="px-5 py-3.5" onClick={(e) => e.stopPropagation()}>

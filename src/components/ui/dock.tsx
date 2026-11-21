@@ -123,7 +123,7 @@ export const DockIcon = ({ className, children, label, onClick, ...props }: Dock
             initial={{ opacity: 0, y: 0 }}
             animate={{ opacity: 1, y: -40 }}
             exit={{ opacity: 0, y: 0 }}
-            className="absolute px-2 py-1 text-[10px] font-bold text-foreground bg-background/80 border border-border backdrop-blur-sm rounded-md whitespace-nowrap pointer-events-none z-60"
+            className="absolute px-2 py-1 text-etiqueta font-semibold text-foreground bg-background/80 border border-border backdrop-blur-sm rounded-md whitespace-nowrap pointer-events-none z-60"
           >
             {label}
           </motion.div>

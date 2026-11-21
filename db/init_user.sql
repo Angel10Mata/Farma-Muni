@@ -34,13 +34,13 @@ with check (true);
 INSERT INTO public.profiles (id, nombre, email, telefono, rol, activo)
 SELECT 
     '6fd31511-afc4-4a4b-8061-a7ec350f6c39', --aqui pegue el id del usuario que se encuentra en auth.users con email
-    'Kore Devs', 
-    'kore@gmail.com', 
+    'FarmaMuni Admin', 
+    'admin@farmamuni.com', 
     '42140797', 
     'super', 
     true
 FROM auth.users 
-WHERE email = 'kore@app.com'
+WHERE email = 'admin@app.com'
 ON CONFLICT (id) DO UPDATE 
 SET 
     nombre = EXCLUDED.nombre,

@@ -3,6 +3,15 @@
 import { createClient } from "@/utils/supabase/server";
 import { ClienteSchema, ClienteInput } from "./zod";
 import { revalidatePath } from "next/cache";
+import { requireRole } from "@/lib/auth-guards";
+
+const CLIENTES_WRITE_ROLES = [
+  "super",
+  "admin",
+  "ventas",
+  "clientes",
+  "finanzas",
+] as const;
 
 // Listado con métricas por cliente
 export async function obtenerClientes() {
@@ -20,8 +29,9 @@ export async function obtenerClientes() {
 
     const { data: ventasData } = await supabase
       .from("ventas")
-      .select("id, cliente_id, total, tipo_venta, created_at")
-      .not("cliente_id", "is", null);
+      .select("id, cliente_id, total, tipo_venta, created_at, estado")
+      .not("cliente_id", "is", null)
+      .or("estado.is.null,estado.eq.activa");
 
     const { data: cuentasPendientes } = await supabase.rpc("fin_cuentas_por_cobrar");
 
@@ -36,6 +46,20 @@ export async function obtenerClientes() {
         } else {
           clientSalesMap.set(v.cliente_id, { count: 1, lastDate: v.created_at });
         }
+      }
+    }
+
+    const saldoPorCliente = new Map<string, number>();
+    if (cuentasPendientes) {
+      for (const c of cuentasPendientes as Array<{
+        cliente_id: string;
+        saldo_pendiente?: number;
+      }>) {
+        const prev = saldoPorCliente.get(c.cliente_id) ?? 0;
+        saldoPorCliente.set(
+          c.cliente_id,
+          prev + Number(c.saldo_pendiente ?? 0),
+        );
       }
     }
 
@@ -56,7 +80,7 @@ export async function obtenerClientes() {
         nit: (row.nit as string) || "C/F",
         totalCompras: sales?.count ?? 0,
         ultimaCompra: sales?.lastDate ?? "",
-        saldo: 0,
+        saldo: saldoPorCliente.get(row.id as string) ?? 0,
         creditosPendientes,
         activo: true,
       };
@@ -77,9 +101,13 @@ export async function obtenerVentasCliente(clienteId: string) {
 
     const { data, error } = await supabase
       .from("ventas")
-      .select("id, created_at, tipo_venta, total, observaciones, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)")
+      .select(
+        "id, created_at, tipo_venta, total, observaciones, estado, fin_transacciones(id, monto, fecha_movimiento, tipo_movimiento, categoria)",
+      )
       .eq("cliente_id", clienteId)
-      .order("created_at", { ascending: false });
+      .or("estado.is.null,estado.eq.activa")
+      .order("created_at", { ascending: false })
+      .limit(5000);
 
     if (error) return { code: "INTERNAL" as const };
 
@@ -92,9 +120,9 @@ export async function obtenerVentasCliente(clienteId: string) {
 // Alta de cliente
 export async function crearCliente(input: ClienteInput) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireRole([...CLIENTES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const parsed = ClienteSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };
@@ -119,9 +147,9 @@ export async function crearCliente(input: ClienteInput) {
 // Actualización de cliente
 export async function editarCliente(id: string, input: ClienteInput) {
   try {
-    const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return { code: "UNAUTHORIZED" as const };
+    const guard = await requireRole([...CLIENTES_WRITE_ROLES]);
+    if (!guard.ok) return { code: guard.code };
+    const { supabase } = guard;
 
     const parsed = ClienteSchema.safeParse(input);
     if (!parsed.success) return { code: "VALIDATION" as const };

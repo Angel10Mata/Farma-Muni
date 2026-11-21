@@ -1,85 +1,36 @@
-import jsPDF from "jspdf";
+import type jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { PALETA_RGB, type MetaInforme } from "@/lib/reportes/identidad";
+import { nombreArchivo } from "@/lib/reportes/nombres";
+import {
+  crearDocumentoPdf,
+  encabezadoPdf,
+  estilosTabla,
+  finalYTabla,
+  PDF_ANCHO_UTIL,
+  PDF_MARGEN_X,
+  piePaginas,
+  tituloSeccion,
+} from "@/lib/reportes/pdf-base";
 import { fmtQ } from "@/lib/utils";
 import type { ReporteVentasMes } from "./reporte-ventas-mes";
 
-type DocConTabla = jsPDF & { lastAutoTable: { finalY: number } };
-
-const MX = 14;
-const ANCHO = 182;
+const MX = PDF_MARGEN_X;
+const ANCHO = PDF_ANCHO_UTIL;
 
 const C = {
-  teal: [141, 167, 142] as [number, number, number],
-  tealDark: [59, 82, 61] as [number, number, number],
-  tealLight: [232, 240, 233] as [number, number, number],
+  teal: PALETA_RGB.secundario,
+  tealDark: PALETA_RGB.primario,
+  tealLight: PALETA_RGB.claro,
   tealPale: [248, 250, 248] as [number, number, number],
-  naranja: [194, 138, 56] as [number, number, number],
-  zinc: [113, 113, 122] as [number, number, number],
+  naranja: PALETA_RGB.ambar,
+  zinc: PALETA_RGB.gris,
   zincClaro: [244, 244, 245] as [number, number, number],
   badgeOk: [220, 236, 223] as [number, number, number],
   textoOk: [46, 125, 82] as [number, number, number],
-  textoAnul: [185, 28, 28] as [number, number, number],
-  blanco: [255, 255, 255] as [number, number, number],
-  negro: [24, 24, 27] as [number, number, number],
+  textoAnul: PALETA_RGB.rojo,
+  negro: PALETA_RGB.texto,
 };
-
-function mezclarColor(
-  a: [number, number, number],
-  b: [number, number, number],
-  t: number,
-): [number, number, number] {
-  return [
-    Math.round(a[0] + (b[0] - a[0]) * t),
-    Math.round(a[1] + (b[1] - a[1]) * t),
-    Math.round(a[2] + (b[2] - a[2]) * t),
-  ];
-}
-
-function encabezado(
-  doc: jsPDF,
-  periodoLabel: string,
-  generadoPor: string,
-): number {
-  const fechaGen = new Date().toLocaleString("es-GT", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8);
-  doc.setTextColor(...C.teal);
-  doc.text("FARMAMUNI  ·  SISTEMA DE FARMACIA", MX, 16);
-
-  doc.setFontSize(20);
-  doc.setTextColor(...C.negro);
-  doc.text("Reporte mensual de ventas", MX, 27);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.setTextColor(...C.zinc);
-  doc.text(`${periodoLabel} — generado el ${fechaGen}`, MX, 34);
-  doc.text(`Realizado por: ${generadoPor}`, MX, 40);
-
-  doc.setDrawColor(...C.teal);
-  doc.setLineWidth(0.5);
-  doc.line(MX, 44, MX + ANCHO, 44);
-
-  return 50;
-}
-
-function tituloSeccion(doc: jsPDF, y: number, texto: string): number {
-  doc.setFillColor(...C.teal);
-  doc.rect(MX, y - 2.5, 2.5, 2.5, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(11);
-  doc.setTextColor(...C.tealDark);
-  doc.text(texto, MX + 5, y);
-  return y + 8;
-}
 
 function resumenMes(doc: jsPDF, y: number, reporte: ReporteVentasMes): number {
   y = tituloSeccion(doc, y, "Resumen del mes");
@@ -124,14 +75,27 @@ function resumenMes(doc: jsPDF, y: number, reporte: ReporteVentasMes): number {
 function formaPago(doc: jsPDF, y: number, reporte: ReporteVentasMes): number {
   y = tituloSeccion(doc, y, "Forma de pago");
   const filas = [
-    { label: "Contado", valor: reporte.resumen.porContado, color: C.teal },
-    { label: "Crédito", valor: reporte.resumen.porCredito, color: C.naranja },
+    {
+      label: "Contado",
+      resumen: reporte.resumen.porContado,
+      color: C.teal,
+    },
+    {
+      label: "Tarjeta",
+      resumen: reporte.resumen.porTarjeta,
+      color: C.zinc,
+    },
+    {
+      label: "Crédito",
+      resumen: reporte.resumen.porCredito,
+      color: C.naranja,
+    },
   ];
-  const max = Math.max(...filas.map((f) => f.valor), 1);
-  const barraMax = 108;
+  const max = Math.max(...filas.map((f) => f.resumen.cantidad), 1);
+  const barraMax = 88;
 
   filas.forEach((fila, i) => {
-    const ry = y + i * 12;
+    const ry = y + i * 14;
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     doc.setTextColor(...C.negro);
@@ -140,37 +104,24 @@ function formaPago(doc: jsPDF, y: number, reporte: ReporteVentasMes): number {
     const bx = MX + 26;
     doc.setFillColor(...C.zincClaro);
     doc.roundedRect(bx, ry, barraMax, 7, 1.5, 1.5, "F");
-    const ancho = (fila.valor / max) * barraMax;
+    const ancho = (fila.resumen.cantidad / max) * barraMax;
     if (ancho > 0.5) {
       doc.setFillColor(...fila.color);
       doc.roundedRect(bx, ry, ancho, 7, 1.5, 1.5, "F");
     }
 
     doc.setFont("helvetica", "bold");
-    doc.text(String(fila.valor), bx + barraMax + 5, ry + 5.5);
+    doc.text(
+      `${fila.resumen.cantidad} · ${fmtQ(fila.resumen.monto)}`,
+      bx + barraMax + 4,
+      ry + 5.5,
+    );
   });
 
-  return y + 28;
+  return y + 46;
 }
 
-const estilosTabla = {
-  theme: "plain" as const,
-  headStyles: {
-    fillColor: C.zincClaro,
-    textColor: C.zinc,
-    fontStyle: "bold" as const,
-    fontSize: 7,
-    cellPadding: 3,
-  },
-  styles: {
-    fontSize: 8,
-    cellPadding: 3,
-    textColor: C.negro,
-    lineColor: [228, 228, 231] as [number, number, number],
-    lineWidth: 0.1,
-  },
-  margin: { left: MX, right: 14 },
-};
+const estilosTablaVentas = estilosTabla({ fontSize: 8, cellPadding: 3 });
 
 function ventasAnuladas(
   doc: jsPDF,
@@ -190,7 +141,7 @@ function ventasAnuladas(
   }
 
   autoTable(doc, {
-    ...estilosTabla,
+    ...estilosTablaVentas,
     startY: y,
     head: [["RECIBO", "FECHA", "CLIENTE", "AUTORIZÓ", "MOTIVO"]],
     body: reporte.anulaciones.map((a) => [
@@ -203,14 +154,14 @@ function ventasAnuladas(
     columnStyles: { 4: { cellWidth: 52 } },
   });
 
-  return (doc as DocConTabla).lastAutoTable.finalY + 10;
+  return finalYTabla(doc) + 10;
 }
 
 function historialVentas(doc: jsPDF, y: number, reporte: ReporteVentasMes): number {
   y = tituloSeccion(doc, y, "Historial de ventas");
 
   autoTable(doc, {
-    ...estilosTabla,
+    ...estilosTablaVentas,
     startY: y,
     head: [["RECIBO", "FECHA", "CLIENTE", "TIPO", "TOTAL", "ESTADO"]],
     body: reporte.historial.map((h) => [
@@ -218,7 +169,7 @@ function historialVentas(doc: jsPDF, y: number, reporte: ReporteVentasMes): numb
       h.fecha,
       h.cliente,
       h.tipo,
-      h.total,
+      fmtQ(h.total),
       h.estado,
     ]),
     columnStyles: {
@@ -245,7 +196,40 @@ function historialVentas(doc: jsPDF, y: number, reporte: ReporteVentasMes): numb
     showHead: "everyPage",
   });
 
-  return (doc as DocConTabla).lastAutoTable.finalY + 10;
+  return finalYTabla(doc) + 10;
+}
+
+function resumenVendedores(
+  doc: jsPDF,
+  y: number,
+  reporte: ReporteVentasMes,
+): number {
+  if (y > 230) {
+    doc.addPage();
+    y = 20;
+  }
+  y = tituloSeccion(doc, y, "Resumen por vendedor");
+  if (!reporte.porVendedor.length) {
+    doc.setFontSize(9);
+    doc.setTextColor(...C.zinc);
+    doc.text("Sin ventas vigentes por vendedor.", MX, y + 4);
+    return y + 12;
+  }
+  autoTable(doc, {
+    ...estilosTablaVentas,
+    startY: y,
+    head: [["VENDEDOR", "VENTAS", "MONTO"]],
+    body: reporte.porVendedor.map((v) => [
+      v.vendedor,
+      String(v.ventas),
+      fmtQ(v.monto),
+    ]),
+    columnStyles: {
+      1: { halign: "right" },
+      2: { halign: "right" },
+    },
+  });
+  return finalYTabla(doc) + 10;
 }
 
 function medicamentosVendidos(
@@ -268,42 +252,43 @@ function medicamentosVendidos(
     return y + 12;
   }
 
-  const max = Math.max(...items.map((p) => p.cantidad), 1);
-  const barraMax = 95;
-
-  items.slice(0, 15).forEach((prod, i) => {
-    const ry = y + i * 9;
-    const t = items.length > 1 ? i / (items.length - 1) : 0;
-    const colorBarra = mezclarColor(C.teal, C.tealPale, t * 0.85);
-
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
-    doc.setTextColor(...C.negro);
-    const nombre =
-      prod.nombre.length > 38 ? `${prod.nombre.slice(0, 37)}…` : prod.nombre;
-    doc.text(nombre, MX, ry + 5);
-
-    const bx = MX + 72;
-    doc.setFillColor(...C.zincClaro);
-    doc.roundedRect(bx, ry + 1, barraMax, 5, 1, 1, "F");
-    const ancho = (prod.cantidad / max) * barraMax;
-    if (ancho > 0.3) {
-      doc.setFillColor(...colorBarra);
-      doc.roundedRect(bx, ry + 1, ancho, 5, 1, 1, "F");
-    }
-
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8);
-    doc.text(String(prod.cantidad), bx + barraMax + 4, ry + 5);
+  autoTable(doc, {
+    ...estilosTablaVentas,
+    startY: y,
+    head: [
+      ["PRODUCTO", "MARCA", "CANT.", "MONTO", "COSTO", "GANANCIA"],
+    ],
+    body: items.slice(0, 25).map((p) => [
+      p.producto,
+      p.marca,
+      String(p.cantidad),
+      fmtQ(p.monto),
+      fmtQ(p.costo),
+      fmtQ(p.ganancia),
+    ]),
+    columnStyles: {
+      2: { halign: "right", cellWidth: 12 },
+      3: { halign: "right", cellWidth: 22 },
+      4: { halign: "right", cellWidth: 22 },
+      5: { halign: "right", cellWidth: 22 },
+    },
   });
 
-  return y + Math.min(items.length, 15) * 9 + 6;
+  return finalYTabla(doc) + 6;
 }
 
-export function descargarReporteVentasMesPdf(reporte: ReporteVentasMes) {
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+export function descargarReporteVentasMesPdf(
+  reporte: ReporteVentasMes,
+  meta: MetaInforme,
+) {
+  const doc = crearDocumentoPdf();
 
-  let y = encabezado(doc, reporte.periodoLabel, reporte.generadoPor);
+  let y = encabezadoPdf(doc, {
+    titulo: "Reporte mensual de ventas",
+    periodo: reporte.periodoLabel,
+    generadoPor: meta.generadoPor,
+    institucion: meta.institucion,
+  });
   y = resumenMes(doc, y, reporte);
   y = formaPago(doc, y, reporte);
   y = ventasAnuladas(doc, y, reporte);
@@ -313,7 +298,9 @@ export function descargarReporteVentasMesPdf(reporte: ReporteVentasMes) {
     y = 20;
   }
   y = historialVentas(doc, y, reporte);
+  y = resumenVendedores(doc, y, reporte);
   medicamentosVendidos(doc, y, reporte);
 
-  doc.save(`Reporte_Ventas_${reporte.periodoClave}.pdf`);
+  piePaginas(doc, "Reporte mensual de ventas");
+  doc.save(nombreArchivo("Reporte_Ventas", reporte.periodoClave, "pdf"));
 }

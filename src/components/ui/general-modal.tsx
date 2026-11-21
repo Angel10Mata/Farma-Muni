@@ -7,6 +7,7 @@ import { Ban as BanNode, Check as CheckNode, Save, Trash, Trash2, X } from "luci
 import {
   AlertTriangle,
   Ban as BanIcon,
+  ChevronDown,
   Package,
   Trash2 as Trash2Icon,
   X as XIcon,
@@ -94,6 +95,48 @@ export function ModalLabel({
   );
 }
 
+export function ModalSwitch({
+  checked,
+  onCheckedChange,
+  label,
+  disabled,
+}: {
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label
+      className={cn(
+        "flex cursor-pointer items-center justify-between gap-3 rounded-lg border border-zinc-200 px-3 py-2.5 dark:border-zinc-700",
+        disabled && "cursor-not-allowed opacity-60",
+      )}
+    >
+      <span className="text-sm font-bold text-zinc-700 dark:text-zinc-200">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        disabled={disabled}
+        onClick={() => onCheckedChange(!checked)}
+        className={cn(
+          "relative inline-flex h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors",
+          checked ? "bg-[#2c5f9b] dark:bg-[#6f9fd4]" : "bg-zinc-300 dark:bg-zinc-600",
+        )}
+      >
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow transition-transform",
+            checked ? "translate-x-[1.125rem]" : "translate-x-0",
+          )}
+        />
+      </button>
+    </label>
+  );
+}
+
 export function ModalInput({
   className,
   ...props
@@ -103,6 +146,31 @@ export function ModalInput({
       {...props}
       className={cn(modalInputBaseClass, modalFieldClass, className)}
     />
+  );
+}
+
+const modalSelectBaseClass =
+  "flex h-10 w-full cursor-pointer appearance-none rounded-lg bg-white px-3 py-2 pr-9 text-sm text-foreground shadow-none outline-none transition-colors focus-visible:outline-none dark:bg-zinc-900";
+
+export function ModalSelect({
+  className,
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="relative w-full">
+      <select
+        {...props}
+        className={cn(modalSelectBaseClass, modalFieldClass, className)}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        className="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[#2c5f9b] dark:text-[#6f9fd4]"
+        strokeWidth={2}
+        aria-hidden
+      />
+    </div>
   );
 }
 
@@ -335,7 +403,7 @@ export function ModalConfirmDelete({
       <h3 className="text-xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
         {title}
       </h3>
-      <p className="mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
+      <p className="mt-1 max-w-sm text-sm text-texto-tenue">
         {message ?? description}
       </p>
 
@@ -350,7 +418,7 @@ export function ModalConfirmDelete({
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <Package className="h-6 w-6 text-zinc-400 dark:text-zinc-500" />
+                <Package className="h-6 w-6 text-texto-tenue" />
               )}
             </div>
 
@@ -367,17 +435,17 @@ export function ModalConfirmDelete({
                 {itemDetails.stock !== undefined ? (
                   <span
                     className={cn(
-                      "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-semibold",
+                      "inline-flex items-center rounded-md px-2 py-0.5 text-etiqueta font-semibold",
                       itemDetails.stock > 0
-                        ? "bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
-                        : "bg-red-100 text-red-800 dark:bg-red-950/60 dark:text-red-300",
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300"
+                        : "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
                     )}
                   >
                     Stock: {itemDetails.stock} ud.
                   </span>
                 ) : null}
                 {itemDetails.precio !== undefined ? (
-                  <span className="inline-flex items-center text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                  <span className="inline-flex items-center text-sm font-bold text-emerald-700 dark:text-emerald-300">
                     ${itemDetails.precio.toFixed(2)}
                   </span>
                 ) : null}
@@ -448,6 +516,7 @@ export function ModalShell({
   headerClassName,
   hideCloseButton = false,
   hideHeaderOnMobile = false,
+  scrollable = true,
   className,
 }: {
   open?: boolean;
@@ -466,11 +535,17 @@ export function ModalShell({
   headerClassName?: string;
   hideCloseButton?: boolean;
   hideHeaderOnMobile?: boolean;
+  scrollable?: boolean;
   className?: string;
 }) {
   const visible = open ?? isOpen ?? false;
   const resolvedSubtitle = subtitle ?? description;
+  const [mounted, setMounted] = useState(false);
   const [contentScrollable, setContentScrollable] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!visible) {
@@ -481,7 +556,7 @@ export function ModalShell({
     return lockBodyScroll();
   }, [visible]);
 
-  if (typeof document === "undefined") return null;
+  if (!visible || !mounted) return null;
 
   const shellEnter = fullscreen
     ? { opacity: 0 }
@@ -505,7 +580,7 @@ export function ModalShell({
           exit={shellExit}
           transition={MODAL_SHELL_TRANSITION}
           onAnimationComplete={() => {
-            setContentScrollable(true);
+            if (scrollable) setContentScrollable(true);
           }}
           className={cn(
             "fixed inset-0 z-[200] flex flex-col overflow-hidden",
@@ -541,7 +616,7 @@ export function ModalShell({
             <ModalFrame
               className={cn(
                 fullscreen &&
-                  "rounded-none border-0 shadow-none dark:bg-zinc-900 md:rounded-none",
+                  "h-full rounded-none border-0 shadow-none dark:bg-zinc-900 md:rounded-none",
                 fullHeight && "max-md:h-full md:h-auto",
               )}
             >
@@ -567,7 +642,7 @@ export function ModalShell({
                     {resolvedSubtitle ? (
                       <p
                         className={cn(
-                          "text-[10px] font-bold uppercase tracking-widest",
+                          "text-etiqueta font-semibold uppercase tracking-wide",
                           modalAccentClass,
                         )}
                       >

@@ -5,22 +5,23 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Receipt, Package, AlertTriangle } from "lucide-react";
 import { Check as CheckNode, CircleDollarSign as CircleDollarSignNode, FileDown as FileDownNode, MessageCircle as MessageCircleNode, Printer as PrinterNode, X as XNode } from "lucide";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
+import { exportarReciboPdf } from "./lib/recibo-pdf";
+import { obtenerFarmaciaReciboSettings } from "./lib/actions";
 import { fmtQ } from "@/lib/utils";
 import { CrearCliente } from "@/components/(base)/clientes/forms/Crear";
 import { anularVenta, validarCredencialesAdmin } from "./lib/actions";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { useUserContext } from "@/components/(base)/providers/UserProvider";
 import { fetchDetalleVenta } from "@/lib/demo/resolve-actions";
-import { ReciboVenta, buildReciboProps } from "./ReciboVenta";
-import { obtenerCodigoRecibo } from "./lib/helpers";
+import { ReciboVenta, buildReciboProps, lineasReciboDesdeEntrada } from "./ReciboVenta";
+import { carritoRequiereReceta, codigoReciboVenta, mensajeCreditoVencidoCliente } from "./lib/helpers";
+import { ModalField, ModalInput, ModalLabel } from "@/components/ui/general-modal";
 import { HistorialVentas } from "./HistorialVentas";
 import { useDatosVentas } from "./lib/hooks";
 
 type RefetchVentasDatos = ReturnType<typeof useDatosVentas>["refetch"];
 
-import { Producto, Cliente, Venta, ItemCarrito } from "./lib/zod";
+import { ComercialVenta, GenericoVenta, Cliente, Venta, ItemCarrito } from "./lib/zod";
 import { useVentas, VentasProvider } from "./ContextoVentas";
 import { SeccionProductosVentas } from "./SeccionProductosVentas";
 import { BarraCarritoVentas } from "./BarraCarritoVentas";
@@ -34,14 +35,26 @@ import { cn } from "@/lib/utils";
 import {
   modulePillSwitchBtnClass,
   modulePillSwitchShellClass,
+  modulePillSwitchTabBtnClass,
 } from "@/components/ui/module-pill-switch";
 import { ModalAutorizacionRebajaVentas } from "./ModalAutorizacionRebajaVentas";
 import { PanelSolicitudesRebajaVentas } from "./PanelSolicitudesRebajaVentas";
 import { SolicitudesRebajaAdmin } from "./SolicitudesRebajaAdmin";
 
-function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Producto[], clientes: Cliente[], refetchDatos: RefetchVentasDatos }) {
+function VerVentasInner({
+  genericos,
+  comerciales,
+  clientes,
+  refetchDatos,
+}: {
+  genericos: GenericoVenta[];
+  comerciales: ComercialVenta[];
+  clientes: Cliente[];
+  refetchDatos: RefetchVentasDatos;
+}) {
   const { effectiveRole, realRole } = useUserContext();
-  const puedeVerHistorial = ["admin", "super"].includes(effectiveRole);
+  const puedeVerHistorial = ["admin", "super", "user"].includes(effectiveRole);
+  const historialAdministracion = ["admin", "super"].includes(effectiveRole);
   const { isDemoMode } = useDemoMode();
   const ventas = useVentas();
   const searchParams = useSearchParams();
@@ -193,39 +206,107 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
       const { data: dataMaster } = await refetchDatos();
       if (!dataMaster) throw new Error("No se pudieron actualizar productos y clientes.");
-      const nuevosProductos: Producto[] = dataMaster.productos as Producto[];
-      
+      const nuevosComerciales = (dataMaster.comerciales as ComercialVenta[]) ?? [];
+      const nuevosGenericos = (dataMaster.genericos as GenericoVenta[]) ?? [];
+
       const nuevosItemsCarrito: ItemCarrito[] = detalles.map((d: {
         producto_id: string;
         lote_id?: string | null;
         cantidad: number;
         precio_aplicado: number;
         subtotal: number;
-        inv_lotes?: { codigo_barras?: string; laboratorio?: string | null; precio_venta?: number | null; precio_costo?: number } | null;
-        inv_productos?: { nombre?: string } | null;
+        inv_lotes?: { codigo_barras?: string; numero_lote?: string | null; precio_costo?: number } | null;
+        inv_productos?: {
+          nombre?: string;
+          presentacion?: string;
+          generico_id?: string;
+          inv_genericos?:
+            | {
+                generico_nombre?: string;
+                concentracion?: string;
+                forma_farmaceutica?: string;
+                requiere_receta?: boolean;
+                stock_minimo?: number;
+                inv_catalogos?: { nombre?: string } | { nombre?: string }[] | null;
+              }
+            | Array<{
+                generico_nombre?: string;
+                concentracion?: string;
+                forma_farmaceutica?: string;
+                requiere_receta?: boolean;
+                stock_minimo?: number;
+                inv_catalogos?: { nombre?: string } | { nombre?: string }[] | null;
+              }>
+            | null;
+          inv_laboratorios?: { nombre?: string } | { nombre?: string }[] | null;
+        } | null;
       }) => {
-        const prodEncontrado = nuevosProductos.find((p) => p.id === d.producto_id);
-        const precioVentaLote =
-          d.inv_lotes?.precio_venta != null
-            ? Number(d.inv_lotes.precio_venta)
-            : d.precio_aplicado;
-        return {
-          producto: prodEncontrado || {
-            id: d.producto_id,
-            codigo: d.inv_lotes?.codigo_barras || "",
-            nombre: d.inv_productos?.nombre || "Producto",
-            descripcion: "",
-            precio_base: precioVentaLote,
-            stock_actual: d.cantidad,
-            stock_minimo: 0,
+        const comercial =
+          nuevosComerciales.find((c) => c.producto_id === d.producto_id) ?? {
+            producto_id: d.producto_id,
+            nombre_comercial: d.inv_productos?.nombre || "Producto",
+            presentacion: d.inv_productos?.presentacion || "",
+            laboratorio_nombre:
+              (Array.isArray(d.inv_productos?.inv_laboratorios)
+                ? d.inv_productos?.inv_laboratorios[0]?.nombre
+                : d.inv_productos?.inv_laboratorios?.nombre) || null,
+            precio_venta: d.precio_aplicado,
+            generico_id: d.inv_productos?.generico_id || "",
+            stock_vendible: d.cantidad,
             activo: true,
-          },
+          };
+        const generico =
+          nuevosGenericos.find((g) => g.generico_id === comercial.generico_id) ?? {
+            generico_id: comercial.generico_id || d.producto_id,
+            generico_nombre: String(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.generico_nombre
+                : d.inv_productos?.inv_genericos?.generico_nombre) ||
+                d.inv_productos?.nombre ||
+                "Genérico",
+            ),
+            catalogo_id: "",
+            catalogo_nombre: String(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? (d.inv_productos?.inv_genericos[0]?.inv_catalogos as { nombre?: string } | null)?.nombre
+                : (d.inv_productos?.inv_genericos as { inv_catalogos?: { nombre?: string } } | null)
+                    ?.inv_catalogos?.nombre) || "",
+            ),
+            concentracion: String(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.concentracion
+                : d.inv_productos?.inv_genericos?.concentracion) || "",
+            ),
+            forma_farmaceutica: String(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.forma_farmaceutica
+                : d.inv_productos?.inv_genericos?.forma_farmaceutica) || "",
+            ),
+            requiere_receta: Boolean(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.requiere_receta
+                : d.inv_productos?.inv_genericos?.requiere_receta) ?? false,
+            ),
+            stock_minimo: Number(
+              (Array.isArray(d.inv_productos?.inv_genericos)
+                ? d.inv_productos?.inv_genericos[0]?.stock_minimo
+                : d.inv_productos?.inv_genericos?.stock_minimo) || 0,
+            ),
+            stock_vendible: comercial.stock_vendible,
+            activo: true,
+          };
+        const precioRef = comercial.precio_venta || d.precio_aplicado;
+        return {
+          generico,
+          comercial,
           lote_id: d.lote_id ?? undefined,
           codigo_barras_lote: d.inv_lotes?.codigo_barras,
+          numero_lote: d.inv_lotes?.numero_lote ?? null,
           stock_lote: d.cantidad,
           precio_costo_lote: Number(d.inv_lotes?.precio_costo) || 0,
-          precio_venta_lote: precioVentaLote,
-          laboratorio: d.inv_lotes?.laboratorio ?? null,
+          costo_promedio: comercial.costo_promedio ?? null,
+          precio_venta_referencia: precioRef,
+          laboratorio_nombre: comercial.laboratorio_nombre,
           cantidad: d.cantidad,
           precio_aplicado: d.precio_aplicado,
           subtotal: d.subtotal,
@@ -259,141 +340,25 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
     }
   };
 
-  // Recibo en PDF y WhatsApp
-  const getBase64ImageFromUrl = async (url: string): Promise<string | null> => {
+  const exportarReciboPdfVenta = async (venta: Venta, detalles: any[]) => {
     try {
-      const res = await fetch(url);
-      const blob = await res.blob();
-      return new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = () => resolve(null);
-        reader.readAsDataURL(blob);
-      });
-    } catch {
-      return null;
-    }
-  };
-
-  const exportarFacturaPDF = async (venta: Venta, detalles: any[]) => {
-    try {
-      const doc = new jsPDF({ unit: "mm", format: [80, 175] });
-      const clientName = venta.ven_clientes?.nombre || "Consumidor Final";
-      const clientNit = venta.ven_clientes?.nit || "C/F";
-      const dateFormatted = new Date(venta.created_at).toLocaleString("es-GT", {
-        day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit"
-      });
-
-      let currentY = 6;
-
-      // Cargar e insertar Logo
-      const logoBase64 = await getBase64ImageFromUrl("/farmamuni/logo.png");
-      if (logoBase64) {
-        doc.addImage(logoBase64, "PNG", 33, currentY, 14, 14);
-        currentY += 17;
-      } else {
-        currentY += 4;
-      }
-
-      // Nombre de la Farmacia
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text("FarmaMuni", 40, currentY, { align: "center" });
-      currentY += 4;
-
-      // Dirección
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(6.5);
-      doc.setTextColor(0, 0, 0);
-      doc.text("3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA", 40, currentY, { align: "center" });
-      currentY += 3.5;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7);
-      doc.setTextColor(0, 0, 0);
-      doc.text("Guatemala", 40, currentY, { align: "center" });
-      currentY += 3.5;
-
-      doc.setDrawColor(0, 0, 0);
-      doc.line(5, currentY, 75, currentY);
-      currentY += 5;
-
-      const codigoRecibo = obtenerCodigoRecibo(venta.id);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`RECIBO DE VENTA #${codigoRecibo}`, 5, currentY);
-      currentY += 5;
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Fecha: ${dateFormatted}`, 5, currentY); currentY += 4.5;
-      doc.text(`Cliente: ${clientName}`, 5, currentY); currentY += 4.5;
-      doc.text(`NIT: ${clientNit}`, 5, currentY); currentY += 4.5;
-      doc.text(`Pago: ${venta.tipo_venta || "Contado"}`, 5, currentY); currentY += 3;
-
-      doc.setDrawColor(0, 0, 0);
-      doc.line(5, currentY, 75, currentY);
-      currentY += 2;
-
-      autoTable(doc, {
-        startY: currentY,
-        head: [["Cant", "Detalle", "Precio", "Sub"]],
-        body: detalles.map((d) => [
-          d.cantidad,
-          d.inv_productos?.nombre || "Pedido",
-          `${fmtQ(d.precio_aplicado)}`,
-          `${fmtQ(d.subtotal)}`
-        ]),
-        theme: "plain",
-        styles: { fontSize: 7, cellPadding: 1, valign: "middle", textColor: [0, 0, 0], fontStyle: "bold" },
-        columnStyles: {
-          0: { cellWidth: 8 }, 1: { cellWidth: 35 }, 2: { cellWidth: 12, halign: "right" }, 3: { cellWidth: 15, halign: "right" }
-        },
-        headStyles: { fontStyle: "bold", fillColor: [230, 230, 230], textColor: [0, 0, 0] },
-        margin: { left: 4, right: 4 }
-      });
-
-      const finalY = (doc as any).lastAutoTable.finalY + 4;
-      doc.setDrawColor(0, 0, 0);
-      doc.line(5, finalY, 75, finalY);
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`TOTAL A PAGAR: ${fmtQ(venta.total)}`, 75, finalY + 5, { align: "right" });
-
-      let endY = finalY + 11;
-      if (venta.observaciones) {
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(7);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`Notas: ${venta.observaciones}`, 5, endY);
-        endY += 6;
-      }
-
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.setTextColor(0, 0, 0);
-      doc.text("¡Gracias por su compra!", 40, endY, { align: "center" });
-
-      doc.save(`Recibo_FarmaMuni_${codigoRecibo}.pdf`);
+      const settings = await obtenerFarmaciaReciboSettings();
+      const lineas = lineasReciboDesdeEntrada(detalles);
+      await exportarReciboPdf(venta, lineas, settings);
     } catch (error) {
-      console.error("Error al exportar PDF:", error);
+      console.error("Error al exportar recibo PDF:", error);
     }
   };
 
   const shareWhatsAppAsImage = async (venta: any, detalles: any[], clienteCompleto?: any) => {
     try {
-      const code = obtenerCodigoRecibo(venta.id);
+      const code = codigoReciboVenta(venta);
       const clientName = clienteCompleto?.nombre || venta.ven_clientes?.nombre || "Consumidor final";
 
+      const lineas = lineasReciboDesdeEntrada(detalles);
       let productListText = "";
-      detalles.forEach(d => {
-        const nombreProducto = d.producto?.nombre || d.ven_productos?.nombre || "Producto desconocido";
-        productListText += "* " + d.cantidad + "x - " + nombreProducto + " - " + fmtQ(d.subtotal || 0) + "\n";
+      lineas.forEach((d) => {
+        productListText += `* ${d.cantidad}x - ${d.nombre} - ${fmtQ(d.subtotal)}\n`;
       });
 
       const emojiData = await fetch("data:application/json;base64,eyJ3YXZlIjoi8J+RiyIsImhvc3BpdGFsIjoi8J+PpSIsInJlY2VpcHQiOiLwn6e+IiwicGVyc29uIjoi8J+RpCIsImNhcnQiOiLwn5uSIiwibW9uZXkiOiLwn5KwIiwic3BhcmtsZSI6IuKcqCIsInNlZWRsaW5nIjoi8J+MsSIsImdyZWVuIjoi8J+SmiJ9").then(r => r.json());
@@ -475,24 +440,57 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
       >
         {ventas.showUbicacionModal && (
           <>
+            {ventas.tipoVenta === "Crédito" && ventas.creditoVencido?.vencido && (
+              <div className="mb-3 rounded-xl border border-red-300 bg-red-50 dark:bg-red-950/30 dark:border-red-800 p-3 text-sm text-red-800 dark:text-red-200">
+                {mensajeCreditoVencidoCliente(
+                  ventas.creditoVencido.total,
+                  ventas.creditoVencido.desde ?? "",
+                )}
+              </div>
+            )}
+
+            {carritoRequiereReceta(ventas.carrito) && (
+              <div className="mb-3 grid gap-3 sm:grid-cols-2">
+                <ModalField>
+                  <ModalLabel>Médico (receta)</ModalLabel>
+                  <ModalInput
+                    value={ventas.recetaMedicoNombre}
+                    onChange={(e) => ventas.setRecetaMedicoNombre(e.target.value)}
+                    placeholder="Nombre del médico"
+                  />
+                </ModalField>
+                <ModalField>
+                  <ModalLabel>No. colegiado</ModalLabel>
+                  <ModalInput
+                    value={ventas.recetaColegiado}
+                    onChange={(e) => ventas.setRecetaColegiado(e.target.value)}
+                    placeholder="Colegiado"
+                  />
+                </ModalField>
+                <ModalField className="sm:col-span-2">
+                  <ModalLabel>Número de receta (opcional)</ModalLabel>
+                  <ModalInput
+                    value={ventas.recetaNumero}
+                    onChange={(e) => ventas.setRecetaNumero(e.target.value)}
+                    placeholder="Opcional"
+                  />
+                </ModalField>
+              </div>
+            )}
+
             <div className="flex flex-col gap-3">
               {ventas.carrito.map((item, idx) => (
                 <div key={idx} className="flex items-center justify-between p-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-slate-800 rounded-xl">
                   <div className="flex flex-col gap-1">
                     <span className="font-bold text-slate-900 dark:text-white text-lg">
-                      {item.cantidad}x {item.producto.nombre}
+                      {item.cantidad}x {item.comercial.nombre_comercial}
                     </span>
-                    {(!item.producto.ubicacion || item.producto.ubicacion === "Sin asignar") ? (
-                      <div className="flex items-center gap-1.5 text-amber-500 font-bold bg-amber-50 dark:bg-amber-500/10 w-fit px-2.5 py-1 rounded-md">
-                        <AlertTriangle className="size-4" />
-                        <span className="text-sm">Sin ubicación asignada</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-[#8DA78E] font-bold bg-[#8DA78E]/10 w-fit px-2.5 py-1 rounded-md">
-                        <Package className="size-4" />
-                        <span className="text-sm">{item.producto.ubicacion}</span>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-1.5 text-look-2-salvia-menta font-bold bg-[#8DA78E]/10 w-fit px-2.5 py-1 rounded-md">
+                      <Package className="size-4" />
+                      <span className="text-sm">
+                        {item.generico.generico_nombre} · {item.comercial.presentacion}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -512,7 +510,7 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 accentColor={sigetAccent.guardar}
                 morphFrom={CircleDollarSignNode}
                 morphTo={CheckNode}
-                onClick={ventas.ejecutarCobro}
+                onClick={() => void ventas.ejecutarCobro()}
                 disabled={ventas.isProcesandoVenta}
                 ariaBusy={ventas.isProcesandoVenta}
                 className="w-auto shrink-0"
@@ -527,13 +525,13 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         open={!!ventas.reciboModalData}
         onClose={() => ventas.setReciboModalData(null)}
         title="¡Cobro exitoso!"
-        subtitle={ventas.reciboModalData ? `Venta registrada bajo el Recibo #${obtenerCodigoRecibo(ventas.reciboModalData.venta.id)}` : undefined}
+        subtitle={ventas.reciboModalData ? `Venta registrada bajo el Recibo ${codigoReciboVenta(ventas.reciboModalData.venta)}` : undefined}
         maxWidth="max-w-lg"
         fullHeight
         headerActions={
           ventas.reciboModalData ? (
             <div className="size-10 rounded-2xl bg-[#8DA78E]/10 flex items-center justify-center">
-              <Receipt className="size-5 text-[#8DA78E]" />
+              <Receipt className="size-5 text-look-2-salvia-menta" />
             </div>
           ) : undefined
         }
@@ -546,6 +544,11 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                   ventas.reciboModalData.venta,
                   ventas.reciboModalData.detalles,
                   ventas.reciboModalData.clienteCompleto,
+                  {
+                    farmacia: ventas.reciboFarmacia,
+                    incluyeReceta: Boolean(ventas.reciboModalData.incluyeReceta),
+                    items: ventas.reciboModalData.reciboItems,
+                  },
                 )}
               />
             </div>
@@ -557,7 +560,10 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 morphTo={PrinterNode}
                 morphOnHover={false}
                 onClick={() => {
-                  handleImprimirVenta(ventas.reciboModalData.venta, ventas.reciboModalData.detalles);
+                  handleImprimirVenta(
+                    ventas.reciboModalData.venta,
+                    ventas.reciboModalData.reciboItems ?? ventas.reciboModalData.detalles,
+                  );
                 }}
                 className="w-auto shrink-0"
               />
@@ -567,7 +573,12 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 morphFrom={FileDownNode}
                 morphTo={FileDownNode}
                 morphOnHover={false}
-                onClick={() => exportarFacturaPDF(ventas.reciboModalData.venta, ventas.reciboModalData.detalles)}
+                onClick={() =>
+                  exportarReciboPdfVenta(
+                    ventas.reciboModalData.venta,
+                    ventas.reciboModalData.reciboItems ?? ventas.reciboModalData.detalles,
+                  )
+                }
                 className="w-auto shrink-0"
               />
               <SigetActionButton
@@ -576,7 +587,13 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
                 morphFrom={MessageCircleNode}
                 morphTo={MessageCircleNode}
                 morphOnHover={false}
-                onClick={() => shareWhatsAppAsImage(ventas.reciboModalData.venta, ventas.reciboModalData.detalles, ventas.reciboModalData.clienteCompleto)}
+                onClick={() =>
+                  shareWhatsAppAsImage(
+                    ventas.reciboModalData.venta,
+                    ventas.reciboModalData.reciboItems ?? ventas.reciboModalData.detalles,
+                    ventas.reciboModalData.clienteCompleto,
+                  )
+                }
                 className="w-auto shrink-0"
               />
               <SigetActionButton
@@ -593,12 +610,58 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
         )}
       </ModalShell>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 md:hidden">
+        <div className="flex items-center gap-3">
+          <ModuleHeaderBackButton />
+          <div className="min-w-0 flex-1">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">
+              Módulo
+            </p>
+            <h1 className="text-2xl font-bold uppercase tracking-tight text-slate-900 dark:text-white leading-none truncate">
+              Área de Ventas
+            </h1>
+          </div>
+          <PanelSolicitudesRebajaVentas
+            onRevisarAdmin={(id) => router.replace(`/farmamuni/ventas?rebaja=${id}`)}
+          />
+        </div>
+
+        <div
+          className={cn(modulePillSwitchShellClass, "flex w-full max-w-full")}
+          role="tablist"
+          aria-label="Sección de ventas"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={ventas.activeTab === "pos"}
+            onClick={() => ventas.setActiveTab("pos")}
+            className={modulePillSwitchTabBtnClass(ventas.activeTab === "pos")}
+          >
+            Punto de venta
+          </button>
+          {puedeVerHistorial ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={ventas.activeTab === "historial"}
+              onClick={() => ventas.setActiveTab("historial")}
+              className={modulePillSwitchTabBtnClass(ventas.activeTab === "historial")}
+            >
+              Historial
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="hidden md:flex md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-4">
           <ModuleHeaderBackButton />
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Módulo</p>
-            <h1 className="text-2xl md:text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white leading-none">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">
+              Módulo
+            </p>
+            <h1 className="text-2xl md:text-3xl font-bold uppercase tracking-tight text-slate-900 dark:text-white leading-none">
               Área de Ventas
             </h1>
           </div>
@@ -646,11 +709,16 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
       {ventas.activeTab === "pos" || !puedeVerHistorial ? (
         <div className="flex flex-col lg:flex-row gap-6 mt-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-          <SeccionProductosVentas productos={productos} clientes={clientes} />
+          <SeccionProductosVentas
+            genericos={genericos}
+            comerciales={comerciales}
+            clientes={clientes}
+          />
           <BarraCarritoVentas />
         </div>
       ) : (
         <HistorialVentas
+          mostrarInformesAdmin={historialAdministracion}
           onPrint={(v, details) => handleImprimirVenta(v, details)}
           onShareWhatsApp={(v) => handleShareWhatsAppDirectly(v)}
         />
@@ -658,7 +726,15 @@ function VerVentasInner({ productos, clientes, refetchDatos }: { productos: Prod
 
       {ventas.ticketParaImprimir && (
         <div id="print-receipt-ticket" className="hidden print:block">
-          <ReciboVenta {...buildReciboProps(ventas.ticketParaImprimir.venta, ventas.ticketParaImprimir.detalles, ventas.ticketParaImprimir.clienteCompleto)} className="max-w-none" />
+          <ReciboVenta
+            {...buildReciboProps(
+              ventas.ticketParaImprimir.venta,
+              ventas.ticketParaImprimir.detalles,
+              ventas.ticketParaImprimir.clienteCompleto,
+              { farmacia: ventas.reciboFarmacia },
+            )}
+            className="max-w-none"
+          />
         </div>
       )}
 
@@ -710,12 +786,23 @@ export function VerVentas() {
     );
   }
 
-  const productos = (data?.productos as Producto[]) || [];
+  const genericos = (data?.genericos as GenericoVenta[]) || [];
+  const comerciales = (data?.comerciales as ComercialVenta[]) || [];
   const clientes = (data?.clientes as Cliente[]) || [];
 
   return (
-    <VentasProvider productos={productos} clientes={clientes} refetchDatos={refetchDatos}>
-      <VerVentasInner productos={productos} clientes={clientes} refetchDatos={refetchDatos} />
+    <VentasProvider
+      genericos={genericos}
+      comerciales={comerciales}
+      clientes={clientes}
+      refetchDatos={refetchDatos}
+    >
+      <VerVentasInner
+        genericos={genericos}
+        comerciales={comerciales}
+        clientes={clientes}
+        refetchDatos={refetchDatos}
+      />
     </VentasProvider>
   );
 }

@@ -3,6 +3,7 @@ import { AlertCircle } from "lucide-react";
 import { AcordeonDispositivos } from "./AcordeonDispositivos";
 import { adminPageShellClass } from "@/lib/module-layout";
 import { ModuleHeaderBackButton } from "@/components/(base)/layout/ModuleHeaderBackButton";
+import { requireSuperPageAccess } from "@/lib/user-role";
 
 // Tipos
 interface Device {
@@ -16,6 +17,8 @@ interface Device {
 
 // Vista dispositivos
 export async function VerDispositivos() {
+  await requireSuperPageAccess();
+
   const supabaseAdmin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL as string,
     process.env.SUPABASE_SERVICE_ROLE_KEY as string,
@@ -79,10 +82,10 @@ export async function VerDispositivos() {
         <div className="flex items-center gap-3">
           <ModuleHeaderBackButton />
           <div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-zinc-900 dark:text-white leading-none">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-zinc-900 dark:text-white leading-none">
               Dispositivos
             </h1>
-            <p className="text-sm text-muted-foreground mt-1 font-medium">
+            <p className="text-sm text-texto-tenue mt-1 font-medium">
               Autorización de equipos por usuario
             </p>
           </div>

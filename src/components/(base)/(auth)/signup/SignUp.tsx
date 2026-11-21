@@ -191,7 +191,7 @@ export default function SignUp({
             <h3 className="text-lg md:text-xl font-bold tracking-tight text-foreground truncate">
               Nuevo Usuario
             </h3>
-            <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
+            <p className="text-etiqueta text-texto-tenue font-bold uppercase tracking-widest">
               Configuración de acceso
             </p>
           </div>
@@ -202,7 +202,7 @@ export default function SignUp({
           className="p-2 rounded-full hover:bg-muted/50 transition-colors cursor-pointer shrink-0"
           aria-label="Cerrar"
         >
-          <X size={20} className="text-muted-foreground" />
+          <X size={20} className="text-texto-tenue" />
         </button>
       </div>
 
@@ -231,7 +231,7 @@ export default function SignUp({
                   )}
                 />
                 {logic.state?.errors?.name && (
-                  <p className="text-[10px] text-destructive font-bold px-1 italic">
+                  <p className="text-etiqueta text-destructive font-bold px-1 italic">
                     {logic.state.errors.name[0]}
                   </p>
                 )}
@@ -242,7 +242,7 @@ export default function SignUp({
                   Usuario
                   {suggestedUsername && (
                     <>
-                      <span className="text-muted-foreground font-normal ml-1 border-l border-border pl-2">
+                      <span className="text-texto-tenue font-normal ml-1 border-l border-border pl-2">
                         Sugerido:
                       </span>
                       <button
@@ -279,7 +279,7 @@ export default function SignUp({
                   )}
                 />
                 {logic.state?.errors?.username && (
-                  <p className="text-[10px] text-destructive font-bold px-1 italic">
+                  <p className="text-etiqueta text-destructive font-bold px-1 italic">
                     {logic.state.errors.username[0]}
                   </p>
                 )}
@@ -299,7 +299,7 @@ export default function SignUp({
                   toggleClassName="border-border bg-background"
                 />
                 {logic.state?.errors?.rol && (
-                  <p className="text-[10px] text-destructive font-bold px-1 italic">
+                  <p className="text-etiqueta text-destructive font-bold px-1 italic">
                     {logic.state.errors.rol[0]}
                   </p>
                 )}
@@ -331,7 +331,7 @@ export default function SignUp({
                   <button
                     type="button"
                     onClick={() => logic.setShowPassword(!logic.showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground p-1 cursor-pointer"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-texto-tenue p-1 cursor-pointer"
                   >
                     {logic.showPassword ? (
                       <EyeOff size={16} />
@@ -341,7 +341,7 @@ export default function SignUp({
                   </button>
                 </div>
                 {logic.state?.errors?.password && (
-                  <p className="text-[10px] text-destructive font-bold px-1 italic">
+                  <p className="text-etiqueta text-destructive font-bold px-1 italic">
                     {logic.state.errors.password[0]}
                   </p>
                 )}
@@ -376,7 +376,7 @@ export default function SignUp({
             >
               <div className="p-5 rounded-2xl border border-border/60 bg-muted/30 space-y-5">
                 <div className="flex justify-between items-center border-b border-border/40 pb-4">
-                  <span className="text-[10px] font-black uppercase text-muted-foreground tracking-tighter">
+                  <span className="text-etiqueta font-black uppercase text-texto-tenue tracking-tighter">
                     Credenciales generadas
                   </span>
                   <div className="relative">
@@ -394,7 +394,7 @@ export default function SignUp({
                           initial={{ opacity: 0, y: 10, scale: 0.9 }}
                           animate={{ opacity: 1, y: -45, scale: 1 }}
                           exit={{ opacity: 0, y: 10, scale: 0.9 }}
-                          className="absolute left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-[10px] px-2 py-1 rounded shadow-xl font-bold whitespace-nowrap z-10"
+                          className="absolute left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-etiqueta px-2 py-1 rounded shadow-xl font-bold whitespace-nowrap z-10"
                         >
                           ¡Copiado!
                           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-primary rotate-45" />
@@ -405,13 +405,13 @@ export default function SignUp({
                 </div>
                 <div className="flex flex-col gap-4 text-foreground">
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase opacity-70">
+                    <span className="text-etiqueta font-bold uppercase opacity-70">
                       Usuario:
                     </span>
                     <span className="text-sm font-bold">{savedData.user}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <span className="text-[10px] font-bold uppercase opacity-70">
+                    <span className="text-etiqueta font-bold uppercase opacity-70">
                       Contraseña:
                     </span>
                     <code className="text-sm font-mono text-foreground bg-background/80 px-2 py-1 rounded border border-border/40 tracking-wider shadow-sm">
@@ -422,7 +422,7 @@ export default function SignUp({
               </div>
 
               <div className="space-y-3 pt-2">
-                <Label className="text-[10px] uppercase font-black tracking-widest">
+                <Label className="text-etiqueta uppercase font-black tracking-widest">
                   Enviar por WhatsApp
                 </Label>
                 <div className="flex gap-2">

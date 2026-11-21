@@ -7,8 +7,11 @@ import {
 } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 import { ProfileFormValues } from "./zod";
+import {
+  requireAdmin,
+  requireAdminOrSelf,
+} from "@/lib/auth-guards";
 
-// Helpers
 function getAdminClient() {
   return createSupabaseAdmin(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,7 +25,28 @@ function getAdminClient() {
   );
 }
 
-// Perfil
+async function assertCanManageTargetUser(
+  actorRole: string,
+  targetUserId: string,
+  targetRoleInForm?: string,
+): Promise<{ ok: true } | { code: "FORBIDDEN" }> {
+  const admin = getAdminClient();
+  const { data: target } = await admin
+    .from("profiles")
+    .select("rol")
+    .eq("id", targetUserId)
+    .maybeSingle();
+
+  const targetRol = target?.rol ?? "user";
+  if (targetRol === "super" && actorRole !== "super") {
+    return { code: "FORBIDDEN" };
+  }
+  if (targetRoleInForm === "super" && actorRole !== "super") {
+    return { code: "FORBIDDEN" };
+  }
+  return { ok: true };
+}
+
 export async function getProfileById(userId: string) {
   if (!userId) return null;
   const supabase = await createClient();
@@ -35,7 +59,6 @@ export async function getProfileById(userId: string) {
 
   if (error) {
     if (error.code === 'PGRST116') {
-      // Fallback a admin client por si RLS bloquea (típico en usuarios nuevos)
       const admin = getAdminClient();
       const { data: adminData, error: adminErr } = await admin
         .from("profiles")
@@ -53,7 +76,6 @@ export async function getProfileById(userId: string) {
   return data;
 }
 
-// Credenciales
 export async function getUserAuthData(userId: string) {
   const supabaseAdmin = getAdminClient();
 
@@ -77,10 +99,24 @@ export async function updateProfile(
   userId: string,
   formData: Partial<ProfileFormValues>,
 ) {
-  const supabase = await createClient();
+  const auth = await requireAdminOrSelf(userId);
+  if (!auth.ok) return { code: auth.code };
+
+  const isSelf = auth.user.id === userId;
+
+  if (!isSelf) {
+    const allowed = await assertCanManageTargetUser(
+      auth.role,
+      userId,
+      formData.rol,
+    );
+    if ("code" in allowed) return { code: allowed.code };
+  }
+
+  const supabase = auth.supabase;
   const supabaseAdmin = getAdminClient();
 
-  const rawData = {
+  const rawData: Record<string, unknown> = {
     nombre: formData.nombre,
     email: formData.email,
     telefono: formData.telefono,
@@ -91,8 +127,11 @@ export async function updateProfile(
     genero: formData.genero,
     contacto_emergencia: formData.contacto_emergencia,
     telefono_emergencia: formData.telefono_emergencia,
-    rol: formData.rol,
   };
+
+  if (!isSelf && formData.rol) {
+    rawData.rol = formData.rol;
+  }
 
   const profileData = Object.fromEntries(
     Object.entries(rawData).filter(
@@ -113,7 +152,7 @@ export async function updateProfile(
 
   if (formData.telefono) metadataUpdates.phone = formData.telefono;
   if (formData.nombre) metadataUpdates.nombre = formData.nombre;
-  if (formData.rol) metadataUpdates.rol = formData.rol;
+  if (!isSelf && formData.rol) metadataUpdates.rol = formData.rol;
 
   if (Object.keys(metadataUpdates).length > 0) {
     const { error: authError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -137,6 +176,14 @@ export async function updateUserCredentials(
   password?: string,
 ) {
   if (!username && !password) return { success: true };
+
+  const auth = await requireAdminOrSelf(userId);
+  if (!auth.ok) return { code: auth.code };
+
+  if (auth.user.id !== userId) {
+    const allowed = await assertCanManageTargetUser(auth.role, userId);
+    if ("code" in allowed) return { code: allowed.code };
+  }
 
   const supabaseAdmin = getAdminClient();
   const authUpdates: AdminUserAttributes = {};
@@ -165,8 +212,13 @@ export async function updateUserCredentials(
   return { success: true };
 }
 
-// Estado cuenta
 export async function toggleUserStatus(userId: string, isBanned: boolean) {
+  const auth = await requireAdmin();
+  if (!auth.ok) return { code: auth.code };
+
+  const allowed = await assertCanManageTargetUser(auth.role, userId);
+  if ("code" in allowed) return { code: allowed.code };
+
   const supabaseAdmin = getAdminClient();
 
   const banDuration = isBanned ? "876600h" : "none";

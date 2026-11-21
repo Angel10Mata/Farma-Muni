@@ -4,10 +4,11 @@ import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import {
   CrearSolicitudRebajaSchema,
-  Producto,
   Cliente,
   SolicitudRebajaPayloadSchema,
   MotivoModificacionVentaSchema,
+  type ComercialVenta,
+  type GenericoVenta,
 } from "./zod";
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
@@ -16,26 +17,89 @@ import { sendPushToRoles, sendPushToUsers } from "@/utils/push-utils";
 import {
   esRebajaDePrecio,
   fechaVentaCalendarioGt,
+  formatNumeroRecibo,
   payloadCoincideConVenta,
   precioMenorQueCosto,
   precioReferenciaRebajaPayload,
   ventaEstaAnulada,
+  ETIQUETA_CONSUMIDOR_FINAL,
+  codigoReciboVenta,
 } from "./helpers";
 import {
   construirReporteVentasMes,
   type ReporteVentasMes,
 } from "./reporte-ventas-mes";
-import { ultimoDiaMesCalendario } from "@/lib/fechas-gt";
-import { ajustarStockPorVenta, obtenerCostoProductoOLote } from "./lotes-stock";
+import {
+  fechaCalendarioGt,
+  finTimestamptzDiaGt,
+  inicioTimestamptzDiaGt,
+  ultimoDiaMesCalendario,
+} from "@/lib/fechas-gt";
+import { enLotes, traerTodo } from "@/lib/reportes/paginacion";
+import { lineaGenericaCompraDisplay } from "@/components/(base)/proveedores/lib/compras-helpers";
+import {
+  construirReporteCorteCaja,
+  type ReporteCorteCaja,
+} from "./reporte-corte-caja";
+import { ajustarStockPorVenta, obtenerCostoReferenciaVenta } from "./lotes-stock";
 import {
   asignarCantidadFefo,
   filtrarLotesVendiblesFefo,
   loteVendiblePorFecha,
-  precioVentaDeLote,
   type LoteAsignadoVenta,
   type LoteVendibleRow,
 } from "./lotes-venta";
+
+const V_INV_GENERICOS_POS =
+  "generico_id, catalogo_id, catalogo_nombre, concentracion, forma_farmaceutica, generico_nombre, requiere_receta, stock_minimo, activo, comerciales, comerciales_con_stock, stock_vendible, precio_desde, bajo_minimo";
+
+const V_INV_COMERCIALES_POS =
+  "producto_id, nombre_comercial, presentacion, precio_venta, imagen_url, imagen_url_2, imagen_url_3, activo, generico_id, generico_nombre, requiere_receta, catalogo_id, catalogo_nombre, laboratorio_id, laboratorio_nombre, stock_vendible, proximo_vencimiento, lotes_vendibles, concentracion, forma_farmaceutica, unidad_venta, stock_minimo, generico_activo";
+
+function mapFilaGenericoVenta(row: Record<string, unknown>): GenericoVenta {
+  return {
+    generico_id: String(row.generico_id),
+    generico_nombre: String(row.generico_nombre ?? ""),
+    catalogo_id: String(row.catalogo_id),
+    catalogo_nombre: String(row.catalogo_nombre ?? ""),
+    concentracion: String(row.concentracion ?? ""),
+    forma_farmaceutica: String(row.forma_farmaceutica ?? ""),
+    requiere_receta: Boolean(row.requiere_receta),
+    stock_minimo: Number(row.stock_minimo) || 0,
+    stock_vendible: Number(row.stock_vendible) || 0,
+    bajo_minimo: Boolean(row.bajo_minimo),
+    activo: Boolean(row.activo),
+  };
+}
+
+function mapFilaComercialVenta(row: Record<string, unknown>): ComercialVenta {
+  return {
+    producto_id: String(row.producto_id),
+    nombre_comercial: String(row.nombre_comercial ?? ""),
+    presentacion: String(row.presentacion ?? ""),
+    laboratorio_nombre:
+      row.laboratorio_nombre != null && String(row.laboratorio_nombre).trim() !== ""
+        ? String(row.laboratorio_nombre)
+        : null,
+    precio_venta: Number(row.precio_venta) || 0,
+    generico_id: String(row.generico_id),
+    stock_vendible: Number(row.stock_vendible) || 0,
+    imagen_url: (row.imagen_url as string | null) ?? null,
+    imagen_url_2: (row.imagen_url_2 as string | null) ?? null,
+    imagen_url_3: (row.imagen_url_3 as string | null) ?? null,
+    activo: Boolean(row.activo),
+    costo_promedio: null,
+  };
+}
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { requireAdmin, requireVentas } from "@/lib/auth-guards";
+import { isAdminRole, resolveUserRole } from "@/lib/user-role";
+import {
+  clearAdminCredentialFailures,
+  isAdminCredentialRateLimited,
+  recordAdminCredentialFailure,
+} from "@/lib/rate-limit";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 
 export interface ItemVentaInput {
   producto_id: string;
@@ -45,78 +109,164 @@ export interface ItemVentaInput {
   subtotal: number;
 }
 
-// Productos y clientes para vender
+function mensajeErrorRegistrarVenta(message: string): string {
+  if (message.includes("REBAJA_NO_AUTORIZADA")) {
+    return "La rebaja de precio no está autorizada o la solicitud ya no es válida. Solicita aprobación de nuevo.";
+  }
+  if (message.includes("PRECIO_MENOR_COSTO")) {
+    return "Hay un precio por debajo del costo promedio. Solo un administrador puede autorizar esta venta.";
+  }
+  if (message.includes("CREDITO_VENCIDO:")) {
+    const raw = message.split("CREDITO_VENCIDO:")[1]?.trim() ?? "";
+    try {
+      const resumen = JSON.parse(raw) as {
+        total?: number;
+        desde?: string | null;
+      };
+      const total = Number(resumen.total) || 0;
+      const desde = resumen.desde ?? "";
+      const fecha = desde
+        ? new Date(`${desde}T12:00:00`).toLocaleDateString("es-GT", {
+            day: "numeric",
+            month: "long",
+            year: "numeric",
+          })
+        : "—";
+      return `Cliente con crédito vencido por Q${total.toFixed(2)} desde ${fecha}`;
+    } catch {
+      return "Cliente con crédito vencido. No se puede vender a crédito.";
+    }
+  }
+  if (message.includes("RECETA_REQUERIDA")) {
+    return "Debes registrar el médico y número de colegiado para medicamentos con receta.";
+  }
+  return message;
+}
+
+export type RecetaVentaInput = {
+  medico_nombre: string;
+  colegiado: string;
+  numero_receta?: string | null;
+  fecha_receta?: string | null;
+  observaciones?: string | null;
+};
+
+export type CreditoVencidoResumen = {
+  vencido: boolean;
+  total: number;
+  desde: string | null;
+};
+
+export async function consultarCreditoVencidoCliente(
+  clienteId: string,
+): Promise<CreditoVencidoResumen> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { vencido: false, total: 0, desde: null };
+  }
+
+  const { data, error } = await supabase.rpc("cliente_credito_vencido_resumen", {
+    p_cliente_id: clienteId,
+  });
+
+  if (error) {
+    console.error("cliente_credito_vencido_resumen:", error.message);
+    return { vencido: false, total: 0, desde: null };
+  }
+
+  const row = data as {
+    vencido?: boolean;
+    total?: number;
+    desde?: string | null;
+  } | null;
+
+  return {
+    vencido: Boolean(row?.vencido),
+    total: Number(row?.total) || 0,
+    desde: row?.desde ?? null,
+  };
+}
+
+export async function obtenerFarmaciaReciboSettings(): Promise<{
+  nombre: string;
+  direccion: string;
+  telefono: string;
+} | null> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data, error } = await supabase
+    .from("app_settings")
+    .select("farmacia_nombre, farmacia_direccion, farmacia_telefono")
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data) return null;
+
+  return {
+    nombre: (data.farmacia_nombre as string | null)?.trim() || "FarmaMuni",
+    direccion:
+      (data.farmacia_direccion as string | null)?.trim() ||
+      "3 CALLE 11-090, Zona 1, CHIQUIMULA, CHIQUIMULA",
+    telefono: (data.farmacia_telefono as string | null)?.trim() || "",
+  };
+}
+
 export async function obtenerProductosYClientes() {
   try {
     const supabase = await createClient();
 
-    // Obtener productos activos
-    const { data: productos, error: prodError } = await supabase
-      .from("inv_productos")
-      .select("*")
+    const { data: genericosRaw, error: genError } = await supabase
+      .from("v_inv_genericos")
+      .select(V_INV_GENERICOS_POS)
       .eq("activo", true)
-      .order("nombre", { ascending: true });
+      .order("generico_nombre", { ascending: true });
 
-    if (prodError) throw new Error(prodError.message);
+    if (genError) throw new Error(genError.message);
 
-    const { data: lotesRaw, error: lotesError } = await supabase
-      .from("inv_lotes")
-      .select(
-        "producto_id, id, codigo_barras, cantidad_actual, precio_venta, precio_costo, laboratorio, fecha_vencimiento, created_at, ubicacion",
-      )
+    const { data: comercialesRaw, error: comError } = await supabase
+      .from("v_inv_comerciales")
+      .select(V_INV_COMERCIALES_POS)
       .eq("activo", true)
-      .gt("cantidad_actual", 0)
-      .order("fecha_vencimiento", { ascending: true, nullsFirst: false })
-      .order("created_at", { ascending: true });
+      .eq("generico_activo", true)
+      .order("nombre_comercial", { ascending: true });
 
-    if (lotesError) throw new Error(lotesError.message);
+    if (comError) throw new Error(comError.message);
 
-    const lotesPorProducto = new Map<string, LoteVendibleRow[]>();
-    for (const row of lotesRaw ?? []) {
-      const lote: LoteVendibleRow = {
-        id: row.id as string,
-        codigo_barras: row.codigo_barras as string,
-        cantidad_actual: Number(row.cantidad_actual) || 0,
-        precio_costo: Number(row.precio_costo) || 0,
-        precio_venta: row.precio_venta != null ? Number(row.precio_venta) : null,
-        laboratorio: (row.laboratorio as string | null) ?? null,
-        fecha_vencimiento: (row.fecha_vencimiento as string | null) ?? null,
-        created_at: (row.created_at as string | null) ?? null,
-        ubicacion: (row.ubicacion as string | null) ?? null,
-      };
-      if (!loteVendiblePorFecha(lote.fecha_vencimiento)) continue;
-      const pid = row.producto_id as string;
-      const list = lotesPorProducto.get(pid) ?? [];
-      list.push(lote);
-      lotesPorProducto.set(pid, list);
+    const genericos = (genericosRaw ?? []).map((row) =>
+      mapFilaGenericoVenta(row as Record<string, unknown>),
+    );
+    const comercialesBase = (comercialesRaw ?? []).map((row) =>
+      mapFilaComercialVenta(row as Record<string, unknown>),
+    );
+
+    const productoIds = comercialesBase.map((c) => c.producto_id);
+    const costoMap = new Map<string, number | null>();
+    if (productoIds.length > 0) {
+      const { data: costosRaw } = await supabase
+        .from("v_inv_costos")
+        .select("producto_id, costo_promedio")
+        .in("producto_id", productoIds);
+      for (const row of costosRaw ?? []) {
+        const pid = String(row.producto_id);
+        costoMap.set(
+          pid,
+          row.costo_promedio != null ? Number(row.costo_promedio) : null,
+        );
+      }
     }
 
-    const productosPos = (productos ?? []).map((prod) => {
-      const lotes = lotesPorProducto.get(prod.id as string) ?? [];
-      const precios = lotes.map((l) =>
-        precioVentaDeLote(l.precio_venta, Number(prod.precio_base) || 0),
-      );
-      const fefo = lotes[0];
-      const precioFefo = fefo
-        ? precioVentaDeLote(fefo.precio_venta, Number(prod.precio_base) || 0)
-        : Number(prod.precio_base) || 0;
-      const minPrecio = precios.length > 0 ? Math.min(...precios) : precioFefo;
-      const maxPrecio = precios.length > 0 ? Math.max(...precios) : precioFefo;
-      const varios = precios.length > 1 && maxPrecio - minPrecio > 0.001;
-      const stockLotes = lotes.reduce((s, l) => s + (Number(l.cantidad_actual) || 0), 0);
+    const comerciales = comercialesBase.map((c) => ({
+      ...c,
+      costo_promedio: costoMap.get(c.producto_id) ?? null,
+    }));
 
-      return {
-        ...prod,
-        codigo: fefo?.codigo_barras ?? "",
-        ubicacion: fefo?.ubicacion ?? prod.ubicacion ?? null,
-        stock_actual: stockLotes > 0 ? stockLotes : Number(prod.stock_actual) || 0,
-        precio_venta_fefo: precioFefo,
-        precio_venta_desde: varios ? minPrecio : undefined,
-        precio_venta_varios: varios,
-      };
-    });
-
-    // Obtener todos los clientes
     const { data: clientes, error: cliError } = await supabase
       .from("ven_clientes")
       .select("*")
@@ -125,10 +275,11 @@ export async function obtenerProductosYClientes() {
     if (cliError) throw new Error(cliError.message);
 
     return {
-      productos: productosPos,
+      genericos,
+      comerciales,
       clientes: clientes || [],
     };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en obtenerProductosYClientes:", error);
     throw new Error("No se pudieron cargar los productos o clientes.");
   }
@@ -153,7 +304,7 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
     const { data: lote, error } = await supabase
       .from("inv_lotes")
       .select(
-        "id, producto_id, codigo_barras, numero_lote, cantidad_actual, precio_costo, precio_venta, laboratorio, fecha_vencimiento, ubicacion, activo, inv_productos(*)",
+        "id, producto_id, codigo_barras, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, ubicacion, activo",
       )
       .eq("codigo_barras", codigoNorm)
       .eq("activo", true)
@@ -163,9 +314,7 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
     if (error) {
       return { success: false as const, error: error.message };
     }
-    const productoJoin = lote?.inv_productos;
-    const productoRow = Array.isArray(productoJoin) ? productoJoin[0] : productoJoin;
-    if (!lote || !productoRow) {
+    if (!lote) {
       return { success: false as const, error: "No hay lote activo con stock para ese código." };
     }
 
@@ -173,31 +322,60 @@ export async function buscarLotePorCodigoBarras(codigo: string) {
       return { success: false as const, error: "El lote está vencido y no se puede vender." };
     }
 
-    const producto = productoRow as Producto;
-    if (!producto.activo) {
-      return { success: false as const, error: "El producto del lote está inactivo." };
+    const productoId = lote.producto_id as string;
+    const { data: comercialRow, error: comercialError } = await supabase
+      .from("v_inv_comerciales")
+      .select(V_INV_COMERCIALES_POS)
+      .eq("producto_id", productoId)
+      .maybeSingle();
+
+    if (comercialError || !comercialRow) {
+      return { success: false as const, error: "No se encontró el producto comercial del lote." };
     }
 
-    const precioVenta = precioVentaDeLote(
-      lote.precio_venta != null ? Number(lote.precio_venta) : null,
-      producto.precio_base,
-    );
+    let comercial = mapFilaComercialVenta(comercialRow as Record<string, unknown>);
+    if (!comercial.activo || comercial.stock_vendible <= 0) {
+      return { success: false as const, error: "El comercial no tiene stock vendible." };
+    }
+
+    const { data: costoRow } = await supabase
+      .from("v_inv_costos")
+      .select("costo_promedio")
+      .eq("producto_id", productoId)
+      .maybeSingle();
+    comercial = {
+      ...comercial,
+      costo_promedio:
+        costoRow?.costo_promedio != null ? Number(costoRow.costo_promedio) : null,
+    };
+
+    const { data: genericoRow, error: genericoError } = await supabase
+      .from("v_inv_genericos")
+      .select(V_INV_GENERICOS_POS)
+      .eq("generico_id", comercial.generico_id)
+      .maybeSingle();
+
+    if (genericoError || !genericoRow) {
+      return { success: false as const, error: "No se encontró el genérico del producto." };
+    }
+
+    const generico = mapFilaGenericoVenta(genericoRow as Record<string, unknown>);
 
     return {
       success: true as const,
       lote: {
         id: lote.id as string,
-        producto_id: lote.producto_id as string,
+        producto_id: productoId,
         codigo_barras: lote.codigo_barras as string,
         numero_lote: (lote.numero_lote as string | null) ?? null,
         cantidad_actual: Number(lote.cantidad_actual) || 0,
         precio_costo: Number(lote.precio_costo) || 0,
-        precio_venta: precioVenta,
-        laboratorio: (lote.laboratorio as string | null) ?? null,
+        precio_venta: comercial.precio_venta,
         fecha_vencimiento: (lote.fecha_vencimiento as string | null) ?? null,
         ubicacion: (lote.ubicacion as string | null) ?? null,
       },
-      producto,
+      comercial,
+      generico,
     };
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "Error al buscar el lote.";
@@ -219,23 +397,25 @@ export async function asignarLotes(productoId: string, cantidad: number) {
       return { success: false as const, error: "La cantidad debe ser mayor a 0." };
     }
 
-    const { data: producto, error: prodError } = await supabase
-      .from("inv_productos")
-      .select("id, nombre, precio_base, activo")
-      .eq("id", productoId)
+    const { data: comercialRow, error: comercialError } = await supabase
+      .from("v_inv_comerciales")
+      .select(V_INV_COMERCIALES_POS)
+      .eq("producto_id", productoId)
       .maybeSingle();
 
-    if (prodError || !producto) {
-      return { success: false as const, error: "Producto no encontrado." };
+    if (comercialError || !comercialRow) {
+      return { success: false as const, error: "Producto comercial no encontrado." };
     }
-    if (!producto.activo) {
-      return { success: false as const, error: "El producto está inactivo." };
+
+    const comercial = mapFilaComercialVenta(comercialRow as Record<string, unknown>);
+    if (!comercial.activo) {
+      return { success: false as const, error: "El producto comercial está inactivo." };
     }
 
     const { data: lotes, error } = await supabase
       .from("inv_lotes")
       .select(
-        "id, codigo_barras, cantidad_actual, precio_costo, precio_venta, laboratorio, fecha_vencimiento, created_at",
+        "id, codigo_barras, numero_lote, cantidad_actual, precio_costo, fecha_vencimiento, created_at",
       )
       .eq("producto_id", productoId)
       .eq("activo", true)
@@ -251,25 +431,20 @@ export async function asignarLotes(productoId: string, cantidad: number) {
       (lotes ?? []).map((l) => ({
         id: l.id as string,
         codigo_barras: l.codigo_barras as string,
+        numero_lote: (l.numero_lote as string | null) ?? null,
         cantidad_actual: Number(l.cantidad_actual) || 0,
         precio_costo: Number(l.precio_costo) || 0,
-        precio_venta: l.precio_venta != null ? Number(l.precio_venta) : null,
-        laboratorio: (l.laboratorio as string | null) ?? null,
         fecha_vencimiento: (l.fecha_vencimiento as string | null) ?? null,
         created_at: (l.created_at as string | null) ?? null,
       })),
     );
 
-    const resultado = asignarCantidadFefo(
-      vendibles,
-      cantidad,
-      Number(producto.precio_base) || 0,
-    );
+    const resultado = asignarCantidadFefo(vendibles, cantidad, comercial.precio_venta);
 
     if (!resultado.ok) {
       return {
         success: false as const,
-        error: `Stock insuficiente para ${producto.nombre}. Disponibles: ${resultado.cantidad_disponible}.`,
+        error: `Stock insuficiente para ${comercial.nombre_comercial}. Disponibles: ${resultado.cantidad_disponible}.`,
         cantidad_disponible: resultado.cantidad_disponible,
       };
     }
@@ -297,18 +472,17 @@ async function obtenerRolUsuario(
   return profile?.rol ?? "user";
 }
 
-async function assertAdminHistorialVentas(supabase: SupabaseClient) {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    throw new Error("Sesión no válida o expirada.");
+async function assertAdminHistorialVentas() {
+  const guard = await requireAdmin();
+  if (!guard.ok) {
+    throw new Error(
+      modalActionMessage(
+        guard.code,
+        "No tienes permiso para modificar ventas del historial.",
+      ),
+    );
   }
-  const rol = await obtenerRolUsuario(supabase, user.id);
-  if (rol !== "admin" && rol !== "super") {
-    throw new Error("No tienes permiso para modificar ventas del historial.");
-  }
-  return user;
+  return guard.user;
 }
 
 function parseMotivoModificacionVenta(motivo: string) {
@@ -350,55 +524,17 @@ async function registrarBitacoraVenta(
   }
 }
 
-async function assertPreciosNoMenoresAlCosto(
-  supabase: SupabaseClient,
-  items: ItemVentaInput[],
-) {
-  for (const item of items) {
-    const { data: prod } = await supabase
-      .from("inv_productos")
-      .select("nombre")
-      .eq("id", item.producto_id)
-      .maybeSingle();
-
-    if (!prod) {
-      throw new Error(`Producto con ID ${item.producto_id} no encontrado.`);
-    }
-
-    const costo = await obtenerCostoProductoOLote(
-      supabase,
-      item.producto_id,
-      item.lote_id,
-    );
-    if (precioMenorQueCosto(item.precio_aplicado, costo)) {
-      throw new Error(
-        `El precio de "${prod.nombre}" no puede ser menor al costo (Q${costo.toFixed(2)}).`,
-      );
-    }
-  }
-}
-
 async function precioVentaReferenciaItem(
   supabase: SupabaseClient,
   item: ItemVentaInput,
 ): Promise<number> {
-  if (item.lote_id) {
-    const { data: lote } = await supabase
-      .from("inv_lotes")
-      .select("precio_venta, producto_id")
-      .eq("id", item.lote_id)
-      .maybeSingle();
-    if (lote) {
-      const { data: prod } = await supabase
-        .from("inv_productos")
-        .select("precio_base")
-        .eq("id", lote.producto_id)
-        .maybeSingle();
-      return precioVentaDeLote(
-        lote.precio_venta != null ? Number(lote.precio_venta) : null,
-        Number(prod?.precio_base) || 0,
-      );
-    }
+  const { data: comercial } = await supabase
+    .from("v_inv_comerciales")
+    .select("precio_venta")
+    .eq("producto_id", item.producto_id)
+    .maybeSingle();
+  if (comercial) {
+    return Number(comercial.precio_venta) || 0;
   }
   const { data: prod } = await supabase
     .from("inv_productos")
@@ -491,30 +627,35 @@ export async function crearVenta(params: {
   observaciones: string | null;
   items: ItemVentaInput[];
   solicitud_rebaja_id?: string;
+  credito_autorizado_por?: string | null;
+  receta?: RecetaVentaInput | null;
 }) {
   try {
-    const supabase = await createClient();
-    
-    // Obtener usuario autenticado
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Sesión no válida o expirada.");
+    const guard = await requireVentas();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error: modalActionMessage(
+          guard.code,
+          "Error al procesar la venta.",
+        ),
+      };
+    }
+    const { supabase, user } = guard;
 
-    const { cliente_id, tipo_venta, total, observaciones, items, solicitud_rebaja_id } = params;
+    const {
+      cliente_id,
+      tipo_venta,
+      observaciones,
+      items,
+      solicitud_rebaja_id,
+      credito_autorizado_por,
+      receta,
+    } = params;
 
     if (!items || items.length === 0) {
       throw new Error("La venta debe contener al menos un producto.");
     }
-
-    await assertRebajasAutorizadas(supabase, user.id, {
-      cliente_id,
-      tipo_venta,
-      total,
-      observaciones,
-      items,
-      solicitud_rebaja_id,
-    });
-
-    await assertPreciosNoMenoresAlCosto(supabase, items);
 
     for (const item of items) {
       if (!item.lote_id) {
@@ -522,25 +663,99 @@ export async function crearVenta(params: {
       }
     }
 
+    const tipoCredito = ["crédito", "credito"].includes(
+      tipo_venta.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, ""),
+    );
+
+    if (tipoCredito && cliente_id) {
+      const resumen = await consultarCreditoVencidoCliente(cliente_id);
+      if (resumen.vencido && !credito_autorizado_por) {
+        const fecha = resumen.desde
+          ? new Date(`${resumen.desde}T12:00:00`).toLocaleDateString("es-GT", {
+              day: "numeric",
+              month: "long",
+              year: "numeric",
+            })
+          : "—";
+        throw new Error(
+          `Cliente con crédito vencido por Q${resumen.total.toFixed(2)} desde ${fecha}`,
+        );
+      }
+    }
+
+    if (tipoCredito && credito_autorizado_por) {
+      const rol = await obtenerRolUsuario(supabase, user.id);
+      if (rol !== "admin" && rol !== "super") {
+        throw new Error("Solo un administrador puede autorizar crédito con saldo vencido.");
+      }
+      if (credito_autorizado_por !== user.id) {
+        throw new Error("La autorización de crédito debe corresponder al administrador en sesión.");
+      }
+    }
+
+    const productoIds = [...new Set(items.map((i) => i.producto_id))];
+    const { data: comercialesReceta } = await supabase
+      .from("v_inv_comerciales")
+      .select("producto_id, requiere_receta")
+      .in("producto_id", productoIds);
+
+    const requiereReceta = (comercialesReceta ?? []).some((p) =>
+      Boolean(p.requiere_receta),
+    );
+
+    if (requiereReceta) {
+      const medico = receta?.medico_nombre?.trim() ?? "";
+      const colegiado = receta?.colegiado?.trim() ?? "";
+      if (!medico || !colegiado) {
+        throw new Error(
+          "Debes registrar el médico y número de colegiado para medicamentos con receta.",
+        );
+      }
+    }
+
+    await assertRebajasAutorizadas(supabase, user.id, {
+      cliente_id: cliente_id || null,
+      tipo_venta,
+      total: params.total,
+      observaciones: observaciones || null,
+      items,
+      solicitud_rebaja_id,
+    });
+
+    const pVenta: Record<string, unknown> = {
+      cliente_id: cliente_id || null,
+      usuario_id: user.id,
+      tipo_venta,
+      observaciones: observaciones || null,
+      solicitud_rebaja_id: solicitud_rebaja_id ?? null,
+    };
+
+    if (tipoCredito && credito_autorizado_por) {
+      pVenta.credito_autorizado_por = credito_autorizado_por;
+    }
+
+    if (requiereReceta && receta) {
+      pVenta.receta = {
+        medico_nombre: receta.medico_nombre.trim(),
+        colegiado: receta.colegiado.trim(),
+        numero_receta: receta.numero_receta?.trim() || null,
+        fecha_receta: receta.fecha_receta || null,
+        observaciones: receta.observaciones?.trim() || null,
+      };
+    }
+
     const { data: ventaRpc, error: ventaError } = await supabase.rpc("registrar_venta", {
-      p_venta: {
-        cliente_id: cliente_id || null,
-        usuario_id: user.id,
-        tipo_venta,
-        total,
-        observaciones: observaciones || null,
-      },
+      p_venta: pVenta,
       p_items: items.map((item) => ({
         producto_id: item.producto_id,
         lote_id: item.lote_id,
         cantidad: item.cantidad,
         precio_aplicado: item.precio_aplicado,
-        subtotal: item.subtotal,
       })),
     });
 
     if (ventaError) {
-      throw new Error(ventaError.message);
+      throw new Error(mensajeErrorRegistrarVenta(ventaError.message));
     }
 
     const ventaRow = ventaRpc as { id?: string; numero_recibo?: number | null } | null;
@@ -551,37 +766,35 @@ export async function crearVenta(params: {
     const venta = { id: ventaRow.id, numero_recibo: ventaRow.numero_recibo ?? null };
 
     const productoIdsVendidos = [...new Set(items.map((i) => i.producto_id))];
+    const genericosNotificados = new Set<string>();
     for (const productoId of productoIdsVendidos) {
-      const { data: prod } = await supabase
-        .from("inv_productos")
-        .select("nombre, stock_actual, stock_minimo")
-        .eq("id", productoId)
-        .single();
+      const { data: comercial } = await supabase
+        .from("v_inv_comerciales")
+        .select("generico_id, nombre_comercial")
+        .eq("producto_id", productoId)
+        .maybeSingle();
+      const genericoId = comercial?.generico_id as string | undefined;
+      if (!genericoId || genericosNotificados.has(genericoId)) continue;
 
-      const nuevoStock = Number(prod?.stock_actual) || 0;
+      const { data: generico } = await supabase
+        .from("v_inv_genericos")
+        .select("generico_nombre, stock_vendible, stock_minimo, bajo_minimo")
+        .eq("generico_id", genericoId)
+        .maybeSingle();
 
-      if (prod && nuevoStock <= prod.stock_minimo) {
+      if (generico?.bajo_minimo) {
+        genericosNotificados.add(genericoId);
+        const stock = Number(generico.stock_vendible) || 0;
+        const minimo = Number(generico.stock_minimo) || 0;
         await sendPushNotification(
           {
             title: "⚠️ Alerta de Inventario",
-            body: `El producto "${prod.nombre}" ha llegado a su stock mínimo (${nuevoStock} unidades restantes).`,
+            body: `El genérico "${generico.generico_nombre}" está bajo el mínimo (${stock} vendibles, mínimo ${minimo}).`,
             url: "/farmamuni/inventario",
           },
           ["all"],
         );
       }
-    }
-
-    if (solicitud_rebaja_id) {
-      const admin = createAdminClient();
-      await admin
-        .from("ven_solicitudes_rebaja")
-        .update({
-          estado: "completada",
-          venta_id: venta.id,
-        })
-        .eq("id", solicitud_rebaja_id)
-        .eq("solicitante_id", user.id);
     }
 
     // Revalidar rutas para refrescar cache
@@ -603,6 +816,31 @@ export async function crearVenta(params: {
   }
 }
 
+async function assertPuedeVerVentaEnHistorial(
+  supabase: SupabaseClient,
+  userId: string,
+  ventaId: string,
+  rol: string,
+) {
+  if (isAdminRole(rol)) return;
+
+  if (rol === "user") {
+    const { data, error } = await supabase
+      .from("ventas")
+      .select("usuario_id")
+      .eq("id", ventaId)
+      .maybeSingle();
+
+    if (error) throw new Error(error.message);
+    if (!data || data.usuario_id !== userId) {
+      throw new Error("No tienes permiso para ver esta venta.");
+    }
+    return;
+  }
+
+  throw new Error("No tienes permiso para ver el historial de ventas.");
+}
+
 // Historial y detalle de ventas
 export async function obtenerHistorialVentas() {
   try {
@@ -615,21 +853,32 @@ export async function obtenerHistorialVentas() {
       throw new Error("Sesión no válida o expirada.");
     }
 
-    const rol = await obtenerRolUsuario(supabase, user.id);
-    if (rol !== "admin" && rol !== "super") {
+    const rol = await resolveUserRole(supabase, user);
+    const puedeHistorial = isAdminRole(rol) || rol === "user";
+    if (!puedeHistorial) {
       throw new Error("No tienes permiso para ver el historial de ventas.");
     }
 
-    const { data, error } = await supabase
+    let ventasQuery = supabase
       .from("ventas")
       .select("*, ven_clientes(nombre, nit)")
       .order("created_at", { ascending: false });
+
+    if (rol === "user") {
+      ventasQuery = ventasQuery.eq("usuario_id", user.id);
+    }
+
+    const { data, error } = await ventasQuery;
 
     if (error) throw new Error(error.message);
 
     const ventas = data || [];
     const usuarioIds = [
-      ...new Set(ventas.map((v) => v.usuario_id).filter(Boolean)),
+      ...new Set(
+        ventas
+          .flatMap((v) => [v.usuario_id, v.anulada_por])
+          .filter(Boolean),
+      ),
     ] as string[];
 
     let perfilesPorId: Record<string, { nombre: string }> = {};
@@ -653,9 +902,15 @@ export async function obtenerHistorialVentas() {
     return ventas.map((venta) => ({
       ...venta,
       profiles: venta.usuario_id ? perfilesPorId[venta.usuario_id] ?? null : null,
+      anulada_por_profile: venta.anulada_por
+        ? perfilesPorId[venta.anulada_por] ?? null
+        : null,
     }));
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en obtenerHistorialVentas:", error);
+    if (error instanceof Error && error.message.includes("permiso")) {
+      throw error;
+    }
     throw new Error("No se pudo obtener el historial de ventas.");
   }
 }
@@ -663,7 +918,7 @@ export async function obtenerHistorialVentas() {
 export async function obtenerBitacoraVenta(ventaId: string) {
   try {
     const supabase = await createClient();
-    await assertAdminHistorialVentas(supabase);
+    await assertAdminHistorialVentas();
 
     const { data, error } = await supabase
       .from("ven_ventas_bitacora")
@@ -753,18 +1008,18 @@ export async function obtenerReporteVentasMes(year: number, month: number) {
     const desdeIso = `${mesPrefijo}-01T00:00:00.000-06:00`;
     const hastaIso = `${mesPrefijo}-${String(lastDay).padStart(2, "0")}T23:59:59.999-06:00`;
 
-    const { data: ventasRaw, error } = await supabase
-      .from("ventas")
-      .select("*, ven_clientes(nombre, nit)")
-      .gte("created_at", desdeIso)
-      .lte("created_at", hastaIso)
-      .order("created_at", { ascending: true });
+    const ventasRaw = await traerTodo(async (from, to) => {
+      const { data, error } = await supabase
+        .from("ventas")
+        .select("*, ven_clientes(nombre, nit)")
+        .gte("created_at", desdeIso)
+        .lte("created_at", hastaIso)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      return { data, error };
+    });
 
-    if (error) {
-      return { success: false as const, error: error.message };
-    }
-
-    const ventas = (ventasRaw || []).filter((v) =>
+    const ventas = ventasRaw.filter((v) =>
       fechaVentaCalendarioGt(v.created_at).startsWith(mesPrefijo),
     );
 
@@ -833,31 +1088,100 @@ export async function obtenerReporteVentasMes(year: number, month: number) {
       .filter((v) => !ventaEstaAnulada(v))
       .map((v) => v.id);
 
-    let detalles: {
-      venta_id: string;
-      cantidad: number;
-      inv_productos: { nombre: string } | null;
-    }[] = [];
+    const usuarioIdsVentas = [
+      ...new Set(
+        ventas.map((v) => v.usuario_id).filter(Boolean),
+      ),
+    ] as string[];
+
+    let nombresVendedorPorId: Record<string, string> = {};
+    if (usuarioIdsVentas.length > 0) {
+      const { data: perfilesV, error: perfilesVError } = await supabase
+        .from("profiles")
+        .select("id, nombre")
+        .in("id", usuarioIdsVentas);
+      if (perfilesVError) {
+        return { success: false as const, error: perfilesVError.message };
+      }
+      nombresVendedorPorId = Object.fromEntries(
+        (perfilesV ?? []).map((p) => [
+          p.id,
+          p.nombre?.trim() || "Sin nombre",
+        ]),
+      );
+    }
+
+    let detalles: import("./reporte-ventas-mes").DetalleReporteMesInput[] = [];
 
     if (activasIds.length > 0) {
-      const { data: detRaw, error: detError } = await supabase
-        .from("ven_detalles")
-        .select("venta_id, cantidad, inv_productos(nombre)")
-        .in("venta_id", activasIds);
+      type FilaDetalleRaw = {
+        venta_id: string;
+        cantidad: number;
+        subtotal: number;
+        inv_lotes:
+          | { precio_costo: number | null }
+          | { precio_costo: number | null }[]
+          | null;
+        inv_productos:
+          | {
+              nombre: string;
+              inv_genericos: {
+                concentracion: string;
+                forma_farmaceutica: string;
+                inv_catalogos: { nombre: string } | null;
+              } | null;
+            }
+          | {
+              nombre: string;
+              inv_genericos: {
+                concentracion: string;
+                forma_farmaceutica: string;
+                inv_catalogos: { nombre: string } | null;
+              } | null;
+            }[]
+          | null;
+      };
 
-      if (detError) {
-        return { success: false as const, error: detError.message };
+      const detRaw: FilaDetalleRaw[] = [];
+      for (const loteIds of enLotes(activasIds)) {
+        const parte = await traerTodo(async (from, to) => {
+          const { data, error } = await supabase
+            .from("ven_detalles")
+            .select(
+              "venta_id, cantidad, subtotal, inv_lotes(precio_costo), inv_productos(nombre, inv_genericos(concentracion, forma_farmaceutica, inv_catalogos(nombre)))",
+            )
+            .in("venta_id", loteIds)
+            .range(from, to);
+          return { data, error };
+        });
+        detRaw.push(...(parte as unknown as FilaDetalleRaw[]));
       }
-      detalles = (detRaw || []).map((row) => {
-        const prod = row.inv_productos;
-        const nombre =
-          prod && typeof prod === "object" && "nombre" in prod
-            ? String((prod as { nombre: string }).nombre)
-            : "";
+
+      detalles = detRaw.map((row) => {
+        const prodRaw = row.inv_productos;
+        const prod = Array.isArray(prodRaw) ? prodRaw[0] : prodRaw;
+        const marca = prod?.nombre?.trim() || "Producto";
+        const gen = prod?.inv_genericos;
+        const catalogo = gen?.inv_catalogos?.nombre?.trim() || marca;
+        const producto = gen
+          ? lineaGenericaCompraDisplay({
+              catalogo_nombre: catalogo,
+              concentracion: gen.concentracion ?? "",
+              forma_farmaceutica: gen.forma_farmaceutica ?? "",
+            })
+          : marca;
+        const loteRaw = row.inv_lotes;
+        const lote = Array.isArray(loteRaw) ? loteRaw[0] : loteRaw;
+        const costoUnit = Number(lote?.precio_costo) || 0;
+        const cantidad = Number(row.cantidad) || 0;
+        const subtotal = Number(row.subtotal) || 0;
         return {
           venta_id: row.venta_id,
-          cantidad: Number(row.cantidad) || 0,
-          inv_productos: nombre ? { nombre } : null,
+          cantidad,
+          subtotal,
+          producto,
+          marca,
+          costo: Math.round(costoUnit * cantidad * 100) / 100,
         };
       });
     }
@@ -867,6 +1191,7 @@ export async function obtenerReporteVentasMes(year: number, month: number) {
         ventas,
         anulacionesPorVentaId,
         detalles,
+        nombresVendedorPorId,
         year,
         month,
       ),
@@ -884,14 +1209,495 @@ export async function obtenerReporteVentasMes(year: number, month: number) {
   }
 }
 
+export type VentaRecetaReporteRow = {
+  recibo: string;
+  fecha: string;
+  cliente: string;
+  medico: string;
+  colegiado: string;
+  numero_receta: string;
+  producto: string;
+  marca: string;
+  lote: string;
+  cantidad: number;
+};
+
+export type TotalesRecetaProductoRow = {
+  producto: string;
+  marca: string;
+  cantidad: number;
+};
+
+export async function obtenerReporteVentasReceta(
+  fechaDesde: string,
+  fechaHasta: string,
+) {
+  try {
+    if (!fechaDesde || !fechaHasta) {
+      return { success: false as const, error: "Indica el rango de fechas." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida o expirada." };
+    }
+
+    const rol = await obtenerRolUsuario(supabase, user.id);
+    if (rol !== "admin" && rol !== "super") {
+      return {
+        success: false as const,
+        error: "No tienes permiso para exportar este reporte.",
+      };
+    }
+
+    const { data: perfilReporte } = await supabase
+      .from("profiles")
+      .select("nombre")
+      .eq("id", user.id)
+      .maybeSingle();
+    const generadoPor = perfilReporte?.nombre?.trim() || "Sin nombre";
+
+    const desdeIso = `${fechaDesde}T00:00:00.000-06:00`;
+    const hastaIso = `${fechaHasta}T23:59:59.999-06:00`;
+
+    const ventasReceta = await traerTodo(async (from, to) => {
+      const { data, error } = await supabase
+        .from("ventas")
+        .select(
+          "id, created_at, numero_recibo, ven_clientes(nombre), ven_recetas!inner(medico_nombre, colegiado, numero_receta)",
+        )
+        .gte("created_at", desdeIso)
+        .lte("created_at", hastaIso)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      return { data, error };
+    });
+
+    const ventaIds = ventasReceta.map((v) => v.id as string);
+    const filas: VentaRecetaReporteRow[] = [];
+
+    if (ventaIds.length > 0) {
+      type FilaDetReceta = {
+        venta_id: string;
+        cantidad: number;
+        inv_lotes:
+          | { numero_lote: string | null }
+          | { numero_lote: string | null }[]
+          | null;
+        inv_productos:
+          | {
+              nombre: string;
+              inv_genericos: { requiere_receta: boolean; concentracion: string; forma_farmaceutica: string; inv_catalogos: { nombre: string } | null } | null;
+            }
+          | {
+              nombre: string;
+              inv_genericos: { requiere_receta: boolean; concentracion: string; forma_farmaceutica: string; inv_catalogos: { nombre: string } | null } | null;
+            }[]
+          | null;
+      };
+
+      const detallesRaw: FilaDetReceta[] = [];
+      for (const loteIds of enLotes(ventaIds)) {
+        const parte = await traerTodo(async (from, to) => {
+          const { data, error } = await supabase
+            .from("ven_detalles")
+            .select(
+              "venta_id, cantidad, inv_lotes(numero_lote), inv_productos(nombre, inv_genericos(requiere_receta, concentracion, forma_farmaceutica, inv_catalogos(nombre)))",
+            )
+            .in("venta_id", loteIds)
+            .range(from, to);
+          return { data, error };
+        });
+        detallesRaw.push(...(parte as unknown as FilaDetReceta[]));
+      }
+
+      const ventaPorId = new Map(
+        ventasReceta.map((v) => [v.id as string, v]),
+      );
+
+      for (const row of detallesRaw) {
+        const prodRaw = row.inv_productos;
+        const prod = Array.isArray(prodRaw) ? prodRaw[0] : prodRaw;
+        if (!prod?.inv_genericos?.requiere_receta) continue;
+
+        const venta = ventaPorId.get(row.venta_id);
+        if (!venta) continue;
+
+        const recetaRow = Array.isArray(venta.ven_recetas)
+          ? venta.ven_recetas[0]
+          : venta.ven_recetas;
+        const clientes = venta.ven_clientes as
+          | { nombre: string }
+          | { nombre: string }[]
+          | null;
+        const clienteNombre = Array.isArray(clientes)
+          ? clientes[0]?.nombre
+          : clientes?.nombre;
+        const loteRaw = row.inv_lotes;
+        const lote = Array.isArray(loteRaw) ? loteRaw[0] : loteRaw;
+        const catalogo =
+          prod.inv_genericos.inv_catalogos?.nombre?.trim() ||
+          prod.nombre;
+        const producto = lineaGenericaCompraDisplay({
+          catalogo_nombre: catalogo,
+          concentracion: prod.inv_genericos.concentracion ?? "",
+          forma_farmaceutica: prod.inv_genericos.forma_farmaceutica ?? "",
+        });
+
+        filas.push({
+          recibo: codigoReciboVenta({
+            id: venta.id as string,
+            numero_recibo: venta.numero_recibo as number | null,
+          }),
+          fecha: venta.created_at as string,
+          cliente: clienteNombre?.trim() || ETIQUETA_CONSUMIDOR_FINAL,
+          medico: (recetaRow as { medico_nombre: string }).medico_nombre,
+          colegiado: (recetaRow as { colegiado: string }).colegiado,
+          numero_receta:
+            (recetaRow as { numero_receta?: string | null }).numero_receta?.trim() ||
+            "—",
+          producto,
+          marca: prod.nombre?.trim() || "—",
+          lote: lote?.numero_lote?.trim() || "—",
+          cantidad: Number(row.cantidad) || 0,
+        });
+      }
+
+      filas.sort((a, b) => a.fecha.localeCompare(b.fecha));
+    }
+
+    const totalesPorProductoMap = new Map<string, TotalesRecetaProductoRow>();
+    for (const f of filas) {
+      const key = `${f.marca}\0${f.producto}`;
+      const prev = totalesPorProductoMap.get(key);
+      if (prev) {
+        prev.cantidad += f.cantidad;
+      } else {
+        totalesPorProductoMap.set(key, {
+          producto: f.producto,
+          marca: f.marca,
+          cantidad: f.cantidad,
+        });
+      }
+    }
+    const totalesPorProducto = [...totalesPorProductoMap.values()].sort(
+      (a, b) => b.cantidad - a.cantidad,
+    );
+
+    return {
+      success: true as const,
+      data: {
+        fechaDesde,
+        fechaHasta,
+        generadoPor,
+        filas,
+        totalesPorProducto,
+      },
+    };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo generar el reporte de ventas con receta.";
+    return { success: false as const, error: message };
+  }
+}
+
+export async function obtenerVendedoresCorteCaja() {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida.", vendedores: [] };
+    }
+
+    const rol = await resolveUserRole(supabase, user);
+    if (!isAdminRole(rol)) {
+      return { success: true as const, vendedores: [] };
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, nombre")
+      .in("rol", ["user", "admin", "super"])
+      .order("nombre", { ascending: true });
+
+    if (error) {
+      return { success: false as const, error: error.message, vendedores: [] };
+    }
+
+    return {
+      success: true as const,
+      vendedores: (data ?? []).map((p) => ({
+        id: p.id,
+        nombre: p.nombre?.trim() || "Sin nombre",
+      })),
+    };
+  } catch {
+    return {
+      success: false as const,
+      error: "No se pudieron cargar los vendedores.",
+      vendedores: [],
+    };
+  }
+}
+
+function fechaMovimientoCalendarioGt(fechaMovimiento: string): string {
+  return fechaCalendarioGt(new Date(fechaMovimiento));
+}
+
+export async function obtenerCorteCajaDiario(
+  fecha: string,
+  usuarioFiltroId: string | null,
+) {
+  try {
+    const fechaNorm = fecha.trim();
+    if (!fechaNorm) {
+      return { success: false as const, error: "Indica la fecha del corte." };
+    }
+
+    const inicio = inicioTimestamptzDiaGt(fechaNorm);
+    const fin = finTimestamptzDiaGt(fechaNorm);
+    if (!inicio || !fin) {
+      return { success: false as const, error: "Fecha inválida." };
+    }
+
+    const supabase = await createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      return { success: false as const, error: "Sesión no válida o expirada." };
+    }
+
+    const rol = await resolveUserRole(supabase, user);
+    const puedeHistorial = isAdminRole(rol) || rol === "user";
+    if (!puedeHistorial) {
+      return {
+        success: false as const,
+        error: "No tienes permiso para el corte de caja.",
+      };
+    }
+
+    let usuarioIdConsulta: string | null = null;
+    if (isAdminRole(rol)) {
+      usuarioIdConsulta =
+        usuarioFiltroId && usuarioFiltroId.trim() !== ""
+          ? usuarioFiltroId.trim()
+          : null;
+    } else {
+      usuarioIdConsulta = user.id;
+    }
+
+    const { data: perfilReporte } = await supabase
+      .from("profiles")
+      .select("nombre")
+      .eq("id", user.id)
+      .maybeSingle();
+    const generadoPor = perfilReporte?.nombre?.trim() || "Sin nombre";
+
+    let etiquetaVendedor = "Todos los vendedores";
+    if (usuarioIdConsulta) {
+      const { data: perfilV } = await supabase
+        .from("profiles")
+        .select("nombre")
+        .eq("id", usuarioIdConsulta)
+        .maybeSingle();
+      etiquetaVendedor = perfilV?.nombre?.trim() || "Sin nombre";
+    }
+
+    const ventasRaw = await traerTodo(async (from, to) => {
+      let q = supabase
+        .from("ventas")
+        .select("*, ven_clientes(nombre, nit)")
+        .gte("created_at", inicio)
+        .lte("created_at", fin)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      if (usuarioIdConsulta) {
+        q = q.eq("usuario_id", usuarioIdConsulta);
+      }
+      const { data, error } = await q;
+      return { data, error };
+    });
+
+    const ventas = ventasRaw.filter(
+      (v) => fechaVentaCalendarioGt(v.created_at as string) === fechaNorm,
+    );
+
+    const ventaIds = ventas.map((v) => v.id as string);
+    const anulacionesBitacora: {
+      venta_id: string;
+      usuario_id: string;
+      motivo: string;
+      created_at: string;
+    }[] = [];
+
+    const bitacorasDia = await traerTodo(async (from, to) => {
+      const { data, error } = await supabase
+        .from("ven_ventas_bitacora")
+        .select("venta_id, usuario_id, motivo, created_at, accion")
+        .eq("accion", "anular")
+        .gte("created_at", inicio)
+        .lte("created_at", fin)
+        .order("created_at", { ascending: true })
+        .range(from, to);
+      return { data, error };
+    });
+
+    for (const b of bitacorasDia) {
+      if (fechaVentaCalendarioGt(b.created_at as string) !== fechaNorm) continue;
+      anulacionesBitacora.push({
+        venta_id: b.venta_id as string,
+        usuario_id: b.usuario_id as string,
+        motivo: typeof b.motivo === "string" ? b.motivo : "",
+        created_at: b.created_at as string,
+      });
+    }
+
+    const ventaIdsAnuladas = [
+      ...new Set(anulacionesBitacora.map((b) => b.venta_id)),
+    ];
+    const ventasAnuladasExtra = ventaIdsAnuladas.filter(
+      (id) => !ventaIds.includes(id),
+    );
+
+    let ventasAnuladasLookup = [...ventas];
+    if (ventasAnuladasExtra.length > 0) {
+      for (const loteIds of enLotes(ventasAnuladasExtra)) {
+        const { data: extra, error: extraError } = await supabase
+          .from("ventas")
+          .select("*, ven_clientes(nombre, nit)")
+          .in("id", loteIds);
+        if (extraError) {
+          return { success: false as const, error: extraError.message };
+        }
+        ventasAnuladasLookup.push(...(extra ?? []));
+      }
+    }
+
+    const usuarioIdsBitacora = [
+      ...new Set(anulacionesBitacora.map((b) => b.usuario_id)),
+    ];
+    let perfilesBitacora: Record<string, string> = {};
+    if (usuarioIdsBitacora.length > 0) {
+      const { data: perfiles, error: perfilesError } = await supabase
+        .from("profiles")
+        .select("id, nombre")
+        .in("id", usuarioIdsBitacora);
+      if (perfilesError) {
+        return { success: false as const, error: perfilesError.message };
+      }
+      perfilesBitacora = Object.fromEntries(
+        (perfiles ?? []).map((p) => [
+          p.id,
+          p.nombre?.trim() || "Sin nombre",
+        ]),
+      );
+    }
+
+    const abonosRaw = await traerTodo(async (from, to) => {
+      let q = supabase
+        .from("fin_transacciones")
+        .select("id, monto, fecha_movimiento, usuario_id, descripcion, venta_id")
+        .eq("categoria", "abono_cliente")
+        .eq("tipo_movimiento", "ingreso")
+        .gte("fecha_movimiento", inicio)
+        .lte("fecha_movimiento", fin)
+        .order("fecha_movimiento", { ascending: true })
+        .range(from, to);
+      if (usuarioIdConsulta) {
+        q = q.eq("usuario_id", usuarioIdConsulta);
+      }
+      const { data, error } = await q;
+      return { data, error };
+    });
+
+    const abonos = abonosRaw
+      .filter(
+        (a) =>
+          fechaMovimientoCalendarioGt(a.fecha_movimiento as string) ===
+          fechaNorm,
+      )
+      .map((a) => ({
+        monto: Number(a.monto) || 0,
+        fecha_movimiento: a.fecha_movimiento as string,
+        descripcion: (a.descripcion as string | null) ?? "",
+      }));
+
+    const reporte: ReporteCorteCaja = {
+      ...construirReporteCorteCaja({
+        fecha: fechaNorm,
+        etiquetaVendedor,
+        ventas: ventas.map((v) => ({
+          id: v.id as string,
+          created_at: v.created_at as string,
+          numero_recibo: v.numero_recibo as number | null,
+          tipo_venta: v.tipo_venta as string | null,
+          total: v.total as number | string | null,
+          observaciones: v.observaciones as string | null,
+          anulada: v.anulada as boolean | null,
+          estado: v.estado as string | null,
+          ven_clientes: v.ven_clientes as { nombre: string } | null,
+        })),
+        anulacionesDia: anulacionesBitacora
+          .filter((b) => {
+            if (!usuarioIdConsulta) return true;
+            const venta = ventasAnuladasLookup.find((v) => v.id === b.venta_id);
+            return venta?.usuario_id === usuarioIdConsulta;
+          })
+          .map((b) => {
+          const venta = ventasAnuladasLookup.find((v) => v.id === b.venta_id);
+          return {
+            recibo: venta
+              ? codigoReciboVenta({
+                  id: venta.id as string,
+                  numero_recibo: venta.numero_recibo as number | null,
+                })
+              : b.venta_id.slice(0, 8),
+            monto: Number(venta?.total) || 0,
+            autor: perfilesBitacora[b.usuario_id] ?? "Sin nombre",
+            motivo: b.motivo.trim() || "—",
+          };
+        }),
+        abonos,
+      }),
+      generadoPor,
+    };
+
+    return { success: true as const, data: reporte };
+  } catch (error: unknown) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "No se pudo generar el corte de caja.";
+    return { success: false as const, error: message };
+  }
+}
+
 export async function obtenerDetalleVenta(ventaId: string) {
   try {
     const supabase = await createClient();
 
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("Sesión no válida o expirada.");
+    }
+
+    const rol = await resolveUserRole(supabase, user);
+    await assertPuedeVerVentaEnHistorial(supabase, user.id, ventaId, rol);
+
     const { data, error } = await supabase
       .from("ven_detalles")
       .select(
-        "*, inv_lotes(codigo_barras, numero_lote, precio_venta, precio_costo, laboratorio), inv_productos(nombre)",
+        "*, inv_lotes(codigo_barras, numero_lote, precio_costo), inv_productos(nombre, presentacion, generico_id, laboratorio_id, inv_genericos(concentracion, forma_farmaceutica, inv_catalogos(nombre)), inv_laboratorios(nombre))",
       )
       .eq("venta_id", ventaId);
 
@@ -904,75 +1710,46 @@ export async function obtenerDetalleVenta(ventaId: string) {
   }
 }
 
+function mensajeErrorRpcAnularVenta(message: string): string {
+  const m = message.toUpperCase();
+  if (m.includes("FORBIDDEN")) {
+    return "No tienes permiso para anular ventas.";
+  }
+  if (m.includes("MOTIVO_REQUERIDO")) {
+    return "El motivo de anulación es obligatorio (mínimo 5 caracteres).";
+  }
+  if (m.includes("NO_ENCONTRADA")) {
+    return "No se encontró la venta.";
+  }
+  if (m.includes("YA_ANULADA")) {
+    return "Esta venta ya está anulada.";
+  }
+  return message || "No se pudo anular la venta.";
+}
+
 // Anular venta
 export async function anularVenta(ventaId: string, motivo: string) {
   try {
-    const supabase = await createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error("Sesión no válida o expirada.");
+    const guard = await requireAdmin();
+    if (!guard.ok) {
+      return {
+        success: false,
+        error: modalActionMessage(guard.code, "Error al anular la venta."),
+      };
     }
+    const { supabase, user } = guard;
     const motivoLimpio = parseMotivoModificacionVenta(motivo);
 
-    // 1. Obtener detalles de la venta (productos y cantidades)
-    const { data: detalles, error: detError } = await supabase
-      .from("ven_detalles")
-      .select("producto_id, cantidad, lote_id")
-      .eq("venta_id", ventaId);
+    const { error: rpcError } = await supabase.rpc("anular_venta", {
+      p_venta_id: ventaId,
+      p_motivo: motivoLimpio,
+    });
 
-    if (detError) throw new Error(detError.message);
-
-    if (detalles && detalles.length > 0) {
-      for (const item of detalles) {
-        await ajustarStockPorVenta(supabase, {
-          producto_id: item.producto_id,
-          lote_id: item.lote_id,
-          delta: item.cantidad,
-        });
-      }
-    }
-
-    // 3. Eliminar los detalles de la venta
-    const { error: delDetallesError } = await supabase
-      .from("ven_detalles")
-      .delete()
-      .eq("venta_id", ventaId);
-
-    if (delDetallesError) throw new Error(delDetallesError.message);
-
-    // 4. Revertir transacción financiera (si existe) en el módulo de Finanzas
-    const { data: finTx } = await supabase
-      .from("fin_transacciones")
-      .select("*")
-      .eq("venta_id", ventaId)
-      .eq("categoria", "venta")
-      .gt("monto", 0)
-      .single();
-
-    if (finTx) {
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from("fin_transacciones").insert({
-        tipo_movimiento: finTx.tipo_movimiento,
-        categoria: finTx.categoria,
-        monto: -Math.abs(finTx.monto),
-        descripcion: `Anulación: ${finTx.descripcion}`,
-        usuario_id: user?.id,
-        venta_id: ventaId
-      });
-    }
-
-    // 5. Marcar la venta principal como anulada (no eliminarla físicamente)
-    const { data: vInfo } = await supabase.from("ventas").select("observaciones").eq("id", ventaId).single();
-    const currentObs = vInfo?.observaciones || "";
-    if (!currentObs.includes("[ANULADA]")) {
-      const { error: updVentaError } = await supabase
-        .from("ventas")
-        .update({ observaciones: `${currentObs} [ANULADA]`.trim() })
-        .eq("id", ventaId);
-        
-      if (updVentaError) throw new Error(updVentaError.message);
+    if (rpcError) {
+      return {
+        success: false,
+        error: mensajeErrorRpcAnularVenta(rpcError.message),
+      };
     }
 
     await registrarBitacoraVenta(supabase, {
@@ -982,23 +1759,27 @@ export async function anularVenta(ventaId: string, motivo: string) {
       motivo: motivoLimpio,
     });
 
-    // Revalidar rutas para refrescar cache de inventario, ventas y finanzas
     revalidatePath("/farmamuni/inventario");
     revalidatePath("/farmamuni/ventas");
     revalidatePath("/farmamuni/finanzas");
+    revalidatePath("/farmamuni/creditos");
 
     return { success: true };
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en anularVenta:", error);
     return {
       success: false,
-      error: error.message || "Error al anular la venta."
+      error:
+        error instanceof Error ? error.message : "Error al anular la venta.",
     };
   }
 }
 
-// Corregir líneas del historial
-export async function editarDetalleVentaDirecto(params: {
+const ERROR_CORREGIR_VENTA_HISTORIAL =
+  "Para corregir una venta, anúlala y regístrala de nuevo.";
+
+// Corregir líneas del historial (deshabilitado)
+export async function editarDetalleVentaDirecto(_params: {
   detalleId: string;
   ventaId: string;
   productoId: string;
@@ -1007,128 +1788,10 @@ export async function editarDetalleVentaDirecto(params: {
   motivo: string;
   productoNombre?: string;
 }) {
-  try {
-    const supabase = await createClient();
-    const user = await assertAdminHistorialVentas(supabase);
-    const motivoLimpio = parseMotivoModificacionVenta(params.motivo);
-    const { detalleId, ventaId, productoId, nuevaCantidad, nuevoPrecio, productoNombre } =
-      params;
-
-    // 1. Obtener la cantidad anterior del detalle para calcular la diferencia de stock
-    const { data: detAnterior, error: getDetError } = await supabase
-      .from("ven_detalles")
-      .select("cantidad, precio_aplicado, lote_id")
-      .eq("id", detalleId)
-      .single();
-
-    if (getDetError || !detAnterior) {
-      throw new Error("No se encontró el detalle de la venta anterior.");
-    }
-
-    const cantidadAnterior = detAnterior.cantidad;
-    const diffCantidad = nuevaCantidad - cantidadAnterior; // Si aumenta, descontamos más stock. Si disminuye, devolvemos stock.
-
-    const loteId = detAnterior.lote_id as string | null;
-
-    if (diffCantidad > 0) {
-      if (loteId) {
-        const { data: lote } = await supabase
-          .from("inv_lotes")
-          .select("cantidad_actual")
-          .eq("id", loteId)
-          .maybeSingle();
-        const disp = Number(lote?.cantidad_actual) || 0;
-        if (disp < diffCantidad) {
-          throw new Error(
-            `Stock insuficiente en el lote para aumentar la cantidad. Disponibles: ${disp}.`,
-          );
-        }
-      } else {
-        const { data: prod, error: getProdError } = await supabase
-          .from("inv_productos")
-          .select("nombre, stock_actual")
-          .eq("id", productoId)
-          .single();
-
-        if (getProdError || !prod) {
-          throw new Error("Producto no encontrado.");
-        }
-
-        if (prod.stock_actual < diffCantidad) {
-          throw new Error(
-            `Stock insuficiente para aumentar la cantidad. Disponibles: ${prod.stock_actual}.`,
-          );
-        }
-      }
-    }
-
-    if (diffCantidad !== 0) {
-      await ajustarStockPorVenta(supabase, {
-        producto_id: productoId,
-        lote_id: loteId,
-        delta: -diffCantidad,
-      });
-    }
-
-    // 4. Actualizar el item del detalle
-    const nuevoSubtotal = nuevaCantidad * nuevoPrecio;
-    const { error: updateDetError } = await supabase
-      .from("ven_detalles")
-      .update({
-        cantidad: nuevaCantidad,
-        precio_aplicado: nuevoPrecio,
-        subtotal: nuevoSubtotal
-      })
-      .eq("id", detalleId);
-
-    if (updateDetError) {
-      throw new Error(`Error al actualizar el detalle: ${updateDetError.message}`);
-    }
-
-    // 5. Recalcular el total general de la venta
-    const { data: todosLosDetalles, error: sumError } = await supabase
-      .from("ven_detalles")
-      .select("subtotal")
-      .eq("venta_id", ventaId);
-
-    if (sumError || !todosLosDetalles) {
-      throw new Error("Error al recalcular el total de la venta.");
-    }
-
-    const nuevoTotalVenta = todosLosDetalles.reduce((sum, d) => sum + d.subtotal, 0);
-
-    const { error: updateVentaError } = await supabase
-      .from("ventas")
-      .update({ total: nuevoTotalVenta })
-      .eq("id", ventaId);
-
-    if (updateVentaError) {
-      throw new Error(`Error al actualizar el total de la venta: ${updateVentaError.message}`);
-    }
-
-    await registrarBitacoraVenta(supabase, {
-      ventaId,
-      usuarioId: user.id,
-      accion: "editar_linea",
-      motivo: motivoLimpio,
-      detalle: {
-        producto_id: productoId,
-        producto_nombre: productoNombre ?? null,
-        cantidad_anterior: cantidadAnterior,
-        cantidad_nueva: nuevaCantidad,
-        precio_anterior: detAnterior.precio_aplicado,
-        precio_nuevo: nuevoPrecio,
-      },
-    });
-
-    return { success: true, nuevoTotal: nuevoTotalVenta };
-  } catch (error: any) {
-    console.error("Error en editarDetalleVentaDirecto:", error);
-    return { success: false, error: error.message || "Error al editar el detalle de la venta." };
-  }
+  return { success: false, error: ERROR_CORREGIR_VENTA_HISTORIAL };
 }
 
-export async function eliminarDetalleVentaDirecto(params: {
+export async function eliminarDetalleVentaDirecto(_params: {
   detalleId: string;
   ventaId: string;
   productoId: string;
@@ -1136,83 +1799,60 @@ export async function eliminarDetalleVentaDirecto(params: {
   motivo: string;
   productoNombre?: string;
 }) {
-  try {
-    const supabase = await createClient();
-    const user = await assertAdminHistorialVentas(supabase);
-    const motivoLimpio = parseMotivoModificacionVenta(params.motivo);
-    const { detalleId, ventaId, productoId, cantidadADevolver, productoNombre } = params;
+  return { success: false, error: ERROR_CORREGIR_VENTA_HISTORIAL };
+}
 
-    const { data: detRow } = await supabase
-      .from("ven_detalles")
-      .select("lote_id")
-      .eq("id", detalleId)
-      .maybeSingle();
+const VENTAS_SIN_PERMISO = "Sin permiso para realizar esta acción.";
+const CREDENCIALES_ADMIN_INCORRECTAS = "Credenciales incorrectas.";
 
-    await ajustarStockPorVenta(supabase, {
-      producto_id: productoId,
-      lote_id: detRow?.lote_id ?? null,
-      delta: cantidadADevolver,
-    });
-
-    // 3. Eliminar el registro del detalle de venta
-    const { error: deleteDetError } = await supabase
-      .from("ven_detalles")
-      .delete()
-      .eq("id", detalleId);
-
-    if (deleteDetError) {
-      throw new Error(`Error al eliminar el detalle de venta: ${deleteDetError.message}`);
-    }
-
-    // 4. Recalcular el total general de la venta
-    const { data: todosLosDetalles, error: sumError } = await supabase
-      .from("ven_detalles")
-      .select("subtotal")
-      .eq("venta_id", ventaId);
-
-    if (sumError || !todosLosDetalles) {
-      throw new Error("Error al recalcular el total de la venta.");
-    }
-
-    const nuevoTotalVenta = todosLosDetalles.reduce((sum, d) => sum + d.subtotal, 0);
-
-    // 5. Actualizar el total en la cabecera de la venta
-    const { error: updateVentaError } = await supabase
-      .from("ventas")
-      .update({ total: nuevoTotalVenta })
-      .eq("id", ventaId);
-
-    if (updateVentaError) {
-      throw new Error(`Error al actualizar el total de la venta: ${updateVentaError.message}`);
-    }
-
-    // Enviar notificación de movimiento sospechoso a admins y supers
-    await sendPushNotification(
-      {
-        title: '🚨 Movimiento Sospechoso',
-        body: `Se ha anulado/eliminado un producto de la venta #${ventaId.slice(0, 8)}. Revisa las finanzas.`,
-        url: '/farmamuni/ventas'
-      },
-      ['admin', 'super']
-    );
-
-    await registrarBitacoraVenta(supabase, {
-      ventaId,
-      usuarioId: user.id,
-      accion: "quitar_linea",
-      motivo: motivoLimpio,
-      detalle: {
-        producto_id: productoId,
-        producto_nombre: productoNombre ?? null,
-        cantidad_devuelta: cantidadADevolver,
-      },
-    });
-
-    return { success: true, nuevoTotal: nuevoTotalVenta };
-  } catch (error: any) {
-    console.error("Error en eliminarDetalleVentaDirecto:", error);
-    return { success: false, error: error.message || "Error al eliminar el producto de la venta." };
+async function verificarCredencialesAdminConLimite(
+  callerUserId: string,
+  username: string,
+  clave: string,
+): Promise<
+  | { ok: true; adminUserId: string }
+  | { ok: false; error: string }
+> {
+  if (isAdminCredentialRateLimited(callerUserId)) {
+    return { ok: false, error: "Demasiados intentos. Espera unos minutos." };
   }
+
+  const usuario = username.trim();
+  if (!usuario || !clave) {
+    return { ok: false, error: "Usuario y contraseña son obligatorios." };
+  }
+
+  const email = usuario.includes("@") ? usuario : `${usuario}@app.com`;
+  const supabaseTemp = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    },
+  );
+
+  const { data: authData, error: authError } =
+    await supabaseTemp.auth.signInWithPassword({
+      email,
+      password: clave,
+    });
+
+  if (authError || !authData.user) {
+    recordAdminCredentialFailure(callerUserId);
+    return { ok: false, error: CREDENCIALES_ADMIN_INCORRECTAS };
+  }
+
+  const rol = await resolveUserRole(supabaseTemp, authData.user);
+  if (!isAdminRole(rol)) {
+    recordAdminCredentialFailure(callerUserId);
+    return { ok: false, error: CREDENCIALES_ADMIN_INCORRECTAS };
+  }
+
+  clearAdminCredentialFailures(callerUserId);
+  return { ok: true, adminUserId: authData.user.id };
 }
 
 // Rebajas y autorización de admin
@@ -1222,46 +1862,18 @@ export async function autorizarRebajaConCredencialesAdmin(
   clave: string,
 ) {
   try {
-    const usuario = username.trim();
-    if (!usuario || !clave) {
-      return { success: false as const, error: "Usuario y contraseña son obligatorios." };
+    const guard = await requireVentas();
+    if (!guard.ok) {
+      return { success: false as const, error: VENTAS_SIN_PERMISO };
     }
 
-    const email = usuario.includes("@") ? usuario : `${usuario}@app.com`;
-    const supabaseTemp = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      },
+    const credenciales = await verificarCredencialesAdminConLimite(
+      guard.user.id,
+      username,
+      clave,
     );
-
-    const { data: authData, error: authError } =
-      await supabaseTemp.auth.signInWithPassword({
-        email,
-        password: clave,
-      });
-
-    if (authError || !authData.user) {
-      return { success: false as const, error: "Credenciales incorrectas." };
-    }
-
-    const { data: profile } = await supabaseTemp
-      .from("profiles")
-      .select("rol")
-      .eq("id", authData.user.id)
-      .maybeSingle();
-
-    const rol =
-      profile?.rol || authData.user.user_metadata?.rol || "user";
-    if (rol !== "admin" && rol !== "super") {
-      return {
-        success: false as const,
-        error: "El usuario no tiene permisos de administrador.",
-      };
+    if (!credenciales.ok) {
+      return { success: false as const, error: credenciales.error };
     }
 
     const admin = createAdminClient();
@@ -1282,7 +1894,7 @@ export async function autorizarRebajaConCredencialesAdmin(
       .from("ven_solicitudes_rebaja")
       .update({
         estado: "aprobada",
-        resuelto_por: authData.user.id,
+        resuelto_por: credenciales.adminUserId,
         resuelto_at: new Date().toISOString(),
       })
       .eq("id", solicitudId);
@@ -1339,7 +1951,7 @@ export async function crearSolicitudRebaja(payload: unknown) {
         .select("nombre")
         .eq("id", item.producto_id)
         .maybeSingle();
-      const costo = await obtenerCostoProductoOLote(
+      const costo = await obtenerCostoReferenciaVenta(
         supabaseRead,
         item.producto_id,
         item.lote_id,
@@ -1347,7 +1959,7 @@ export async function crearSolicitudRebaja(payload: unknown) {
       if (precioMenorQueCosto(item.precio_aplicado, costo)) {
         return {
           success: false as const,
-          error: `El precio de "${prod?.nombre ?? "producto"}" no puede ser menor al costo (Q${costo.toFixed(2)}).`,
+          error: `El precio de "${prod?.nombre ?? "producto"}" no puede ser menor al costo promedio (Q${costo.toFixed(2)}).`,
         };
       }
     }
@@ -1644,45 +2256,22 @@ export async function rechazarSolicitudRebaja(
 
 export async function validarCredencialesAdmin(username: string, clave: string) {
   try {
-    const email = username.includes("@") ? username : `${username}@app.com`;
-    
-    // Crear un cliente temporal que no maneje sesiones ni cookies en el servidor
-    const supabaseTemp = createSupabaseClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        }
-      }
-    );
-
-    const { data: authData, error: authError } = await supabaseTemp.auth.signInWithPassword({
-      email,
-      password: clave,
-    });
-
-    if (authError || !authData.user) {
-      return { success: false, error: "Credenciales incorrectas." };
+    const guard = await requireVentas();
+    if (!guard.ok) {
+      return { success: false, error: VENTAS_SIN_PERMISO };
     }
 
-    // Verificar el rol del usuario autenticado
-    const { data: profile } = await supabaseTemp
-      .from("profiles")
-      .select("rol")
-      .eq("id", authData.user.id)
-      .single();
-      
-    const rol = profile?.rol || authData.user.user_metadata?.rol || "user";
-    
-    if (rol !== "admin" && rol !== "super") {
-      return { success: false, error: "El usuario ingresado no tiene permisos de administrador." };
+    const credenciales = await verificarCredencialesAdminConLimite(
+      guard.user.id,
+      username,
+      clave,
+    );
+    if (!credenciales.ok) {
+      return { success: false, error: credenciales.error };
     }
 
     return { success: true };
-  } catch (error: any) {
-    console.error("Error en validarCredencialesAdmin:", error);
-    return { success: false, error: "Error al validar credenciales." };
+  } catch {
+    return { success: false, error: CREDENCIALES_ADMIN_INCORRECTAS };
   }
 }

@@ -12,6 +12,20 @@ import { ModuleFilterUnderlineTabs } from "@/components/ui/module-filter-tabs";
 import { Compra } from "./lib/zod";
 import { CompraDetalleModal } from "./modals/CompraDetalleModal";
 import {
+  compraPagoVencido,
+  formatearFechaCompraGt,
+  saldoPendienteCompra,
+  totalPagadoCompra,
+} from "./lib/compras-helpers";
+import { InsigniaPagoVencidoCompra } from "./InsigniaPagoVencidoCompra";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
+import { toast } from "react-toastify";
+import { obtenerReporteComprasProveedor } from "./lib/actions";
+import { descargarReporteComprasProveedorPdf } from "./lib/export-reporte-compras-proveedor-pdf";
+import { descargarReporteComprasProveedorExcel } from "./lib/export-reporte-compras-proveedor-xlsx";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
+import { ultimoDiaMesCalendario } from "@/lib/fechas-gt";
+import {
   moduleTableBodyClass,
   moduleTableClass,
   moduleTableDesktopScrollClass,
@@ -56,6 +70,8 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
 
   const [currentPageCompras, setCurrentPageCompras] = useState(1);
   const [pageSizeCompras, setPageSizeCompras] = useState(15);
+  const [exportandoReporte, setExportandoReporte] = useState(false);
+  const [soloSaldoPendienteReporte, setSoloSaldoPendienteReporte] = useState(false);
 
   const [mostrarMesDropdownCompras, setMostrarMesDropdownCompras] = useState(false);
   const [mostrarSemanaDropdownCompras, setMostrarSemanaDropdownCompras] = useState(false);
@@ -116,6 +132,66 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
     return weeks;
   };
 
+  const resolverRangoReporte = () => {
+    if (tipoFiltroFechaCompras === "rango" && fechaRangoDesdeCompras && fechaRangoHastaCompras) {
+      return { desde: fechaRangoDesdeCompras, hasta: fechaRangoHastaCompras };
+    }
+    if (tipoFiltroFechaCompras === "dia" && fechaDiaCompras) {
+      return { desde: fechaDiaCompras, hasta: fechaDiaCompras };
+    }
+    const monthStr = String(activeMonthCompras + 1).padStart(2, "0");
+    const lastDay = ultimoDiaMesCalendario(activeYearCompras, activeMonthCompras + 1);
+    return {
+      desde: `${activeYearCompras}-${monthStr}-01`,
+      hasta: `${activeYearCompras}-${monthStr}-${String(lastDay).padStart(2, "0")}`,
+    };
+  };
+
+  const cargarDatosReporte = async () => {
+    const { desde, hasta } = resolverRangoReporte();
+    const res = await obtenerReporteComprasProveedor(
+      desde,
+      hasta,
+      undefined,
+      soloSaldoPendienteReporte,
+    );
+    if (!res.success) throw new Error(res.error);
+    if (res.data.filas.length === 0) {
+      toast.warn("No hay compras en el periodo seleccionado.");
+      return null;
+    }
+    const meta = await construirMetaInforme(res.data.generadoPor);
+    return { data: res.data, meta };
+  };
+
+  const exportarComprasProveedorPdf = async () => {
+    setExportandoReporte(true);
+    try {
+      const pack = await cargarDatosReporte();
+      if (!pack) return;
+      descargarReporteComprasProveedorPdf(pack.data, pack.meta);
+      toast.success("Reporte PDF generado.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo generar el reporte.");
+    } finally {
+      setExportandoReporte(false);
+    }
+  };
+
+  const exportarComprasProveedorExcel = async () => {
+    setExportandoReporte(true);
+    try {
+      const pack = await cargarDatosReporte();
+      if (!pack) return;
+      await descargarReporteComprasProveedorExcel(pack.data, pack.meta);
+      toast.success("Reporte Excel generado.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "No se pudo generar el reporte.");
+    } finally {
+      setExportandoReporte(false);
+    }
+  };
+
   const comprasFiltradas = useMemo(() => {
     return compras.filter((c) => {
       // 1. Búsqueda
@@ -124,12 +200,13 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
         const matchSearch =
           obtenerCodigoCompra(c.id).toLowerCase().includes(q) ||
           (c.inv_proveedores?.nombre || "").toLowerCase().includes(q) ||
+          (c.numero_factura || "").toLowerCase().includes(q) ||
           (c.observaciones || "").toLowerCase().includes(q);
         if (!matchSearch) return false;
       }
 
       // 2. Filtro de Pago
-      const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
+      const abonos = totalPagadoCompra(c.fin_transacciones);
       const isPaid = abonos >= c.total;
       
       if (filtroPago === "Pagado" && !isPaid) return false;
@@ -207,24 +284,41 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
         )}
       >
         <div className="flex flex-col gap-3">
-          <div className="relative w-full min-w-0 text-left lg:max-w-xl">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[#8DA78E]/70" />
-            <input
-              type="text"
-              value={busquedaHistorial}
-              onChange={(e) => {
-                setBusquedaHistorial(e.target.value);
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+            <div className="relative w-full min-w-0 text-left lg:flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-look-2-salvia-menta/70" />
+              <input
+                type="text"
+                value={busquedaHistorial}
+                onChange={(e) => {
+                  setBusquedaHistorial(e.target.value);
+                  setCurrentPageCompras(1);
+                }}
+                placeholder="Buscar por código, proveedor..."
+                className={cn(moduleTableSearchClass, "py-2 pl-9")}
+              />
+            </div>
+            <ModuleFilterUnderlineTabs
+              ariaLabel="Estado de pago"
+              value={filtroPago}
+              options={[
+                { id: "todos", label: "Todos" },
+                { id: "Pagado", label: "Pagado" },
+                { id: "Pendiente", label: "Pendiente" },
+              ]}
+              onChange={(id) => {
+                setFiltroPago(id);
                 setCurrentPageCompras(1);
               }}
-              placeholder="Buscar por código, proveedor..."
-              className={cn(moduleTableSearchClass, "py-2 pl-9")}
+              className="hidden lg:flex shrink-0 justify-end"
             />
           </div>
 
           <div
-            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between"
+            className="flex flex-col gap-3 border-t border-zinc-200 pt-3 dark:border-zinc-800 lg:flex-row lg:flex-nowrap lg:items-center lg:justify-between lg:gap-4"
           >
             <ModuleDateFilterLayout
+              className="max-lg:mx-auto lg:shrink-0"
               periodValue={tipoFiltroFechaCompras}
               periodOptions={[
                 { id: "dia", label: "Día" },
@@ -281,7 +375,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         setSelectedWeekIndexCompras(-1);
                         setCurrentPageCompras(1);
                       }}
-                      className="size-5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-slate-500 dark:text-slate-400 cursor-pointer"
+                      className="size-5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-texto-tenue cursor-pointer"
                     >
                       <ChevronLeft className="size-3" />
                     </button>
@@ -290,7 +384,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                       <button
                         type="button"
                         onClick={() => setMostrarMesDropdownCompras(!mostrarMesDropdownCompras)}
-                        className="px-2 py-1 rounded-lg text-xs font-bold text-slate-700 dark:text-[#A3BEB0] cursor-pointer hover:bg-transparent active:bg-transparent focus:outline-none focus-visible:outline-none"
+                        className="px-2 py-1 rounded-lg text-xs font-bold text-slate-700 dark:text-look-1-salvia-suave cursor-pointer hover:bg-transparent active:bg-transparent focus:outline-none focus-visible:outline-none"
                       >
                         {[
                           "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -346,7 +440,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         setSelectedWeekIndexCompras(-1);
                         setCurrentPageCompras(1);
                       }}
-                      className="size-5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-slate-500 dark:text-slate-400 cursor-pointer"
+                      className="size-5 hover:bg-slate-100 dark:hover:bg-zinc-800 rounded flex items-center justify-center text-texto-tenue cursor-pointer"
                     >
                       <ChevronRight className="size-3" />
                     </button>
@@ -362,10 +456,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                           <button
                             type="button"
                             onClick={() => setMostrarSemanaDropdownCompras(!mostrarSemanaDropdownCompras)}
-                            className="flex h-[42px] min-w-[8.75rem] shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1 text-[11px] font-bold text-[#525D53] transition-all dark:border-slate-800 dark:bg-zinc-900 dark:text-[#A3BEB0]"
+                            className="flex h-[42px] min-w-[8.75rem] shrink-0 cursor-pointer items-center justify-between gap-1.5 rounded-xl border border-slate-200 bg-white px-2 py-1 text-etiqueta font-bold text-[#525D53] transition-all dark:border-slate-800 dark:bg-zinc-900 dark:text-look-1-salvia-suave"
                           >
                             <span>{selectedWeekIndexCompras === -1 ? "Todas las semanas" : (semSeleccionada ? semSeleccionada.label : "Seleccionar semana")}</span>
-                            <ChevronDown className="size-3.5 text-slate-400" />
+                            <ChevronDown className="size-3.5 text-texto-tenue" />
                           </button>
 
                           <AnimatePresence>
@@ -386,7 +480,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                                   }}
                                   className={`w-full px-3 py-2 rounded-lg text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
                                     selectedWeekIndexCompras === -1
-                                      ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                                      ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                                       : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/60"
                                   }`}
                                 >
@@ -407,7 +501,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                                     }}
                                     className={`w-full px-3 py-2 rounded-lg text-xs font-bold transition-all text-left flex items-center justify-between cursor-pointer ${
                                       selectedWeekIndexCompras === idx
-                                        ? "bg-[#8DA78E]/10 text-[#8DA78E]"
+                                        ? "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                                         : "text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-zinc-900/60"
                                     }`}
                                   >
@@ -433,7 +527,6 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                   exit={{ opacity: 0, x: -10 }}
                   className="flex items-center gap-2 flex-wrap max-w-full"
                 >
-                  <span className="text-[10px] font-bold text-slate-400">Desde:</span>
                   <CustomDatePicker
                     value={fechaRangoDesdeCompras}
                     onChange={(val) => {
@@ -443,7 +536,6 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                     placeholder="Desde"
                     align="left"
                   />
-                  <span className="text-[10px] font-bold text-slate-400">Hasta:</span>
                   <CustomDatePicker
                     value={fechaRangoHastaCompras}
                     onChange={(val) => {
@@ -457,26 +549,53 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
               )}
             </AnimatePresence>
             </ModuleDateFilterLayout>
-
-            <ModuleFilterUnderlineTabs
-              ariaLabel="Estado de pago"
-              value={filtroPago}
-              options={[
-                { id: "todos", label: "Todos" },
-                { id: "Pagado", label: "Pagado" },
-                { id: "Pendiente", label: "Pendiente" },
-              ]}
-              onChange={(id) => {
-                setFiltroPago(id);
-                setCurrentPageCompras(1);
-              }}
-              className="sm:justify-end"
-            />
+            <div className="flex w-full min-w-0 flex-col gap-2 max-lg:max-w-none lg:w-auto lg:min-w-0 lg:flex-1 lg:flex-row lg:flex-nowrap lg:items-center lg:justify-end lg:gap-2">
+              <div className="grid w-full grid-cols-2 items-stretch gap-2 lg:contents">
+                <label
+                  className="flex h-full min-h-10 min-w-0 w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-2 py-2 text-xs font-semibold text-texto-principal dark:border-zinc-600 dark:bg-zinc-900/60 dark:text-zinc-300 lg:h-auto lg:w-auto lg:shrink-0 lg:justify-start lg:rounded-lg lg:bg-white lg:px-3 lg:font-bold lg:text-zinc-700 lg:dark:border-zinc-700 lg:dark:bg-zinc-900"
+                >
+                  <input
+                    type="checkbox"
+                    className="size-4 shrink-0 rounded"
+                    checked={soloSaldoPendienteReporte}
+                    onChange={(e) => setSoloSaldoPendienteReporte(e.target.checked)}
+                  />
+                  <span className="min-w-0 text-center leading-tight lg:text-left">
+                    Solo con saldo pendiente
+                  </span>
+                </label>
+                <ModuleInformeDropdown
+                  className="flex h-full min-h-10 min-w-0 w-full max-lg:[&>button]:h-full max-lg:[&>button]:min-h-10 max-lg:[&>button]:w-full lg:min-h-0 lg:h-auto lg:w-auto lg:shrink-0"
+                  busy={exportandoReporte}
+                  items={[
+                    {
+                      titulo: "Compras por proveedor",
+                      onPdf: () => void exportarComprasProveedorPdf(),
+                      onExcel: () => void exportarComprasProveedorExcel(),
+                    },
+                  ]}
+                />
+              </div>
+              <ModuleFilterUnderlineTabs
+                ariaLabel="Estado de pago"
+                value={filtroPago}
+                options={[
+                  { id: "todos", label: "Todos" },
+                  { id: "Pagado", label: "Pagado" },
+                  { id: "Pendiente", label: "Pendiente" },
+                ]}
+                onChange={(id) => {
+                  setFiltroPago(id);
+                  setCurrentPageCompras(1);
+                }}
+                className="lg:hidden w-full max-lg:[&>button]:min-w-0 max-lg:[&>button]:flex-1 max-lg:[&>button]:shrink"
+              />
+            </div>
           </div>
         </div>
       </section>
 
-        <div className={cn(moduleTableShellClass, "mt-0")}>
+        <div className={cn(moduleTableShellClass, "mt-0 p-0")}>
         <div className={cn(moduleTableScrollClass, "pr-1 min-h-0")}>
           {comprasPaginadas.length === 0 ? (
             <div className={moduleTableEmptyClass}>
@@ -499,70 +618,72 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                     key={c.id}
                     className="bg-white dark:bg-[#525D53]/10 border border-[#C1D1C5]/30 dark:border-zinc-800/80 rounded-2xl p-4 flex flex-col gap-3 shadow-xs text-left"
                   >
-                    {/* Mobile View Item */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-black text-slate-900 dark:text-white">
-                        Compra #{obtenerCodigoCompra(c.id)}
-                      </span>
-                      {(() => {
-                        const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
-                        const isPaid = abonos >= c.total || c.estado_pago === "Pagado";
-                        const daysPassed = Math.floor((new Date().getTime() - new Date(c.created_at).getTime()) / (1000 * 3600 * 24));
-                        const daysRemaining = 30 - daysPassed;
-                        return (
-                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                            isPaid
-                              ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                              : daysRemaining < 0 
-                                ? "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400"
-                                : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                          }`}>
-                            {isPaid ? "Pagado" : daysRemaining < 0 ? "Vencido" : `Quedan ${daysRemaining} días`}
-                          </span>
-                        );
-                      })()}
-                    </div>
+                    {(() => {
+                      const abonos = totalPagadoCompra(c.fin_transacciones);
+                      const isPaid = abonos >= c.total || c.estado_pago === "Pagado";
+                      const vencido = compraPagoVencido(c);
+                      const saldoCompra = saldoPendienteCompra(c);
+                      const montoMostrar =
+                        saldoCompra < c.total && saldoCompra > 0 ? saldoCompra : c.total;
+                      const etiquetaMonto =
+                        saldoCompra < c.total && saldoCompra > 0 ? "Saldo pendiente" : "Total";
 
-                    <div className="flex flex-col gap-1 text-xs">
-                      <p className="font-bold text-slate-800 dark:text-zinc-200">
-                        {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
-                      </p>
-                      <p className="text-[10px] text-slate-400 flex items-center gap-1.5 mt-0.5">
-                        <Calendar className="size-3.5 text-[#8DA78E]" /> {date}
-                      </p>
-                      {c.observaciones && (
-                        <p className="text-[10px] text-slate-550 dark:text-slate-400 italic mt-1 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40 truncate">
-                          {c.observaciones}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-zinc-900 mt-1">
-                      {(() => {
-                        const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
-                        const saldoCompra = Math.max(0, c.total - abonos);
-                        return (
-                          <>
-                            <div className="flex flex-col">
-                              <span className="text-[9px] font-bold text-slate-450 uppercase leading-none">
-                                {saldoCompra < c.total && saldoCompra > 0 ? "Saldo Pendiente" : "Total"}
+                      return (
+                        <>
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                              <span className="text-xs font-black text-slate-900 dark:text-white">
+                                Compra #{obtenerCodigoCompra(c.id)}
                               </span>
-                              <span className="text-xs font-black text-[#8DA78E] mt-1">
-                                {fmtQ(saldoCompra < c.total && saldoCompra > 0 ? saldoCompra : c.total)}
+                              <span className="inline-flex flex-wrap items-center gap-1">
+                                <span
+                                  className={`px-2.5 py-1 rounded-full text-etiqueta font-bold uppercase tracking-wider ${
+                                    isPaid
+                                      ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                                      : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+                                  }`}
+                                >
+                                  {isPaid ? "Pagado" : "Pendiente"}
+                                </span>
+                                {vencido ? <InsigniaPagoVencidoCompra /> : null}
                               </span>
                             </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => cargarDetallesCompra(c)}
-                                className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-[#8DA78E] dark:text-[#A3BEB0] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase border border-[#8DA78E]/20"
-                              >
-                                Ver Detalle
-                              </button>
+                            <button
+                              type="button"
+                              onClick={() => cargarDetallesCompra(c)}
+                              className="shrink-0 px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-look-2-salvia-menta dark:text-look-1-salvia-suave font-bold rounded-lg transition-colors cursor-pointer text-etiqueta uppercase border border-[#8DA78E]/20"
+                            >
+                              Ver detalle
+                            </button>
+                          </div>
+
+                          <div className="flex items-start justify-between gap-3 text-xs">
+                            <div className="flex min-w-0 flex-1 flex-col gap-1">
+                              <p className="font-bold text-slate-800 dark:text-zinc-200">
+                                {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
+                              </p>
+                              <p className="text-etiqueta text-texto-tenue flex items-center gap-1.5">
+                                <Calendar className="size-3.5 shrink-0 text-look-2-salvia-menta" />
+                                {date}
+                              </p>
+                              {c.observaciones ? (
+                                <p className="text-etiqueta text-slate-550 dark:text-slate-400 italic mt-0.5 bg-slate-50 dark:bg-zinc-900/50 p-2 rounded-lg border border-slate-100 dark:border-zinc-800/40 truncate">
+                                  {c.observaciones}
+                                </p>
+                              ) : null}
                             </div>
-                          </>
-                        );
-                      })()}
-                    </div>
+                            <div className="flex shrink-0 flex-col items-end text-right">
+                              <span className="text-etiqueta font-bold uppercase leading-none text-slate-450">
+                                {etiquetaMonto}
+                              </span>
+                              <span className="mt-1 text-xs font-black text-look-2-salvia-menta">
+                                {fmtQ(montoMostrar)}
+                              </span>
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -577,6 +698,8 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                       <th className={moduleTableHeadCellClass}>Compra #</th>
                       <th className={moduleTableHeadCellClass}>Fecha</th>
                       <th className={moduleTableHeadCellClass}>Proveedor</th>
+                      <th className={moduleTableHeadCellClass}>Factura</th>
+                      <th className={moduleTableHeadCellClass}>Vence pago</th>
                       <th className={moduleTableHeadCellClass}>Estado Pago</th>
                       <th className={cn(moduleTableHeadCellClass, "text-right")}>Total</th>
                       <th className={cn(moduleTableHeadCellClass, "text-center")}>Acciones</th>
@@ -591,11 +714,10 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                         hour: "2-digit",
                         minute: "2-digit"
                       });
-                      const abonos = c.fin_transacciones?.filter((t:any) => t.categoria === "pago_proveedor").reduce((sum:number, t:any) => sum + Math.abs(Number(t.monto)), 0) || 0;
+                      const abonos = totalPagadoCompra(c.fin_transacciones);
                       const isPaid = abonos >= c.total || c.estado_pago === "Pagado";
-                      const saldoCompra = Math.max(0, c.total - abonos);
-                      const daysPassed = Math.floor((new Date().getTime() - new Date(c.created_at).getTime()) / (1000 * 3600 * 24));
-                      const daysRemaining = 30 - daysPassed;
+                      const saldoCompra = saldoPendienteCompra(c);
+                      const vencido = compraPagoVencido(c);
                       return (
                         <tr
                           key={c.id}
@@ -608,20 +730,29 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                           <td className="px-5 py-3.5 font-bold">
                             {c.inv_proveedores?.nombre || "Proveedor Desconocido"}
                           </td>
+                          <td className="px-5 py-3.5 font-mono">
+                            {c.numero_factura?.trim() || "—"}
+                          </td>
                           <td className="px-5 py-3.5 whitespace-nowrap">
-                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                              isPaid
-                                ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
-                                : daysRemaining < 0 
-                                  ? "bg-rose-50 text-rose-700 dark:bg-rose-950/20 dark:text-rose-400"
-                                  : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
-                            }`}>
-                              {isPaid ? "Pagado" : daysRemaining < 0 ? "Vencido" : `Quedan ${daysRemaining} días`}
+                            {formatearFechaCompraGt(c.fecha_vencimiento_pago)}
+                          </td>
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <span className="inline-flex flex-wrap items-center gap-1">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-etiqueta font-bold uppercase tracking-wider ${
+                                  isPaid
+                                    ? "bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                                    : "bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400"
+                                }`}
+                              >
+                                {isPaid ? "Pagado" : "Pendiente"}
+                              </span>
+                              {vencido && <InsigniaPagoVencidoCompra />}
                             </span>
                           </td>
-                          <td className="px-5 py-3.5 text-right font-black text-[#8DA78E] dark:text-[#A3BEB0] whitespace-nowrap">
+                          <td className="px-5 py-3.5 text-right font-black text-look-2-salvia-menta dark:text-look-1-salvia-suave whitespace-nowrap">
                             <div className="flex flex-col items-end">
-                              <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-1">
+                              <span className="text-etiqueta font-bold text-texto-tenue uppercase leading-none mb-1">
                                 {saldoCompra < c.total && saldoCompra > 0 ? "Saldo" : "Total"}
                               </span>
                               <span>
@@ -633,7 +764,7 @@ export function HistorialCompras({ compras }: HistorialComprasProps) {
                             <div className="flex items-center justify-center gap-2">
                               <button
                                 onClick={() => cargarDetallesCompra(c)}
-                                className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-[#8DA78E] dark:text-[#A3BEB0] font-bold rounded-lg transition-colors cursor-pointer text-[10px] uppercase border border-[#8DA78E]/20"
+                                className="px-3 py-1.5 bg-[#8DA78E]/10 hover:bg-[#8DA78E]/25 text-look-2-salvia-menta dark:text-look-1-salvia-suave font-bold rounded-lg transition-colors cursor-pointer text-etiqueta uppercase border border-[#8DA78E]/20"
                               >
                                 Ver Detalle
                               </button>

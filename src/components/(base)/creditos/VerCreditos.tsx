@@ -10,8 +10,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { Download as DownloadNode, FileDown } from "lucide";
-import { SigetActionButton, sigetAccent } from "@/components/ui/siget-action-button";
+import { ModuleInformeDropdown } from "@/components/ui/module-informe-dropdown";
 import {
   modulePillSwitchBtnClass,
   modulePillSwitchShellClass,
@@ -39,6 +38,8 @@ import {
 import { cn, fmtQ } from "@/lib/utils";
 import { useResumenCreditos } from "./lib/hooks";
 import { descargarReporteCreditosPdf } from "./lib/export-reporte-creditos-pdf";
+import { descargarReporteCreditosExcel } from "./lib/export-reporte-creditos-xlsx";
+import { construirMetaInforme } from "@/lib/reportes/meta-informe";
 import { VerDetalleCredito } from "./forms/VerDetalleCredito";
 import type { CreditoResumen } from "./lib/zod";
 import { useCuentasPorCobrar } from "@/components/(base)/finanzas/lib/hooks";
@@ -47,6 +48,12 @@ import { useProfile } from "@/components/(base)/(users)/profile/lib/hooks";
 import { useDemoMode } from "@/components/(base)/providers/DemoModeProvider";
 import { DEMO_CUENTAS_COBRAR } from "@/lib/demo/fixtures";
 import type { CuentaPorCobrar } from "@/components/(base)/finanzas/lib/zod";
+import { PLAZO_CREDITO_DIAS } from "./lib/creditos-reporte-helpers";
+
+function diasRestantesMostrar(c: CreditoResumen): number {
+  if (typeof c.dias_restantes === "number") return c.dias_restantes;
+  return PLAZO_CREDITO_DIAS - c.dias_atraso;
+}
 
 export function VerCreditos() {
   // Estado listado y pestañas
@@ -67,13 +74,14 @@ export function VerCreditos() {
   const { profile } = useProfile(user?.id ?? "", !!user);
   const [hasNotified, setHasNotified] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [soloVencidos, setSoloVencidos] = useState(false);
 
   // Aviso de créditos por vencer
   useEffect(() => {
     if (!isLoading && creditos.length > 0 && !hasNotified) {
       const porVencerOCaducados = creditos.filter(c => {
         if (c.saldo_pendiente <= 0) return false;
-        const diasRestantes = 30 - c.dias_atraso;
+        const diasRestantes = diasRestantesMostrar(c);
         return diasRestantes <= 7;
       });
 
@@ -91,6 +99,7 @@ export function VerCreditos() {
     const isActivo = tab === "cobrar" 
       ? (c.estado !== "Solventado" && c.saldo_pendiente > 0)
       : (c.estado === "Solventado" || c.saldo_pendiente <= 0);
+    if (soloVencidos && !c.credito_vencido) return false;
     return isActivo && ((c.nombre || "").toLowerCase().includes(busqueda.toLowerCase()) || (c.nit || "").includes(busqueda));
   });
 
@@ -104,26 +113,42 @@ export function VerCreditos() {
   const totalPages = Math.ceil(creditosOrdenados.length / pageSize) || 1;
   const paginatedCreditos = creditosOrdenados.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const handleExportarGlobal = async () => {
+  const resolverCuentasExport = (): CuentaPorCobrar[] => {
+    if (isDemoMode) {
+      return cuentasCobrar.length > 0 ? cuentasCobrar : DEMO_CUENTAS_COBRAR;
+    }
+    return cuentasCobrar;
+  };
+
+  const handleExportarPdf = async () => {
     if (exportando) return;
     setExportando(true);
     try {
       const generadoPor =
         profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
-      let cuentas: CuentaPorCobrar[];
-      if (isDemoMode) {
-        cuentas =
-          cuentasCobrar.length > 0 ? cuentasCobrar : DEMO_CUENTAS_COBRAR;
-      } else {
-        cuentas = cuentasCobrar;
-      }
-      await descargarReporteCreditosPdf({
-        cuentas,
-        generadoPor,
-      });
+      const cuentas = resolverCuentasExport();
+      const meta = await construirMetaInforme(generadoPor);
+      descargarReporteCreditosPdf({ cuentas, generadoPor }, meta);
       toast.success("Reporte PDF generado correctamente.");
     } catch {
       toast.error("No se pudo generar el archivo PDF.");
+    } finally {
+      setExportando(false);
+    }
+  };
+
+  const handleExportarExcel = async () => {
+    if (exportando) return;
+    setExportando(true);
+    try {
+      const generadoPor =
+        profile?.nombre?.trim() || user?.email?.split("@")[0] || "Usuario";
+      const cuentas = resolverCuentasExport();
+      const meta = await construirMetaInforme(generadoPor);
+      await descargarReporteCreditosExcel(cuentas, meta);
+      toast.success("Reporte Excel generado correctamente.");
+    } catch {
+      toast.error("No se pudo generar el archivo Excel.");
     } finally {
       setExportando(false);
     }
@@ -135,8 +160,8 @@ export function VerCreditos() {
         <div className="flex items-center gap-3">
           <ModuleHeaderBackButton size="sm" />
           <div>
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-[#8DA78E] dark:text-[#A3BEB0]">Finanzas</p>
-            <h1 className="text-xl font-black uppercase leading-none tracking-tight text-zinc-900 dark:text-zinc-100 md:text-2xl">
+            <p className="text-etiqueta font-black uppercase tracking-[0.25em] text-look-2-salvia-menta dark:text-look-1-salvia-suave">Finanzas</p>
+            <h1 className="text-xl font-bold uppercase leading-none tracking-tight text-zinc-900 dark:text-zinc-100 md:text-2xl">
               Control de Créditos
             </h1>
           </div>
@@ -146,7 +171,7 @@ export function VerCreditos() {
           <div
             className={cn(
               modulePillSwitchShellClass,
-              "w-full max-w-sm sm:w-auto sm:min-w-[15.5rem]",
+              "w-full max-w-sm sm:w-auto sm:min-w-[15.5rem] gap-1",
             )}
             role="tablist"
             aria-label="Sección de créditos"
@@ -156,7 +181,7 @@ export function VerCreditos() {
               role="tab"
               aria-selected={tab === "cobrar"}
               onClick={() => setTab("cobrar")}
-              className={modulePillSwitchBtnClass(tab === "cobrar", { grow: false })}
+              className={cn(modulePillSwitchBtnClass(tab === "cobrar"), "text-center")}
             >
               Por cobrar
             </button>
@@ -165,7 +190,7 @@ export function VerCreditos() {
               role="tab"
               aria-selected={tab === "pagados"}
               onClick={() => setTab("pagados")}
-              className={modulePillSwitchBtnClass(tab === "pagados", { grow: false })}
+              className={cn(modulePillSwitchBtnClass(tab === "pagados"), "text-center")}
             >
               Pagados
             </button>
@@ -182,7 +207,7 @@ export function VerCreditos() {
         >
           <div className="flex flex-col gap-3 sm:flex-row">
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-texto-tenue" />
               <input
                 type="text"
                 placeholder="Buscar cliente por nombre o NIT..."
@@ -191,25 +216,63 @@ export function VerCreditos() {
                 className={cn(moduleTableSearchClass, "pl-10 font-medium")}
               />
             </div>
-            <div className="flex w-full shrink-0 gap-2 sm:w-auto">
+            <div className="flex w-full shrink-0 flex-wrap items-center gap-2 sm:w-auto">
+              <div className="hidden md:flex flex-wrap items-center gap-2">
+                <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-xs font-bold text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                  <input
+                    type="checkbox"
+                    className="size-4 rounded"
+                    checked={soloVencidos}
+                    onChange={(e) => {
+                      setSoloVencidos(e.target.checked);
+                      setCurrentPage(1);
+                    }}
+                  />
+                  Solo vencidos
+                </label>
+                <select
+                  value={criterioOrden}
+                  onChange={(e) => setCriterioOrden(e.target.value as typeof criterioOrden)}
+                  className="h-9 min-w-0 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 w-[230px]"
+                >
+                  <option value="saldo-desc">Mayor Saldo Pendiente</option>
+                  <option value="saldo-asc">Menor Saldo Pendiente</option>
+                  <option value="nombre-asc">Nombre (A-Z)</option>
+                </select>
+              </div>
               <select
-                value={criterioOrden}
-                onChange={(e) => setCriterioOrden(e.target.value as typeof criterioOrden)}
-                className="h-9 min-w-0 flex-1 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 sm:w-[230px] sm:flex-none"
+                value={soloVencidos ? "solo-vencidos" : criterioOrden}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "solo-vencidos") {
+                    setSoloVencidos(true);
+                  } else {
+                    setSoloVencidos(false);
+                    setCriterioOrden(v as typeof criterioOrden);
+                  }
+                  setCurrentPage(1);
+                }}
+                className="md:hidden h-9 min-w-0 w-full flex-1 cursor-pointer rounded-lg border-2 border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 focus:outline-none focus:ring-2 focus:ring-[#8DA78E]/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                aria-label="Ordenar y filtrar cuentas por cobrar"
               >
-                <option value="saldo-desc">Mayor Saldo Pendiente</option>
-                <option value="saldo-asc">Menor Saldo Pendiente</option>
-                <option value="nombre-asc">Nombre (A-Z)</option>
+                <optgroup label="Ordenar">
+                  <option value="saldo-desc">Mayor saldo pendiente</option>
+                  <option value="saldo-asc">Menor saldo pendiente</option>
+                  <option value="nombre-asc">Nombre (A-Z)</option>
+                </optgroup>
+                <optgroup label="Filtrar">
+                  <option value="solo-vencidos">Solo vencidos</option>
+                </optgroup>
               </select>
-              <SigetActionButton
-                label="Exportar"
-                accentColor={sigetAccent.excel}
-                morphFrom={DownloadNode}
-                morphTo={FileDown}
-                onClick={() => void handleExportarGlobal()}
-                disabled={exportando}
-                ariaBusy={exportando}
-                className="h-9 w-[113px] shrink-0"
+              <ModuleInformeDropdown
+                busy={exportando}
+                items={[
+                  {
+                    titulo: "Cuentas por cobrar",
+                    onPdf: () => void handleExportarPdf(),
+                    onExcel: () => void handleExportarExcel(),
+                  },
+                ]}
               />
             </div>
           </div>
@@ -243,13 +306,13 @@ export function VerCreditos() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
                         <div className="shrink-0 size-10 rounded-xl bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center">
-                          <User className="size-5 text-zinc-400" />
+                          <User className="size-5 text-texto-tenue" />
                         </div>
                         <div>
                           <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 leading-tight line-clamp-1">
                             {c.nombre}
                           </h3>
-                          <p className="text-[10px] font-medium text-zinc-500 mt-0.5 uppercase tracking-wider">
+                          <p className="text-etiqueta font-medium text-zinc-500 mt-0.5 uppercase tracking-wider">
                             NIT: {c.nit}
                           </p>
                         </div>
@@ -258,20 +321,20 @@ export function VerCreditos() {
                         <AlertCircle className="size-5 text-rose-500 shrink-0" />
                       )}
                       {c.estado === "Solventado" && (
-                        <CheckCircle2 className="size-5 text-[#8DA78E] shrink-0" />
+                        <CheckCircle2 className="size-5 text-look-2-salvia-menta shrink-0" />
                       )}
                     </div>
 
                     <div className="grid grid-cols-2 gap-2 pt-3 border-t border-zinc-200 dark:border-zinc-700">
                       <div>
-                        <span className="text-[9px] font-bold uppercase text-zinc-400">Total Consumido</span>
+                        <span className="text-etiqueta font-bold uppercase text-texto-tenue">Total Consumido</span>
                         <p className="text-sm font-black text-zinc-700 dark:text-zinc-300">{fmtQ(c.total_consumido)}</p>
                       </div>
                       <div>
-                        <span className="text-[9px] font-bold uppercase text-zinc-400">Saldo Pendiente</span>
+                        <span className="text-etiqueta font-bold uppercase text-texto-tenue">Saldo Pendiente</span>
                         <p className={cn(
                           "text-sm font-black",
-                          c.saldo_pendiente > 0 ? "text-rose-500" : "text-[#8DA78E]"
+                          c.saldo_pendiente > 0 ? "text-rose-500" : "text-look-2-salvia-menta"
                         )}>
                           {fmtQ(c.saldo_pendiente)}
                         </p>
@@ -280,14 +343,14 @@ export function VerCreditos() {
 
                     <div className="flex items-center justify-between pt-1">
                       <span className={cn(
-                        "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
+                        "text-etiqueta font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
                         c.estado === "Al día" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" :
                         c.estado === "Atrasado" ? "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-500" :
-                        "bg-[#8DA78E]/10 text-[#8DA78E]"
+                        "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                       )}>
                         {c.estado}
                       </span>
-                      <button className="text-zinc-400 group-hover:text-[#8DA78E] transition-colors p-1">
+                      <button className="text-texto-tenue group-hover:text-[#8DA78E] transition-colors p-1">
                         <ChevronRight className="size-4" />
                       </button>
                     </div>
@@ -321,13 +384,18 @@ export function VerCreditos() {
                     paginatedCreditos.map((c) => (
                       <tr
                         key={c.cliente_id}
-                        className={cn(moduleTableRowClass, "group cursor-pointer")}
+                        className={cn(
+                          moduleTableRowClass,
+                          "group cursor-pointer",
+                          c.credito_vencido &&
+                            "bg-red-50 dark:bg-red-950/25 hover:bg-red-100/80 dark:hover:bg-red-950/40",
+                        )}
                         onClick={() => setClienteSeleccionado(c)}
                       >
                         <td className="px-5 py-4 font-bold text-zinc-900 dark:text-white">
                           <div className="flex items-center gap-3">
                             <div className="shrink-0 size-8 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 flex items-center justify-center">
-                              <User className="size-4 text-zinc-400" />
+                              <User className="size-4 text-texto-tenue" />
                             </div>
                             <span className="line-clamp-1">{c.nombre}</span>
                           </div>
@@ -336,36 +404,36 @@ export function VerCreditos() {
                         <td className="px-5 py-4 text-center">
                           {c.saldo_pendiente > 0 ? (
                             (() => {
-                              const diasRestantes = 30 - c.dias_atraso;
+                              const diasRestantes = diasRestantesMostrar(c);
                               if (diasRestantes < 0) {
-                                return <span className="text-rose-500 font-bold bg-rose-100 dark:bg-rose-900/30 px-2.5 py-1 rounded-md text-[11px] uppercase tracking-wider">Vencido</span>;
+                                return <span className="text-rose-500 font-bold bg-rose-100 dark:bg-rose-900/30 px-2.5 py-1 rounded-md text-etiqueta uppercase tracking-wider">Vencido</span>;
                               }
                               if (diasRestantes <= 7) {
                                 return <span className="text-amber-600 dark:text-amber-400 font-bold bg-amber-100 dark:bg-amber-900/30 px-2 py-1 rounded-md text-xs">{diasRestantes} d</span>;
                               }
-                              return <span className="text-zinc-600 dark:text-zinc-400 font-bold text-xs">{diasRestantes} d</span>;
+                              return <span className="text-zinc-600 font-bold text-xs">{diasRestantes} d</span>;
                             })()
                           ) : (
-                            <span className="text-zinc-400">—</span>
+                            <span className="text-texto-tenue">—</span>
                           )}
                         </td>
                         <td className="px-5 py-4 text-right">{fmtQ(c.total_consumido)}</td>
                         <td className={cn(
                           "px-5 py-4 text-right font-black",
-                          c.saldo_pendiente > 0 ? "text-rose-500" : "text-[#8DA78E]"
+                          c.saldo_pendiente > 0 ? "text-rose-500" : "text-look-2-salvia-menta"
                         )}>{fmtQ(c.saldo_pendiente)}</td>
                         <td className="px-5 py-4 text-center">
                           <span className={cn(
-                            "text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
+                            "text-etiqueta font-bold px-2.5 py-1 rounded-full uppercase tracking-wider",
                             c.estado === "Al día" ? "bg-amber-100 text-amber-700 dark:bg-amber-500/10 dark:text-amber-500" :
                             c.estado === "Atrasado" ? "bg-rose-100 text-rose-700 dark:bg-rose-500/10 dark:text-rose-500" :
-                            "bg-[#8DA78E]/10 text-[#8DA78E]"
+                            "bg-[#8DA78E]/10 text-look-2-salvia-menta"
                           )}>
                             {c.estado}
                           </span>
                         </td>
                         <td className="px-5 py-4 text-center">
-                          <button className="text-zinc-400 group-hover:text-[#8DA78E] transition-colors p-1 rounded-lg hover:bg-[#8DA78E]/10 inline-flex">
+                          <button className="text-texto-tenue group-hover:text-[#8DA78E] transition-colors p-1 rounded-lg hover:bg-[#8DA78E]/10 inline-flex">
                             <ChevronRight className="size-4" />
                           </button>
                         </td>

@@ -1,28 +1,41 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@/utils/supabase/server";
+import { requireApiSession } from "@/lib/api-session";
 
-// Guardar suscripción push del navegador
 export async function POST(req: Request) {
-  if (process.env.APP_ENV !== 'production') {
-    return NextResponse.json({ error: 'Push notifications are disabled in non-production environments.' }, { status: 503 })
+  if (process.env.APP_ENV !== "production") {
+    return NextResponse.json(
+      { error: "Push notifications are disabled in non-production environments." },
+      { status: 503 },
+    );
   }
+
+  const session = await requireApiSession();
+  if (!session.ok) {
+    return session.response;
+  }
+
   try {
-    const { subscription, userId } = await req.json();
-    const supabase = await createClient();
+    const { subscription } = (await req.json()) as {
+      subscription?: {
+        endpoint: string;
+        keys: { p256dh: string; auth: string };
+      };
+      userId?: string;
+    };
+
+    const { supabase, user } = session;
 
     if (!subscription || !subscription.endpoint) {
       return NextResponse.json({ error: "Missing subscription endpoint" }, { status: 400 });
     }
 
-    // Borrar suscripción anterior con el mismo endpoint (si existe)
     await supabase.from("push_subscriptions").delete().eq("endpoint", subscription.endpoint);
 
-    // Insertar la nueva suscripción
     const { error } = await supabase.from("push_subscriptions").insert({
       endpoint: subscription.endpoint,
       p256dh: subscription.keys.p256dh,
       auth: subscription.keys.auth,
-      user_id: userId,
+      user_id: user.id,
     });
 
     if (error) {
@@ -37,18 +50,31 @@ export async function POST(req: Request) {
 }
 
 export async function DELETE(req: Request) {
-  if (process.env.APP_ENV !== 'production') {
-    return NextResponse.json({ error: 'Push notifications are disabled in non-production environments.' }, { status: 503 })
+  if (process.env.APP_ENV !== "production") {
+    return NextResponse.json(
+      { error: "Push notifications are disabled in non-production environments." },
+      { status: 503 },
+    );
   }
+
+  const session = await requireApiSession();
+  if (!session.ok) {
+    return session.response;
+  }
+
   try {
-    const { endpoint } = await req.json();
-    const supabase = await createClient();
+    const { endpoint } = (await req.json()) as { endpoint?: string };
+    const { supabase, user } = session;
 
     if (!endpoint) {
       return NextResponse.json({ error: "Missing endpoint" }, { status: 400 });
     }
 
-    const { error } = await supabase.from("push_subscriptions").delete().eq("endpoint", endpoint);
+    const { error } = await supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("endpoint", endpoint)
+      .eq("user_id", user.id);
 
     if (error) {
       console.error("Delete Subscription Error: ", error);

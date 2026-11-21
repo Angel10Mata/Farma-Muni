@@ -12,10 +12,16 @@ import {
 import { MagicCard } from "@/components/ui/magic-card";
 import { toast } from "react-toastify";
 import { useProfile } from "./lib/hooks";
-import { useUser } from "@/components/(base)/providers/UserProvider";
+import { useUserContext } from "@/components/(base)/providers/UserProvider";
+import {
+  canAssignRole,
+  getManageableRoles,
+  ROLE_LABELS,
+} from "@/components/(base)/(users)/usuarios/lib/permissions";
 import { CamposPerfil } from "./forms/CamposPerfil";
 import { CamposUsuario } from "./forms/CamposUsuario";
 import { updateProfile } from "./lib/actions";
+import { modalActionMessage } from "@/components/ui/modal-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
@@ -29,17 +35,15 @@ interface VerPerfilProps {
 // Perfil
 export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
   // Estado
-  const sessionUser = useUser();
+  const { user: sessionUser, realRole } = useUserContext();
   const queryClient = useQueryClient();
   const [view, setView] = useState<"perfil" | "usuario">("perfil");
 
   const targetId = userId || sessionUser?.id || "";
-  const sessionRole = sessionUser?.user_metadata?.rol || "user";
-  const isSuper = sessionRole === "super";
+  const isSelf = sessionUser?.id === targetId;
 
   const canEdit =
-    ["admin", "super"].includes(sessionRole) ||
-    sessionUser?.id === targetId;
+    ["admin", "super"].includes(realRole) || isSelf;
 
   const { profile, loading, error } = useProfile(targetId, isOpen);
 
@@ -54,28 +58,30 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
     };
   }, [isOpen]);
 
-  const roleLabels: Record<string, string> = {
-    user: "Usuario (Estándar)",
-    admin: "Administrador",
-    super: "Super Admin",
-  };
-
-  let roleOptions: string[] = [];
-  if (sessionRole === "super") {
-    roleOptions = ["super", "admin", "user"];
-  } else if (sessionRole === "admin") {
-    roleOptions = ["admin", "user"];
-  }
-
-  const targetIsSuper = profile?.rol === "super";
+  const roleLabels = ROLE_LABELS;
+  const roleOptions = getManageableRoles(realRole);
+  const targetRol = profile?.rol || "user";
   const canChangeRole =
-    roleOptions.length > 0 && !(sessionRole === "admin" && targetIsSuper);
+    !isSelf &&
+    roleOptions.length > 0 &&
+    (realRole === "super" || targetRol !== "super");
 
   const handleRoleUpdate = async (e: React.ChangeEvent<HTMLSelectElement>) => {
     const newRole = e.target.value;
+    if (!canAssignRole(realRole, newRole)) {
+      toast.error("No tienes permiso para asignar ese rol.");
+      return;
+    }
     try {
-      await updateProfile(targetId, { rol: newRole as "user" | "admin" | "super" });
+      const result = await updateProfile(targetId, {
+        rol: newRole as "user" | "admin" | "super",
+      });
+      if (result && "code" in result) {
+        toast.error(modalActionMessage(result.code, "No se pudo actualizar el rol."));
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: ["profile", targetId] });
+      await queryClient.invalidateQueries({ queryKey: ["users-list"] });
       toast.success("Rol actualizado.");
     } catch {
       toast.error("Error al actualizar rol.");
@@ -102,12 +108,12 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
               </div>
 
               <div className="min-w-0">
-                <h2 className="text-[10px] sm:text-lg font-bold tracking-tight text-foreground truncate ">
+                <h2 className="text-etiqueta sm:text-lg font-bold tracking-tight text-foreground truncate">
                   {profile?.nombre || "Usuario"}
                 </h2>
                 <div className="mt-1 flex items-center">
                   <div className="relative group">
-                    <div className="flex items-center bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold tracking-wider uppercase">
+                    <div className="flex items-center bg-primary/10 text-primary px-2 py-0.5 rounded text-etiqueta font-bold tracking-wider uppercase">
                       <ShieldCheck size={12} className="mr-1" />
                       <span>{profile?.rol ? roleLabels[profile.rol] || profile.rol : "USUARIO"}</span>
                       {canChangeRole && (
@@ -139,7 +145,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                   "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5",
                   view === "perfil"
                     ? "bg-blue-700 text-blue-200 dark:bg-blue-900 dark:text-blue-300 ring-1 ring-blue-200 dark:ring-blue-900"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                    : "text-texto-tenue hover:text-foreground hover:bg-muted/40",
                 )}
               >
                 <User size={12} />
@@ -151,7 +157,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                   "px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5",
                   view === "usuario"
                     ? "bg-purple-700 text-purple-200 dark:bg-purple-900 dark:text-purple-200 ring-1 ring-purple-200 dark:ring-purple-900"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/40",
+                    : "text-texto-tenue hover:text-foreground hover:bg-muted/40",
                 )}
               >
                 <Shield size={12} />
@@ -161,7 +167,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
 
             <button
               onClick={onClose}
-              className="shrink-0 p-2 text-muted-foreground rounded-full transition-colors cursor-pointer"
+              className="shrink-0 p-2 text-texto-tenue rounded-full transition-colors cursor-pointer"
             >
               <X size={20} />
             </button>
@@ -174,7 +180,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                 "flex-1 justify-center px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5",
                 view === "perfil"
                   ? "bg-blue-700 text-blue-200"
-                  : "text-muted-foreground",
+                  : "text-texto-tenue",
               )}
             >
               <User size={12} />
@@ -186,7 +192,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                 "flex-1 justify-center px-4 py-1.5 rounded-lg text-xs font-semibold transition-all duration-200 flex items-center gap-1.5",
                 view === "usuario"
                   ? "bg-purple-700 text-purple-200"
-                  : "text-muted-foreground",
+                  : "text-texto-tenue",
               )}
             >
               <Shield size={12} />
@@ -200,7 +206,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
           style={{ height: "calc(100% - 150px)" }}
         >
           {loading ? (
-            <div className="flex flex-col items-center justify-center h-40 gap-3 text-muted-foreground">
+            <div className="flex flex-col items-center justify-center h-40 gap-3 text-texto-tenue">
               <Loader2 className="animate-spin" size={32} />
               <p className="text-sm">Cargando información...</p>
             </div>
@@ -219,7 +225,7 @@ export default function VerPerfil({ isOpen, onClose, userId }: VerPerfilProps) {
                   <CamposUsuario
                     userId={targetId}
                     canEdit={canEdit}
-                    isSuper={isSuper}
+                    isSuper={realRole === "super"}
                   />
                 </div>
               )}

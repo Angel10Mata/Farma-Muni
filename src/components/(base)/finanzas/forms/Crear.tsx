@@ -177,9 +177,9 @@ export function NuevoMovimiento({
               {selectedCat ? (
                 <span className="text-zinc-800 dark:text-zinc-200">{selectedCat.label}</span>
               ) : (
-                <span className="text-zinc-400">Selecciona una categoría...</span>
+                <span className="text-texto-tenue">Selecciona una categoría...</span>
               )}
-              <ChevronDown className="size-4 text-zinc-400 shrink-0" />
+              <ChevronDown className="size-4 text-texto-tenue shrink-0" />
             </button>
 
             <AnimatePresence>
@@ -204,12 +204,12 @@ export function NuevoMovimiento({
                         className={cn(
                           "w-full px-4 py-2.5 rounded-lg text-left flex items-center justify-between cursor-pointer transition-all hover:bg-zinc-50 dark:hover:bg-zinc-800 text-sm",
                           isSelected
-                            ? "bg-[#8DA78E]/10 text-[#8DA78E] font-bold"
+                            ? "bg-[#8DA78E]/10 text-look-2-salvia-menta font-bold"
                             : "text-zinc-700 dark:text-zinc-300 font-medium",
                         )}
                       >
                         <span>{c.label}</span>
-                        {isSelected && <Check className="size-4 text-[#8DA78E]" />}
+                        {isSelected && <Check className="size-4 text-look-2-salvia-menta" />}
                       </button>
                     );
                   })}

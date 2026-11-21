@@ -24,8 +24,7 @@ export const FORMAS_FARMACEUTICAS: { value: FormaFarmaceutica; label: string }[]
   { value: "otro", label: "Otro" },
 ];
 
-export const DUPLICATE_PRODUCTO_MSG =
-  "Ya existe un producto con el mismo genérico, concentración, forma y presentación";
+export const DUPLICATE_PRODUCTO_MSG = "Ya existe un producto con el mismo nombre genérico";
 
 export const DUPLICATE_LOTE_MSG =
   "Ya existe un lote con ese código de barras y número de lote";
@@ -48,12 +47,132 @@ export const productSchema = z.object({
 
 export type ProductFormValues = z.infer<typeof productSchema>;
 
-export const bajaVencidoSchema = z.object({
-  lote_id: z.string().uuid(),
-  notas: z.string().trim().max(300).optional(),
+export const productoSugerenciaSchema = z.object({
+  id: z.string().uuid(),
+  nombre: z.string(),
+  nombre_generico: z.string(),
+  concentracion: z.string(),
+  forma_farmaceutica: z.string(),
+  presentacion: z.string(),
+  precio_base: z.number(),
+  laboratorio_nombre: z.string().optional(),
+  catalogo_nombre: z.string().optional(),
+  generico_id: z.string().uuid().optional(),
+  laboratorio_id: z.string().uuid().nullable().optional(),
+  catalogo_id: z.string().uuid().optional(),
 });
 
-export type BajaVencidoInput = z.infer<typeof bajaVencidoSchema>;
+export type ProductoSugerencia = z.infer<typeof productoSugerenciaSchema>;
+
+export const PRODUCTO_WIZARD_PASOS = 3;
+
+export const PRODUCTO_WIZARD_PASOS_META = [
+  { titulo: "Artículo base" },
+  { titulo: "Comercial" },
+  { titulo: "Primer lote" },
+] as const;
+
+export const EDITAR_PRODUCTO_WIZARD_PASOS = 2;
+
+export const EDITAR_PRODUCTO_WIZARD_PASOS_META = [
+  { titulo: "Producto comercial" },
+  { titulo: "Genérico y lotes" },
+] as const;
+
+export const motivoInventarioSchema = z
+  .string()
+  .trim()
+  .min(5, "El motivo debe tener al menos 5 caracteres")
+  .max(500);
+
+export const tipoMovimientoKardexEnum = z.enum([
+  "entrada_compra",
+  "entrada_manual",
+  "salida_venta",
+  "anulacion_venta",
+  "ajuste_conteo",
+  "baja_vencimiento",
+  "devolucion_proveedor",
+  "correccion",
+]);
+
+export type TipoMovimientoKardex = z.infer<typeof tipoMovimientoKardexEnum>;
+
+export const TIPOS_MOVIMIENTO_KARDEX: {
+  value: TipoMovimientoKardex;
+  label: string;
+}[] = [
+  { value: "entrada_compra", label: "Entrada por compra" },
+  { value: "entrada_manual", label: "Entrada manual" },
+  { value: "salida_venta", label: "Salida por venta" },
+  { value: "anulacion_venta", label: "Anulación de venta" },
+  { value: "ajuste_conteo", label: "Ajuste por conteo" },
+  { value: "baja_vencimiento", label: "Baja por vencimiento" },
+  { value: "devolucion_proveedor", label: "Devolución a proveedor" },
+  { value: "correccion", label: "Corrección" },
+];
+
+export const bajaLoteSchema = z.object({
+  lote_id: z.string().uuid(),
+  motivo: motivoInventarioSchema,
+});
+
+export type BajaLoteInput = z.infer<typeof bajaLoteSchema>;
+
+export const ajustarConteoSchema = z.object({
+  lote_id: z.string().uuid(),
+  cantidad_contada: z.number().nonnegative("La cantidad contada no puede ser negativa"),
+  motivo: motivoInventarioSchema,
+});
+
+export type AjustarConteoInput = z.infer<typeof ajustarConteoSchema>;
+
+export const devolverProveedorSchema = z.object({
+  lote_id: z.string().uuid(),
+  cantidad: z.number().positive("La cantidad debe ser mayor que cero"),
+  motivo: motivoInventarioSchema,
+});
+
+export type DevolverProveedorInput = z.infer<typeof devolverProveedorSchema>;
+
+export const obtenerKardexSchema = z.object({
+  productoId: z.string().uuid().optional(),
+  loteId: z.string().uuid().optional(),
+  tipo: tipoMovimientoKardexEnum.optional(),
+  desde: z.string().optional(),
+  hasta: z.string().optional(),
+  pagina: z.number().int().positive().optional(),
+});
+
+export type ObtenerKardexInput = z.infer<typeof obtenerKardexSchema>;
+
+export const kardexFilaSchema = z.object({
+  id: z.string().uuid(),
+  created_at: z.string(),
+  tipo: tipoMovimientoKardexEnum,
+  cantidad: z.number(),
+  saldo_lote: z.number().nullable(),
+  saldo_producto: z.number().nullable(),
+  referencia_tipo: z.string().nullable(),
+  referencia_id: z.string().uuid().nullable(),
+  motivo: z.string().nullable(),
+  producto_id: z.string().uuid(),
+  producto_nombre: z.string().nullable(),
+  producto_nombre_generico: z.string().nullable(),
+  producto_concentracion: z.string().nullable(),
+  lote_id: z.string().uuid().nullable(),
+  lote_numero: z.string().nullable(),
+  lote_laboratorio: z.string().nullable(),
+  lote_codigo_barras: z.string().nullable(),
+  usuario_id: z.string().uuid().nullable(),
+  usuario_nombre: z.string().nullable(),
+});
+
+export type KardexFila = z.infer<typeof kardexFilaSchema>;
+
+export const bajaVencidoSchema = bajaLoteSchema;
+
+export type BajaVencidoInput = BajaLoteInput;
 
 // Lotes y bajas
 export const crearLoteManualSchema = z.object({
@@ -63,13 +182,29 @@ export const crearLoteManualSchema = z.object({
   numero_lote: z.string().trim().min(1, "El número de lote es requerido"),
   cantidad: z.number().positive("La cantidad debe ser mayor a 0"),
   precio_costo: z.number().nonnegative("El costo debe ser un número válido"),
-  precio_venta: z.number().nonnegative("El precio de venta debe ser un número válido"),
-  laboratorio: z.string().trim().optional().nullable(),
+  precio_venta: z.number().positive("Indica un precio de venta válido"),
   fecha_vencimiento: z.string().trim().min(1, "La fecha de vencimiento es requerida"),
   ubicacion: z.string().trim().optional().nullable(),
 });
 
 export type CrearLoteManualInput = z.infer<typeof crearLoteManualSchema>;
+
+export const productoWizardPaso1Schema = productSchema.pick({
+  nombre: true,
+  nombre_generico: true,
+  concentracion: true,
+  forma_farmaceutica: true,
+  presentacion: true,
+});
+
+export const productoWizardPaso2Schema = productSchema.pick({
+  unidad_venta: true,
+  requiere_receta: true,
+  precio_base: true,
+  stock_minimo: true,
+});
+
+export const productoWizardLoteSchema = crearLoteManualSchema.omit({ producto_id: true });
 
 export const loteInventarioSchema = z.object({
   id: z.string().uuid(),
@@ -125,4 +260,12 @@ export interface Producto {
   activo: boolean;
   created_at?: string;
   imagen_url?: string | null;
+  imagen_url_2?: string | null;
+  imagen_url_3?: string | null;
+  generico_id?: string;
+  laboratorio_id?: string;
+  catalogo_id?: string;
+  catalogo_nombre?: string;
+  laboratorio_nombre?: string;
+  laboratorio?: string | null;
 }
